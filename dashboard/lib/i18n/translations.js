@@ -24,6 +24,7 @@ export const translations = {
       conversations: 'Conversaciones',
       analytics: 'Analítica',
       aiLogs: 'AI Logs',
+      reservations: 'Reservas',
       qrRooms: 'QR Rooms',
       settings: 'Ajustes',
       knowledgeBase: 'Knowledge Base',
@@ -81,6 +82,8 @@ export const translations = {
       analyticsDescription: 'Espacio reservado para métricas operativas, volumen de tickets y tiempos de resolución.',
       aiLogs: 'AI Logs',
       aiLogsDescription: 'Trazabilidad interna de decisiones de IA para debugging y monitoreo operativo.',
+      reservations: 'Reservas',
+      reservationsDescription: 'Reservas PMS, links de WhatsApp y automatizaciones pre/post-stay.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'Genera códigos QR por habitación para abrir WhatsApp con el contexto de habitación incluido.'
     },
@@ -241,6 +244,58 @@ export const translations = {
         loadFailed: 'Error cargando AI Logs'
       }
     },
+    reservations: {
+      filters: {
+        upcoming: 'Upcoming',
+        inHouse: 'In house',
+        completed: 'Completed',
+        todayArrivals: 'Llegadas hoy',
+        todayDepartures: 'Salidas hoy'
+      },
+      stats: {
+        total: 'Total reservas',
+        arrivingSoon: 'Llegan pronto',
+        stayingNow: 'In house',
+        completedStays: 'Estancias completadas'
+      },
+      columns: {
+        guest: 'Huesped',
+        email: 'Email',
+        phone: 'Telefono',
+        arrival: 'Llegada',
+        departure: 'Salida',
+        roomType: 'Tipo habitacion',
+        ratePlan: 'Rate plan',
+        boardBasis: 'Board basis',
+        status: 'Estado',
+        pmsProvider: 'PMS',
+        pmsReservationId: 'PMS reservation id',
+        whatsapp: 'WhatsApp',
+        whatsappLink: 'WhatsApp link',
+        automations: 'Automatizaciones'
+      },
+      status: {
+        upcoming: 'Upcoming',
+        in_house: 'In house',
+        completed: 'Completed'
+      },
+      searchPlaceholder: 'Buscar por nombre, email, telefono o reserva...',
+      results: '{count} reservas',
+      loading: 'Cargando reservas...',
+      empty: 'Todavia no hay reservas PMS.',
+      noMatches: 'No hay reservas con estos filtros.',
+      detailTitle: 'Detalle reserva',
+      selectReservation: 'Selecciona una reserva para ver el detalle.',
+      closeDetail: 'Cerrar detalle',
+      unknownGuest: 'Huesped sin nombre',
+      openWhatsapp: 'Abrir WhatsApp',
+      automationEvents: 'Automatizaciones',
+      noAutomationEvents: 'No hay automatizaciones programadas.',
+      errors: {
+        title: 'No se pudieron cargar las reservas',
+        loadFailed: 'Error cargando reservas'
+      }
+    },
     qrRooms: {
       room: 'Habitación',
       whatsappNumber: 'Número WhatsApp',
@@ -270,6 +325,7 @@ export const translations = {
       conversations: 'Conversations',
       analytics: 'Analytics',
       aiLogs: 'AI Logs',
+      reservations: 'Reservations',
       qrRooms: 'QR Rooms',
       settings: 'Settings',
       knowledgeBase: 'Knowledge Base',
@@ -327,6 +383,8 @@ export const translations = {
       analyticsDescription: 'Reserved for operational metrics, ticket volume and resolution times.',
       aiLogs: 'AI Logs',
       aiLogsDescription: 'Internal trace of AI decisions for debugging and operational monitoring.',
+      reservations: 'Reservations',
+      reservationsDescription: 'PMS reservations, WhatsApp links and pre/post-stay automations.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'Generate room QR codes that open WhatsApp with room context included.'
     },
@@ -487,6 +545,58 @@ export const translations = {
         loadFailed: 'Error loading AI Logs'
       }
     },
+    reservations: {
+      filters: {
+        upcoming: 'Upcoming',
+        inHouse: 'In house',
+        completed: 'Completed',
+        todayArrivals: 'Today arrivals',
+        todayDepartures: 'Today departures'
+      },
+      stats: {
+        total: 'Total reservations',
+        arrivingSoon: 'Arriving soon',
+        stayingNow: 'Staying now',
+        completedStays: 'Completed stays'
+      },
+      columns: {
+        guest: 'Guest',
+        email: 'Email',
+        phone: 'Phone',
+        arrival: 'Arrival',
+        departure: 'Departure',
+        roomType: 'Room type',
+        ratePlan: 'Rate plan',
+        boardBasis: 'Board basis',
+        status: 'Status',
+        pmsProvider: 'PMS',
+        pmsReservationId: 'PMS reservation id',
+        whatsapp: 'WhatsApp',
+        whatsappLink: 'WhatsApp link',
+        automations: 'Automations'
+      },
+      status: {
+        upcoming: 'Upcoming',
+        in_house: 'In house',
+        completed: 'Completed'
+      },
+      searchPlaceholder: 'Search by name, email, phone or reservation id...',
+      results: '{count} reservations',
+      loading: 'Loading reservations...',
+      empty: 'No PMS reservations yet.',
+      noMatches: 'No reservations match these filters.',
+      detailTitle: 'Reservation detail',
+      selectReservation: 'Select a reservation to inspect details.',
+      closeDetail: 'Close detail',
+      unknownGuest: 'Unnamed guest',
+      openWhatsapp: 'Open WhatsApp',
+      automationEvents: 'Automation events',
+      noAutomationEvents: 'No automation events scheduled.',
+      errors: {
+        title: 'Reservations could not be loaded',
+        loadFailed: 'Error loading reservations'
+      }
+    },
     qrRooms: {
       room: 'Room',
       whatsappNumber: 'WhatsApp number',
@@ -516,6 +626,7 @@ export const translations = {
       conversations: 'Conversations',
       analytics: 'Analytique',
       aiLogs: 'AI Logs',
+      reservations: 'Reservations',
       qrRooms: 'QR Rooms',
       settings: 'Paramètres',
       knowledgeBase: 'Base de connaissances',
@@ -573,6 +684,8 @@ export const translations = {
       analyticsDescription: 'Espace réservé aux métriques opérationnelles, volume de tickets et délais de résolution.',
       aiLogs: 'AI Logs',
       aiLogsDescription: 'Trace interne des decisions IA pour le debugging et le monitoring operationnel.',
+      reservations: 'Reservations',
+      reservationsDescription: 'Reservations PMS, liens WhatsApp et automatisations pre/post-sejour.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'Generez des QR par chambre pour ouvrir WhatsApp avec le contexte de chambre.'
     },
@@ -733,6 +846,58 @@ export const translations = {
         loadFailed: 'Erreur lors du chargement des AI Logs'
       }
     },
+    reservations: {
+      filters: {
+        upcoming: 'A venir',
+        inHouse: 'In house',
+        completed: 'Terminees',
+        todayArrivals: 'Arrivees aujourd hui',
+        todayDepartures: 'Departs aujourd hui'
+      },
+      stats: {
+        total: 'Total reservations',
+        arrivingSoon: 'Arrivees proches',
+        stayingNow: 'Clients presents',
+        completedStays: 'Sejours termines'
+      },
+      columns: {
+        guest: 'Client',
+        email: 'Email',
+        phone: 'Telephone',
+        arrival: 'Arrivee',
+        departure: 'Depart',
+        roomType: 'Type chambre',
+        ratePlan: 'Rate plan',
+        boardBasis: 'Board basis',
+        status: 'Statut',
+        pmsProvider: 'PMS',
+        pmsReservationId: 'PMS reservation id',
+        whatsapp: 'WhatsApp',
+        whatsappLink: 'Lien WhatsApp',
+        automations: 'Automatisations'
+      },
+      status: {
+        upcoming: 'A venir',
+        in_house: 'In house',
+        completed: 'Terminee'
+      },
+      searchPlaceholder: 'Rechercher par nom, email, telephone ou reservation...',
+      results: '{count} reservations',
+      loading: 'Chargement reservations...',
+      empty: 'Aucune reservation PMS pour le moment.',
+      noMatches: 'Aucune reservation ne correspond a ces filtres.',
+      detailTitle: 'Detail reservation',
+      selectReservation: 'Selectionnez une reservation pour voir le detail.',
+      closeDetail: 'Fermer le detail',
+      unknownGuest: 'Client sans nom',
+      openWhatsapp: 'Open WhatsApp',
+      automationEvents: 'Automation events',
+      noAutomationEvents: 'Aucune automatisation programmee.',
+      errors: {
+        title: 'Impossible de charger les reservations',
+        loadFailed: 'Erreur chargement reservations'
+      }
+    },
     qrRooms: {
       room: 'Chambre',
       whatsappNumber: 'Numero WhatsApp',
@@ -762,6 +927,7 @@ export const translations = {
       conversations: 'Unterhaltungen',
       analytics: 'Analytik',
       aiLogs: 'AI Logs',
+      reservations: 'Reservierungen',
       qrRooms: 'QR Rooms',
       settings: 'Einstellungen',
       knowledgeBase: 'Wissensdatenbank',
@@ -819,6 +985,8 @@ export const translations = {
       analyticsDescription: 'Bereich für operative Kennzahlen, Ticketvolumen und Lösungszeiten.',
       aiLogs: 'AI Logs',
       aiLogsDescription: 'Interne Nachverfolgung von KI-Entscheidungen fuer Debugging und Monitoring.',
+      reservations: 'Reservierungen',
+      reservationsDescription: 'PMS-Reservierungen, WhatsApp-Links und Pre/Post-Stay-Automationen.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'QR-Codes pro Zimmer erstellen, die WhatsApp mit Zimmerkontext oeffnen.'
     },
@@ -981,6 +1149,58 @@ export const translations = {
       errors: {
         title: 'AI Logs konnten nicht geladen werden',
         loadFailed: 'Fehler beim Laden der AI Logs'
+      }
+    },
+    reservations: {
+      filters: {
+        upcoming: 'Bevorstehend',
+        inHouse: 'In house',
+        completed: 'Abgeschlossen',
+        todayArrivals: 'Anreisen heute',
+        todayDepartures: 'Abreisen heute'
+      },
+      stats: {
+        total: 'Reservierungen gesamt',
+        arrivingSoon: 'Bald anreisend',
+        stayingNow: 'Aktuell im Haus',
+        completedStays: 'Abgeschlossene Aufenthalte'
+      },
+      columns: {
+        guest: 'Gast',
+        email: 'Email',
+        phone: 'Telefon',
+        arrival: 'Anreise',
+        departure: 'Abreise',
+        roomType: 'Zimmertyp',
+        ratePlan: 'Rate plan',
+        boardBasis: 'Board basis',
+        status: 'Status',
+        pmsProvider: 'PMS',
+        pmsReservationId: 'PMS reservation id',
+        whatsapp: 'WhatsApp',
+        whatsappLink: 'WhatsApp-Link',
+        automations: 'Automationen'
+      },
+      status: {
+        upcoming: 'Bevorstehend',
+        in_house: 'In house',
+        completed: 'Abgeschlossen'
+      },
+      searchPlaceholder: 'Nach Name, Email, Telefon oder Reservierung suchen...',
+      results: '{count} Reservierungen',
+      loading: 'Reservierungen werden geladen...',
+      empty: 'Noch keine PMS-Reservierungen.',
+      noMatches: 'Keine Reservierungen fuer diese Filter.',
+      detailTitle: 'Reservierungsdetail',
+      selectReservation: 'Waehlen Sie eine Reservierung fuer Details.',
+      closeDetail: 'Detail schliessen',
+      unknownGuest: 'Gast ohne Name',
+      openWhatsapp: 'Open WhatsApp',
+      automationEvents: 'Automation events',
+      noAutomationEvents: 'Keine Automationen geplant.',
+      errors: {
+        title: 'Reservierungen konnten nicht geladen werden',
+        loadFailed: 'Fehler beim Laden der Reservierungen'
       }
     },
     qrRooms: {
