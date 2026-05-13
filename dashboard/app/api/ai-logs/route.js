@@ -1,15 +1,22 @@
 import { NextResponse } from 'next/server';
-import { getBackendUrl } from '@/lib/demo';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 export async function GET() {
   try {
-    const response = await fetch(`${getBackendUrl()}/debug/ai-logs`, {
-      cache: 'no-store'
-    });
-    const payload = await response.json();
+    const supabase = getSupabaseAdmin();
 
-    return NextResponse.json(payload, {
-      status: response.status
+    const { data, error } = await supabase
+      .from('ai_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({
+      logs: data || []
     });
   } catch (error) {
     return NextResponse.json(
