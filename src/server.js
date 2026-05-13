@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import whatsappRoutes from './routes/whatsapp.routes.js';
+import pmsRoutes from './routes/pms.routes.js';
 import testRoutes from './routes/test.routes.js';
 import messagesRoutes from './routes/messages.routes.js';
 import debugRoutes from './routes/debug.routes.js';
@@ -30,6 +31,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/webhooks', whatsappRoutes);
+app.use('/webhooks/pms', pmsRoutes);
 app.use('/', testRoutes);
 app.use('/messages', messagesRoutes);
 
