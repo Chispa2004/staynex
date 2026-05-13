@@ -62,7 +62,8 @@ export const translations = {
       send: 'Enviar',
       complete: 'Completar',
       inProgress: 'En progreso',
-      open: 'Abrir'
+      open: 'Abrir',
+      logout: 'Cerrar sesión'
     },
     screens: {
       operations: 'Operaciones',
@@ -307,7 +308,8 @@ export const translations = {
       send: 'Send',
       complete: 'Complete',
       inProgress: 'In progress',
-      open: 'Open'
+      open: 'Open',
+      logout: 'Logout'
     },
     screens: {
       operations: 'Operations',
@@ -552,7 +554,8 @@ export const translations = {
       send: 'Envoyer',
       complete: 'Terminer',
       inProgress: 'En cours',
-      open: 'Ouvrir'
+      open: 'Ouvrir',
+      logout: 'Déconnexion'
     },
     screens: {
       operations: 'Opérations',
@@ -797,7 +800,8 @@ export const translations = {
       send: 'Senden',
       complete: 'Abschließen',
       inProgress: 'In Bearbeitung',
-      open: 'Öffnen'
+      open: 'Öffnen',
+      logout: 'Abmelden'
     },
     screens: {
       operations: 'Betrieb',

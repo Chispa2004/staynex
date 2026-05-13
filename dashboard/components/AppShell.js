@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Activity,
@@ -10,6 +10,7 @@ import {
   ConciergeBell,
   Inbox,
   BookOpen,
+  LogOut,
   MessageSquareText,
   PlayCircle,
   QrCode,
@@ -22,6 +23,7 @@ import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
 import { DashboardLanguageProvider, useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { DashboardThemeProvider, useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const navigation = [
   { href: '/dashboard/inbox', labelKey: 'sidebar.inbox', icon: Inbox },
@@ -45,12 +47,76 @@ const INBOX_HUMAN_EVENT = 'staynex:inbox-human-updated';
 
 const AppShellContent = ({ children }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const [urgentCount, setUrgentCount] = useState(0);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [inboxHumanCount, setInboxHumanCount] = useState(0);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
+  const isLoginPage = pathname === '/login';
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowser();
+
+    if (!supabase) {
+      setAuthLoading(false);
+      if (!isLoginPage) {
+        router.replace('/login');
+      }
+      return;
+    }
+
+    let active = true;
+
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!active) {
+        return;
+      }
+
+      if (!data.session && !isLoginPage) {
+        setIsAuthenticated(false);
+        router.replace('/login');
+      } else if (data.session && isLoginPage) {
+        setIsAuthenticated(true);
+        router.replace('/dashboard');
+      } else {
+        setIsAuthenticated(Boolean(data.session));
+      }
+
+      setAuthLoading(false);
+    };
+
+    checkSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(Boolean(session));
+
+      if (!session && !isLoginPage) {
+        router.replace('/login');
+      }
+
+      if (session && isLoginPage) {
+        router.replace('/dashboard');
+      }
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [isLoginPage, router]);
+
+  const handleLogout = async () => {
+    const supabase = getSupabaseBrowser();
+    await supabase?.auth.signOut();
+    router.replace('/login');
+    router.refresh();
+  };
 
   useEffect(() => {
     const loadUrgentCount = async () => {
@@ -97,11 +163,29 @@ const AppShellContent = ({ children }) => {
     };
   }, []);
 
+  if (isLoginPage) {
+    return (
+      <div className={theme === 'light' ? 'theme-light' : 'theme-dark'}>
+        {children}
+      </div>
+    );
+  }
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-screen items-center justify-center bg-midnight text-slate-100`}>
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
+          Checking session...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-screen overflow-hidden bg-midnight text-slate-100`}>
       <div className="flex h-screen flex-col overflow-hidden lg:flex-row">
         <aside className={[
-          'max-h-[42vh] shrink-0 overflow-y-auto border-b shadow-2xl backdrop-blur-xl lg:h-screen lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r',
+          'flex max-h-[42vh] shrink-0 flex-col overflow-y-auto border-b shadow-2xl backdrop-blur-xl lg:h-screen lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r',
           isLight
             ? 'border-slate-200 bg-white/95 shadow-slate-200/80'
             : 'border-white/10 bg-[#070b12]/95 shadow-black/30'
@@ -196,6 +280,24 @@ const AppShellContent = ({ children }) => {
               );
             })}
           </nav>
+
+          <div className="mt-auto hidden px-4 pb-5 pt-4 lg:block">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className={[
+                'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition',
+                isLight
+                  ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                  : 'border-white/10 bg-white/[0.025] text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
+              ].join(' ')}
+            >
+              <span className={isLight ? 'flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500' : 'flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-white/[0.025] text-slate-500'}>
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span>{t('buttons.logout')}</span>
+            </button>
+          </div>
         </aside>
 
         <main className="min-h-0 flex-1 overflow-y-auto">
