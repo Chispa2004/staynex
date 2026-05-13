@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+dashboard/node_modules/
+
+# environment files
+.env
+.env.*
+!.env.example
+dashboard/.env.local
+dashboard/.env.*
+!dashboard/.env.example
+!dashboard/.env.local.example
+
+# build/cache output
+.next/
+dashboard/.next/
+dist/
+build/
+coverage/
+.turbo/
+.vercel/
+.railway/
+.npm-cache/
+dashboard/.npm-cache/
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# local legacy prototypes not part of Staynex
+/app.js
+/index.html
+/styles.css
+/Laboratorio IA/

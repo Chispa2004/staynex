@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    linear-gradient(180deg, #070a10 0%, #0a0f18 48%, #070a10 100%);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+::selection {
+  background: rgba(52, 211, 153, 0.35);
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.7);
+  border: 2px solid rgba(15, 23, 42, 0.7);
+  border-radius: 999px;
+}
+
+.theme-light {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%) !important;
+  color: #0f172a !important;
+}
+
+.theme-light aside {
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 12px 0 32px rgba(15, 23, 42, 0.08) !important;
+}
+
+.theme-light main {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%) !important;
+}
+
+.theme-light [class*="bg-midnight"],
+.theme-light [class*="bg-[#070b12"],
+.theme-light [class*="bg-[#0b1019"],
+.theme-light [class*="bg-[#080c14"],
+.theme-light [class*="bg-panel"] {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.theme-light [class*="bg-white/["] {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.theme-light [class*="bg-black/"] {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+.theme-light [class*="border-white/"],
+.theme-light [class*="border-borderline"],
+.theme-light .border-borderline {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+.theme-light [class*="text-white"],
+.theme-light [class*="text-slate-100"],
+.theme-light [class*="text-slate-200"],
+.theme-light [class*="text-slate-300"] {
+  color: #0f172a !important;
+}
+
+.theme-light [class*="text-slate-400"],
+.theme-light [class*="text-slate-500"],
+.theme-light [class*="text-slate-600"] {
+  color: #64748b !important;
+}
+
+.theme-light [class*="text-emerald-100"],
+.theme-light [class*="text-emerald-200"],
+.theme-light [class*="text-emerald-300"] {
+  color: #047857 !important;
+}
+
+.theme-light [class*="text-red-100"],
+.theme-light [class*="text-red-200"],
+.theme-light [class*="text-red-300"] {
+  color: #b91c1c !important;
+}
+
+.theme-light [class*="text-orange-100"],
+.theme-light [class*="text-orange-200"],
+.theme-light [class*="text-amber-100"],
+.theme-light [class*="text-amber-200"] {
+  color: #c2410c !important;
+}
+
+.theme-light [class*="text-sky-100"],
+.theme-light [class*="text-sky-200"],
+.theme-light [class*="text-violet-100"],
+.theme-light [class*="text-violet-200"] {
+  color: #0369a1 !important;
+}
+
+.theme-light [class*="bg-red-500/"],
+.theme-light [class*="bg-red-400/"] {
+  background-color: #fee2e2 !important;
+}
+
+.theme-light [class*="bg-emerald-300/"],
+.theme-light [class*="bg-emerald-400/"],
+.theme-light [class*="bg-emerald-500/"] {
+  background-color: #dcfce7 !important;
+}
+
+.theme-light [class*="bg-sky-300/"],
+.theme-light [class*="bg-sky-400/"],
+.theme-light [class*="bg-sky-500/"] {
+  background-color: #e0f2fe !important;
+}
+
+.theme-light [class*="shadow-black"] {
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08) !important;
+}
+
+.theme-light input,
+.theme-light textarea,
+.theme-light select {
+  background-color: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(15, 23, 42, 0.14) !important;
+  color: #0f172a !important;
+}
+
+.theme-light input::placeholder,
+.theme-light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.theme-light table thead {
+  background-color: rgba(248, 250, 252, 0.95) !important;
+}
+
+.theme-light table tbody tr:hover {
+  background-color: rgba(15, 23, 42, 0.035) !important;
+}
+
+.theme-light ::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.75);
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.9);
+  border-color: rgba(241, 245, 249, 0.85);
+}
