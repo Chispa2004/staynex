@@ -173,7 +173,7 @@ const AppShellContent = ({ children }) => {
 
   if (authLoading || !isAuthenticated) {
     return (
-      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-screen items-center justify-center bg-midnight text-slate-100`}>
+      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
           Checking session...
         </div>
@@ -182,10 +182,10 @@ const AppShellContent = ({ children }) => {
   }
 
   return (
-    <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-screen overflow-hidden bg-midnight text-slate-100`}>
-      <div className="flex h-screen flex-col overflow-hidden lg:flex-row">
+    <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
         <aside className={[
-          'flex max-h-[42vh] shrink-0 flex-col overflow-y-auto border-b shadow-2xl backdrop-blur-xl lg:h-screen lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r',
+          'flex max-h-[42dvh] shrink-0 flex-col overflow-y-auto border-b shadow-2xl backdrop-blur-xl lg:h-full lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r',
           isLight
             ? 'border-slate-200 bg-white/95 shadow-slate-200/80'
             : 'border-white/10 bg-[#070b12]/95 shadow-black/30'
@@ -300,8 +300,8 @@ const AppShellContent = ({ children }) => {
           </div>
         </aside>
 
-        <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-6 sm:px-6 lg:px-10 lg:pb-8 lg:pt-8">
             <div className="mb-6 flex justify-end gap-2">
               <ThemeToggle />
               <LanguageSelector />

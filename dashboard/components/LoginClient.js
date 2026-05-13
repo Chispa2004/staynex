@@ -65,7 +65,7 @@ export const LoginClient = () => {
 
   return (
     <main className={[
-      'flex min-h-screen items-center justify-center px-4 py-10',
+      'flex h-dvh items-center justify-center overflow-y-auto px-4 py-10',
       isLight ? 'bg-slate-50 text-slate-950' : 'bg-[#070b12] text-white'
     ].join(' ')}
     >

@@ -6,6 +6,12 @@
   color-scheme: dark;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -14,7 +20,7 @@ body {
   margin: 0;
   background:
     linear-gradient(180deg, #070a10 0%, #0a0f18 48%, #070a10 100%);
-  min-height: 100vh;
+  min-height: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
 }
