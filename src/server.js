@@ -15,11 +15,17 @@ validateEnvironment({ exitOnError: true });
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
+app.get('/', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: 'staynex-backend',
+    status: 'running'
+  });
+});
+
 app.get('/health', (req, res) => {
   res.status(200).json({
-    status: 'ok',
-    service: 'staynex-backend',
-    timestamp: new Date().toISOString()
+    ok: true
   });
 });
 
