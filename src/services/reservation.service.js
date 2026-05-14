@@ -85,6 +85,28 @@ const isMissingReservationAccessTokenColumn = (error) => (
   || error?.hint?.includes('reservation_access_token')
 );
 
+const optionalReservationColumns = [
+  'reservation_access_token',
+  'source',
+  'adults',
+  'children',
+  'notes'
+];
+
+const findMissingReservationColumns = (error) => optionalReservationColumns.filter((column) => (
+  error?.message?.includes(column)
+  || error?.details?.includes(column)
+  || error?.hint?.includes(column)
+));
+
+const withoutColumns = (record, columns) => Object.entries(record).reduce((nextRecord, [key, value]) => {
+  if (!columns.includes(key)) {
+    nextRecord[key] = value;
+  }
+
+  return nextRecord;
+}, {});
+
 const findReservationByPmsId = async ({ pmsProvider, pmsReservationId }) => {
   const client = getSupabase();
 
@@ -151,6 +173,10 @@ const getReservationRecord = ({ data, hotelId, guestId, guestPhone, accessToken,
   rate_plan: cleanText(data.rate_plan),
   board_basis: cleanText(data.board_basis),
   status: cleanText(data.status) || 'confirmed',
+  source: cleanText(data.source) || null,
+  adults: Number.isFinite(Number(data.adults)) ? Number(data.adults) : null,
+  children: Number.isFinite(Number(data.children)) ? Number(data.children) : null,
+  notes: cleanText(data.notes),
   reservation_access_token: accessToken,
   whatsapp_link: whatsappLink,
   updated_at: new Date().toISOString()
@@ -222,8 +248,10 @@ export const createOrUpdateReservation = async (data) => {
     .select('*')
     .single();
 
-  if (error && isMissingReservationAccessTokenColumn(error)) {
-    const { reservation_access_token: _token, ...legacyRecord } = reservationRecord;
+  const missingColumns = error ? findMissingReservationColumns(error) : [];
+
+  if (error && missingColumns.length > 0) {
+    const legacyRecord = withoutColumns(reservationRecord, missingColumns);
     const { data: legacyReservation, error: legacyError } = await client
       .from('reservations')
       .upsert(legacyRecord, {
@@ -236,15 +264,22 @@ export const createOrUpdateReservation = async (data) => {
       throw legacyError;
     }
 
-    logger.warn('reservation_access_token column missing; reservation stored without token', {
+    logger.warn('Optional reservation columns missing; reservation stored without some metadata', {
       pmsProvider,
-      pmsReservationId
+      pmsReservationId,
+      missingColumns
     });
 
     return {
       reservation: {
         ...legacyReservation,
-        reservation_access_token: null
+        reservation_access_token: missingColumns.includes('reservation_access_token')
+          ? null
+          : legacyReservation.reservation_access_token,
+        source: missingColumns.includes('source') ? null : legacyReservation.source,
+        adults: missingColumns.includes('adults') ? null : legacyReservation.adults,
+        children: missingColumns.includes('children') ? null : legacyReservation.children,
+        notes: missingColumns.includes('notes') ? null : legacyReservation.notes
       },
       guest
     };

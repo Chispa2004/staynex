@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -22,15 +22,21 @@ const getJourneyStatus = (reservation) => {
   return 'pre_arrival';
 };
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const supabase = getSupabaseAdmin();
+    const { supabase, hotel } = await getCurrentHotelForRequest(request);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('reservations')
       .select('*, automation_events(*)')
       .order('arrival_date', { ascending: true, nullsFirst: false })
       .limit(100);
+
+    if (hotel?.id) {
+      query = query.eq('hotel_id', hotel.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
@@ -65,6 +71,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
+      hotel,
       reservations: reservations.map((reservation) => {
         const linkedConversation = reservation.guest_id
           ? conversationsByGuestId[reservation.guest_id] || null

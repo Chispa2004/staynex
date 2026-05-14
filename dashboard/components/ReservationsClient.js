@@ -14,12 +14,14 @@ import {
   RefreshCw,
   Search,
   Send,
+  UserPlus,
   X
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const filterOptions = [
   { key: 'upcoming', labelKey: 'reservations.filters.upcoming' },
@@ -137,13 +139,36 @@ const statusTone = (status) => {
 const buildEmailSnippet = (reservation) => (
   reservation.whatsapp_link
     ? [
-      'Need help before your stay?',
+      `Hola ${reservation.guest_name?.split(' ')[0] || reservation.guest_name || ''},`.trim(),
       '',
-      'Chat with the hotel on WhatsApp:',
-      reservation.whatsapp_link
+      `Tu reserva en ${reservation.hotel?.name || reservation.hotel_name || 'nuestro hotel'} está confirmada.`,
+      '',
+      'Para hablar con nuestro asistente por WhatsApp antes de tu llegada:',
+      reservation.whatsapp_link,
+      '',
+      'También puedes escribir directamente usando tu código:',
+      reservation.reservation_access_token || '-',
+      '',
+      'Nos vemos pronto :)'
     ].join('\n')
     : ''
 );
+
+const isPreStayTestReservation = (reservation) => (
+  reservation.source === 'demo_web_booking'
+  || reservation.pms_provider === 'demo_web_booking'
+);
+
+const getAuthHeaders = async () => {
+  const supabase = getSupabaseBrowser();
+  const { data } = supabase
+    ? await supabase.auth.getSession()
+    : { data: { session: null } };
+
+  return data?.session?.access_token
+    ? { Authorization: `Bearer ${data.session.access_token}` }
+    : {};
+};
 
 const generate7DayPreArrivalPreview = (reservation) => {
   const guestName = reservation.guest_name?.split(' ')[0] || 'there';
@@ -303,6 +328,234 @@ const DetailRow = ({ label, value }) => {
   );
 };
 
+const initialTestReservationForm = () => {
+  const arrival = new Date();
+  arrival.setDate(arrival.getDate() + 14);
+  const departure = new Date(arrival);
+  departure.setDate(departure.getDate() + 4);
+
+  return {
+    guest_name: 'Laura Garcia',
+    guest_email: 'laura@example.com',
+    guest_phone: '+34600000000',
+    arrival_date: arrival.toISOString().slice(0, 10),
+    departure_date: departure.toISOString().slice(0, 10),
+    adults: 2,
+    children: 0,
+    room_type: 'Deluxe',
+    rate_plan: 'Breakfast included',
+    board_basis: 'breakfast',
+    notes: 'Pre-stay simulator booking'
+  };
+};
+
+const TestReservationModal = ({
+  open,
+  onClose,
+  onCreated,
+  copyValue,
+  copiedAction,
+  hotel
+}) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const [form, setForm] = useState(initialTestReservationForm);
+  const [createdReservation, setCreatedReservation] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  if (!open) {
+    return null;
+  }
+
+  const updateField = (field, value) => {
+    setForm((current) => ({
+      ...current,
+      [field]: value
+    }));
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch('/api/reservations/create-test', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(form)
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not create reservation');
+      }
+
+      const reservationWithHotel = {
+        ...body.reservation,
+        hotel: body.hotel || hotel || null,
+        hotel_name: body.hotel?.name || hotel?.name || null,
+        automation_events: body.automation_events || []
+      };
+
+      setCreatedReservation(reservationWithHotel);
+      onCreated(reservationWithHotel);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const inputClass = isLight
+    ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-emerald-300'
+    : 'w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-300/30';
+  const labelClass = isLight
+    ? 'mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500'
+    : 'mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 backdrop-blur-sm">
+      <section className={[
+        'max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg border shadow-2xl',
+        isLight
+          ? 'border-slate-200 bg-white text-slate-950 shadow-slate-300/80'
+          : 'border-white/10 bg-[#0b1019] text-white shadow-black/40'
+      ].join(' ')}
+      >
+        <div className={isLight ? 'flex items-center justify-between border-b border-slate-200 px-5 py-4' : 'flex items-center justify-between border-b border-white/10 px-5 py-4'}>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">PRE-STAY TEST</p>
+            <h2 className="mt-2 text-xl font-semibold">Create Test Reservation</h2>
+            <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-400'}>
+              Uses the same PMS webhook, reservation token and automation flow as a real integration.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className={isLight ? 'rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-950' : 'rounded-lg border border-white/10 bg-white/[0.035] p-2 text-slate-400 hover:bg-white/[0.08] hover:text-white'}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <form className="space-y-5 p-5" onSubmit={submit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            {[
+              ['guest_name', 'Guest name', 'text'],
+              ['guest_email', 'Guest email', 'email'],
+              ['guest_phone', 'Guest phone', 'tel'],
+              ['room_type', 'Room type', 'text'],
+              ['rate_plan', 'Rate plan', 'text'],
+              ['board_basis', 'Board basis', 'text'],
+              ['arrival_date', 'Arrival date', 'date'],
+              ['departure_date', 'Departure date', 'date'],
+              ['adults', 'Adults', 'number'],
+              ['children', 'Children', 'number']
+            ].map(([field, label, type]) => (
+              <label key={field} className="block">
+                <span className={labelClass}>{label}</span>
+                <input
+                  type={type}
+                  min={type === 'number' ? 0 : undefined}
+                  required={!['children'].includes(field)}
+                  value={form[field]}
+                  onChange={(event) => updateField(field, event.target.value)}
+                  className={inputClass}
+                />
+              </label>
+            ))}
+          </div>
+
+          <label className="block">
+            <span className={labelClass}>Notes</span>
+            <textarea
+              value={form.notes}
+              onChange={(event) => updateField('notes', event.target.value)}
+              className={`${inputClass} min-h-24 resize-y`}
+            />
+          </label>
+
+          {error ? (
+            <div className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'rounded-lg border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
+              {error}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className={isLight ? 'text-xs leading-5 text-slate-500' : 'text-xs leading-5 text-slate-500'}>
+              Future Mews, Cloudbeds and Opera webhooks will reuse this same internal reservation creation path.
+            </p>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-wait disabled:opacity-60"
+            >
+              <UserPlus className={submitting ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
+              {submitting ? 'Creating...' : 'Create Test Reservation'}
+            </button>
+          </div>
+        </form>
+
+        {createdReservation ? (
+          <div className={isLight ? 'border-t border-slate-200 bg-emerald-50/60 p-5' : 'border-t border-white/10 bg-emerald-300/[0.06] p-5'}>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Badge tone="amber">PRE-STAY TEST</Badge>
+              <Badge tone="emerald">{createdReservation.reservation_access_token}</Badge>
+            </div>
+            <p className={isLight ? 'text-sm text-slate-700' : 'text-sm text-slate-300'}>
+              Reservation created with real token onboarding and PMS automation events.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => copyValue({ key: 'modal-token', value: createdReservation.reservation_access_token })}
+                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.08]'}
+              >
+                {copiedAction === 'modal-token' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                Copy Token
+              </button>
+              <button
+                type="button"
+                onClick={() => copyValue({ key: 'modal-link', value: createdReservation.whatsapp_link })}
+                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.08]'}
+              >
+                {copiedAction === 'modal-link' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                Copy WhatsApp Link
+              </button>
+              <button
+                type="button"
+                onClick={() => copyValue({ key: 'modal-email', value: buildEmailSnippet(createdReservation) })}
+                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.08]'}
+              >
+                {copiedAction === 'modal-email' ? <Check className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
+                Copy Email Snippet
+              </button>
+              {createdReservation.whatsapp_link ? (
+                <a
+                  href={createdReservation.whatsapp_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100' : 'inline-flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/15'}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  Open WhatsApp
+                </a>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
+};
+
 const ReservationDetail = ({ reservation, onClose }) => {
   const { t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
@@ -348,6 +601,10 @@ const ReservationDetail = ({ reservation, onClose }) => {
         <DetailRow label={t('reservations.columns.roomType')} value={reservation.room_type} />
         <DetailRow label={t('reservations.columns.ratePlan')} value={reservation.rate_plan} />
         <DetailRow label={t('reservations.columns.boardBasis')} value={reservation.board_basis} />
+        <DetailRow label="Source" value={reservation.source || reservation.pms_provider} />
+        <DetailRow label="Adults" value={reservation.adults} />
+        <DetailRow label="Children" value={reservation.children} />
+        <DetailRow label="Notes" value={reservation.notes} />
         <DetailRow label={t('reservations.columns.status')} value={reservation.status} />
         <DetailRow label={t('reservations.columns.journey')} value={t(`reservations.journey.${getJourneyStatus(reservation)}`)} />
         <DetailRow label={t('reservations.columns.pmsProvider')} value={reservation.pms_provider} />
@@ -424,13 +681,17 @@ export const ReservationsClient = () => {
   const [copiedAction, setCopiedAction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentHotel, setCurrentHotel] = useState(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const loadReservations = async () => {
     setLoading(true);
     setError(null);
 
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch('/api/reservations', {
+        headers,
         cache: 'no-store'
       });
       const payload = await response.json();
@@ -439,7 +700,12 @@ export const ReservationsClient = () => {
         throw new Error(payload.error || t('reservations.errors.loadFailed'));
       }
 
-      const nextReservations = payload.reservations || [];
+      setCurrentHotel(payload.hotel || null);
+      const nextReservations = (payload.reservations || []).map((reservation) => ({
+        ...reservation,
+        hotel: payload.hotel || null,
+        hotel_name: payload.hotel?.name || null
+      }));
       setReservations(nextReservations);
       setSelectedReservation((current) => {
         if (!current) {
@@ -493,6 +759,19 @@ export const ReservationsClient = () => {
     window.setTimeout(() => setCopiedAction(null), 1600);
   };
 
+  const handleTestReservationCreated = (reservation) => {
+    const nextReservation = {
+      ...reservation,
+      hotel: currentHotel,
+      hotel_name: currentHotel?.name || null,
+      automation_events: reservation.automation_events || []
+    };
+
+    setReservations((current) => [nextReservation, ...current.filter((item) => item.id !== reservation.id)]);
+    setSelectedReservation(nextReservation);
+    loadReservations();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -508,15 +787,34 @@ export const ReservationsClient = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={loadReservations}
-          className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-white'}
-        >
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
-          {t('buttons.refresh')}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setCreateModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200"
+          >
+            <UserPlus className="h-4 w-4" aria-hidden="true" />
+            Create Test Reservation
+          </button>
+          <button
+            type="button"
+            onClick={loadReservations}
+            className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-white'}
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            {t('buttons.refresh')}
+          </button>
+        </div>
       </div>
+
+      <TestReservationModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={handleTestReservationCreated}
+        copyValue={copyValue}
+        copiedAction={copiedAction}
+        hotel={currentHotel}
+      />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Hotel} label={t('reservations.stats.total')} value={stats.total} />
@@ -595,7 +893,7 @@ export const ReservationsClient = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-[1500px] w-full text-left">
+              <table className="min-w-[1600px] w-full text-left">
                 <thead className={isLight ? 'bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500' : 'bg-white/[0.025] text-xs uppercase tracking-[0.12em] text-slate-500'}>
                   <tr>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.guest')}</th>
@@ -606,6 +904,7 @@ export const ReservationsClient = () => {
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.roomType')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.ratePlan')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.boardBasis')}</th>
+                    <th className="px-4 py-3 font-semibold">Source</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.status')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.journey')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.linkedConversation')}</th>
@@ -641,6 +940,11 @@ export const ReservationsClient = () => {
                           <p className={isLight ? 'mt-1 text-xs font-normal text-slate-500' : 'mt-1 text-xs font-normal text-slate-500'}>
                             {reservation.pms_reservation_id}
                           </p>
+                          {isPreStayTestReservation(reservation) ? (
+                            <span className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800">
+                              PRE-STAY TEST
+                            </span>
+                          ) : null}
                         </td>
                         <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.guest_email || '-'}</td>
                         <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.guest_phone || '-'}</td>
@@ -649,6 +953,11 @@ export const ReservationsClient = () => {
                         <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.room_type || '-'}</td>
                         <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.rate_plan || '-'}</td>
                         <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.board_basis || '-'}</td>
+                        <td className="px-4 py-4">
+                          <Badge tone={isPreStayTestReservation(reservation) ? 'amber' : 'slate'}>
+                            {reservation.source || reservation.pms_provider || 'pms'}
+                          </Badge>
+                        </td>
                         <td className="px-4 py-4">
                           <Badge tone={statusTone(stayStatus)}>{t(`reservations.status.${stayStatus}`)}</Badge>
                         </td>
