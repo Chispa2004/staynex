@@ -86,7 +86,9 @@ export const analyzeGuestMessage = async ({
   guest,
   message,
   hotelKnowledge,
-  conversationContext
+  conversationContext,
+  fallbackAiResponse = null,
+  fallbackMetadata = null
 }) => {
   if (isMockAiEnabled()) {
     return analyzeWithMockAi({
@@ -158,6 +160,14 @@ export const analyzeGuestMessage = async ({
     logger.warn('fallback_to_mock', {
       reason: error.message
     });
+
+    if (fallbackAiResponse) {
+      return withAiMetadata(fallbackAiResponse, {
+        provider: fallbackMetadata?.provider || 'mock',
+        model: fallbackMetadata?.model || 'knowledge-base',
+        fallbackUsed: true
+      });
+    }
 
     return analyzeWithMockAi({
       hotel,

@@ -184,7 +184,8 @@ export const findKnowledgeAnswerWithMetadata = async (hotelId, message, language
     })),
     metadata: {
       knowledgeUsed: true,
-      knowledgeKey: matchedEntry.key
+      knowledgeKey: matchedEntry.key,
+      knowledgeValue: matchedEntry.value
     }
   };
 };

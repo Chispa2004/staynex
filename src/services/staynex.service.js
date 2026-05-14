@@ -35,6 +35,8 @@ const getOrCreateConversation = async ({ hotelId, guestId }) => {
   return createConversation({ hotelId, guestId });
 };
 
+const isMockAiEnabled = () => process.env.USE_MOCK_AI === 'true';
+
 const withAiMetadata = (aiResponse, {
   provider = 'mock',
   model = 'knowledge-base',
@@ -128,17 +130,30 @@ export const processGuestMessage = async ({
     message,
     conversationContext.language
   );
-  const hotelKnowledge = knowledgeResult ? [] : await getHotelKnowledge(activeHotel.id);
+  const hotelKnowledge = knowledgeResult
+    ? [{
+      key: knowledgeResult.metadata.knowledgeKey,
+      value: knowledgeResult.metadata.knowledgeValue
+    }]
+    : await getHotelKnowledge(activeHotel.id);
+  const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled());
 
   const rawAiResponse = withAiMetadata(
-    knowledgeResult?.aiResponse || await analyzeGuestMessage({
+    shouldUseDirectKnowledgeResponse ? knowledgeResult.aiResponse : await analyzeGuestMessage({
       hotel: activeHotel,
       guest,
       message,
       hotelKnowledge,
-      conversationContext
+      conversationContext,
+      fallbackAiResponse: knowledgeResult?.aiResponse || null,
+      fallbackMetadata: knowledgeResult
+        ? {
+          provider: 'mock',
+          model: 'knowledge-base'
+        }
+        : null
     }),
-    knowledgeResult
+    shouldUseDirectKnowledgeResponse
       ? {
         provider: 'mock',
         model: 'knowledge-base',

@@ -34,6 +34,22 @@ const basePayload = {
   }
 };
 
+const knowledgeFallbackResponse = {
+  intent: 'hotel_info',
+  confidence: 0.96,
+  reply: 'El restaurante sirve cenas de 19:30 a 23:00.',
+  create_ticket: false,
+  ticket: {
+    category: null,
+    title: null,
+    description: null,
+    priority: null
+  },
+  escalate_to_human: false,
+  emergency: false,
+  upsell_opportunity: false
+};
+
 const assertCompatibleResponse = (response) => {
   validateAiResponse({
     intent: response.intent,
@@ -62,6 +78,20 @@ try {
   const fallbackResult = await analyzeGuestMessage(basePayload);
   assertCompatibleResponse(fallbackResult);
 
+  const knowledgeFallbackResult = await analyzeGuestMessage({
+    ...basePayload,
+    message: 'viajo con mi pareja y queremos cenar romantico cerca del hotel',
+    hotelKnowledge: [
+      { key: 'restaurante', value: 'El restaurante sirve cenas de 19:30 a 23:00.' }
+    ],
+    fallbackAiResponse: knowledgeFallbackResponse,
+    fallbackMetadata: {
+      provider: 'mock',
+      model: 'knowledge-base'
+    }
+  });
+  assertCompatibleResponse(knowledgeFallbackResult);
+
   const output = {
     mock: {
       aiProvider: mockResult.aiProvider,
@@ -74,6 +104,12 @@ try {
       aiModel: fallbackResult.aiModel,
       fallbackUsed: fallbackResult.fallbackUsed,
       intent: fallbackResult.intent
+    },
+    knowledgeFallback: {
+      aiProvider: knowledgeFallbackResult.aiProvider,
+      aiModel: knowledgeFallbackResult.aiModel,
+      fallbackUsed: knowledgeFallbackResult.fallbackUsed,
+      intent: knowledgeFallbackResult.intent
     }
   };
 
