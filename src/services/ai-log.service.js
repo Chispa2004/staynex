@@ -50,7 +50,10 @@ export const createAiLog = async ({
   humanReason = null,
   aiProvider = null,
   aiModel = null,
-  fallbackUsed = false
+  fallbackUsed = false,
+  ai_provider = null,
+  ai_model = null,
+  fallback_used = false
 } = {}) => {
   try {
     const supabase = getSupabase();
@@ -71,9 +74,9 @@ export const createAiLog = async ({
       raw_guest_message: toNullableText(rawGuestMessage),
       needs_human: Boolean(needsHuman),
       human_reason: toNullableText(humanReason),
-      ai_provider: toNullableText(aiProvider),
-      ai_model: toNullableText(aiModel),
-      fallback_used: Boolean(fallbackUsed)
+      ai_provider: toNullableText(aiProvider || ai_provider),
+      ai_model: toNullableText(aiModel || ai_model),
+      fallback_used: Boolean(fallbackUsed || fallback_used)
     };
 
     let { data, error } = await supabase

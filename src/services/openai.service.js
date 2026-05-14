@@ -38,6 +38,9 @@ const withAiMetadata = (aiResponse, {
   fallbackUsed = false
 }) => ({
   ...aiResponse,
+  aiProvider: provider,
+  aiModel: model,
+  fallbackUsed,
   ai_provider: provider,
   ai_model: model,
   fallback_used: fallbackUsed

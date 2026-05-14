@@ -35,6 +35,20 @@ const getOrCreateConversation = async ({ hotelId, guestId }) => {
   return createConversation({ hotelId, guestId });
 };
 
+const withAiMetadata = (aiResponse, {
+  provider = 'mock',
+  model = 'knowledge-base',
+  fallbackUsed = false
+} = {}) => ({
+  ...aiResponse,
+  aiProvider: aiResponse.aiProvider || aiResponse.ai_provider || provider,
+  aiModel: aiResponse.aiModel || aiResponse.ai_model || model,
+  fallbackUsed: aiResponse.fallbackUsed ?? aiResponse.fallback_used ?? fallbackUsed,
+  ai_provider: aiResponse.ai_provider || aiResponse.aiProvider || provider,
+  ai_model: aiResponse.ai_model || aiResponse.aiModel || model,
+  fallback_used: aiResponse.fallback_used ?? aiResponse.fallbackUsed ?? fallbackUsed
+});
+
 export const normalizeWhatsappNumber = (phoneNumber) => (
   phoneNumber?.replace(/^whatsapp:/, '') || null
 );
@@ -116,13 +130,22 @@ export const processGuestMessage = async ({
   );
   const hotelKnowledge = knowledgeResult ? [] : await getHotelKnowledge(activeHotel.id);
 
-  const rawAiResponse = knowledgeResult?.aiResponse || await analyzeGuestMessage({
-    hotel: activeHotel,
-    guest,
-    message,
-    hotelKnowledge,
-    conversationContext
-  });
+  const rawAiResponse = withAiMetadata(
+    knowledgeResult?.aiResponse || await analyzeGuestMessage({
+      hotel: activeHotel,
+      guest,
+      message,
+      hotelKnowledge,
+      conversationContext
+    }),
+    knowledgeResult
+      ? {
+        provider: 'mock',
+        model: 'knowledge-base',
+        fallbackUsed: false
+      }
+      : {}
+  );
   const humanEscalation = detectHumanEscalation({
     message,
     aiResponse: rawAiResponse,
@@ -185,9 +208,9 @@ export const processGuestMessage = async ({
     rawGuestMessage: message,
     needsHuman: humanEscalation.needsHuman,
     humanReason: humanEscalation.humanReason,
-    aiProvider: aiResponse.ai_provider || 'unknown',
-    aiModel: aiResponse.ai_model || null,
-    fallbackUsed: Boolean(aiResponse.fallback_used)
+    aiProvider: aiResponse.aiProvider || aiResponse.ai_provider || 'unknown',
+    aiModel: aiResponse.aiModel || aiResponse.ai_model || null,
+    fallbackUsed: Boolean(aiResponse.fallbackUsed ?? aiResponse.fallback_used)
   });
 
   let twilioMessage = null;

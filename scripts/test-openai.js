@@ -45,6 +45,10 @@ const assertCompatibleResponse = (response) => {
     emergency: response.emergency,
     upsell_opportunity: response.upsell_opportunity
   });
+
+  if (!response.aiProvider || !response.aiModel || typeof response.fallbackUsed !== 'boolean') {
+    throw new Error('AI metadata missing: aiProvider, aiModel or fallbackUsed');
+  }
 };
 
 try {
@@ -60,15 +64,15 @@ try {
 
   const output = {
     mock: {
-      provider: mockResult.ai_provider,
-      model: mockResult.ai_model,
-      fallback_used: mockResult.fallback_used,
+      aiProvider: mockResult.aiProvider,
+      aiModel: mockResult.aiModel,
+      fallbackUsed: mockResult.fallbackUsed,
       intent: mockResult.intent
     },
     fallback: {
-      provider: fallbackResult.ai_provider,
-      model: fallbackResult.ai_model,
-      fallback_used: fallbackResult.fallback_used,
+      aiProvider: fallbackResult.aiProvider,
+      aiModel: fallbackResult.aiModel,
+      fallbackUsed: fallbackResult.fallbackUsed,
       intent: fallbackResult.intent
     }
   };
@@ -78,9 +82,9 @@ try {
     const openAiResult = await analyzeGuestMessage(basePayload);
     assertCompatibleResponse(openAiResult);
     output.openai = {
-      provider: openAiResult.ai_provider,
-      model: openAiResult.ai_model,
-      fallback_used: openAiResult.fallback_used,
+      aiProvider: openAiResult.aiProvider,
+      aiModel: openAiResult.aiModel,
+      fallbackUsed: openAiResult.fallbackUsed,
       intent: openAiResult.intent
     };
   }

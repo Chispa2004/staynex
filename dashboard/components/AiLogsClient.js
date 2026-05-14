@@ -70,6 +70,12 @@ const formatConfidence = (value) => {
   return `${Math.round(numberValue * 100)}%`;
 };
 
+const displayProvider = (log) => log.ai_provider || 'legacy';
+const displayModel = (log) => log.ai_model || '-';
+const displayFallback = (log) => (
+  log.fallback_used === null || log.fallback_used === undefined ? '-' : String(Boolean(log.fallback_used))
+);
+
 const TruncatedText = ({ children }) => (
   <span
     className="block max-w-[280px] overflow-hidden text-sm leading-5"
@@ -291,9 +297,9 @@ const LogDetail = ({ log, onClose }) => {
         <DetailRow label="ticket_id" value={log.ticket_id} />
         <DetailRow label="needs_human" value={log.needs_human} />
         <DetailRow label="human_reason" value={log.human_reason} />
-        <DetailRow label="ai_provider" value={log.ai_provider} />
-        <DetailRow label="ai_model" value={log.ai_model} />
-        <DetailRow label="fallback_used" value={log.fallback_used} />
+        <DetailRow label="AI_PROVIDER" value={displayProvider(log)} />
+        <DetailRow label="AI_MODEL" value={displayModel(log)} />
+        <DetailRow label="FALLBACK_USED" value={displayFallback(log)} />
         <DetailRow label="confidence_score" value={log.confidence_score} />
         <DetailRow label="created_at" value={log.created_at} />
       </dl>
