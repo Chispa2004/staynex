@@ -184,7 +184,10 @@ export const processGuestMessage = async ({
     generatedResponse: aiResponse.reply,
     rawGuestMessage: message,
     needsHuman: humanEscalation.needsHuman,
-    humanReason: humanEscalation.humanReason
+    humanReason: humanEscalation.humanReason,
+    aiProvider: aiResponse.ai_provider || 'unknown',
+    aiModel: aiResponse.ai_model || null,
+    fallbackUsed: Boolean(aiResponse.fallback_used)
   });
 
   let twilioMessage = null;

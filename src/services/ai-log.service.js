@@ -21,6 +21,16 @@ const isMissingHumanFields = (error) => (
   || error?.details?.includes('human_reason')
 );
 
+const isMissingOptionalMetadataFields = (error) => (
+  isMissingHumanFields(error)
+  || error?.message?.includes('ai_provider')
+  || error?.message?.includes('ai_model')
+  || error?.message?.includes('fallback_used')
+  || error?.details?.includes('ai_provider')
+  || error?.details?.includes('ai_model')
+  || error?.details?.includes('fallback_used')
+);
+
 export const createAiLog = async ({
   messageId = null,
   guestId = null,
@@ -37,7 +47,10 @@ export const createAiLog = async ({
   generatedResponse = null,
   rawGuestMessage = null,
   needsHuman = false,
-  humanReason = null
+  humanReason = null,
+  aiProvider = null,
+  aiModel = null,
+  fallbackUsed = false
 } = {}) => {
   try {
     const supabase = getSupabase();
@@ -57,7 +70,10 @@ export const createAiLog = async ({
       generated_response: toNullableText(generatedResponse),
       raw_guest_message: toNullableText(rawGuestMessage),
       needs_human: Boolean(needsHuman),
-      human_reason: toNullableText(humanReason)
+      human_reason: toNullableText(humanReason),
+      ai_provider: toNullableText(aiProvider),
+      ai_model: toNullableText(aiModel),
+      fallback_used: Boolean(fallbackUsed)
     };
 
     let { data, error } = await supabase
@@ -66,12 +82,19 @@ export const createAiLog = async ({
       .select('*')
       .single();
 
-    if (error && isMissingHumanFields(error)) {
-      logger.warn('AI log human fields missing, retrying without needs_human metadata', {
+    if (error && isMissingOptionalMetadataFields(error)) {
+      logger.warn('AI log optional fields missing, retrying with legacy metadata', {
         message: error.message
       });
 
-      const { needs_human, human_reason, ...fallbackRecord } = logRecord;
+      const {
+        needs_human,
+        human_reason,
+        ai_provider,
+        ai_model,
+        fallback_used,
+        ...fallbackRecord
+      } = logRecord;
       const fallbackResult = await supabase
         .from('ai_logs')
         .insert(fallbackRecord)
@@ -92,7 +115,10 @@ export const createAiLog = async ({
       detectedIntent,
       ticketCreated: Boolean(ticketCreated),
       needsHuman: Boolean(needsHuman),
-      humanReason
+      humanReason,
+      aiProvider,
+      aiModel,
+      fallbackUsed
     });
 
     return data;

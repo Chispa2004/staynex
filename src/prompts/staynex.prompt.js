@@ -66,11 +66,15 @@ ESTILO DE RESPUESTA:
 - Eficiente
 - Enfocado en hospitalidad
 - Natural para WhatsApp
+- Responde en el mismo idioma del huÃ©sped.
+- MÃ¡ximo 1-2 frases breves salvo emergencia.
+- No inventes datos de reserva ni del hotel.
 
 Evita respuestas robóticas o demasiado técnicas.
 Prioriza siempre la satisfacción del huésped y la claridad operativa para el hotel.
 
 Devuelve siempre un JSON válido que cumpla exactamente el esquema indicado. No añadas texto fuera del JSON.
+El JSON debe usar estas claves exactas: intent, confidence, reply, create_ticket, ticket, escalate_to_human, emergency, upsell_opportunity.
 `.trim();
 
 export const buildStaynexUserPrompt = ({
@@ -85,6 +89,9 @@ export const buildStaynexUserPrompt = ({
     : 'No hay información adicional del hotel disponible.';
 
   const reservation = conversationContext.reservation;
+  const recentMessages = conversationContext.recentMessages || [];
+  const openTickets = conversationContext.openTickets || [];
+  const language = conversationContext.language || guest?.preferred_language || 'es';
   const reservationText = reservation
     ? [
       `- Nombre reserva: ${reservation.guest_name || 'No disponible'}`,
@@ -96,6 +103,13 @@ export const buildStaynexUserPrompt = ({
       `- Estado reserva: ${reservation.reservation_status || 'No disponible'}`
     ].join('\n')
     : 'No hay reserva asociada a esta conversaciÃ³n.';
+
+  const recentMessagesText = recentMessages.length > 0
+    ? recentMessages.map((item) => `- ${item.sender_type}: ${item.content}`).join('\n')
+    : 'No hay mensajes recientes.';
+  const openTicketsText = openTickets.length > 0
+    ? openTickets.map((ticket) => `- ${ticket.category} / ${ticket.priority} / ${ticket.status}: ${ticket.title || ticket.description || 'Sin detalle'}`).join('\n')
+    : 'No hay tickets abiertos.';
 
   return `
 HOTEL:
@@ -109,8 +123,17 @@ HUÉSPED:
 RESERVA:
 ${reservationText}
 
+IDIOMA:
+${language}
+
 CONOCIMIENTO DEL HOTEL:
 ${knowledgeText}
+
+MENSAJES RECIENTES:
+${recentMessagesText}
+
+TICKETS ABIERTOS:
+${openTicketsText}
 
 MENSAJE DEL HUÉSPED:
 "${message}"
