@@ -14,6 +14,7 @@ import {
   ConciergeBell,
   Inbox,
   BookOpen,
+  LayoutDashboard,
   LogOut,
   QrCode,
   Settings,
@@ -34,8 +35,9 @@ const navigationGroups = [
     labelKey: 'sidebarGroups.operations',
     defaultOpen: true,
     items: [
+      { href: '/dashboard', labelKey: 'screens.dashboard', icon: LayoutDashboard },
       { href: '/dashboard/inbox', labelKey: 'sidebar.inbox', icon: Inbox },
-      { href: '/dashboard', labelKey: 'sidebar.tickets', icon: TicketCheck }
+      { href: '/dashboard/tickets', labelKey: 'sidebar.tickets', icon: TicketCheck }
     ]
   },
   {
@@ -425,7 +427,7 @@ const AppShellContent = ({ children }) => {
                               <Icon className="h-4 w-4" aria-hidden="true" />
                             </span>
                             <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
-                            {item.href === '/dashboard' && urgentCount > 0 ? (
+                            {item.href === '/dashboard/tickets' && urgentCount > 0 ? (
                               <span className={isLight ? 'rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700' : 'rounded-full border border-red-300/20 bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold text-red-100'}>
                                 {urgentCount}
                               </span>
