@@ -5,8 +5,9 @@ import {
   CalendarCheck,
   CalendarClock,
   CalendarDays,
+  Check,
   CheckCircle2,
-  ExternalLink,
+  Copy,
   Hotel,
   RefreshCw,
   Search,
@@ -114,7 +115,8 @@ const matchesSearch = (reservation, search) => {
     reservation.guest_name,
     reservation.guest_email,
     reservation.guest_phone,
-    reservation.pms_reservation_id
+    reservation.pms_reservation_id,
+    reservation.reservation_access_token
   ]
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(query));
@@ -251,6 +253,7 @@ const ReservationDetail = ({ reservation, onClose }) => {
         <DetailRow label={t('reservations.columns.status')} value={reservation.status} />
         <DetailRow label={t('reservations.columns.pmsProvider')} value={reservation.pms_provider} />
         <DetailRow label={t('reservations.columns.pmsReservationId')} value={reservation.pms_reservation_id} />
+        <DetailRow label={t('reservations.columns.accessToken')} value={reservation.reservation_access_token} />
         <DetailRow label={t('reservations.columns.whatsappLink')} value={reservation.whatsapp_link} />
         <DetailRow label="created_at" value={formatDateTime(reservation.created_at)} />
       </dl>
@@ -300,6 +303,7 @@ export const ReservationsClient = () => {
   const [activeFilter, setActiveFilter] = useState('upcoming');
   const [search, setSearch] = useState('');
   const [selectedReservation, setSelectedReservation] = useState(null);
+  const [copiedAction, setCopiedAction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -360,6 +364,16 @@ export const ReservationsClient = () => {
       && matchesSearch(reservation, search)
     ))
   ), [reservations, activeFilter, search]);
+
+  const copyValue = async ({ key, value }) => {
+    if (!value) {
+      return;
+    }
+
+    await window.navigator.clipboard.writeText(value);
+    setCopiedAction(key);
+    window.setTimeout(() => setCopiedAction(null), 1600);
+  };
 
   return (
     <div className="space-y-6">
@@ -476,6 +490,7 @@ export const ReservationsClient = () => {
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.boardBasis')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.status')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.pmsProvider')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('reservations.columns.accessToken')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.whatsapp')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.automations')}</th>
                   </tr>
@@ -520,17 +535,64 @@ export const ReservationsClient = () => {
                           <Badge>{reservation.pms_provider || 'mock'}</Badge>
                         </td>
                         <td className="px-4 py-4">
+                          {reservation.reservation_access_token ? (
+                            <div className="flex items-center gap-2">
+                              <Badge tone="amber">{reservation.reservation_access_token}</Badge>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  copyValue({
+                                    key: `token-${reservation.id}`,
+                                    value: reservation.reservation_access_token
+                                  });
+                                }}
+                                className={isLight ? 'rounded-lg border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900' : 'rounded-lg border border-white/10 bg-white/[0.035] p-2 text-slate-400 transition hover:bg-white/[0.08] hover:text-white'}
+                                title={t('reservations.copyToken')}
+                              >
+                                {copiedAction === `token-${reservation.id}` ? (
+                                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-600'}>-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
                           {reservation.whatsapp_link ? (
-                            <a
-                              href={reservation.whatsapp_link}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(event) => event.stopPropagation()}
-                              className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100' : 'inline-flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/15'}
-                            >
-                              <Send className="h-3.5 w-3.5" aria-hidden="true" />
-                              {t('reservations.openWhatsapp')}
-                            </a>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  copyValue({
+                                    key: `link-${reservation.id}`,
+                                    value: reservation.whatsapp_link
+                                  });
+                                }}
+                                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-white'}
+                              >
+                                {copiedAction === `link-${reservation.id}` ? (
+                                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                                )}
+                                {copiedAction === `link-${reservation.id}` ? t('reservations.copied') : t('reservations.copyWhatsappLink')}
+                              </button>
+                              <a
+                                href={reservation.whatsapp_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(event) => event.stopPropagation()}
+                                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100' : 'inline-flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/15'}
+                              >
+                                <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                                {t('reservations.openWhatsapp')}
+                              </a>
+                            </div>
                           ) : (
                             <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-600'}>-</span>
                           )}

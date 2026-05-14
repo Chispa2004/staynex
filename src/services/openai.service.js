@@ -55,7 +55,8 @@ export const analyzeGuestMessage = async ({
           hotel,
           guest,
           message,
-          hotelKnowledge
+          hotelKnowledge,
+          conversationContext
         })
       }
     ],

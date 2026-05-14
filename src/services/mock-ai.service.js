@@ -235,6 +235,102 @@ const baseResponse = ({ intent, confidence, reply, ticket, escalate = false, eme
   upsell_opportunity: upsell
 });
 
+const reservationReply = ({ reservation, language, messageText }) => {
+  const guestName = reservation?.guest_name || null;
+  const arrival = reservation?.arrival_date || null;
+  const departure = reservation?.departure_date || null;
+  const roomType = reservation?.room_type || null;
+  const ratePlan = reservation?.rate_plan || null;
+  const boardBasis = reservation?.board_basis || null;
+  const status = reservation?.reservation_status || null;
+  const wantsDinner = includesAny(messageText, ['cena', 'dinner', 'restaurant', 'restaurante', 'table', 'mesa']);
+  const asksArrival = includesAny(messageText, ['llego', 'llegada', 'arrival', 'arrive', 'arrivee', 'ankunft']);
+  const asksDeparture = includesAny(messageText, ['salgo', 'salida', 'departure', 'checkout', 'check out', 'depart', 'abreise']);
+  const asksIncludes = includesAny(messageText, ['incluye', 'incluido', 'includes', 'included', 'comprend', 'inclus', 'enthalt', 'inklusive']);
+
+  const summary = {
+    es: [
+      guestName ? `a nombre de ${guestName}` : null,
+      arrival ? `llegada ${arrival}` : null,
+      departure ? `salida ${departure}` : null,
+      roomType ? `habitacion ${roomType}` : null,
+      ratePlan ? `tarifa ${ratePlan}` : null,
+      boardBasis ? `regimen ${boardBasis}` : null,
+      status ? `estado ${status}` : null
+    ].filter(Boolean).join(', '),
+    en: [
+      guestName ? `under ${guestName}` : null,
+      arrival ? `arrival ${arrival}` : null,
+      departure ? `departure ${departure}` : null,
+      roomType ? `room type ${roomType}` : null,
+      ratePlan ? `rate plan ${ratePlan}` : null,
+      boardBasis ? `board basis ${boardBasis}` : null,
+      status ? `status ${status}` : null
+    ].filter(Boolean).join(', '),
+    fr: [
+      guestName ? `au nom de ${guestName}` : null,
+      arrival ? `arrivee ${arrival}` : null,
+      departure ? `depart ${departure}` : null,
+      roomType ? `type de chambre ${roomType}` : null,
+      ratePlan ? `tarif ${ratePlan}` : null,
+      boardBasis ? `pension ${boardBasis}` : null,
+      status ? `statut ${status}` : null
+    ].filter(Boolean).join(', '),
+    de: [
+      guestName ? `auf den Namen ${guestName}` : null,
+      arrival ? `Anreise ${arrival}` : null,
+      departure ? `Abreise ${departure}` : null,
+      roomType ? `Zimmertyp ${roomType}` : null,
+      ratePlan ? `Rate Plan ${ratePlan}` : null,
+      boardBasis ? `Verpflegung ${boardBasis}` : null,
+      status ? `Status ${status}` : null
+    ].filter(Boolean).join(', ')
+  };
+
+  if (wantsDinner) {
+    return {
+      es: 'Claro. Puedo avisar al equipo de recepcion para ayudarte a anadir cena o una reserva de restaurante.',
+      en: 'Of course. I can notify reception to help you add dinner or arrange a restaurant booking.',
+      fr: 'Bien sur. Je peux prevenir la reception pour vous aider a ajouter le diner ou reserver le restaurant.',
+      de: 'Naturlich. Ich kann die Rezeption informieren, damit sie Ihnen beim Abendessen oder einer Restaurantreservierung hilft.'
+    }[language];
+  }
+
+  if (asksArrival && arrival) {
+    return {
+      es: `Tu llegada figura para el ${arrival}.`,
+      en: `Your arrival is listed for ${arrival}.`,
+      fr: `Votre arrivee est prevue le ${arrival}.`,
+      de: `Ihre Anreise ist fuer den ${arrival} hinterlegt.`
+    }[language];
+  }
+
+  if (asksDeparture && departure) {
+    return {
+      es: `Tu salida figura para el ${departure}.`,
+      en: `Your departure is listed for ${departure}.`,
+      fr: `Votre depart est prevu le ${departure}.`,
+      de: `Ihre Abreise ist fuer den ${departure} hinterlegt.`
+    }[language];
+  }
+
+  if (asksIncludes && (ratePlan || boardBasis || roomType)) {
+    return {
+      es: `Segun la reserva, tienes ${[roomType, ratePlan, boardBasis].filter(Boolean).join(', ')}.`,
+      en: `According to the reservation, you have ${[roomType, ratePlan, boardBasis].filter(Boolean).join(', ')}.`,
+      fr: `Selon la reservation, vous avez ${[roomType, ratePlan, boardBasis].filter(Boolean).join(', ')}.`,
+      de: `Laut Reservierung haben Sie ${[roomType, ratePlan, boardBasis].filter(Boolean).join(', ')}.`
+    }[language];
+  }
+
+  return {
+    es: `He localizado tu reserva${summary.es ? `: ${summary.es}` : ''}.`,
+    en: `I found your reservation${summary.en ? `: ${summary.en}` : ''}.`,
+    fr: `J'ai trouve votre reservation${summary.fr ? `: ${summary.fr}` : ''}.`,
+    de: `Ich habe Ihre Reservierung gefunden${summary.de ? `: ${summary.de}` : ''}.`
+  }[language];
+};
+
 export const analyzeGuestMessageWithMockAi = async ({
   message,
   conversationContext = {},
@@ -246,6 +342,7 @@ export const analyzeGuestMessageWithMockAi = async ({
   const roomNumber = detectedRoom || knownRoom || null;
   const language = normalizeLanguage(conversationContext.language || detectGuestLanguage(message));
   const isAddOn = includesAny(text, ['y tambien', 'tambien', 'and also', 'also', 'et aussi', 'aussi', 'und auch', 'auch']);
+  const reservation = conversationContext.reservation || null;
 
   logger.info('Using mock AI classifier', {
     mode: 'USE_MOCK_AI=true',
@@ -255,6 +352,20 @@ export const analyzeGuestMessageWithMockAi = async ({
     language,
     recentMessages: recentMessages.length
   });
+
+  if (reservation && includesAny(text, ['stx-', 'reserva', 'reservation', 'booking', 'llegada', 'salida', 'arrival', 'departure', 'incluye', 'included', 'dinner', 'cena', 'checkout', 'check out'])) {
+    return validateAiResponse(baseResponse({
+      intent: 'hotel_info',
+      confidence: 0.9,
+      reply: reservationReply({
+        reservation,
+        language,
+        messageText: text
+      }),
+      ticket: null,
+      upsell: includesAny(text, ['dinner', 'cena', 'restaurant', 'restaurante'])
+    }));
+  }
 
   if (includesAny(text, ['fire', 'smoke', 'fuego', 'humo', 'herida', 'medical', 'medica', 'emergencia', 'emergency', 'danger', 'peligro', 'amenaza', 'inundacion', 'flood', 'violence', 'violencia', 'fumee', 'feu', 'urgence', 'rauch im', 'rauch in', 'es raucht', 'feuer', 'notfall', 'gefahr'])) {
     return validateAiResponse(baseResponse({

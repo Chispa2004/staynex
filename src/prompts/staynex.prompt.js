@@ -77,11 +77,25 @@ export const buildStaynexUserPrompt = ({
   hotel,
   guest,
   message,
-  hotelKnowledge = []
+  hotelKnowledge = [],
+  conversationContext = {}
 }) => {
   const knowledgeText = hotelKnowledge.length > 0
     ? hotelKnowledge.map((item) => `- ${item.key}: ${item.value}`).join('\n')
     : 'No hay información adicional del hotel disponible.';
+
+  const reservation = conversationContext.reservation;
+  const reservationText = reservation
+    ? [
+      `- Nombre reserva: ${reservation.guest_name || 'No disponible'}`,
+      `- Llegada: ${reservation.arrival_date || 'No disponible'}`,
+      `- Salida: ${reservation.departure_date || 'No disponible'}`,
+      `- Tipo habitaciÃ³n: ${reservation.room_type || 'No disponible'}`,
+      `- Rate plan: ${reservation.rate_plan || 'No disponible'}`,
+      `- Board basis: ${reservation.board_basis || 'No disponible'}`,
+      `- Estado reserva: ${reservation.reservation_status || 'No disponible'}`
+    ].join('\n')
+    : 'No hay reserva asociada a esta conversaciÃ³n.';
 
   return `
 HOTEL:
@@ -91,6 +105,9 @@ HOTEL:
 HUÉSPED:
 - Teléfono: ${guest?.phone_number || 'No disponible'}
 - Habitación actual: ${guest?.current_room || 'No detectada'}
+
+RESERVA:
+${reservationText}
 
 CONOCIMIENTO DEL HOTEL:
 ${knowledgeText}

@@ -18,6 +18,11 @@ import {
   detectHumanEscalation,
   shouldReplaceReplyForHumanEscalation
 } from './human-escalation.service.js';
+import {
+  extractReservationAccessToken,
+  findReservationByAccessToken,
+  linkReservationToGuest
+} from './reservation.service.js';
 import { logger } from '../utils/logger.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
@@ -59,11 +64,32 @@ export const processGuestMessage = async ({
     phone: cleanPhone
   });
 
+  const reservationAccessToken = extractReservationAccessToken(message);
+  let reservation = null;
+
+  if (reservationAccessToken) {
+    logger.info('token detected', {
+      hotelId: activeHotel.id,
+      phone: cleanPhone,
+      reservationAccessToken
+    });
+
+    reservation = await findReservationByAccessToken(reservationAccessToken);
+  }
+
   const guest = await findOrCreateGuest({
     hotelId: activeHotel.id,
     phoneNumber: cleanPhone,
     message
   });
+
+  if (reservation) {
+    reservation = await linkReservationToGuest({
+      reservation,
+      guest,
+      message
+    });
+  }
 
   const conversation = await getOrCreateConversation({
     hotelId: activeHotel.id,
@@ -79,7 +105,8 @@ export const processGuestMessage = async ({
   const conversationContext = await buildConversationContext({
     guest,
     conversation,
-    message
+    message,
+    reservation
   });
 
   const knowledgeResult = await findKnowledgeAnswerWithMetadata(
@@ -196,6 +223,7 @@ export const processGuestMessage = async ({
       ai: aiMessage
     },
     ticket,
+    reservation: conversationContext.reservation,
     human: humanEscalation,
     delivery: {
       channel,

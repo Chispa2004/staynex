@@ -270,6 +270,7 @@ export const translations = {
         status: 'Estado',
         pmsProvider: 'PMS',
         pmsReservationId: 'PMS reservation id',
+        accessToken: 'Token acceso',
         whatsapp: 'WhatsApp',
         whatsappLink: 'WhatsApp link',
         automations: 'Automatizaciones'
@@ -289,6 +290,9 @@ export const translations = {
       closeDetail: 'Cerrar detalle',
       unknownGuest: 'Huesped sin nombre',
       openWhatsapp: 'Abrir WhatsApp',
+      copyToken: 'Copiar token',
+      copyWhatsappLink: 'Copiar link WhatsApp',
+      copied: 'Copiado',
       automationEvents: 'Automatizaciones',
       noAutomationEvents: 'No hay automatizaciones programadas.',
       errors: {
@@ -571,6 +575,7 @@ export const translations = {
         status: 'Status',
         pmsProvider: 'PMS',
         pmsReservationId: 'PMS reservation id',
+        accessToken: 'Access token',
         whatsapp: 'WhatsApp',
         whatsappLink: 'WhatsApp link',
         automations: 'Automations'
@@ -590,6 +595,9 @@ export const translations = {
       closeDetail: 'Close detail',
       unknownGuest: 'Unnamed guest',
       openWhatsapp: 'Open WhatsApp',
+      copyToken: 'Copy token',
+      copyWhatsappLink: 'Copy WhatsApp link',
+      copied: 'Copied',
       automationEvents: 'Automation events',
       noAutomationEvents: 'No automation events scheduled.',
       errors: {
@@ -872,6 +880,7 @@ export const translations = {
         status: 'Statut',
         pmsProvider: 'PMS',
         pmsReservationId: 'PMS reservation id',
+        accessToken: 'Token acces',
         whatsapp: 'WhatsApp',
         whatsappLink: 'Lien WhatsApp',
         automations: 'Automatisations'
@@ -891,6 +900,9 @@ export const translations = {
       closeDetail: 'Fermer le detail',
       unknownGuest: 'Client sans nom',
       openWhatsapp: 'Open WhatsApp',
+      copyToken: 'Copier token',
+      copyWhatsappLink: 'Copier lien WhatsApp',
+      copied: 'Copie',
       automationEvents: 'Automation events',
       noAutomationEvents: 'Aucune automatisation programmee.',
       errors: {
@@ -1177,6 +1189,7 @@ export const translations = {
         status: 'Status',
         pmsProvider: 'PMS',
         pmsReservationId: 'PMS reservation id',
+        accessToken: 'Access Token',
         whatsapp: 'WhatsApp',
         whatsappLink: 'WhatsApp-Link',
         automations: 'Automationen'
@@ -1196,6 +1209,9 @@ export const translations = {
       closeDetail: 'Detail schliessen',
       unknownGuest: 'Gast ohne Name',
       openWhatsapp: 'Open WhatsApp',
+      copyToken: 'Token kopieren',
+      copyWhatsappLink: 'WhatsApp-Link kopieren',
+      copied: 'Kopiert',
       automationEvents: 'Automation events',
       noAutomationEvents: 'Keine Automationen geplant.',
       errors: {
