@@ -8,6 +8,7 @@ import {
   Activity,
   BarChart3,
   BrainCircuit,
+  Bot,
   CalendarDays,
   ConciergeBell,
   Inbox,
@@ -41,6 +42,7 @@ const navigation = [
   { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
   { href: '/dashboard/upsells', labelKey: 'sidebar.upsells', icon: TrendingUp },
   { href: '/dashboard/guest-memory', labelKey: 'sidebar.guestMemory', icon: BrainCircuit },
+  { href: '/dashboard/automations', labelKey: 'sidebar.automations', icon: Bot },
   { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
   { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
   { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }

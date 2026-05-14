@@ -32,6 +32,10 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('upsell_confidence')
   || error?.message?.includes('memory_used')
   || error?.message?.includes('memory_keys_used')
+  || error?.message?.includes('automation_triggered')
+  || error?.message?.includes('automation_type')
+  || error?.message?.includes('automation_sent')
+  || error?.message?.includes('automation_fallback')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
@@ -41,6 +45,10 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('upsell_confidence')
   || error?.details?.includes('memory_used')
   || error?.details?.includes('memory_keys_used')
+  || error?.details?.includes('automation_triggered')
+  || error?.details?.includes('automation_type')
+  || error?.details?.includes('automation_sent')
+  || error?.details?.includes('automation_fallback')
 );
 
 export const createAiLog = async ({
@@ -69,6 +77,10 @@ export const createAiLog = async ({
   upsellConfidence = null,
   memoryUsed = false,
   memoryKeysUsed = [],
+  automationTriggered = false,
+  automationType = null,
+  automationSent = false,
+  automationFallback = false,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -100,7 +112,11 @@ export const createAiLog = async ({
       upsell_type: toNullableText(upsellType),
       upsell_confidence: toNullableNumber(upsellConfidence),
       memory_used: Boolean(memoryUsed),
-      memory_keys_used: Array.isArray(memoryKeysUsed) ? memoryKeysUsed.map(String) : []
+      memory_keys_used: Array.isArray(memoryKeysUsed) ? memoryKeysUsed.map(String) : [],
+      automation_triggered: Boolean(automationTriggered),
+      automation_type: toNullableText(automationType),
+      automation_sent: Boolean(automationSent),
+      automation_fallback: Boolean(automationFallback)
     };
 
     let { data, error } = await supabase
@@ -126,6 +142,10 @@ export const createAiLog = async ({
         upsell_confidence,
         memory_used,
         memory_keys_used,
+        automation_triggered,
+        automation_type,
+        automation_sent,
+        automation_fallback,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase
