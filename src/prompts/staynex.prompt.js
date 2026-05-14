@@ -1,3 +1,5 @@
+import { formatGuestMemoryForPrompt } from '../services/guest-memory.service.js';
+
 export const STAYNEX_SYSTEM_PROMPT = `
 Eres Staynex, el asistente de inteligencia artificial del hotel.
 
@@ -19,6 +21,7 @@ REGLAS PRINCIPALES:
 - No prometas tiempos exactos salvo que el hotel los haya proporcionado.
 - Detecta frustracion, enfado o emociones negativas y responde con empatia.
 - Detecta inmediatamente situaciones urgentes o de emergencia.
+- Usa la memoria del huesped para personalizar con naturalidad, sin sonar invasivo.
 
 KNOWLEDGE BASE Y RECOMENDACIONES:
 - Para preguntas informativas simples, responde sin crear ticket.
@@ -78,6 +81,7 @@ export const buildStaynexUserPrompt = ({
   const recentMessages = conversationContext.recentMessages || [];
   const openTickets = conversationContext.openTickets || [];
   const upsellOpportunities = conversationContext.upsellOpportunities || [];
+  const guestMemory = conversationContext.guestMemory || [];
   const language = conversationContext.language || guest?.preferred_language || 'es';
   const hotelProfile = conversationContext.hotelProfile || hotel || {};
   const reservationText = reservation
@@ -100,6 +104,7 @@ export const buildStaynexUserPrompt = ({
   const upsellText = upsellOpportunities.length > 0
     ? upsellOpportunities.map((upsell) => `- ${upsell.upsell_type}: ${upsell.description}. Mensaje sugerido: ${upsell.suggested_message}`).join('\n')
     : 'No hay oportunidades de upselling detectadas.';
+  const guestMemoryText = formatGuestMemoryForPrompt(guestMemory);
 
   return `
 HOTEL:
@@ -118,6 +123,9 @@ HUESPED:
 - Telefono: ${guest?.phone_number || 'No disponible'}
 - Habitacion actual: ${guest?.current_room || 'No detectada'}
 - Idioma detectado/preferido: ${language}
+
+MEMORIA DEL HUESPED:
+${guestMemoryText}
 
 RESERVA:
 ${reservationText}
@@ -144,5 +152,6 @@ INSTRUCCIONES:
 - No crees tickets para preguntas informativas simples.
 - Crea ticket solo cuando haya una accion operativa real para el hotel.
 - Si mencionas un upsell, hazlo en una frase suave y util, sin presionar.
+- Usa la memoria del huesped para ayudar mejor, pero no digas "lo se porque lo dijiste antes".
 `.trim();
 };

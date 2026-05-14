@@ -30,6 +30,8 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('upsell_detected')
   || error?.message?.includes('upsell_type')
   || error?.message?.includes('upsell_confidence')
+  || error?.message?.includes('memory_used')
+  || error?.message?.includes('memory_keys_used')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
@@ -37,6 +39,8 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('upsell_detected')
   || error?.details?.includes('upsell_type')
   || error?.details?.includes('upsell_confidence')
+  || error?.details?.includes('memory_used')
+  || error?.details?.includes('memory_keys_used')
 );
 
 export const createAiLog = async ({
@@ -63,6 +67,8 @@ export const createAiLog = async ({
   upsellDetected = false,
   upsellType = null,
   upsellConfidence = null,
+  memoryUsed = false,
+  memoryKeysUsed = [],
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -92,7 +98,9 @@ export const createAiLog = async ({
       fallback_used: Boolean(fallbackUsed || fallback_used),
       upsell_detected: Boolean(upsellDetected),
       upsell_type: toNullableText(upsellType),
-      upsell_confidence: toNullableNumber(upsellConfidence)
+      upsell_confidence: toNullableNumber(upsellConfidence),
+      memory_used: Boolean(memoryUsed),
+      memory_keys_used: Array.isArray(memoryKeysUsed) ? memoryKeysUsed.map(String) : []
     };
 
     let { data, error } = await supabase
@@ -116,6 +124,8 @@ export const createAiLog = async ({
         upsell_detected,
         upsell_type,
         upsell_confidence,
+        memory_used,
+        memory_keys_used,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase

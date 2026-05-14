@@ -59,6 +59,32 @@ const getActiveUpsellsByConversation = async ({ supabase, conversationIds }) => 
   }
 };
 
+const getGuestMemoryByGuest = async ({ supabase, guestIds }) => {
+  try {
+    const { data, error } = await supabase
+      .from('guest_memory')
+      .select('id, guest_id, memory_type, memory_key, memory_value, confidence, is_active, updated_at')
+      .in('guest_id', guestIds)
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((memoryByGuest, memory) => {
+      const current = memoryByGuest.get(memory.guest_id) || [];
+      current.push(memory);
+      memoryByGuest.set(memory.guest_id, current);
+      return memoryByGuest;
+    }, new Map());
+  } catch (error) {
+    console.warn('Inbox guest memory unavailable', error.message);
+    return new Map();
+  }
+};
+
 export const getInboxConversations = async () => {
   const supabase = getSupabaseAdmin();
 
@@ -78,7 +104,7 @@ export const getInboxConversations = async () => {
   const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id))];
   const conversationIds = conversations.map((conversation) => conversation.id);
 
-  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation] = await Promise.all([
+  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, memoryByGuest] = await Promise.all([
     supabase
       .from('guests')
       .select('id, phone_number, current_room')
@@ -89,7 +115,8 @@ export const getInboxConversations = async () => {
       .in('conversation_id', conversationIds)
       .order('created_at', { ascending: true }),
     getLatestAiLogsByConversation({ supabase, conversationIds }),
-    getActiveUpsellsByConversation({ supabase, conversationIds })
+    getActiveUpsellsByConversation({ supabase, conversationIds }),
+    getGuestMemoryByGuest({ supabase, guestIds })
   ]);
 
   if (guestsError) {
@@ -110,6 +137,7 @@ export const getInboxConversations = async () => {
     return {
       ...conversation,
       guest: guestsById.get(conversation.guest_id) || null,
+      guestMemory: memoryByGuest.get(conversation.guest_id) || [],
       messages: conversationMessages,
       lastMessage,
       aiLog: aiLogsByConversation.get(conversation.id) || null,

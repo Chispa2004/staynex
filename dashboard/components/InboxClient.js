@@ -607,6 +607,22 @@ export const InboxClient = ({ conversations }) => {
           </div>
         ) : null}
 
+        {(selectedConversation?.guestMemory || []).length > 0 ? (
+          <div className={isLight ? 'shrink-0 border-b border-violet-200 bg-violet-50/80 px-6 py-4 text-violet-950' : 'shrink-0 border-b border-violet-300/20 bg-violet-400/[0.07] px-6 py-4 text-violet-100'}>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Guest Memory</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {selectedConversation.guestMemory.slice(0, 6).map((memory) => (
+                <span
+                  key={memory.id}
+                  className={isLight ? 'rounded-full border border-violet-200 bg-white px-2.5 py-1 text-xs font-semibold text-violet-800' : 'rounded-full border border-violet-300/20 bg-violet-400/10 px-2.5 py-1 text-xs font-semibold text-violet-100'}
+                >
+                  {memory.memory_key}: {memory.memory_value}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className={[
           'min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-6 sm:px-6',
           isLight ? 'bg-slate-50' : 'bg-[#080c14]/45'

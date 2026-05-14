@@ -123,7 +123,8 @@ export const detectUpsellOpportunities = ({
   language = 'es',
   message = '',
   recentMessages = [],
-  hotelKnowledge = []
+  hotelKnowledge = [],
+  guestMemory = []
 } = {}) => {
   const text = normalize([
     message,
@@ -131,39 +132,52 @@ export const detectUpsellOpportunities = ({
   ].join(' '));
   const boardBasis = normalize(reservation?.board_basis || '');
   const roomType = normalize(reservation?.room_type || '');
+  const memoryKeys = new Set((guestMemory || []).map((item) => item.memory_key));
   const stayLength = dayDiff(reservation?.arrival_date, reservation?.departure_date);
   const arrivalInDays = daysUntil(reservation?.arrival_date);
   const departureInDays = daysUntil(reservation?.departure_date);
   const opportunities = [];
 
-  if (includesAny(text, ['pareja', 'romantic', 'romantico', 'romantica', 'anniversary', 'aniversario', 'honeymoon', 'luna de miel'])) {
+  if (
+    includesAny(text, ['pareja', 'romantic', 'romantico', 'romantica', 'anniversary', 'aniversario', 'honeymoon', 'luna de miel'])
+    || memoryKeys.has('traveling_with_partner')
+    || memoryKeys.has('anniversary_trip')
+  ) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.ROMANTIC_PACKAGE,
       description: 'Guest context suggests a couple or romantic stay.',
-      triggerSource: 'conversation_context',
-      confidence: 0.86,
+      triggerSource: memoryKeys.has('anniversary_trip') ? 'guest_memory' : 'conversation_context',
+      confidence: memoryKeys.has('anniversary_trip') ? 0.9 : 0.86,
       language,
-      metadata: { stayLength, boardBasis: reservation?.board_basis || null }
+      metadata: { stayLength, boardBasis: reservation?.board_basis || null, memoryKeys: Array.from(memoryKeys) }
     }));
   }
 
-  if (includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado', 'flight', 'vuelo']) || (arrivalInDays !== null && arrivalInDays >= 0 && arrivalInDays <= 7)) {
+  if (
+    includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado', 'flight', 'vuelo'])
+    || memoryKeys.has('interested_transfer')
+    || (arrivalInDays !== null && arrivalInDays >= 0 && arrivalInDays <= 7)
+  ) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.AIRPORT_TRANSFER,
       description: 'Guest may need arrival transport support.',
-      triggerSource: includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado']) ? 'message_keyword' : 'pre_arrival',
-      confidence: includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado']) ? 0.9 : 0.68,
+      triggerSource: memoryKeys.has('interested_transfer') ? 'guest_memory' : includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado']) ? 'message_keyword' : 'pre_arrival',
+      confidence: memoryKeys.has('interested_transfer') ? 0.86 : includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado']) ? 0.9 : 0.68,
       language,
       metadata: { arrivalInDays, arrivalDate: reservation?.arrival_date || null }
     }));
   }
 
-  if (includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde', 'check out tarde', 'checkout tarde']) || departureInDays === 1) {
+  if (
+    includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde', 'check out tarde', 'checkout tarde'])
+    || memoryKeys.has('interested_late_checkout')
+    || departureInDays === 1
+  ) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.LATE_CHECKOUT,
       description: 'Departure timing may make late checkout useful.',
-      triggerSource: includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde']) ? 'message_keyword' : 'departure_timing',
-      confidence: includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde']) ? 0.88 : 0.7,
+      triggerSource: memoryKeys.has('interested_late_checkout') ? 'guest_memory' : includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde']) ? 'message_keyword' : 'departure_timing',
+      confidence: memoryKeys.has('interested_late_checkout') ? 0.86 : includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde']) ? 0.88 : 0.7,
       language,
       metadata: { departureInDays, departureDate: reservation?.departure_date || null }
     }));
@@ -171,24 +185,26 @@ export const detectUpsellOpportunities = ({
 
   if (
     includesAny(text, ['cena', 'cenar', 'dinner', 'restaurant', 'restaurante'])
+    || memoryKeys.has('interested_romantic_dinner')
+    || memoryKeys.has('traveling_with_partner')
     || (boardBasis.includes('breakfast') && Number(stayLength) >= 3)
   ) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.DINNER,
       description: 'Reservation or conversation suggests dinner may be useful.',
-      triggerSource: includesAny(text, ['cena', 'cenar', 'dinner', 'restaurant', 'restaurante']) ? 'message_keyword' : 'reservation_board_basis',
-      confidence: includesAny(text, ['cena', 'cenar', 'dinner']) ? 0.88 : 0.72,
+      triggerSource: memoryKeys.has('interested_romantic_dinner') || memoryKeys.has('traveling_with_partner') ? 'guest_memory' : includesAny(text, ['cena', 'cenar', 'dinner', 'restaurant', 'restaurante']) ? 'message_keyword' : 'reservation_board_basis',
+      confidence: memoryKeys.has('interested_romantic_dinner') ? 0.88 : includesAny(text, ['cena', 'cenar', 'dinner']) ? 0.88 : 0.72,
       language,
       metadata: { stayLength, boardBasis: reservation?.board_basis || null }
     }));
   }
 
-  if (includesAny(text, ['spa', 'masaje', 'massage', 'relax', 'relaj', 'wellness'])) {
+  if (includesAny(text, ['spa', 'masaje', 'massage', 'relax', 'relaj', 'wellness']) || memoryKeys.has('interested_spa')) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.SPA,
       description: 'Guest mentioned relaxation, spa or massage.',
-      triggerSource: 'message_keyword',
-      confidence: 0.86,
+      triggerSource: memoryKeys.has('interested_spa') ? 'guest_memory' : 'message_keyword',
+      confidence: memoryKeys.has('interested_spa') ? 0.84 : 0.86,
       language,
       metadata: { knowledgeKeys: hotelKnowledge.map((item) => item.key).filter(Boolean).slice(0, 5) }
     }));

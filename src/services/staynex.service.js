@@ -33,6 +33,10 @@ import {
   getRecentUpsellsForConversation,
   storeUpsellOpportunities
 } from './upsell.service.js';
+import {
+  detectGuestMemoryFromMessage,
+  upsertDetectedGuestMemories
+} from './guest-memory.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -151,7 +155,8 @@ export const processGuestMessage = async ({
     language: conversationContext.language,
     message,
     recentMessages: conversationContext.recentMessages,
-    hotelKnowledge
+    hotelKnowledge,
+    guestMemory: conversationContext.guestMemory
   });
 
   conversationContext.upsellOpportunities = upsellOpportunities;
@@ -257,6 +262,19 @@ export const processGuestMessage = async ({
     content: aiResponseWithUpsell.reply
   });
   const primaryUpsell = storedUpsells[0] || upsellOpportunities[0] || null;
+  const detectedMemories = detectGuestMemoryFromMessage({
+    message,
+    context: conversationContext,
+    aiResult: aiResponseWithUpsell
+  });
+  const savedMemories = await upsertDetectedGuestMemories({
+    hotelId: activeHotel.id,
+    guestId: guest.id,
+    sourceMessageId: guestMessage.id,
+    reservationId: conversationContext.reservation?.id || null,
+    memories: detectedMemories
+  });
+  const memoryKeysUsed = (conversationContext.guestMemory || []).map((item) => item.memory_key);
 
   await createAiLog({
     messageId: guestMessage.id,
@@ -281,7 +299,9 @@ export const processGuestMessage = async ({
     fallbackUsed: Boolean(aiResponseWithUpsell.fallbackUsed ?? aiResponseWithUpsell.fallback_used),
     upsellDetected: Boolean(primaryUpsell),
     upsellType: primaryUpsell?.upsell_type || null,
-    upsellConfidence: primaryUpsell?.confidence || null
+    upsellConfidence: primaryUpsell?.confidence || null,
+    memoryUsed: memoryKeysUsed.length > 0,
+    memoryKeysUsed: memoryKeysUsed
   });
 
   let twilioMessage = null;
@@ -302,6 +322,7 @@ export const processGuestMessage = async ({
     createTicket: aiResponseWithUpsell.create_ticket,
     ticketId: ticket?.id || null,
     upsellsDetected: upsellOpportunities.length,
+    memoriesDetected: detectedMemories.length,
     sentViaTwilio: Boolean(twilioMessage)
   });
 
@@ -322,6 +343,7 @@ export const processGuestMessage = async ({
     },
     ticket,
     upsells: storedUpsells,
+    memories: savedMemories,
     reservation: conversationContext.reservation,
     human: humanEscalation,
     delivery: {
