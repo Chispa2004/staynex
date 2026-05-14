@@ -80,6 +80,8 @@ export const AutomationsClient = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [runningScheduler, setRunningScheduler] = useState(false);
+  const [runResult, setRunResult] = useState(null);
   const [error, setError] = useState(null);
 
   const inputClass = isLight
@@ -123,6 +125,31 @@ export const AutomationsClient = () => {
   useEffect(() => {
     loadAutomations();
   }, []);
+
+  const runScheduler = async () => {
+    setRunningScheduler(true);
+    setRunResult(null);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/automations/run', {
+        method: 'POST',
+        headers: await getAuthHeaders()
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not run scheduler');
+      }
+
+      setRunResult(`Scheduler completed: ${body.scheduled || 0} messages scheduled.`);
+      await loadAutomations();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setRunningScheduler(false);
+    }
+  };
 
   const filteredMessages = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -176,8 +203,23 @@ export const AutomationsClient = () => {
             <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
             Refresh
           </button>
+          <button
+            type="button"
+            onClick={runScheduler}
+            disabled={runningScheduler}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-wait disabled:opacity-60"
+          >
+            <Bot className={runningScheduler ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
+            Run Scheduler
+          </button>
         </div>
       </Card>
+
+      {runResult ? (
+        <div className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800' : 'rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100'}>
+          {runResult}
+        </div>
+      ) : null}
 
       <Card className="p-4">
         <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px]">
