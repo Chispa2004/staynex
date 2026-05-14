@@ -9,11 +9,14 @@ import {
   CheckCircle2,
   Copy,
   Hotel,
+  Mail,
+  MessageSquareText,
   RefreshCw,
   Search,
   Send,
   X
 } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -32,6 +35,21 @@ const addDaysKey = (days) => {
   const date = new Date();
   date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
+};
+
+const addDaysToDate = (dateValue, days) => {
+  if (!dateValue) {
+    return null;
+  }
+
+  const date = new Date(`${dateValue}T12:00:00.000Z`);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString();
 };
 
 const formatDate = (value) => {
@@ -77,16 +95,96 @@ const getStayStatus = (reservation) => {
   return 'upcoming';
 };
 
+const getJourneyStatus = (reservation) => {
+  if (reservation.computedJourneyStatus) {
+    return reservation.computedJourneyStatus;
+  }
+
+  const today = todayKey();
+
+  if (reservation.departure_date && today > reservation.departure_date) {
+    return 'post_stay';
+  }
+
+  if (
+    reservation.arrival_date
+    && reservation.departure_date
+    && today >= reservation.arrival_date
+    && today <= reservation.departure_date
+  ) {
+    return 'in_house';
+  }
+
+  return 'pre_arrival';
+};
+
 const statusTone = (status) => {
-  if (status === 'in_house') {
+  if (status === 'in_house' || status === 'linked') {
     return 'emerald';
   }
 
-  if (status === 'completed') {
+  if (status === 'completed' || status === 'post_stay' || status === 'not_linked') {
     return 'slate';
   }
 
+  if (status === 'pre_arrival') {
+    return 'amber';
+  }
+
   return 'sky';
+};
+
+const buildEmailSnippet = (reservation) => (
+  reservation.whatsapp_link
+    ? [
+      'Need help before your stay?',
+      '',
+      'Chat with the hotel on WhatsApp:',
+      reservation.whatsapp_link
+    ].join('\n')
+    : ''
+);
+
+const generate7DayPreArrivalPreview = (reservation) => {
+  const guestName = reservation.guest_name?.split(' ')[0] || 'there';
+  const details = [
+    reservation.room_type ? `Room type: ${reservation.room_type}.` : null,
+    reservation.board_basis ? `Board basis: ${reservation.board_basis}.` : null
+  ].filter(Boolean).join(' ');
+
+  return [
+    `Hola ${guestName} 👋`,
+    `Estamos deseando recibirte el ${reservation.arrival_date || 'dia de tu llegada'}.`,
+    details,
+    '¿Necesitas parking, transfer o recomendaciones?'
+  ].filter(Boolean).join('\n');
+};
+
+const generate1DayPreArrivalPreview = (reservation) => {
+  const guestName = reservation.guest_name?.split(' ')[0] || 'there';
+
+  return [
+    `Hola ${guestName} 😊`,
+    'Tu llegada es mañana.',
+    reservation.room_type ? `Tu reserva es para ${reservation.room_type}.` : null,
+    'Puedes escribirnos directamente por este chat para cualquier cosa.'
+  ].filter(Boolean).join('\n');
+};
+
+const buildAutomationPreview = (reservation) => {
+  const storedEvents = reservation.automation_events || [];
+
+  if (storedEvents.length > 0) {
+    return storedEvents;
+  }
+
+  return [
+    { id: 'booking_confirmation', event_type: 'booking_confirmation', scheduled_for: new Date().toISOString(), channel: 'email', status: 'scheduled' },
+    { id: 'pre_arrival_7_days', event_type: 'pre_arrival_7_days', scheduled_for: addDaysToDate(reservation.arrival_date, -7), channel: 'email', status: reservation.arrival_date ? 'scheduled' : 'pending_date' },
+    { id: 'pre_arrival_1_day', event_type: 'pre_arrival_1_day', scheduled_for: addDaysToDate(reservation.arrival_date, -1), channel: 'email', status: reservation.arrival_date ? 'scheduled' : 'pending_date' },
+    { id: 'post_stay_review', event_type: 'post_stay_review', scheduled_for: addDaysToDate(reservation.departure_date, 1), channel: 'email', status: reservation.departure_date ? 'scheduled' : 'pending_date' },
+    { id: 'post_stay_discount', event_type: 'post_stay_discount', scheduled_for: addDaysToDate(reservation.departure_date, 14), channel: 'email', status: reservation.departure_date ? 'scheduled' : 'pending_date' }
+  ];
 };
 
 const matchesFilter = (reservation, filter) => {
@@ -251,28 +349,25 @@ const ReservationDetail = ({ reservation, onClose }) => {
         <DetailRow label={t('reservations.columns.ratePlan')} value={reservation.rate_plan} />
         <DetailRow label={t('reservations.columns.boardBasis')} value={reservation.board_basis} />
         <DetailRow label={t('reservations.columns.status')} value={reservation.status} />
+        <DetailRow label={t('reservations.columns.journey')} value={t(`reservations.journey.${getJourneyStatus(reservation)}`)} />
         <DetailRow label={t('reservations.columns.pmsProvider')} value={reservation.pms_provider} />
         <DetailRow label={t('reservations.columns.pmsReservationId')} value={reservation.pms_reservation_id} />
         <DetailRow label={t('reservations.columns.accessToken')} value={reservation.reservation_access_token} />
         <DetailRow label={t('reservations.columns.whatsappLink')} value={reservation.whatsapp_link} />
+        <DetailRow label={t('reservations.columns.linkedConversation')} value={reservation.conversationId ? t('reservations.linked') : t('reservations.notLinked')} />
         <DetailRow label="created_at" value={formatDateTime(reservation.created_at)} />
       </dl>
 
       <div className={isLight ? 'border-t border-slate-200 p-5' : 'border-t border-white/10 p-5'}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>
-            {t('reservations.automationEvents')}
+            {t('reservations.upcomingAutomations')}
           </h3>
-          <Badge tone="sky">{reservation.automation_events?.length || 0}</Badge>
+          <Badge tone="sky">{buildAutomationPreview(reservation).length}</Badge>
         </div>
 
         <div className="space-y-3">
-          {(reservation.automation_events || []).length === 0 ? (
-            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>
-              {t('reservations.noAutomationEvents')}
-            </p>
-          ) : (
-            reservation.automation_events.map((event) => (
+          {buildAutomationPreview(reservation).map((event) => (
               <div
                 key={event.id}
                 className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.035] p-3'}
@@ -287,8 +382,31 @@ const ReservationDetail = ({ reservation, onClose }) => {
                   {event.channel} · {formatDateTime(event.scheduled_for)}
                 </p>
               </div>
-            ))
-          )}
+          ))}
+        </div>
+      </div>
+
+      <div className={isLight ? 'border-t border-slate-200 p-5' : 'border-t border-white/10 p-5'}>
+        <h3 className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>
+          {t('reservations.preArrivalPreviews')}
+        </h3>
+        <div className="mt-4 space-y-3">
+          {[
+            { label: t('reservations.preview7Day'), value: generate7DayPreArrivalPreview(reservation) },
+            { label: t('reservations.preview1Day'), value: generate1DayPreArrivalPreview(reservation) }
+          ].map((item) => (
+            <div
+              key={item.label}
+              className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-black/20 p-3'}
+            >
+              <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500'}>
+                {item.label}
+              </p>
+              <p className={isLight ? 'mt-2 whitespace-pre-line text-sm leading-6 text-slate-800' : 'mt-2 whitespace-pre-line text-sm leading-6 text-slate-200'}>
+                {item.value}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </Card>
@@ -477,7 +595,7 @@ export const ReservationsClient = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-[1240px] w-full text-left">
+              <table className="min-w-[1500px] w-full text-left">
                 <thead className={isLight ? 'bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500' : 'bg-white/[0.025] text-xs uppercase tracking-[0.12em] text-slate-500'}>
                   <tr>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.guest')}</th>
@@ -489,6 +607,8 @@ export const ReservationsClient = () => {
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.ratePlan')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.boardBasis')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.status')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('reservations.columns.journey')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('reservations.columns.linkedConversation')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.pmsProvider')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.accessToken')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.whatsapp')}</th>
@@ -498,6 +618,7 @@ export const ReservationsClient = () => {
                 <tbody className={isLight ? 'divide-y divide-slate-200' : 'divide-y divide-white/10'}>
                   {filteredReservations.map((reservation) => {
                     const stayStatus = getStayStatus(reservation);
+                    const journeyStatus = getJourneyStatus(reservation);
                     const selected = selectedReservation?.id === reservation.id;
 
                     return (
@@ -532,6 +653,14 @@ export const ReservationsClient = () => {
                           <Badge tone={statusTone(stayStatus)}>{t(`reservations.status.${stayStatus}`)}</Badge>
                         </td>
                         <td className="px-4 py-4">
+                          <Badge tone={statusTone(journeyStatus)}>{t(`reservations.journey.${journeyStatus}`)}</Badge>
+                        </td>
+                        <td className="px-4 py-4">
+                          <Badge tone={reservation.conversationId ? 'emerald' : 'slate'}>
+                            {reservation.conversationId ? t('reservations.linked') : t('reservations.notLinked')}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-4">
                           <Badge>{reservation.pms_provider || 'mock'}</Badge>
                         </td>
                         <td className="px-4 py-4">
@@ -558,12 +687,50 @@ export const ReservationsClient = () => {
                               </button>
                             </div>
                           ) : (
-                            <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-600'}>-</span>
+                            reservation.conversationId ? (
+                              <Link
+                                href={`/dashboard/inbox?conversationId=${reservation.conversationId}`}
+                                onClick={(event) => event.stopPropagation()}
+                                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 transition hover:bg-sky-100' : 'inline-flex items-center gap-2 rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-300/15'}
+                              >
+                                <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
+                                {t('reservations.openConversation')}
+                              </Link>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                title={t('reservations.noConversationYet')}
+                                onClick={(event) => event.stopPropagation()}
+                                className={isLight ? 'inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-400' : 'inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-semibold text-slate-600'}
+                              >
+                                <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
+                                {t('reservations.openConversation')}
+                              </button>
+                            )
                           )}
                         </td>
                         <td className="px-4 py-4">
                           {reservation.whatsapp_link ? (
                             <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  copyValue({
+                                    key: `email-${reservation.id}`,
+                                    value: buildEmailSnippet(reservation)
+                                  });
+                                }}
+                                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-white'}
+                              >
+                                {copiedAction === `email-${reservation.id}` ? (
+                                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                                ) : (
+                                  <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                                )}
+                                {copiedAction === `email-${reservation.id}` ? t('reservations.copied') : t('reservations.copyEmailSnippet')}
+                              </button>
                               <button
                                 type="button"
                                 onClick={(event) => {
@@ -592,13 +759,34 @@ export const ReservationsClient = () => {
                                 <Send className="h-3.5 w-3.5" aria-hidden="true" />
                                 {t('reservations.openWhatsapp')}
                               </a>
+                              {reservation.conversationId ? (
+                                <Link
+                                  href={`/dashboard/inbox?conversationId=${reservation.conversationId}`}
+                                  onClick={(event) => event.stopPropagation()}
+                                  className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 transition hover:bg-sky-100' : 'inline-flex items-center gap-2 rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-300/15'}
+                                >
+                                  <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
+                                  {t('reservations.openConversation')}
+                                </Link>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled
+                                  title={t('reservations.noConversationYet')}
+                                  onClick={(event) => event.stopPropagation()}
+                                  className={isLight ? 'inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-400' : 'inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-semibold text-slate-600'}
+                                >
+                                  <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
+                                  {t('reservations.openConversation')}
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-600'}>-</span>
                           )}
                         </td>
                         <td className="px-4 py-4">
-                          <Badge tone="sky">{reservation.automation_events?.length || 0}</Badge>
+                          <Badge tone="sky">{buildAutomationPreview(reservation).length}</Badge>
                         </td>
                       </tr>
                     );

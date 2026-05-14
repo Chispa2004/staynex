@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, Eye, EyeOff, RefreshCw, Send } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
@@ -215,12 +216,16 @@ const updateConversationWithMessage = ({ conversations, conversationId, message 
 );
 
 export const InboxClient = ({ conversations }) => {
+  const searchParams = useSearchParams();
   const { language, t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const sortedConversations = useMemo(() => sortConversations(conversations), [conversations]);
+  const requestedConversationId = searchParams.get('conversationId');
   const [items, setItems] = useState(sortedConversations);
-  const [selectedId, setSelectedId] = useState(sortedConversations[0]?.id || null);
+  const [selectedId, setSelectedId] = useState(
+    requestedConversationId || sortedConversations[0]?.id || null
+  );
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [hiddenTranslations, setHiddenTranslations] = useState({});
@@ -244,6 +249,12 @@ export const InboxClient = ({ conversations }) => {
     setReadState(readStoredReadState());
     setReadStateLoaded(true);
   }, []);
+
+  useEffect(() => {
+    if (requestedConversationId && items.some((conversation) => conversation.id === requestedConversationId)) {
+      setSelectedId(requestedConversationId);
+    }
+  }, [items, requestedConversationId]);
 
   useEffect(() => {
     if (readStateLoaded) {
