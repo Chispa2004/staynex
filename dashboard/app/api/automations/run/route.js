@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { runAutomationScheduler } from '../../../../../src/services/scheduler.service.js';
+import { runDashboardAutomationScheduler } from '@/lib/automation-runner';
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    route: 'automations-run'
+  });
+}
 
 export async function POST(request) {
   try {
-    const { hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel } = await getCurrentHotelForRequest(request);
 
     if (!hotel?.id) {
       return NextResponse.json(
@@ -17,8 +24,9 @@ export async function POST(request) {
       );
     }
 
-    const scheduledMessages = await runAutomationScheduler({
-      hotelId: hotel.id
+    const scheduledMessages = await runDashboardAutomationScheduler({
+      supabase,
+      hotel
     });
 
     return NextResponse.json({
