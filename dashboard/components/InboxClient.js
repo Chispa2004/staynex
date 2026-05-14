@@ -498,6 +498,19 @@ export const InboxClient = ({ conversations }) => {
           scheduleRealtimeReload('conversation_insert');
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ai_offers',
+          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+        },
+        (payload) => {
+          console.log('AI Offer change received', payload.new || payload.old);
+          scheduleRealtimeReload('ai_offer_change');
+        }
+      )
       .subscribe((status, error) => {
         if (status === 'SUBSCRIBED') {
           console.log('Realtime connected');
@@ -581,6 +594,35 @@ export const InboxClient = ({ conversations }) => {
       console.error('Staff message send failed', error);
     } finally {
       setSending(false);
+    }
+  };
+
+  const updateOfferAction = async ({ offerId, action }) => {
+    try {
+      const supabase = getSupabaseBrowser();
+      const { data } = supabase
+        ? await supabase.auth.getSession()
+        : { data: { session: null } };
+      const headers = data?.session?.access_token
+        ? { Authorization: `Bearer ${data.session.access_token}` }
+        : {};
+      const response = await fetch('/api/ai-offers', {
+        method: 'PATCH',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ offerId, action })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not update AI offer');
+      }
+
+      await refreshInboxSilently({ reason: `offer_${action}` });
+    } catch (error) {
+      console.error('AI offer action failed', error);
     }
   };
 
@@ -718,6 +760,7 @@ export const InboxClient = ({ conversations }) => {
             const needsAttention = humanEscalation.needsHuman || getNeedsAttention(conversation, unreadCount);
             const isNew = getIsNewConversation(conversation, readState);
             const hasUpsell = (conversation.upsells || []).length > 0;
+            const hasOffer = (conversation.offers || []).length > 0;
 
             return (
               <button
@@ -780,6 +823,10 @@ export const InboxClient = ({ conversations }) => {
                     {unread ? (
                       <span className="rounded-full bg-emerald-300 px-2 py-1 text-[11px] font-black text-slate-950 shadow-lg shadow-emerald-500/20">
                         {unreadCount > 9 ? '9+' : t('inbox.newCount', { count: unreadCount })}
+                      </span>
+                    ) : hasOffer ? (
+                      <span className={isLight ? 'rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-100'}>
+                        AI Offer
                       </span>
                     ) : hasUpsell ? (
                       <span className={isLight ? 'rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-800' : 'rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-1 text-[11px] font-semibold text-violet-100'}>
@@ -854,6 +901,33 @@ export const InboxClient = ({ conversations }) => {
                 >
                   Upsell opportunity: {upsell.upsell_type}
                 </span>
+              ))}
+            </div>
+          ) : null}
+          {(selectedConversation?.offers || []).length > 0 ? (
+            <div className="mt-3 space-y-2">
+              {selectedConversation.offers.slice(0, 2).map((offer) => (
+                <div
+                  key={offer.id}
+                  className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 p-3' : 'rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-3'}
+                >
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                    <div>
+                      <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>
+                        AI Offer: {offer.offer_type} - {new Intl.NumberFormat(undefined, { style: 'currency', currency: offer.currency || 'EUR', maximumFractionDigits: 0 }).format(Number(offer.suggested_price || 0))}
+                      </p>
+                      <p className={isLight ? 'mt-1 text-xs text-slate-600' : 'mt-1 text-xs text-slate-400'}>
+                        {offer.ai_reason || 'Detected by AI Concierge Revenue Copilot'}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => updateOfferAction({ offerId: offer.id, action: 'send' })} className="rounded-md bg-emerald-300 px-2.5 py-1.5 text-xs font-semibold text-slate-950 hover:bg-emerald-200">Send AI Offer</button>
+                      <button type="button" onClick={() => updateOfferAction({ offerId: offer.id, action: 'accept' })} className={isLight ? 'rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'rounded-md border border-white/10 bg-white/[0.05] px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/[0.09]'}>Accept Offer</button>
+                      <button type="button" onClick={() => updateOfferAction({ offerId: offer.id, action: 'reject' })} className={isLight ? 'rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100' : 'rounded-md border border-red-300/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/15'}>Reject Offer</button>
+                      <button type="button" onClick={() => updateOfferAction({ offerId: offer.id, action: 'escalate' })} className={isLight ? 'rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-orange-800 hover:bg-orange-100' : 'rounded-md border border-orange-300/20 bg-orange-400/10 px-2.5 py-1.5 text-xs font-semibold text-orange-100 hover:bg-orange-400/15'}>Escalate to Reception</button>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           ) : null}

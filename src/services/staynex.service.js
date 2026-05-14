@@ -37,6 +37,16 @@ import {
   detectGuestMemoryFromMessage,
   upsertDetectedGuestMemories
 } from './guest-memory.service.js';
+import {
+  createAiOffer,
+  createOperationalTicketForConciergeRisk,
+  detectGuestIntent,
+  detectOperationalRisk as detectConciergeOperationalRisk,
+  detectRevenueOpportunity,
+  generateConciergeResponse,
+  generateDepartmentAction,
+  persistConciergeMemory
+} from './concierge-ai.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -158,8 +168,31 @@ export const processGuestMessage = async ({
     hotelKnowledge,
     guestMemory: conversationContext.guestMemory
   });
+  const conciergeIntent = detectGuestIntent({
+    message,
+    context: conversationContext
+  });
+  const conciergeRevenueOpportunity = detectRevenueOpportunity({
+    intentResult: conciergeIntent,
+    context: conversationContext
+  });
+  const conciergeRisk = detectConciergeOperationalRisk({
+    intentResult: conciergeIntent,
+    message
+  });
+  const conciergeDepartmentAction = generateDepartmentAction({
+    intentResult: conciergeIntent,
+    opportunity: conciergeRevenueOpportunity,
+    risk: conciergeRisk
+  });
 
   conversationContext.upsellOpportunities = upsellOpportunities;
+  conversationContext.concierge = {
+    intent: conciergeIntent,
+    revenueOpportunity: conciergeRevenueOpportunity,
+    risk: conciergeRisk,
+    departmentAction: conciergeDepartmentAction
+  };
 
   const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled());
 
@@ -207,12 +240,32 @@ export const processGuestMessage = async ({
       ...rawAiResponse,
       escalate_to_human: rawAiResponse.escalate_to_human || humanEscalation.needsHuman
     };
-  const aiResponseWithUpsell = upsellOpportunities.length > 0
+  const conciergeReply = generateConciergeResponse({
+    intentResult: conciergeIntent,
+    opportunity: conciergeRevenueOpportunity,
+    risk: conciergeRisk,
+    language: conversationContext.language
+  });
+  const aiResponseWithConcierge = conciergeReply && !aiResponse.emergency
     ? {
       ...aiResponse,
+      reply: conciergeReply,
+      intent: conciergeIntent.intent || aiResponse.intent,
+      confidence: Math.max(Number(aiResponse.confidence || 0), Number(conciergeIntent.confidence || 0.75)),
+      concierge_intent: conciergeIntent.intent,
+      upsell_opportunity: Boolean(conciergeRevenueOpportunity) || aiResponse.upsell_opportunity,
+      escalate_to_human: aiResponse.escalate_to_human || conciergeRisk.hasRisk
+    }
+    : {
+      ...aiResponse,
+      concierge_intent: conciergeIntent.intent
+    };
+  const aiResponseWithUpsell = upsellOpportunities.length > 0
+    ? {
+      ...aiResponseWithConcierge,
       upsell_opportunity: true
     }
-    : aiResponse;
+    : aiResponseWithConcierge;
 
   if (humanEscalation.needsHuman) {
     logger.warn('Conversation marked as needs human', {
@@ -230,6 +283,22 @@ export const processGuestMessage = async ({
     conversation,
     reservation: conversationContext.reservation,
     opportunities: upsellOpportunities
+  });
+  const conciergeOffer = await createAiOffer({
+    hotel: activeHotel,
+    guest,
+    conversation,
+    reservation: conversationContext.reservation,
+    opportunity: conciergeRevenueOpportunity,
+    status: conciergeReply && conciergeRevenueOpportunity ? 'sent' : 'suggested'
+  });
+  const conciergeMemories = await persistConciergeMemory({
+    hotel: activeHotel,
+    guest,
+    reservation: conversationContext.reservation,
+    intentResult: conciergeIntent,
+    opportunity: conciergeRevenueOpportunity,
+    risk: conciergeRisk
   });
   const recentUpsells = storedUpsells.length > 0
     ? storedUpsells
@@ -252,6 +321,16 @@ export const processGuestMessage = async ({
       guest,
       conversation,
       interest: upsellInterest,
+      message
+    });
+  }
+
+  if (!ticket && conciergeRisk.hasRisk) {
+    ticket = await createOperationalTicketForConciergeRisk({
+      hotel: activeHotel,
+      guest,
+      conversation,
+      risk: conciergeRisk,
       message
     });
   }
@@ -298,10 +377,14 @@ export const processGuestMessage = async ({
     aiModel: aiResponseWithUpsell.aiModel || aiResponseWithUpsell.ai_model || null,
     fallbackUsed: Boolean(aiResponseWithUpsell.fallbackUsed ?? aiResponseWithUpsell.fallback_used),
     upsellDetected: Boolean(primaryUpsell),
-    upsellType: primaryUpsell?.upsell_type || null,
-    upsellConfidence: primaryUpsell?.confidence || null,
+    upsellType: primaryUpsell?.upsell_type || conciergeRevenueOpportunity?.offerType || null,
+    upsellConfidence: primaryUpsell?.confidence || conciergeRevenueOpportunity?.confidence || null,
     memoryUsed: memoryKeysUsed.length > 0,
-    memoryKeysUsed: memoryKeysUsed
+    memoryKeysUsed: memoryKeysUsed,
+    conciergeIntent: conciergeIntent.intent || null,
+    offerCreated: Boolean(conciergeOffer),
+    offerType: conciergeOffer?.offer_type || conciergeRevenueOpportunity?.offerType || null,
+    offerStatus: conciergeOffer?.status || null
   });
 
   let twilioMessage = null;
@@ -322,7 +405,9 @@ export const processGuestMessage = async ({
     createTicket: aiResponseWithUpsell.create_ticket,
     ticketId: ticket?.id || null,
     upsellsDetected: upsellOpportunities.length,
-    memoriesDetected: detectedMemories.length,
+    memoriesDetected: detectedMemories.length + conciergeMemories.length,
+    conciergeIntent: conciergeIntent.intent || null,
+    conciergeOfferId: conciergeOffer?.id || null,
     sentViaTwilio: Boolean(twilioMessage)
   });
 
@@ -343,6 +428,13 @@ export const processGuestMessage = async ({
     },
     ticket,
     upsells: storedUpsells,
+    concierge: {
+      intent: conciergeIntent,
+      offer: conciergeOffer,
+      revenueOpportunity: conciergeRevenueOpportunity,
+      risk: conciergeRisk,
+      departmentAction: conciergeDepartmentAction
+    },
     memories: savedMemories,
     reservation: conversationContext.reservation,
     human: humanEscalation,

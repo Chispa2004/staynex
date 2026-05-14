@@ -60,6 +60,32 @@ const getActiveUpsellsByConversation = async ({ supabase, conversationIds }) => 
   }
 };
 
+const getActiveOffersByConversation = async ({ supabase, conversationIds }) => {
+  try {
+    const { data, error } = await supabase
+      .from('ai_offers')
+      .select('id, conversation_id, offer_type, suggested_price, currency, status, confidence, ai_reason, created_at')
+      .in('conversation_id', conversationIds)
+      .in('status', ['suggested', 'sent'])
+      .order('created_at', { ascending: false })
+      .limit(250);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((offersByConversation, offer) => {
+      const current = offersByConversation.get(offer.conversation_id) || [];
+      current.push(offer);
+      offersByConversation.set(offer.conversation_id, current);
+      return offersByConversation;
+    }, new Map());
+  } catch (error) {
+    console.warn('Inbox AI offer metadata unavailable', error.message);
+    return new Map();
+  }
+};
+
 const getGuestMemoryByGuest = async ({ supabase, guestIds }) => {
   try {
     const { data, error } = await supabase
@@ -120,7 +146,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id))];
   const conversationIds = conversations.map((conversation) => conversation.id);
 
-  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, memoryByGuest] = await Promise.all([
+  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, offersByConversation, memoryByGuest] = await Promise.all([
     supabase
       .from('guests')
       .select('id, phone_number, current_room')
@@ -132,6 +158,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
       .order('created_at', { ascending: true }),
     getLatestAiLogsByConversation({ supabase, conversationIds }),
     getActiveUpsellsByConversation({ supabase, conversationIds }),
+    getActiveOffersByConversation({ supabase, conversationIds }),
     getGuestMemoryByGuest({ supabase, guestIds })
   ]);
 
@@ -157,7 +184,8 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
       messages: conversationMessages,
       lastMessage,
       aiLog: aiLogsByConversation.get(conversation.id) || null,
-      upsells: upsellsByConversation.get(conversation.id) || []
+      upsells: upsellsByConversation.get(conversation.id) || [],
+      offers: offersByConversation.get(conversation.id) || []
     };
   });
 };

@@ -57,8 +57,11 @@ const isMissingRevenueTable = (error) => (
 const isMissingOptionalTable = (error) => (
   isMissingRevenueTable(error)
   || error?.message?.includes('guest_ai_profiles')
+  || error?.message?.includes('ai_offers')
   || error?.details?.includes('guest_ai_profiles')
+  || error?.details?.includes('ai_offers')
   || error?.hint?.includes('guest_ai_profiles')
+  || error?.hint?.includes('ai_offers')
 );
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
@@ -76,6 +79,7 @@ const buildActivityFeed = ({
   conversations,
   scheduledMessages,
   upsells,
+  offers = [],
   guestMemory,
   conversions = []
 }) => [
@@ -110,6 +114,14 @@ const buildActivityFeed = ({
     createdAt: item.created_at || item.scheduled_for,
     tone: 'sky',
     href: '/dashboard/automations'
+  })),
+  ...offers.map((item) => formatActivity({
+    type: 'revenue',
+    title: item.status === 'accepted' ? 'AI offer accepted' : item.status === 'sent' ? 'AI offer sent' : 'AI revenue opportunity',
+    description: `${item.offer_type} - ${new Intl.NumberFormat(undefined, { style: 'currency', currency: item.currency || 'EUR', maximumFractionDigits: 0 }).format(Number(item.suggested_price || 0))}`,
+    createdAt: item.updated_at || item.created_at,
+    tone: item.status === 'accepted' ? 'emerald' : item.status === 'rejected' ? 'red' : 'violet',
+    href: '/dashboard/inbox'
   })),
   ...guestMemory.map((item) => formatActivity({
     type: 'memory',
@@ -276,6 +288,7 @@ export async function GET(request) {
       recentScheduledMessages,
       recentUpsells,
       recentConversions,
+      recentOffers,
       recentGuestMemory,
       recentGuestProfiles,
       reservationsToday,
@@ -327,6 +340,10 @@ export async function GET(request) {
       ).order('created_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
         supabase.from('upsell_conversions').select('id, guest_id, upsell_id, upsell_type, status, estimated_amount, currency, offer_sent_at, accepted_at, created_at, updated_at'),
+        hotelId
+      ).order('updated_at', { ascending: false }).limit(50)),
+      safeRows(withHotel(
+        supabase.from('ai_offers').select('id, guest_id, conversation_id, offer_type, suggested_price, currency, status, confidence, ai_reason, created_at, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
@@ -382,6 +399,7 @@ export async function GET(request) {
       ...recentGuestMemory.map((item) => item.guest_id),
       ...recentUpsells.map((item) => item.guest_id),
       ...recentConversions.map((item) => item.guest_id),
+      ...recentOffers.map((item) => item.guest_id),
       ...allTickets.map((item) => item.guest_id),
       ...recentConversations.map((item) => item.guest_id)
     ].filter(Boolean))].slice(0, 50);
@@ -400,6 +418,12 @@ export async function GET(request) {
       tickets: allTickets,
       conversations: recentConversations
     });
+    const activeOffers = recentOffers.filter((item) => ['suggested', 'sent'].includes(item.status));
+    const acceptedOffers = recentOffers.filter((item) => item.status === 'accepted');
+    const offerRevenuePotential = activeOffers.reduce((total, item) => total + Number(item.suggested_price || 0), 0);
+    const offerRevenueGenerated = acceptedOffers.reduce((total, item) => total + Number(item.suggested_price || 0), 0);
+    const offerTypeCounts = countBy(recentOffers, 'offer_type');
+    const topOfferCategory = Object.entries(offerTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
     return NextResponse.json({
       hotel,
@@ -455,6 +479,21 @@ export async function GET(request) {
         conversionRate,
         topUpsellCategory
       },
+      conciergeRevenue: {
+        activeOpportunities: activeOffers.length,
+        potentialRevenue: offerRevenuePotential,
+        acceptedOffers: acceptedOffers.length,
+        generatedRevenue: offerRevenueGenerated,
+        averageOfferValue: recentOffers.length
+          ? Math.round(recentOffers.reduce((total, item) => total + Number(item.suggested_price || 0), 0) / recentOffers.length)
+          : 0,
+        conversionRate: recentOffers.length
+          ? Math.round((acceptedOffers.length / recentOffers.length) * 100)
+          : 0,
+        topCategory: topOfferCategory,
+        byType: offerTypeCounts,
+        recentOffers: recentOffers.slice(0, 6)
+      },
       guestSignals,
       activity: buildActivityFeed({
         aiLogs: recentAiLogs,
@@ -462,6 +501,7 @@ export async function GET(request) {
         conversations: recentConversations,
         scheduledMessages: recentScheduledMessages,
         upsells: recentUpsells,
+        offers: recentOffers,
         guestMemory: recentGuestMemory,
         conversions: recentConversions
       }),

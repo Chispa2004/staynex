@@ -36,6 +36,10 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('automation_type')
   || error?.message?.includes('automation_sent')
   || error?.message?.includes('automation_fallback')
+  || error?.message?.includes('concierge_intent')
+  || error?.message?.includes('offer_created')
+  || error?.message?.includes('offer_type')
+  || error?.message?.includes('offer_status')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
@@ -49,6 +53,10 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('automation_type')
   || error?.details?.includes('automation_sent')
   || error?.details?.includes('automation_fallback')
+  || error?.details?.includes('concierge_intent')
+  || error?.details?.includes('offer_created')
+  || error?.details?.includes('offer_type')
+  || error?.details?.includes('offer_status')
 );
 
 export const createAiLog = async ({
@@ -81,6 +89,10 @@ export const createAiLog = async ({
   automationType = null,
   automationSent = false,
   automationFallback = false,
+  conciergeIntent = null,
+  offerCreated = false,
+  offerType = null,
+  offerStatus = null,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -116,7 +128,11 @@ export const createAiLog = async ({
       automation_triggered: Boolean(automationTriggered),
       automation_type: toNullableText(automationType),
       automation_sent: Boolean(automationSent),
-      automation_fallback: Boolean(automationFallback)
+      automation_fallback: Boolean(automationFallback),
+      concierge_intent: toNullableText(conciergeIntent),
+      offer_created: Boolean(offerCreated),
+      offer_type: toNullableText(offerType),
+      offer_status: toNullableText(offerStatus)
     };
 
     let { data, error } = await supabase
@@ -146,6 +162,10 @@ export const createAiLog = async ({
         automation_type,
         automation_sent,
         automation_fallback,
+        concierge_intent,
+        offer_created,
+        offer_type,
+        offer_status,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase
