@@ -4,14 +4,17 @@ import {
   updateKnowledgeEntry
 } from '@/lib/knowledge';
 
-const validatePayload = ({ key, value }) => {
+const validatePayload = ({ title, key, category, value, is_active }) => {
   if (!key?.trim() || !value?.trim()) {
     throw new Error('key and value are required');
   }
 
   return {
+    title: title?.trim() || key.trim(),
     key: key.trim(),
-    value: value.trim()
+    category: category?.trim() || key.trim(),
+    value: value.trim(),
+    is_active: is_active ?? true
   };
 };
 
@@ -19,7 +22,7 @@ export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
     const payload = validatePayload(await request.json());
-    const entry = await updateKnowledgeEntry({
+    const entry = await updateKnowledgeEntry(request, {
       id,
       ...payload
     });
@@ -36,7 +39,7 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    await deleteKnowledgeEntry(id);
+    await deleteKnowledgeEntry(request, id);
 
     return NextResponse.json({ id });
   } catch (error) {

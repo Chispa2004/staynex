@@ -2,11 +2,13 @@ import {
   createConversation,
   createMessage,
   findActiveConversation,
-  getHotelKnowledge,
   touchConversation
 } from './supabase.service.js';
 import { analyzeGuestMessage } from './openai.service.js';
-import { findKnowledgeAnswerWithMetadata } from './knowledge.service.js';
+import {
+  findKnowledgeAnswerWithMetadata,
+  getKnowledgeForHotel
+} from './knowledge.service.js';
 import { createTicketFromAiResponse } from './ticket.service.js';
 import { findOrCreateGuest } from './guest.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
@@ -136,7 +138,7 @@ export const processGuestMessage = async ({
       key: knowledgeResult.metadata.knowledgeKey,
       value: knowledgeResult.metadata.knowledgeValue
     }]
-    : await getHotelKnowledge(activeHotel.id);
+    : await getKnowledgeForHotel(activeHotel.id);
   const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled());
 
   const rawAiResponse = withAiMetadata(
@@ -217,6 +219,7 @@ export const processGuestMessage = async ({
     confidenceScore: aiResponse.confidence,
     knowledgeUsed: Boolean(knowledgeResult),
     knowledgeKey: knowledgeResult?.metadata?.knowledgeKey || null,
+    knowledgeHotelId: knowledgeResult?.metadata?.knowledgeHotelId || null,
     ticketCreated: Boolean(ticket),
     ticketId: ticket?.id || null,
     ticketCategory: ticket?.category || aiResponse.ticket?.category || null,

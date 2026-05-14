@@ -1,7 +1,8 @@
 import { validateAiResponse } from '../schemas/ai-response.schema.js';
-import { getHotelKnowledge, getSupabase } from './supabase.service.js';
+import { getSupabase } from './supabase.service.js';
 import { normalizeLanguage } from './language.service.js';
 import { logger } from '../utils/logger.js';
+import { getDefaultHotel } from './hotel.service.js';
 
 const KNOWLEDGE_DEMO_ENTRIES = [
   { key: 'desayuno', value: 'El desayuno es de 07:30 a 10:30.' },
@@ -105,6 +106,123 @@ const normalize = (value) => value
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
 
+const isMissingKnowledgeMetadataColumns = (error) => (
+  error?.message?.includes('title')
+  || error?.message?.includes('category')
+  || error?.message?.includes('is_active')
+  || error?.message?.includes('updated_at')
+  || error?.details?.includes('title')
+  || error?.details?.includes('category')
+  || error?.details?.includes('is_active')
+  || error?.details?.includes('updated_at')
+);
+
+const normalizeKnowledgeEntry = (entry) => ({
+  ...entry,
+  title: entry.title || entry.key,
+  category: entry.category || entry.key,
+  is_active: entry.is_active ?? true
+});
+
+export const getKnowledgeForHotel = async (hotelId, { activeOnly = true } = {}) => {
+  if (!hotelId) {
+    return [];
+  }
+
+  const supabase = getSupabase();
+  let query = supabase
+    .from('hotel_knowledge')
+    .select('id, hotel_id, title, key, category, value, is_active, updated_at')
+    .eq('hotel_id', hotelId)
+    .order('key', { ascending: true });
+
+  if (activeOnly) {
+    query = query.eq('is_active', true);
+  }
+
+  let { data, error } = await query;
+
+  if (error && isMissingKnowledgeMetadataColumns(error)) {
+    const fallbackResult = await supabase
+      .from('hotel_knowledge')
+      .select('id, hotel_id, key, value')
+      .eq('hotel_id', hotelId)
+      .order('key', { ascending: true });
+
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).map(normalizeKnowledgeEntry);
+};
+
+const matchesEntry = (entry, normalizedMessage) => {
+  const candidates = [
+    entry.key,
+    entry.title,
+    entry.category
+  ].filter(Boolean);
+
+  return candidates.some((candidate) => normalizedMessage.includes(normalize(candidate)));
+};
+
+export const searchKnowledge = async (message, hotelId, { allowDemoFallback = true } = {}) => {
+  const normalizedMessage = normalize(message);
+  const matchedRule = KNOWLEDGE_MATCHERS.find((rule) => (
+    rule.words.some((word) => normalizedMessage.includes(normalize(word)))
+  ));
+  const knowledge = await getKnowledgeForHotel(hotelId, { activeOnly: true });
+  const matchedEntry = matchedRule
+    ? knowledge.find((item) => (
+      normalize(item.key) === normalize(matchedRule.key)
+      || normalize(item.category || '') === normalize(matchedRule.key)
+      || normalize(item.title || '') === normalize(matchedRule.key)
+      || matchesEntry(item, normalizedMessage)
+    ))
+    : knowledge.find((item) => matchesEntry(item, normalizedMessage));
+
+  if (matchedEntry?.value) {
+    return {
+      entry: matchedEntry,
+      matchedKey: matchedRule?.key || matchedEntry.key,
+      fallback: false
+    };
+  }
+
+  if (!allowDemoFallback) {
+    return null;
+  }
+
+  const demoHotel = await getDefaultHotel();
+
+  if (!demoHotel?.id || demoHotel.id === hotelId) {
+    return null;
+  }
+
+  const demoResult = await searchKnowledge(message, demoHotel.id, {
+    allowDemoFallback: false
+  });
+
+  if (demoResult) {
+    logger.warn('Knowledge answer using demo hotel fallback', {
+      hotelId,
+      demoHotelId: demoHotel.id,
+      key: demoResult.entry.key
+    });
+
+    return {
+      ...demoResult,
+      fallback: true
+    };
+  }
+
+  return null;
+};
+
 export const translateKnowledgeReplyMock = ({ key, reply, language }) => {
   const normalizedLanguage = normalizeLanguage(language);
   const normalizedKey = normalize(key);
@@ -149,31 +267,22 @@ const buildKnowledgeResponse = (reply) => validateAiResponse({
 });
 
 export const findKnowledgeAnswerWithMetadata = async (hotelId, message, language = 'es') => {
-  const knowledge = await getHotelKnowledge(hotelId);
-  const normalizedMessage = normalize(message);
+  const result = await searchKnowledge(message, hotelId);
 
-  const matchedRule = KNOWLEDGE_MATCHERS.find((rule) => (
-    rule.words.some((word) => normalizedMessage.includes(normalize(word)))
-  ));
-
-  if (!matchedRule) {
-    return null;
-  }
-
-  const matchedEntry = knowledge.find((item) => normalize(item.key) === normalize(matchedRule.key));
-
-  if (!matchedEntry?.value) {
+  if (!result?.entry?.value) {
     logger.info('Knowledge intent detected but no answer found', {
-      hotelId,
-      key: matchedRule.key
+      hotelId
     });
     return null;
   }
 
+  const matchedEntry = result.entry;
+
   logger.info('Knowledge answer found', {
-    hotelId,
+    hotelId: matchedEntry.hotel_id || hotelId,
     key: matchedEntry.key,
-    language
+    language,
+    fallback: result.fallback
   });
 
   return {
@@ -185,7 +294,9 @@ export const findKnowledgeAnswerWithMetadata = async (hotelId, message, language
     metadata: {
       knowledgeUsed: true,
       knowledgeKey: matchedEntry.key,
-      knowledgeValue: matchedEntry.value
+      knowledgeValue: matchedEntry.value,
+      knowledgeHotelId: matchedEntry.hotel_id || hotelId,
+      fallback: result.fallback
     }
   };
 };
@@ -196,10 +307,88 @@ export const findKnowledgeAnswer = async (hotelId, message, language = 'es') => 
   return result?.aiResponse || null;
 };
 
+export const createKnowledgeEntry = async ({
+  hotelId,
+  title = null,
+  key,
+  category = null,
+  value,
+  isActive = true
+}) => {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('hotel_knowledge')
+    .insert({
+      hotel_id: hotelId,
+      title: title || key,
+      key,
+      category: category || key,
+      value,
+      is_active: isActive,
+      updated_at: new Date().toISOString()
+    })
+    .select('id, hotel_id, title, key, category, value, is_active, updated_at')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeKnowledgeEntry(data);
+};
+
+export const updateKnowledgeEntry = async (id, hotelId, {
+  title,
+  key,
+  category,
+  value,
+  isActive
+}) => {
+  const supabase = getSupabase();
+  const updates = {
+    updated_at: new Date().toISOString()
+  };
+
+  if (title !== undefined) updates.title = title || key || null;
+  if (key !== undefined) updates.key = key;
+  if (category !== undefined) updates.category = category || key || null;
+  if (value !== undefined) updates.value = value;
+  if (isActive !== undefined) updates.is_active = Boolean(isActive);
+
+  const { data, error } = await supabase
+    .from('hotel_knowledge')
+    .update(updates)
+    .eq('id', id)
+    .eq('hotel_id', hotelId)
+    .select('id, hotel_id, title, key, category, value, is_active, updated_at')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeKnowledgeEntry(data);
+};
+
+export const deleteKnowledgeEntry = async (id, hotelId) => {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('hotel_knowledge')
+    .delete()
+    .eq('id', id)
+    .eq('hotel_id', hotelId);
+
+  if (error) {
+    throw error;
+  }
+
+  return { id };
+};
+
 export const seedDemoKnowledge = async (hotel) => {
   const supabase = getSupabase();
 
-  const existingKnowledge = await getHotelKnowledge(hotel.id);
+  const existingKnowledge = await getKnowledgeForHotel(hotel.id, { activeOnly: false });
   const existingKeys = new Set(existingKnowledge.map((item) => normalize(item.key)));
   const missingEntries = KNOWLEDGE_DEMO_ENTRIES
     .filter((entry) => !existingKeys.has(normalize(entry.key)))

@@ -38,7 +38,7 @@ const navigation = [
   { href: '/dashboard/ai-logs', labelKey: 'sidebar.aiLogs', icon: Activity },
   { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
   { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
-  { href: '/dashboard/settings/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
+  { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
   { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }
 ];
 

@@ -26,9 +26,11 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('ai_provider')
   || error?.message?.includes('ai_model')
   || error?.message?.includes('fallback_used')
+  || error?.message?.includes('knowledge_hotel_id')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
+  || error?.details?.includes('knowledge_hotel_id')
 );
 
 export const createAiLog = async ({
@@ -41,6 +43,7 @@ export const createAiLog = async ({
   confidenceScore = null,
   knowledgeUsed = false,
   knowledgeKey = null,
+  knowledgeHotelId = null,
   ticketCreated = false,
   ticketId = null,
   ticketCategory = null,
@@ -67,6 +70,7 @@ export const createAiLog = async ({
       confidence_score: toNullableNumber(confidenceScore),
       knowledge_used: Boolean(knowledgeUsed),
       knowledge_key: toNullableText(knowledgeKey),
+      knowledge_hotel_id: knowledgeHotelId,
       ticket_created: Boolean(ticketCreated),
       ticket_id: ticketId,
       ticket_category: toNullableText(ticketCategory),
@@ -96,6 +100,7 @@ export const createAiLog = async ({
         ai_provider,
         ai_model,
         fallback_used,
+        knowledge_hotel_id,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase
