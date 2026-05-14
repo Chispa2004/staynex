@@ -27,10 +27,16 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('ai_model')
   || error?.message?.includes('fallback_used')
   || error?.message?.includes('knowledge_hotel_id')
+  || error?.message?.includes('upsell_detected')
+  || error?.message?.includes('upsell_type')
+  || error?.message?.includes('upsell_confidence')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
   || error?.details?.includes('knowledge_hotel_id')
+  || error?.details?.includes('upsell_detected')
+  || error?.details?.includes('upsell_type')
+  || error?.details?.includes('upsell_confidence')
 );
 
 export const createAiLog = async ({
@@ -54,6 +60,9 @@ export const createAiLog = async ({
   aiProvider = null,
   aiModel = null,
   fallbackUsed = false,
+  upsellDetected = false,
+  upsellType = null,
+  upsellConfidence = null,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -80,7 +89,10 @@ export const createAiLog = async ({
       human_reason: toNullableText(humanReason),
       ai_provider: toNullableText(aiProvider || ai_provider),
       ai_model: toNullableText(aiModel || ai_model),
-      fallback_used: Boolean(fallbackUsed || fallback_used)
+      fallback_used: Boolean(fallbackUsed || fallback_used),
+      upsell_detected: Boolean(upsellDetected),
+      upsell_type: toNullableText(upsellType),
+      upsell_confidence: toNullableNumber(upsellConfidence)
     };
 
     let { data, error } = await supabase
@@ -101,6 +113,9 @@ export const createAiLog = async ({
         ai_model,
         fallback_used,
         knowledge_hotel_id,
+        upsell_detected,
+        upsell_type,
+        upsell_confidence,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase

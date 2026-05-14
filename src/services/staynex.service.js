@@ -26,6 +26,13 @@ import {
 } from './reservation.service.js';
 import { logger } from '../utils/logger.js';
 import { getDefaultHotel } from './hotel.service.js';
+import {
+  createUpsellInterestTicket,
+  detectUpsellInterest,
+  detectUpsellOpportunities,
+  getRecentUpsellsForConversation,
+  storeUpsellOpportunities
+} from './upsell.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -139,6 +146,16 @@ export const processGuestMessage = async ({
       value: knowledgeResult.metadata.knowledgeValue
     }]
     : await getKnowledgeForHotel(activeHotel.id);
+  const upsellOpportunities = detectUpsellOpportunities({
+    reservation: conversationContext.reservation,
+    language: conversationContext.language,
+    message,
+    recentMessages: conversationContext.recentMessages,
+    hotelKnowledge
+  });
+
+  conversationContext.upsellOpportunities = upsellOpportunities;
+
   const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled());
 
   const rawAiResponse = withAiMetadata(
@@ -185,51 +202,86 @@ export const processGuestMessage = async ({
       ...rawAiResponse,
       escalate_to_human: rawAiResponse.escalate_to_human || humanEscalation.needsHuman
     };
+  const aiResponseWithUpsell = upsellOpportunities.length > 0
+    ? {
+      ...aiResponse,
+      upsell_opportunity: true
+    }
+    : aiResponse;
 
   if (humanEscalation.needsHuman) {
     logger.warn('Conversation marked as needs human', {
       guestId: guest.id,
       conversationId: conversation.id,
       reason: humanEscalation.humanReason,
-      intent: aiResponse.intent,
-      confidence: aiResponse.confidence
+      intent: aiResponseWithUpsell.intent,
+      confidence: aiResponseWithUpsell.confidence
     });
   }
 
-  const ticket = await createTicketFromAiResponse({
-    aiResponse,
+  const storedUpsells = await storeUpsellOpportunities({
+    hotel: activeHotel,
+    guest,
+    conversation,
+    reservation: conversationContext.reservation,
+    opportunities: upsellOpportunities
+  });
+  const recentUpsells = storedUpsells.length > 0
+    ? storedUpsells
+    : await getRecentUpsellsForConversation(conversation.id);
+  const upsellInterest = detectUpsellInterest({
+    message,
+    recentUpsells
+  });
+
+  let ticket = await createTicketFromAiResponse({
+    aiResponse: aiResponseWithUpsell,
     hotel: activeHotel,
     guest,
     conversation
   });
 
+  if (!ticket && upsellInterest) {
+    ticket = await createUpsellInterestTicket({
+      hotel: activeHotel,
+      guest,
+      conversation,
+      interest: upsellInterest,
+      message
+    });
+  }
+
   const aiMessage = await createMessage({
     conversationId: conversation.id,
     senderType: 'ai',
-    content: aiResponse.reply
+    content: aiResponseWithUpsell.reply
   });
+  const primaryUpsell = storedUpsells[0] || upsellOpportunities[0] || null;
 
   await createAiLog({
     messageId: guestMessage.id,
     guestId: guest.id,
     conversationId: conversation.id,
     detectedLanguage: conversationContext.language,
-    detectedIntent: aiResponse.intent,
+    detectedIntent: aiResponseWithUpsell.intent,
     detectedRoom: guest.current_room || conversationContext.knownRoom || ticket?.room_number || null,
-    confidenceScore: aiResponse.confidence,
+    confidenceScore: aiResponseWithUpsell.confidence,
     knowledgeUsed: Boolean(knowledgeResult),
     knowledgeKey: knowledgeResult?.metadata?.knowledgeKey || null,
     knowledgeHotelId: knowledgeResult?.metadata?.knowledgeHotelId || null,
     ticketCreated: Boolean(ticket),
     ticketId: ticket?.id || null,
-    ticketCategory: ticket?.category || aiResponse.ticket?.category || null,
-    generatedResponse: aiResponse.reply,
+    ticketCategory: ticket?.category || aiResponseWithUpsell.ticket?.category || null,
+    generatedResponse: aiResponseWithUpsell.reply,
     rawGuestMessage: message,
     needsHuman: humanEscalation.needsHuman,
     humanReason: humanEscalation.humanReason,
-    aiProvider: aiResponse.aiProvider || aiResponse.ai_provider || 'unknown',
-    aiModel: aiResponse.aiModel || aiResponse.ai_model || null,
-    fallbackUsed: Boolean(aiResponse.fallbackUsed ?? aiResponse.fallback_used)
+    aiProvider: aiResponseWithUpsell.aiProvider || aiResponseWithUpsell.ai_provider || 'unknown',
+    aiModel: aiResponseWithUpsell.aiModel || aiResponseWithUpsell.ai_model || null,
+    fallbackUsed: Boolean(aiResponseWithUpsell.fallbackUsed ?? aiResponseWithUpsell.fallback_used),
+    upsellDetected: Boolean(primaryUpsell),
+    upsellType: primaryUpsell?.upsell_type || null,
+    upsellConfidence: primaryUpsell?.confidence || null
   });
 
   let twilioMessage = null;
@@ -237,7 +289,7 @@ export const processGuestMessage = async ({
   if (sendReply) {
     twilioMessage = await sendWhatsAppMessage({
       to: replyTo || phone,
-      body: aiResponse.reply
+      body: aiResponseWithUpsell.reply
     });
   }
 
@@ -246,20 +298,21 @@ export const processGuestMessage = async ({
     hotelId: activeHotel.id,
     guestId: guest.id,
     conversationId: conversation.id,
-    intent: aiResponse.intent,
-    createTicket: aiResponse.create_ticket,
+    intent: aiResponseWithUpsell.intent,
+    createTicket: aiResponseWithUpsell.create_ticket,
     ticketId: ticket?.id || null,
+    upsellsDetected: upsellOpportunities.length,
     sentViaTwilio: Boolean(twilioMessage)
   });
 
   logger.info('replying in guest language', {
     guestId: guest.id,
     language: conversationContext.language,
-    intent: aiResponse.intent
+    intent: aiResponseWithUpsell.intent
   });
 
   return {
-    ai: aiResponse,
+    ai: aiResponseWithUpsell,
     hotel: activeHotel,
     guest,
     conversation,
@@ -268,6 +321,7 @@ export const processGuestMessage = async ({
       ai: aiMessage
     },
     ticket,
+    upsells: storedUpsells,
     reservation: conversationContext.reservation,
     human: humanEscalation,
     delivery: {

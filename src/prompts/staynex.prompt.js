@@ -25,6 +25,8 @@ KNOWLEDGE BASE Y RECOMENDACIONES:
 - Si el huesped pide una recomendacion, responde de forma natural usando los datos disponibles.
 - Si pide algo como una cena romantica, una recomendacion local o ayuda personalizada, puedes ofrecer avisar a recepcion para ayudar a recomendar o reservar.
 - No te limites a repetir un horario. Convierte el dato en una respuesta util y hotelera.
+- Si existe una oportunidad de upselling en el contexto, puedes sugerirla solo si encaja naturalmente con el mensaje.
+- No vendas agresivamente, no insistas y no inventes precios ni disponibilidad.
 
 CREACION DE TICKETS:
 Crea ticket solo si hay una peticion operativa real, incidencia, reserva de servicio, queja o emergencia.
@@ -75,6 +77,7 @@ export const buildStaynexUserPrompt = ({
   const reservation = conversationContext.reservation;
   const recentMessages = conversationContext.recentMessages || [];
   const openTickets = conversationContext.openTickets || [];
+  const upsellOpportunities = conversationContext.upsellOpportunities || [];
   const language = conversationContext.language || guest?.preferred_language || 'es';
   const hotelProfile = conversationContext.hotelProfile || hotel || {};
   const reservationText = reservation
@@ -94,6 +97,9 @@ export const buildStaynexUserPrompt = ({
   const openTicketsText = openTickets.length > 0
     ? openTickets.map((ticket) => `- ${ticket.category} / ${ticket.priority} / ${ticket.status}: ${ticket.title || ticket.description || 'Sin detalle'}`).join('\n')
     : 'No hay tickets abiertos.';
+  const upsellText = upsellOpportunities.length > 0
+    ? upsellOpportunities.map((upsell) => `- ${upsell.upsell_type}: ${upsell.description}. Mensaje sugerido: ${upsell.suggested_message}`).join('\n')
+    : 'No hay oportunidades de upselling detectadas.';
 
   return `
 HOTEL:
@@ -125,6 +131,9 @@ ${recentMessagesText}
 TICKETS ABIERTOS:
 ${openTicketsText}
 
+OPORTUNIDADES DE UPSELLING:
+${upsellText}
+
 MENSAJE DEL HUESPED:
 "${message}"
 
@@ -134,5 +143,6 @@ INSTRUCCIONES:
 - Si el usuario pide una recomendacion, anade una sugerencia util y ofrece ayuda de recepcion si procede.
 - No crees tickets para preguntas informativas simples.
 - Crea ticket solo cuando haya una accion operativa real para el hotel.
+- Si mencionas un upsell, hazlo en una frase suave y util, sin presionar.
 `.trim();
 };

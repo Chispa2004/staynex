@@ -17,6 +17,7 @@ import {
   QrCode,
   Settings,
   Sparkles,
+  TrendingUp,
   TicketCheck,
   Wrench
 } from 'lucide-react';
@@ -37,6 +38,7 @@ const navigation = [
   { href: '/dashboard/analytics', labelKey: 'sidebar.analytics', icon: BarChart3 },
   { href: '/dashboard/ai-logs', labelKey: 'sidebar.aiLogs', icon: Activity },
   { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
+  { href: '/dashboard/upsells', labelKey: 'sidebar.upsells', icon: TrendingUp },
   { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
   { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
   { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }

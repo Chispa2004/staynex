@@ -33,6 +33,32 @@ const getLatestAiLogsByConversation = async ({ supabase, conversationIds }) => {
   }
 };
 
+const getActiveUpsellsByConversation = async ({ supabase, conversationIds }) => {
+  try {
+    const { data, error } = await supabase
+      .from('ai_upsells')
+      .select('id, conversation_id, upsell_type, title, confidence, status, created_at')
+      .in('conversation_id', conversationIds)
+      .in('status', ['suggested', 'shown'])
+      .order('created_at', { ascending: false })
+      .limit(250);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((upsellsByConversation, upsell) => {
+      const current = upsellsByConversation.get(upsell.conversation_id) || [];
+      current.push(upsell);
+      upsellsByConversation.set(upsell.conversation_id, current);
+      return upsellsByConversation;
+    }, new Map());
+  } catch (error) {
+    console.warn('Inbox upsell metadata unavailable', error.message);
+    return new Map();
+  }
+};
+
 export const getInboxConversations = async () => {
   const supabase = getSupabaseAdmin();
 
@@ -52,7 +78,7 @@ export const getInboxConversations = async () => {
   const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id))];
   const conversationIds = conversations.map((conversation) => conversation.id);
 
-  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation] = await Promise.all([
+  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation] = await Promise.all([
     supabase
       .from('guests')
       .select('id, phone_number, current_room')
@@ -62,7 +88,8 @@ export const getInboxConversations = async () => {
       .select('id, conversation_id, sender_type, content, created_at')
       .in('conversation_id', conversationIds)
       .order('created_at', { ascending: true }),
-    getLatestAiLogsByConversation({ supabase, conversationIds })
+    getLatestAiLogsByConversation({ supabase, conversationIds }),
+    getActiveUpsellsByConversation({ supabase, conversationIds })
   ]);
 
   if (guestsError) {
@@ -85,7 +112,8 @@ export const getInboxConversations = async () => {
       guest: guestsById.get(conversation.guest_id) || null,
       messages: conversationMessages,
       lastMessage,
-      aiLog: aiLogsByConversation.get(conversation.id) || null
+      aiLog: aiLogsByConversation.get(conversation.id) || null,
+      upsells: upsellsByConversation.get(conversation.id) || []
     };
   });
 };
