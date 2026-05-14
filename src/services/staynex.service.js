@@ -12,7 +12,12 @@ import {
 import { createTicketFromAiResponse } from './ticket.service.js';
 import { findOrCreateGuest } from './guest.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
-import { buildConversationContext } from './conversation-context.service.js';
+import {
+  buildConversationContext,
+  buildConversationState,
+  generateContextualResponse,
+  upsertConversationAiState
+} from './conversation-context.service.js';
 import { createAiLog } from './ai-log.service.js';
 import {
   buildHumanHandoffReply,
@@ -45,6 +50,7 @@ import {
   detectRevenueOpportunity,
   generateConciergeResponse,
   generateDepartmentAction,
+  getOfferTypeForIntent,
   persistConciergeMemory
 } from './concierge-ai.service.js';
 
@@ -172,26 +178,59 @@ export const processGuestMessage = async ({
     message,
     context: conversationContext
   });
+  const detectedConciergeIntents = conciergeIntent.allIntents?.length
+    ? conciergeIntent.allIntents
+    : conciergeIntent.intent
+      ? [conciergeIntent]
+      : [];
+  const preliminaryConversationState = await buildConversationState({
+    hotelId: activeHotel.id,
+    conversationId: conversation.id,
+    message,
+    detectedIntents: detectedConciergeIntents
+  });
+  const primaryConciergeIntent = preliminaryConversationState.primaryIntent?.intent
+    ? preliminaryConversationState.primaryIntent
+    : conciergeIntent;
   const conciergeRevenueOpportunity = detectRevenueOpportunity({
-    intentResult: conciergeIntent,
+    intentResult: primaryConciergeIntent,
     context: conversationContext
   });
+  const conciergeRevenueOpportunities = detectedConciergeIntents
+    .map((intentResult) => detectRevenueOpportunity({
+      intentResult,
+      context: conversationContext
+    }))
+    .filter(Boolean)
+    .filter((opportunity, index, list) => (
+      list.findIndex((item) => item.offerType === opportunity.offerType) === index
+    ));
+  const conversationState = await buildConversationState({
+    hotelId: activeHotel.id,
+    conversationId: conversation.id,
+    message,
+    detectedIntents: detectedConciergeIntents,
+    offerType: conciergeRevenueOpportunity?.offerType || getOfferTypeForIntent(primaryConciergeIntent.intent)
+  });
   const conciergeRisk = detectConciergeOperationalRisk({
-    intentResult: conciergeIntent,
+    intentResult: primaryConciergeIntent,
     message
   });
   const conciergeDepartmentAction = generateDepartmentAction({
-    intentResult: conciergeIntent,
-    opportunity: conciergeRevenueOpportunity,
+    intentResult: primaryConciergeIntent,
+    opportunity: conversationState.suppressedOffer ? null : conciergeRevenueOpportunity,
     risk: conciergeRisk
   });
 
   conversationContext.upsellOpportunities = upsellOpportunities;
   conversationContext.concierge = {
-    intent: conciergeIntent,
-    revenueOpportunity: conciergeRevenueOpportunity,
+    intent: primaryConciergeIntent,
+    allIntents: detectedConciergeIntents,
+    revenueOpportunity: conversationState.suppressedOffer ? null : conciergeRevenueOpportunity,
+    revenueOpportunities: conciergeRevenueOpportunities,
     risk: conciergeRisk,
-    departmentAction: conciergeDepartmentAction
+    departmentAction: conciergeDepartmentAction,
+    state: conversationState
   };
 
   const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled());
@@ -241,24 +280,38 @@ export const processGuestMessage = async ({
       escalate_to_human: rawAiResponse.escalate_to_human || humanEscalation.needsHuman
     };
   const conciergeReply = generateConciergeResponse({
-    intentResult: conciergeIntent,
-    opportunity: conciergeRevenueOpportunity,
+    intentResult: primaryConciergeIntent,
+    opportunity: conversationState.suppressedOffer ? null : conciergeRevenueOpportunity,
     risk: conciergeRisk,
     language: conversationContext.language
   });
-  const aiResponseWithConcierge = conciergeReply && !aiResponse.emergency
+  const secondaryConciergeResponses = conciergeRevenueOpportunities
+    .filter((opportunity) => opportunity.offerType !== conciergeRevenueOpportunity?.offerType)
+    .slice(0, 1)
+    .map((opportunity) => generateConciergeResponse({
+      intentResult: detectedConciergeIntents.find((item) => getOfferTypeForIntent(item.intent) === opportunity.offerType),
+      opportunity,
+      risk: { hasRisk: false },
+      language: conversationContext.language
+    }));
+  const contextualConciergeReply = generateContextualResponse({
+    fallbackResponse: conciergeReply,
+    state: conversationState,
+    responses: [conciergeReply, ...secondaryConciergeResponses]
+  });
+  const aiResponseWithConcierge = contextualConciergeReply && !aiResponse.emergency
     ? {
       ...aiResponse,
-      reply: conciergeReply,
-      intent: conciergeIntent.intent || aiResponse.intent,
-      confidence: Math.max(Number(aiResponse.confidence || 0), Number(conciergeIntent.confidence || 0.75)),
-      concierge_intent: conciergeIntent.intent,
-      upsell_opportunity: Boolean(conciergeRevenueOpportunity) || aiResponse.upsell_opportunity,
+      reply: contextualConciergeReply,
+      intent: primaryConciergeIntent.intent || aiResponse.intent,
+      confidence: Math.max(Number(aiResponse.confidence || 0), Number(primaryConciergeIntent.confidence || 0.75)),
+      concierge_intent: primaryConciergeIntent.intent,
+      upsell_opportunity: Boolean(!conversationState.suppressedOffer && conciergeRevenueOpportunity) || aiResponse.upsell_opportunity,
       escalate_to_human: aiResponse.escalate_to_human || conciergeRisk.hasRisk
     }
     : {
       ...aiResponse,
-      concierge_intent: conciergeIntent.intent
+      concierge_intent: primaryConciergeIntent.intent
     };
   const aiResponseWithUpsell = upsellOpportunities.length > 0
     ? {
@@ -284,20 +337,37 @@ export const processGuestMessage = async ({
     reservation: conversationContext.reservation,
     opportunities: upsellOpportunities
   });
-  const conciergeOffer = await createAiOffer({
-    hotel: activeHotel,
-    guest,
-    conversation,
-    reservation: conversationContext.reservation,
-    opportunity: conciergeRevenueOpportunity,
-    status: conciergeReply && conciergeRevenueOpportunity ? 'sent' : 'suggested'
-  });
+  const conciergeOffers = [];
+
+  for (const opportunity of conciergeRevenueOpportunities) {
+    const suppressThisOffer = opportunity.offerType === conciergeRevenueOpportunity?.offerType
+      && conversationState.suppressedOffer;
+
+    if (suppressThisOffer) {
+      continue;
+    }
+
+    const offerRecord = await createAiOffer({
+      hotel: activeHotel,
+      guest,
+      conversation,
+      reservation: conversationContext.reservation,
+      opportunity,
+      status: contextualConciergeReply && opportunity.offerType === conciergeRevenueOpportunity?.offerType ? 'sent' : 'suggested'
+    });
+
+    if (offerRecord) {
+      conciergeOffers.push(offerRecord);
+    }
+  }
+
+  const conciergeOffer = conciergeOffers[0] || null;
   const conciergeMemories = await persistConciergeMemory({
     hotel: activeHotel,
     guest,
     reservation: conversationContext.reservation,
-    intentResult: conciergeIntent,
-    opportunity: conciergeRevenueOpportunity,
+    intentResult: primaryConciergeIntent,
+    opportunity: conversationState.suppressedOffer ? null : conciergeRevenueOpportunity,
     risk: conciergeRisk
   });
   const recentUpsells = storedUpsells.length > 0
@@ -340,6 +410,13 @@ export const processGuestMessage = async ({
     senderType: 'ai',
     content: aiResponseWithUpsell.reply
   });
+  const savedConversationState = await upsertConversationAiState({
+    hotelId: activeHotel.id,
+    conversationId: conversation.id,
+    state: conversationState,
+    offerType: conciergeOffer?.offer_type || null,
+    aiResponse: aiResponseWithUpsell.reply
+  });
   const primaryUpsell = storedUpsells[0] || upsellOpportunities[0] || null;
   const detectedMemories = detectGuestMemoryFromMessage({
     message,
@@ -360,7 +437,7 @@ export const processGuestMessage = async ({
     guestId: guest.id,
     conversationId: conversation.id,
     detectedLanguage: conversationContext.language,
-    detectedIntent: aiResponseWithUpsell.intent,
+    detectedIntent: conversationState.currentIntent || aiResponseWithUpsell.intent,
     detectedRoom: guest.current_room || conversationContext.knownRoom || ticket?.room_number || null,
     confidenceScore: aiResponseWithUpsell.confidence,
     knowledgeUsed: Boolean(knowledgeResult),
@@ -381,8 +458,8 @@ export const processGuestMessage = async ({
     upsellConfidence: primaryUpsell?.confidence || conciergeRevenueOpportunity?.confidence || null,
     memoryUsed: memoryKeysUsed.length > 0,
     memoryKeysUsed: memoryKeysUsed,
-    conciergeIntent: conciergeIntent.intent || null,
-    offerCreated: Boolean(conciergeOffer),
+    conciergeIntent: conversationState.currentIntent || primaryConciergeIntent.intent || null,
+    offerCreated: conciergeOffers.length > 0,
     offerType: conciergeOffer?.offer_type || conciergeRevenueOpportunity?.offerType || null,
     offerStatus: conciergeOffer?.status || null
   });
@@ -406,8 +483,9 @@ export const processGuestMessage = async ({
     ticketId: ticket?.id || null,
     upsellsDetected: upsellOpportunities.length,
     memoriesDetected: detectedMemories.length + conciergeMemories.length,
-    conciergeIntent: conciergeIntent.intent || null,
+    conciergeIntent: conversationState.currentIntent || null,
     conciergeOfferId: conciergeOffer?.id || null,
+    conversationStateId: savedConversationState?.id || null,
     sentViaTwilio: Boolean(twilioMessage)
   });
 
@@ -429,9 +507,13 @@ export const processGuestMessage = async ({
     ticket,
     upsells: storedUpsells,
     concierge: {
-      intent: conciergeIntent,
+      intent: primaryConciergeIntent,
+      allIntents: detectedConciergeIntents,
+      state: savedConversationState,
       offer: conciergeOffer,
-      revenueOpportunity: conciergeRevenueOpportunity,
+      offers: conciergeOffers,
+      revenueOpportunity: conversationState.suppressedOffer ? null : conciergeRevenueOpportunity,
+      suppressedOffer: conversationState.suppressedOffer,
       risk: conciergeRisk,
       departmentAction: conciergeDepartmentAction
     },

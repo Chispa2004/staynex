@@ -11,6 +11,7 @@ import { InsightsPanel } from './InsightsPanel';
 import { RevenueUpsellsPanel } from './RevenueUpsellsPanel';
 import { VipGuestsPanel } from './VipGuestsPanel';
 import { ConciergeRevenuePanel } from './ConciergeRevenuePanel';
+import { ConversationIntelligencePanel } from './ConversationIntelligencePanel';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
@@ -213,6 +214,7 @@ export const ExecutiveDashboardClient = () => {
       </div>
 
       <OperationsPanel operations={data?.operations || {}} />
+      <ConversationIntelligencePanel data={data?.conversationIntelligence || {}} />
       <ConciergeRevenuePanel data={data?.conciergeRevenue || {}} />
       <VipGuestsPanel guests={data?.guestSignals || []} />
       <InsightsPanel insights={data?.insights || []} />

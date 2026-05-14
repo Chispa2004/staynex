@@ -511,6 +511,19 @@ export const InboxClient = ({ conversations }) => {
           scheduleRealtimeReload('ai_offer_change');
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversation_ai_state',
+          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+        },
+        (payload) => {
+          console.log('AI Conversation State change received', payload.new || payload.old);
+          scheduleRealtimeReload('conversation_ai_state_change');
+        }
+      )
       .subscribe((status, error) => {
         if (status === 'SUBSCRIBED') {
           console.log('Realtime connected');
@@ -761,6 +774,7 @@ export const InboxClient = ({ conversations }) => {
             const isNew = getIsNewConversation(conversation, readState);
             const hasUpsell = (conversation.upsells || []).length > 0;
             const hasOffer = (conversation.offers || []).length > 0;
+            const aiState = conversation.aiState;
 
             return (
               <button
@@ -852,6 +866,16 @@ export const InboxClient = ({ conversations }) => {
                 <p className={isLight ? `mt-2 line-clamp-2 text-sm ${unread ? 'font-semibold text-slate-800' : 'text-slate-600'}` : `mt-2 line-clamp-2 text-sm ${unread ? 'font-semibold text-slate-200' : 'text-slate-400'}`}>
                   {lastMessage?.content || t('inbox.noMessages')}
                 </p>
+                {aiState?.current_intent ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <span className={isLight ? 'rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-800' : 'rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-1 text-[11px] font-semibold text-violet-100'}>
+                      {aiState.current_intent}
+                    </span>
+                    <span className={isLight ? 'rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600' : 'rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-slate-300'}>
+                      {Math.round(Number(aiState.intent_confidence || 0) * 100)}%
+                    </span>
+                  </div>
+                ) : null}
                 <p className={isLight ? 'mt-3 text-xs text-slate-500' : 'mt-3 text-xs text-slate-600'}>
                   {formatDate(conversation.last_message_at || conversation.created_at)}
                 </p>
@@ -929,6 +953,29 @@ export const InboxClient = ({ conversations }) => {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : null}
+          {selectedConversation?.aiState ? (
+            <div className={isLight ? 'mt-3 rounded-lg border border-violet-200 bg-violet-50 p-3' : 'mt-3 rounded-lg border border-violet-300/20 bg-violet-400/10 p-3'}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={isLight ? 'rounded-full border border-violet-200 bg-white px-2.5 py-1 text-xs font-semibold text-violet-800' : 'rounded-full border border-violet-300/20 bg-violet-400/10 px-2.5 py-1 text-xs font-semibold text-violet-100'}>
+                  Intent: {selectedConversation.aiState.current_intent || 'learning'}
+                </span>
+                <span className={isLight ? 'rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700' : 'rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-300'}>
+                  Confidence {Math.round(Number(selectedConversation.aiState.intent_confidence || 0) * 100)}%
+                </span>
+                <span className={isLight ? 'rounded-full border border-orange-200 bg-white px-2.5 py-1 text-xs font-semibold text-orange-800' : 'rounded-full border border-orange-300/20 bg-orange-400/10 px-2.5 py-1 text-xs font-semibold text-orange-100'}>
+                  {selectedConversation.aiState.escalation_level}
+                </span>
+                <span className={isLight ? 'rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs font-semibold text-sky-800' : 'rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-xs font-semibold text-sky-100'}>
+                  Sentiment {selectedConversation.aiState.sentiment || 'neutral'}
+                </span>
+              </div>
+              {selectedConversation.aiState.last_ai_response ? (
+                <p className={isLight ? 'mt-2 line-clamp-2 text-xs text-slate-600' : 'mt-2 line-clamp-2 text-xs text-slate-400'}>
+                  Summary: {selectedConversation.aiState.last_ai_response}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </header>

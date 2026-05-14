@@ -1,4 +1,5 @@
 import {
+  getSupabase,
   getOpenTicketsForGuest,
   getRecentMessages
 } from './supabase.service.js';
@@ -7,6 +8,287 @@ import { detectGuestLanguage } from './language.service.js';
 import { getLatestReservationForGuest } from './reservation.service.js';
 import { getHotelProfileForPrompt } from './hotel.service.js';
 import { getGuestMemory } from './guest-memory.service.js';
+
+const OFFER_COOLDOWN_HOURS = 12;
+
+const intentPriority = {
+  emergency: 100,
+  complaint_noise: 90,
+  complaint_cleaning: 88,
+  reservation_change: 82,
+  cancellation_request: 82,
+  late_checkout_interest: 70,
+  airport_transfer_interest: 68,
+  room_upgrade_interest: 65,
+  restaurant_interest: 58,
+  spa_interest: 52,
+  romantic_package_interest: 45,
+  celebration_signal: 42,
+  family_trip: 35,
+  business_trip: 35,
+  vip_behavior: 30
+};
+
+const offerIntentMap = {
+  room_upgrade_interest: 'room_upgrade',
+  late_checkout_interest: 'late_checkout',
+  airport_transfer_interest: 'airport_transfer',
+  romantic_package_interest: 'romantic_package',
+  spa_interest: 'spa',
+  restaurant_interest: 'dinner'
+};
+
+const normalize = (value = '') => String(value)
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '');
+
+const includesAny = (text, words) => words.some((word) => text.includes(normalize(word)));
+
+const isMissingStateTable = (error) => (
+  error?.message?.includes('conversation_ai_state')
+  || error?.details?.includes('conversation_ai_state')
+  || error?.hint?.includes('conversation_ai_state')
+);
+
+const hoursSince = (value) => {
+  if (!value) return Infinity;
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return Infinity;
+  return (Date.now() - time) / 3600000;
+};
+
+const detectSentiment = (message = '') => {
+  const text = normalize(message);
+
+  if (includesAny(text, ['angry', 'terrible', 'unacceptable', 'refund', 'enfadado', 'muy mal', 'nadie me ayuda', 'ruido', 'noisy'])) {
+    return 'negative';
+  }
+
+  if (includesAny(text, ['thank you', 'thanks', 'gracias', 'perfecto', 'great', 'excellent'])) {
+    return 'positive';
+  }
+
+  return 'neutral';
+};
+
+const escalationForIntent = (intent, sentiment = 'neutral') => {
+  if (intent === 'emergency') return 'urgent';
+  if (['complaint_noise', 'complaint_cleaning', 'cancellation_request'].includes(intent)) return 'reception_required';
+  if (sentiment === 'negative') return 'reception_required';
+  return 'ai_handled';
+};
+
+export const getConversationContext = async ({ hotelId, conversationId }) => {
+  if (!hotelId || !conversationId) {
+    return null;
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('conversation_ai_state')
+      .select('*')
+      .eq('hotel_id', hotelId)
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingStateTable(error)) {
+        return null;
+      }
+
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    logger.warn('Conversation AI state lookup failed', {
+      conversationId,
+      message: error.message
+    });
+
+    return null;
+  }
+};
+
+export const calculateIntentConfidence = ({ intent, confidence = 0, message = '', previousState = null }) => {
+  const priorityBoost = Math.min(0.08, (intentPriority[intent] || 0) / 1000);
+  const repeatedPenalty = previousState?.current_intent === intent ? -0.04 : 0;
+  const questionBoost = /[?¿]/.test(message) ? 0.02 : 0;
+
+  return Math.max(0, Math.min(0.99, Number(confidence || 0) + priorityBoost + repeatedPenalty + questionBoost));
+};
+
+export const detectPrimaryIntent = ({ intents = [], previousState = null, message = '' } = {}) => {
+  const validIntents = (intents || [])
+    .filter((item) => item?.intent)
+    .map((item) => ({
+      ...item,
+      confidence: calculateIntentConfidence({
+        intent: item.intent,
+        confidence: item.confidence,
+        message,
+        previousState
+      }),
+      priority: intentPriority[item.intent] || 10
+    }))
+    .sort((a, b) => (b.priority + b.confidence * 20) - (a.priority + a.confidence * 20));
+
+  return validIntents[0] || {
+    intent: null,
+    confidence: 0,
+    priority: 0,
+    source: 'none'
+  };
+};
+
+export const detectIntentShift = ({ previousIntent = null, primaryIntent = null }) => (
+  Boolean(previousIntent && primaryIntent && previousIntent !== primaryIntent)
+);
+
+export const shouldOverridePreviousIntent = ({ previousIntent = null, primaryIntent = null, confidence = 0 }) => {
+  if (!primaryIntent) return false;
+  if (!previousIntent || previousIntent !== primaryIntent) {
+    return (intentPriority[primaryIntent] || 0) >= (intentPriority[previousIntent] || 0) || Number(confidence) >= 0.72;
+  }
+
+  return true;
+};
+
+export const shouldSuppressRepeatedOffer = ({ offerType = null, previousState = null, intentShift = false } = {}) => {
+  if (!offerType || !previousState?.last_offer_type) {
+    return false;
+  }
+
+  if (intentShift && previousState.last_offer_type !== offerType) {
+    return false;
+  }
+
+  return previousState.last_offer_type === offerType
+    && hoursSince(previousState.last_offer_sent_at) < OFFER_COOLDOWN_HOURS;
+};
+
+export const buildConversationState = async ({
+  hotelId,
+  conversationId,
+  message,
+  detectedIntents = [],
+  response = null,
+  offerType = null
+}) => {
+  const previousState = await getConversationContext({ hotelId, conversationId });
+  const primary = detectPrimaryIntent({
+    intents: detectedIntents,
+    previousState,
+    message
+  });
+  const previousIntent = previousState?.current_intent || null;
+  const intentShift = detectIntentShift({
+    previousIntent,
+    primaryIntent: primary.intent
+  });
+  const overridePrevious = shouldOverridePreviousIntent({
+    previousIntent,
+    primaryIntent: primary.intent,
+    confidence: primary.confidence
+  });
+  const sentiment = detectSentiment(message);
+  const escalationLevel = escalationForIntent(primary.intent, sentiment);
+  const suppressedOffer = shouldSuppressRepeatedOffer({
+    offerType: offerType || offerIntentMap[primary.intent],
+    previousState,
+    intentShift
+  });
+
+  return {
+    previousState,
+    currentIntent: overridePrevious ? primary.intent : previousIntent,
+    previousIntent,
+    primaryIntent: primary,
+    intentShift,
+    overridePrevious,
+    suppressedOffer,
+    sentiment,
+    escalationLevel,
+    metadata: {
+      detected_intents: detectedIntents,
+      cooldown_hours: OFFER_COOLDOWN_HOURS,
+      dominant_priority: primary.priority || 0
+    },
+    response
+  };
+};
+
+export const upsertConversationAiState = async ({
+  hotelId,
+  conversationId,
+  state,
+  offerType = null,
+  aiResponse = null
+}) => {
+  if (!hotelId || !conversationId || !state) {
+    return null;
+  }
+
+  try {
+    const supabase = getSupabase();
+    const now = new Date().toISOString();
+    const record = {
+      hotel_id: hotelId,
+      conversation_id: conversationId,
+      current_intent: state.currentIntent || null,
+      previous_intent: state.previousIntent || null,
+      intent_confidence: state.primaryIntent?.confidence || 0,
+      last_offer_type: offerType || state.previousState?.last_offer_type || null,
+      last_offer_sent_at: offerType ? now : state.previousState?.last_offer_sent_at || null,
+      last_ai_response: aiResponse || null,
+      sentiment: state.sentiment || 'neutral',
+      escalation_level: state.escalationLevel || 'ai_handled',
+      state_metadata: state.metadata || {},
+      updated_at: now
+    };
+    const { data, error } = await supabase
+      .from('conversation_ai_state')
+      .upsert(record, {
+        onConflict: 'conversation_id'
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      if (isMissingStateTable(error)) {
+        logger.warn('conversation_ai_state table missing; skipping state upsert');
+        return null;
+      }
+
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    logger.warn('Conversation AI state upsert failed', {
+      conversationId,
+      message: error.message
+    });
+
+    return null;
+  }
+};
+
+export const generateContextualResponse = ({ fallbackResponse = null, state, responses = [] } = {}) => {
+  if (state?.suppressedOffer && fallbackResponse) {
+    return fallbackResponse;
+  }
+
+  const uniqueResponses = [...new Set((responses || []).filter(Boolean))];
+
+  if (uniqueResponses.length > 1) {
+    return uniqueResponses.join(' ');
+  }
+
+  return uniqueResponses[0] || fallbackResponse || null;
+};
 
 export const buildConversationContext = async ({
   hotel = null,

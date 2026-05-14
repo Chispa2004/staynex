@@ -25,6 +25,8 @@ const offerDefaults = {
   restaurant_interest: { offerType: 'dinner', price: 90 }
 };
 
+export const getOfferTypeForIntent = (intent) => offerDefaults[intent]?.offerType || null;
+
 const intentRules = [
   { intent: 'room_upgrade_interest', confidence: 0.86, words: ['upgrade', 'suite', 'better room', 'habitacion mejor', 'mejor habitacion', 'premium room'] },
   { intent: 'late_checkout_interest', confidence: 0.9, words: ['late checkout', 'leave later', 'salir mas tarde', 'salida tarde', 'checkout tarde', 'plus tard demain'] },
@@ -37,26 +39,41 @@ const intentRules = [
   { intent: 'vip_behavior', confidence: 0.72, words: ['vip', 'premium', 'suite', 'private', 'exclusivo'] },
   { intent: 'celebration_signal', confidence: 0.82, words: ['birthday', 'cumpleanos', 'anniversary', 'aniversario', 'celebrating', 'celebramos'] },
   { intent: 'family_trip', confidence: 0.82, words: ['family', 'familia', 'kids', 'children', 'ninos', 'bebé', 'bebe'] },
-  { intent: 'business_trip', confidence: 0.8, words: ['business', 'trabajo', 'meeting', 'reunion', 'conference', 'conferencia'] }
+  { intent: 'business_trip', confidence: 0.8, words: ['business', 'trabajo', 'meeting', 'reunion', 'conference', 'conferencia'] },
+  { intent: 'reservation_change', confidence: 0.88, words: ['change my reservation', 'modify my reservation', 'cambiar mi reserva', 'modificar mi reserva', 'change dates', 'cambiar fechas'] },
+  { intent: 'cancellation_request', confidence: 0.9, words: ['cancel my reservation', 'cancel booking', 'cancelar reserva', 'cancelar mi reserva', 'refund reservation'] }
 ];
 
 export const detectGuestIntent = ({ message = '', context = {} } = {}) => {
-  const text = normalize([
-    message,
-    ...(context.recentMessages || []).map((item) => item.content || '')
-  ].join(' '));
+  const currentText = normalize(message);
+  const recentText = normalize((context.recentMessages || []).slice(-3).map((item) => item.content || '').join(' '));
   const detected = intentRules
-    .filter((rule) => includesAny(text, rule.words))
+    .filter((rule) => includesAny(currentText, rule.words))
     .map((rule) => ({
       intent: rule.intent,
       confidence: rule.confidence,
-      source: 'keyword_context'
+      source: 'current_message'
     }));
 
-  return detected[0] || {
+  if (!detected.length && recentText) {
+    intentRules
+      .filter((rule) => includesAny(recentText, rule.words))
+      .slice(0, 1)
+      .forEach((rule) => detected.push({
+        intent: rule.intent,
+        confidence: Math.max(0.45, rule.confidence - 0.22),
+        source: 'recent_context'
+      }));
+  }
+
+  return detected[0] ? {
+    ...detected[0],
+    allIntents: detected
+  } : {
     intent: null,
     confidence: 0,
-    source: 'none'
+    source: 'none',
+    allIntents: []
   };
 };
 
@@ -91,6 +108,15 @@ export const detectOperationalRisk = ({ intentResult, message = '' } = {}) => {
       category: intentResult.intent === 'complaint_noise' ? 'complaint' : 'housekeeping',
       priority: 'high',
       reason: intentResult.intent
+    };
+  }
+
+  if (intentResult?.intent === 'cancellation_request') {
+    return {
+      hasRisk: true,
+      category: 'reception',
+      priority: 'high',
+      reason: 'cancellation_request'
     };
   }
 
@@ -188,6 +214,18 @@ export const generateConciergeResponse = ({ intentResult, opportunity, risk, lan
     return language === 'es'
       ? 'Lo siento mucho. He informado a recepcion para que podamos ayudarte lo antes posible.'
       : "I'm sorry about that. I've informed reception so we can assist you as quickly as possible.";
+  }
+
+  if (intentResult?.intent === 'reservation_change') {
+    return language === 'es'
+      ? 'Claro. Que te gustaria modificar de tu reserva?'
+      : 'Of course. What would you like to modify in your reservation?';
+  }
+
+  if (intentResult?.intent === 'cancellation_request') {
+    return language === 'es'
+      ? 'Puedo derivarlo a recepcion para revisar las condiciones de cancelacion de tu reserva.'
+      : 'I can forward this to reception so they can review the cancellation conditions for your reservation.';
   }
 
   const offerMessage = generateSuggestedOffer({ opportunity, language });

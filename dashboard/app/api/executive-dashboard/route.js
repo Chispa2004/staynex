@@ -58,10 +58,13 @@ const isMissingOptionalTable = (error) => (
   isMissingRevenueTable(error)
   || error?.message?.includes('guest_ai_profiles')
   || error?.message?.includes('ai_offers')
+  || error?.message?.includes('conversation_ai_state')
   || error?.details?.includes('guest_ai_profiles')
   || error?.details?.includes('ai_offers')
+  || error?.details?.includes('conversation_ai_state')
   || error?.hint?.includes('guest_ai_profiles')
   || error?.hint?.includes('ai_offers')
+  || error?.hint?.includes('conversation_ai_state')
 );
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
@@ -289,6 +292,7 @@ export async function GET(request) {
       recentUpsells,
       recentConversions,
       recentOffers,
+      recentConversationStates,
       recentGuestMemory,
       recentGuestProfiles,
       reservationsToday,
@@ -346,6 +350,10 @@ export async function GET(request) {
         supabase.from('ai_offers').select('id, guest_id, conversation_id, offer_type, suggested_price, currency, status, confidence, ai_reason, created_at, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(50)),
+      safeRows(withHotel(
+        supabase.from('conversation_ai_state').select('id, conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, updated_at'),
+        hotelId
+      ).order('updated_at', { ascending: false }).limit(100)),
       safeRows(withHotel(
         supabase.from('guest_memory').select('id, guest_id, memory_key, memory_value, memory_type, updated_at, created_at'),
         hotelId
@@ -424,6 +432,10 @@ export async function GET(request) {
     const offerRevenueGenerated = acceptedOffers.reduce((total, item) => total + Number(item.suggested_price || 0), 0);
     const offerTypeCounts = countBy(recentOffers, 'offer_type');
     const topOfferCategory = Object.entries(offerTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    const activeEscalations = recentConversationStates.filter((item) => ['reception_required', 'manager_required', 'urgent'].includes(item.escalation_level));
+    const unresolvedComplaints = recentConversationStates.filter((item) => String(item.current_intent || '').startsWith('complaint_'));
+    const repeatedFrustrations = recentConversationStates.filter((item) => item.sentiment === 'negative');
+    const highValueConversations = recentConversationStates.filter((item) => ['room_upgrade_interest', 'late_checkout_interest', 'airport_transfer_interest'].includes(item.current_intent));
 
     return NextResponse.json({
       hotel,
@@ -493,6 +505,14 @@ export async function GET(request) {
         topCategory: topOfferCategory,
         byType: offerTypeCounts,
         recentOffers: recentOffers.slice(0, 6)
+      },
+      conversationIntelligence: {
+        activeEscalations: activeEscalations.length,
+        unresolvedComplaints: unresolvedComplaints.length,
+        repeatedFrustrations: repeatedFrustrations.length,
+        highValueConversations: highValueConversations.length,
+        guestsRequiringAttention: activeEscalations.length + repeatedFrustrations.length,
+        states: recentConversationStates.slice(0, 8)
       },
       guestSignals,
       activity: buildActivityFeed({
