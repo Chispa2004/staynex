@@ -52,6 +52,29 @@ select {
   border-radius: 999px;
 }
 
+.executive-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.55) transparent;
+}
+
+.executive-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+
+.executive-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.executive-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.5);
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+
+.executive-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.75);
+}
+
 .theme-light {
   background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%) !important;
   color: #0f172a !important;

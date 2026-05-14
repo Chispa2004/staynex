@@ -41,7 +41,7 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
     : activity;
 
   return (
-    <ExecutiveCard className="overflow-hidden">
+    <ExecutiveCard className="flex max-h-[min(720px,calc(100vh-220px))] min-h-[420px] flex-col overflow-hidden">
       <div className={isLight ? 'border-b border-slate-200 px-5 py-4' : 'border-b border-white/10 px-5 py-4'}>
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -52,7 +52,7 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
         </div>
       </div>
 
-      <div className="max-h-[540px] overflow-y-auto p-3">
+      <div className="executive-scroll min-h-0 flex-1 overflow-y-auto p-3 pb-4">
         {items.length === 0 ? (
           <div className={isLight ? 'rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500' : 'rounded-lg border border-dashed border-white/10 bg-white/[0.025] p-8 text-center text-sm text-slate-500'}>
             No live activity yet.
@@ -61,7 +61,7 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
           const Icon = icons[item.type] || CircleDot;
           const content = (
             <div className={[
-              'flex gap-3 rounded-lg border p-3 transition',
+              'flex min-h-[88px] gap-3 rounded-lg border p-3 transition',
               isLight
                 ? 'border-slate-200 bg-white hover:bg-slate-50'
                 : 'border-white/10 bg-white/[0.025] hover:bg-white/[0.045]'
@@ -72,20 +72,20 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
-                  <p className={isLight ? 'text-sm font-semibold text-slate-900' : 'text-sm font-semibold text-slate-100'}>{item.title}</p>
-                  <span className={isLight ? 'shrink-0 text-xs text-slate-500' : 'shrink-0 text-xs text-slate-500'}>{formatRelative(item.createdAt)}</span>
+                  <p className={isLight ? 'min-w-0 text-sm font-semibold leading-5 text-slate-900' : 'min-w-0 text-sm font-semibold leading-5 text-slate-100'}>{item.title}</p>
+                  <span className={isLight ? 'shrink-0 pt-0.5 text-right text-xs text-slate-500' : 'shrink-0 pt-0.5 text-right text-xs text-slate-500'}>{formatRelative(item.createdAt)}</span>
                 </div>
-                <p className={isLight ? 'mt-1 line-clamp-2 text-sm text-slate-600' : 'mt-1 line-clamp-2 text-sm text-slate-400'}>{item.description}</p>
+                <p className={isLight ? 'mt-1 text-sm leading-6 text-slate-600' : 'mt-1 text-sm leading-6 text-slate-400'}>{item.description}</p>
               </div>
             </div>
           );
 
           return item.href ? (
-            <Link key={`${item.type}-${item.createdAt}-${index}`} href={item.href} className="mb-2 block">
+            <Link key={`${item.type}-${item.createdAt}-${index}`} href={item.href} className="mb-3 block last:mb-0">
               {content}
             </Link>
           ) : (
-            <div key={`${item.type}-${item.createdAt}-${index}`} className="mb-2">
+            <div key={`${item.type}-${item.createdAt}-${index}`} className="mb-3 last:mb-0">
               {content}
             </div>
           );
