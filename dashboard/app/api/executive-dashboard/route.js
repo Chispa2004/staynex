@@ -331,7 +331,7 @@ export async function GET(request) {
         hotelId
       ).order('last_message_at', { ascending: false, nullsFirst: false }).limit(25)),
       safeRows(withHotel(
-        supabase.from('ai_logs').select('id, detected_language, detected_intent, confidence_score, ticket_created, emergency, created_at'),
+        supabase.from('ai_logs').select('id, detected_language, detected_intent, confidence_score, ticket_created, emergency, openai_concierge_used, openai_concierge_fallback, ai_satisfaction_estimate, ai_resolution_estimate, created_at'),
         hotelId
       ).order('created_at', { ascending: false }).limit(25)),
       safeRows(withHotel(
@@ -351,7 +351,7 @@ export async function GET(request) {
         hotelId
       ).order('updated_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
-        supabase.from('conversation_ai_state').select('id, conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, updated_at'),
+        supabase.from('conversation_ai_state').select('id, conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, openai_enhanced, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(100)),
       safeRows(withHotel(
@@ -436,6 +436,9 @@ export async function GET(request) {
     const unresolvedComplaints = recentConversationStates.filter((item) => String(item.current_intent || '').startsWith('complaint_'));
     const repeatedFrustrations = recentConversationStates.filter((item) => item.sentiment === 'negative');
     const highValueConversations = recentConversationStates.filter((item) => ['room_upgrade_interest', 'late_checkout_interest', 'airport_transfer_interest'].includes(item.current_intent));
+    const openAiLogs = recentAiLogs.filter((item) => item.openai_concierge_used);
+    const openAiConfidenceValues = recentAiLogs.map((item) => Number(item.confidence_score)).filter(Number.isFinite);
+    const satisfactionValues = recentAiLogs.map((item) => Number(item.ai_satisfaction_estimate)).filter(Number.isFinite);
 
     return NextResponse.json({
       hotel,
@@ -512,6 +515,18 @@ export async function GET(request) {
         repeatedFrustrations: repeatedFrustrations.length,
         highValueConversations: highValueConversations.length,
         guestsRequiringAttention: activeEscalations.length + repeatedFrustrations.length,
+        openAiHandled: openAiLogs.length,
+        escalationPrevention: recentConversationStates.filter((item) => item.openai_enhanced && item.escalation_level === 'ai_handled').length,
+        aiResolutionRate: recentAiLogs.length
+          ? Math.round((recentAiLogs.filter((item) => item.ai_resolution_estimate).length / recentAiLogs.length) * 100)
+          : 0,
+        aiSatisfactionEstimate: satisfactionValues.length
+          ? Math.round(satisfactionValues.reduce((total, value) => total + value, 0) / satisfactionValues.length)
+          : 0,
+        avgAiConfidence: openAiConfidenceValues.length
+          ? Math.round((openAiConfidenceValues.reduce((total, value) => total + value, 0) / openAiConfidenceValues.length) * 100)
+          : 0,
+        aiRevenueGenerated: offerRevenueGenerated || acceptedRevenue,
         states: recentConversationStates.slice(0, 8)
       },
       guestSignals,

@@ -90,7 +90,7 @@ const getAiStateByConversation = async ({ supabase, conversationIds }) => {
   try {
     const { data, error } = await supabase
       .from('conversation_ai_state')
-      .select('conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, last_ai_response, state_metadata, updated_at')
+      .select('conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, last_ai_response, ai_summary, ai_reasoning, openai_enhanced, state_metadata, updated_at')
       .in('conversation_id', conversationIds)
       .limit(500);
 

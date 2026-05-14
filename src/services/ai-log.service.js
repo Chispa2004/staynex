@@ -40,6 +40,13 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('offer_created')
   || error?.message?.includes('offer_type')
   || error?.message?.includes('offer_status')
+  || error?.message?.includes('openai_concierge_used')
+  || error?.message?.includes('openai_concierge_model')
+  || error?.message?.includes('openai_concierge_fallback')
+  || error?.message?.includes('ai_summary')
+  || error?.message?.includes('ai_reasoning')
+  || error?.message?.includes('ai_satisfaction_estimate')
+  || error?.message?.includes('ai_resolution_estimate')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
@@ -57,6 +64,13 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('offer_created')
   || error?.details?.includes('offer_type')
   || error?.details?.includes('offer_status')
+  || error?.details?.includes('openai_concierge_used')
+  || error?.details?.includes('openai_concierge_model')
+  || error?.details?.includes('openai_concierge_fallback')
+  || error?.details?.includes('ai_summary')
+  || error?.details?.includes('ai_reasoning')
+  || error?.details?.includes('ai_satisfaction_estimate')
+  || error?.details?.includes('ai_resolution_estimate')
 );
 
 export const createAiLog = async ({
@@ -93,6 +107,13 @@ export const createAiLog = async ({
   offerCreated = false,
   offerType = null,
   offerStatus = null,
+  openAiConciergeUsed = false,
+  openAiConciergeModel = null,
+  openAiConciergeFallback = false,
+  aiSummary = null,
+  aiReasoning = null,
+  aiSatisfactionEstimate = null,
+  aiResolutionEstimate = false,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -132,7 +153,14 @@ export const createAiLog = async ({
       concierge_intent: toNullableText(conciergeIntent),
       offer_created: Boolean(offerCreated),
       offer_type: toNullableText(offerType),
-      offer_status: toNullableText(offerStatus)
+      offer_status: toNullableText(offerStatus),
+      openai_concierge_used: Boolean(openAiConciergeUsed),
+      openai_concierge_model: toNullableText(openAiConciergeModel),
+      openai_concierge_fallback: Boolean(openAiConciergeFallback),
+      ai_summary: toNullableText(aiSummary),
+      ai_reasoning: toNullableText(aiReasoning),
+      ai_satisfaction_estimate: toNullableNumber(aiSatisfactionEstimate),
+      ai_resolution_estimate: Boolean(aiResolutionEstimate)
     };
 
     let { data, error } = await supabase
@@ -166,6 +194,13 @@ export const createAiLog = async ({
         offer_created,
         offer_type,
         offer_status,
+        openai_concierge_used,
+        openai_concierge_model,
+        openai_concierge_fallback,
+        ai_summary,
+        ai_reasoning,
+        ai_satisfaction_estimate,
+        ai_resolution_estimate,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase

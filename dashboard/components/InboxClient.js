@@ -970,10 +970,15 @@ export const InboxClient = ({ conversations }) => {
                 <span className={isLight ? 'rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs font-semibold text-sky-800' : 'rounded-full border border-sky-300/20 bg-sky-400/10 px-2.5 py-1 text-xs font-semibold text-sky-100'}>
                   Sentiment {selectedConversation.aiState.sentiment || 'neutral'}
                 </span>
+                {selectedConversation.aiState.openai_enhanced ? (
+                  <span className={isLight ? 'rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-100'}>
+                    OpenAI enhanced
+                  </span>
+                ) : null}
               </div>
-              {selectedConversation.aiState.last_ai_response ? (
+              {selectedConversation.aiState.ai_summary || selectedConversation.aiState.last_ai_response ? (
                 <p className={isLight ? 'mt-2 line-clamp-2 text-xs text-slate-600' : 'mt-2 line-clamp-2 text-xs text-slate-400'}>
-                  Summary: {selectedConversation.aiState.last_ai_response}
+                  Summary: {selectedConversation.aiState.ai_summary || selectedConversation.aiState.last_ai_response}
                 </p>
               ) : null}
             </div>

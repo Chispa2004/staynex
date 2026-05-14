@@ -225,7 +225,10 @@ export const upsertConversationAiState = async ({
   conversationId,
   state,
   offerType = null,
-  aiResponse = null
+  aiResponse = null,
+  aiSummary = null,
+  aiReasoning = null,
+  openAiEnhanced = false
 }) => {
   if (!hotelId || !conversationId || !state) {
     return null;
@@ -243,6 +246,9 @@ export const upsertConversationAiState = async ({
       last_offer_type: offerType || state.previousState?.last_offer_type || null,
       last_offer_sent_at: offerType ? now : state.previousState?.last_offer_sent_at || null,
       last_ai_response: aiResponse || null,
+      ai_summary: aiSummary || null,
+      ai_reasoning: aiReasoning || null,
+      openai_enhanced: Boolean(openAiEnhanced),
       sentiment: state.sentiment || 'neutral',
       escalation_level: state.escalationLevel || 'ai_handled',
       state_metadata: state.metadata || {},

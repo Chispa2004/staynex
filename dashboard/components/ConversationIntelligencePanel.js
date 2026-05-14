@@ -29,6 +29,11 @@ export const ConversationIntelligencePanel = ({ data = {} }) => {
         <Metric icon={MessageSquareText} label="Frustration" value={data.repeatedFrustrations || 0} tone={(data.repeatedFrustrations || 0) > 0 ? 'red' : 'slate'} />
         <Metric icon={TrendingUp} label="High value" value={data.highValueConversations || 0} tone="emerald" />
         <Metric icon={BrainCircuit} label="Attention" value={data.guestsRequiringAttention || 0} tone={(data.guestsRequiringAttention || 0) > 0 ? 'amber' : 'slate'} />
+        <Metric icon={BrainCircuit} label="OpenAI handled" value={data.openAiHandled || 0} tone="violet" />
+        <Metric icon={TrendingUp} label="AI resolution" value={`${data.aiResolutionRate || 0}%`} tone="emerald" />
+        <Metric icon={TrendingUp} label="Avg confidence" value={`${data.avgAiConfidence || 0}%`} tone="sky" />
+        <Metric icon={MessageSquareText} label="Satisfaction" value={`${data.aiSatisfactionEstimate || 0}/100`} tone="emerald" />
+        <Metric icon={TrendingUp} label="AI revenue" value={new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(data.aiRevenueGenerated || 0))} tone="emerald" />
       </div>
 
       <div className="mt-5 grid gap-2 lg:grid-cols-2">
@@ -43,10 +48,13 @@ export const ConversationIntelligencePanel = ({ data = {} }) => {
             className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3 transition hover:bg-white' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3 transition hover:bg-white/[0.055]'}
           >
             <div className="flex items-center justify-between gap-3">
-              <p className={isLight ? 'truncate text-sm font-semibold text-slate-950' : 'truncate text-sm font-semibold text-white'}>{state.current_intent || 'learning'}</p>
-              <ExecutiveBadge tone={state.escalation_level === 'ai_handled' ? 'slate' : state.escalation_level === 'urgent' ? 'red' : 'amber'}>
-                {state.escalation_level}
-              </ExecutiveBadge>
+                <p className={isLight ? 'truncate text-sm font-semibold text-slate-950' : 'truncate text-sm font-semibold text-white'}>{state.current_intent || 'learning'}</p>
+              <div className="flex items-center gap-1.5">
+                {state.openai_enhanced ? <ExecutiveBadge tone="violet">OpenAI</ExecutiveBadge> : null}
+                <ExecutiveBadge tone={state.escalation_level === 'ai_handled' ? 'slate' : state.escalation_level === 'urgent' ? 'red' : 'amber'}>
+                  {state.escalation_level}
+                </ExecutiveBadge>
+              </div>
             </div>
             <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
               {Math.round(Number(state.intent_confidence || 0) * 100)}% confidence - sentiment {state.sentiment || 'neutral'}
