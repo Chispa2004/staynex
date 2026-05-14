@@ -33,6 +33,12 @@ export const translations = {
       knowledgeBase: 'Knowledge Base',
       demo: 'Demo'
     },
+    sidebarGroups: {
+      operations: 'Operaciones',
+      teams: 'Equipos',
+      revenueAi: 'Revenue & IA',
+      hotel: 'Hotel'
+    },
     status: {
       open: 'Abierto',
       in_progress: 'En progreso',
@@ -67,7 +73,8 @@ export const translations = {
       complete: 'Completar',
       inProgress: 'En progreso',
       open: 'Abrir',
-      logout: 'Cerrar sesión'
+      logout: 'Cerrar sesión',
+      signingOut: 'Cerrando...'
     },
     screens: {
       operations: 'Operaciones',
@@ -363,6 +370,12 @@ export const translations = {
       knowledgeBase: 'Knowledge Base',
       demo: 'Demo'
     },
+    sidebarGroups: {
+      operations: 'Operations',
+      teams: 'Teams',
+      revenueAi: 'Revenue & AI',
+      hotel: 'Hotel'
+    },
     status: {
       open: 'Open',
       in_progress: 'In progress',
@@ -397,7 +410,8 @@ export const translations = {
       complete: 'Complete',
       inProgress: 'In progress',
       open: 'Open',
-      logout: 'Logout'
+      logout: 'Logout',
+      signingOut: 'Signing out...'
     },
     screens: {
       operations: 'Operations',
@@ -693,6 +707,12 @@ export const translations = {
       knowledgeBase: 'Base de connaissances',
       demo: 'Démo'
     },
+    sidebarGroups: {
+      operations: 'Operations',
+      teams: 'Equipes',
+      revenueAi: 'Revenue & IA',
+      hotel: 'Hotel'
+    },
     status: {
       open: 'Ouvert',
       in_progress: 'En cours',
@@ -727,7 +747,8 @@ export const translations = {
       complete: 'Terminer',
       inProgress: 'En cours',
       open: 'Ouvrir',
-      logout: 'Déconnexion'
+      logout: 'Déconnexion',
+      signingOut: 'Deconnexion...'
     },
     screens: {
       operations: 'Opérations',
@@ -1023,6 +1044,12 @@ export const translations = {
       knowledgeBase: 'Wissensdatenbank',
       demo: 'Demo'
     },
+    sidebarGroups: {
+      operations: 'Betrieb',
+      teams: 'Teams',
+      revenueAi: 'Revenue & KI',
+      hotel: 'Hotel'
+    },
     status: {
       open: 'Offen',
       in_progress: 'In Bearbeitung',
@@ -1057,7 +1084,8 @@ export const translations = {
       complete: 'Abschließen',
       inProgress: 'In Bearbeitung',
       open: 'Öffnen',
-      logout: 'Abmelden'
+      logout: 'Abmelden',
+      signingOut: 'Abmelden...'
     },
     screens: {
       operations: 'Betrieb',

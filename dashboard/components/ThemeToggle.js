@@ -6,12 +6,18 @@ import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 export const ThemeToggle = () => {
   const { theme, toggleTheme } = useDashboardTheme();
   const isDark = theme === 'dark';
+  const isLight = theme === 'light';
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-[#0b1019]/80 px-2.5 text-xs font-semibold text-slate-300 shadow-lg shadow-black/15 backdrop-blur transition hover:bg-white/[0.08] hover:text-white"
+      className={[
+        'inline-flex h-9 items-center gap-2 rounded-lg border px-2.5 text-xs font-semibold shadow-lg backdrop-blur transition',
+        isLight
+          ? 'border-slate-200 bg-white text-slate-700 shadow-slate-200/70 hover:bg-slate-50 hover:text-slate-950'
+          : 'border-white/10 bg-[#0b1019]/80 text-slate-300 shadow-black/15 hover:bg-white/[0.08] hover:text-white'
+      ].join(' ')}
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
     >

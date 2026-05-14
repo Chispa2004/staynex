@@ -10,12 +10,11 @@ import {
   BrainCircuit,
   Bot,
   CalendarDays,
+  ChevronDown,
   ConciergeBell,
   Inbox,
   BookOpen,
   LogOut,
-  MessageSquareText,
-  PlayCircle,
   QrCode,
   Settings,
   Sparkles,
@@ -29,24 +28,55 @@ import { DashboardLanguageProvider, useDashboardLanguage } from '@/lib/i18n/useD
 import { DashboardThemeProvider, useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
-const navigation = [
-  { href: '/dashboard/inbox', labelKey: 'sidebar.inbox', icon: Inbox },
-  { href: '/dashboard', labelKey: 'sidebar.tickets', icon: TicketCheck },
-  { href: '/dashboard/demo', labelKey: 'sidebar.demo', icon: PlayCircle },
-  { href: '/dashboard/housekeeping', labelKey: 'sidebar.housekeeping', icon: Sparkles },
-  { href: '/dashboard/maintenance', labelKey: 'sidebar.maintenance', icon: Wrench },
-  { href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell },
-  { href: '/conversations', labelKey: 'sidebar.conversations', icon: MessageSquareText },
-  { href: '/dashboard/analytics', labelKey: 'sidebar.analytics', icon: BarChart3 },
-  { href: '/dashboard/ai-logs', labelKey: 'sidebar.aiLogs', icon: Activity },
-  { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
-  { href: '/dashboard/upsells', labelKey: 'sidebar.upsells', icon: TrendingUp },
-  { href: '/dashboard/guest-memory', labelKey: 'sidebar.guestMemory', icon: BrainCircuit },
-  { href: '/dashboard/automations', labelKey: 'sidebar.automations', icon: Bot },
-  { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
-  { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
-  { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }
+const navigationGroups = [
+  {
+    id: 'operations',
+    labelKey: 'sidebarGroups.operations',
+    defaultOpen: true,
+    items: [
+      { href: '/dashboard/inbox', labelKey: 'sidebar.inbox', icon: Inbox },
+      { href: '/dashboard', labelKey: 'sidebar.tickets', icon: TicketCheck }
+    ]
+  },
+  {
+    id: 'teams',
+    labelKey: 'sidebarGroups.teams',
+    defaultOpen: false,
+    items: [
+      { href: '/dashboard/housekeeping', labelKey: 'sidebar.housekeeping', icon: Sparkles },
+      { href: '/dashboard/maintenance', labelKey: 'sidebar.maintenance', icon: Wrench },
+      { href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell }
+    ]
+  },
+  {
+    id: 'revenueAi',
+    labelKey: 'sidebarGroups.revenueAi',
+    defaultOpen: true,
+    items: [
+      { href: '/dashboard/analytics', labelKey: 'sidebar.analytics', icon: BarChart3 },
+      { href: '/dashboard/ai-logs', labelKey: 'sidebar.aiLogs', icon: Activity },
+      { href: '/dashboard/upsells', labelKey: 'sidebar.upsells', icon: TrendingUp },
+      { href: '/dashboard/guest-memory', labelKey: 'sidebar.guestMemory', icon: BrainCircuit },
+      { href: '/dashboard/automations', labelKey: 'sidebar.automations', icon: Bot }
+    ]
+  },
+  {
+    id: 'hotel',
+    labelKey: 'sidebarGroups.hotel',
+    defaultOpen: true,
+    items: [
+      { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
+      { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
+      { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
+      { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }
+    ]
+  }
 ];
+
+const defaultOpenGroups = navigationGroups.reduce((groups, group) => ({
+  ...groups,
+  [group.id]: group.defaultOpen
+}), {});
 
 const INBOX_UNREAD_TOTAL_KEY = 'staynex_inbox_unread_total';
 const INBOX_UNREAD_EVENT = 'staynex:inbox-unread-updated';
@@ -60,9 +90,11 @@ const AppShellContent = ({ children }) => {
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [inboxHumanCount, setInboxHumanCount] = useState(0);
   const [authLoading, setAuthLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [sessionAccessToken, setSessionAccessToken] = useState(null);
   const [currentHotel, setCurrentHotel] = useState(null);
+  const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
   const { t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -82,25 +114,30 @@ const AppShellContent = ({ children }) => {
     let active = true;
 
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
 
       if (!active) {
         return;
+      }
+
+      if (error) {
+        console.error('Session lookup failed', error);
       }
 
       setSessionAccessToken(data.session?.access_token || null);
 
       if (!data.session && !isLoginPage) {
         setIsAuthenticated(false);
+        setAuthLoading(false);
         router.replace('/login');
       } else if (data.session && isLoginPage) {
         setIsAuthenticated(true);
+        setAuthLoading(false);
         router.replace('/dashboard');
       } else {
         setIsAuthenticated(Boolean(data.session));
+        setAuthLoading(false);
       }
-
-      setAuthLoading(false);
     };
 
     checkSession();
@@ -108,6 +145,7 @@ const AppShellContent = ({ children }) => {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setIsAuthenticated(Boolean(session));
       setSessionAccessToken(session?.access_token || null);
+      setAuthLoading(false);
 
       if (!session && !isLoginPage) {
         setCurrentHotel(null);
@@ -159,10 +197,23 @@ const AppShellContent = ({ children }) => {
   }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken]);
 
   const handleLogout = async () => {
+    if (logoutLoading) {
+      return;
+    }
+
+    setLogoutLoading(true);
     const supabase = getSupabaseBrowser();
-    await supabase?.auth.signOut();
+    const { error } = supabase ? await supabase.auth.signOut() : { error: null };
+
+    if (error) {
+      console.error('Logout failed', error);
+    }
+
+    setIsAuthenticated(false);
+    setSessionAccessToken(null);
+    setCurrentHotel(null);
+    setLogoutLoading(false);
     router.replace('/login');
-    router.refresh();
   };
 
   useEffect(() => {
@@ -210,6 +261,21 @@ const AppShellContent = ({ children }) => {
     };
   }, []);
 
+  useEffect(() => {
+    const activeGroup = navigationGroups.find((group) => group.items.some((item) => (
+      item.href === '/dashboard'
+        ? pathname === item.href
+        : pathname === item.href || pathname.startsWith(`${item.href}/`)
+    )));
+
+    if (activeGroup) {
+      setOpenGroups((current) => ({
+        ...current,
+        [activeGroup.id]: true
+      }));
+    }
+  }, [pathname]);
+
   if (isLoginPage) {
     return (
       <div className={theme === 'light' ? 'theme-light' : 'theme-dark'}>
@@ -232,6 +298,17 @@ const AppShellContent = ({ children }) => {
   const sidebarHotelSubtitle = currentHotel?.brand_name
     || currentHotel?.description
     || t('app.hotelOperations');
+  const isNavItemActive = (item) => item.href === '/dashboard'
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const groupHasActiveRoute = (group) => group.items.some(isNavItemActive);
+
+  const toggleGroup = (groupId) => {
+    setOpenGroups((current) => ({
+      ...current,
+      [groupId]: !current[groupId]
+    }));
+  };
 
   return (
     <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}>
@@ -243,7 +320,7 @@ const AppShellContent = ({ children }) => {
             : 'border-white/10 bg-[#070b12]/95 shadow-black/30'
         ].join(' ')}
         >
-          <div className="flex h-20 items-center gap-3 px-5">
+          <div className="flex min-h-24 items-center gap-3 px-5 pb-3 pt-5">
             <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg border border-emerald-300/20 bg-emerald-300 text-base font-black text-slate-950 shadow-lg shadow-emerald-500/15">
               <span className="absolute inset-x-0 top-0 h-px bg-white/70" />
               S
@@ -259,7 +336,7 @@ const AppShellContent = ({ children }) => {
           </div>
 
           {urgentCount > 0 ? (
-            <div className="px-4 pb-4">
+            <div className="px-4 pb-5 pt-1">
               <div className={[
                 'flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs font-semibold uppercase shadow-lg',
                 isLight
@@ -278,71 +355,108 @@ const AppShellContent = ({ children }) => {
             </div>
           ) : null}
 
-          <nav className="flex gap-2 overflow-x-auto px-3 pb-3 lg:block lg:space-y-1.5 lg:overflow-visible lg:px-4 lg:pb-0">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              const active = item.href === '/dashboard'
-                ? pathname === item.href
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          <nav className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+            {navigationGroups.map((group) => {
+              const isOpen = openGroups[group.id];
+              const activeGroup = groupHasActiveRoute(group);
 
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={[
-                    'group relative flex min-w-fit items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
-                    isLight
-                      ? active
-                        ? 'bg-emerald-50 text-slate-950 shadow-sm shadow-emerald-100'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
-                      : active
-                        ? 'bg-white/[0.08] text-white shadow-lg shadow-black/10'
-                        : 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-100'
-                  ].join(' ')}
-                >
-                  {active ? (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-emerald-300" />
-                  ) : null}
-                  <span className={[
-                    'flex h-8 w-8 items-center justify-center rounded-lg border transition',
-                    isLight
-                      ? active
-                        ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-                        : 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-900'
-                      : active
-                        ? 'border-emerald-300/20 bg-emerald-300/15 text-emerald-200'
-                        : 'border-white/5 bg-white/[0.025] text-slate-500 group-hover:text-slate-200'
-                  ].join(' ')}
+                <section key={group.id} className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    className={[
+                      'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.14em] transition',
+                      isLight
+                        ? activeGroup
+                          ? 'bg-slate-100 text-slate-800'
+                          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                        : activeGroup
+                          ? 'bg-white/[0.045] text-slate-200'
+                          : 'text-slate-500 hover:bg-white/[0.035] hover:text-slate-300'
+                    ].join(' ')}
+                    aria-expanded={isOpen}
                   >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <span className="flex-1">{t(item.labelKey)}</span>
-                  {item.href === '/dashboard' && urgentCount > 0 ? (
-                    <span className={isLight ? 'rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700' : 'rounded-full border border-red-300/20 bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold text-red-100'}>
-                      {urgentCount}
-                    </span>
+                    <span>{t(group.labelKey)}</span>
+                    <ChevronDown
+                      className={[
+                        'h-3.5 w-3.5 transition-transform',
+                        isOpen ? 'rotate-0' : '-rotate-90'
+                      ].join(' ')}
+                      aria-hidden="true"
+                    />
+                  </button>
+
+                  {isOpen ? (
+                    <div className="space-y-1">
+                      {group.items.map((item) => {
+                        const Icon = item.icon;
+                        const active = isNavItemActive(item);
+
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className={[
+                              'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
+                              isLight
+                                ? active
+                                  ? 'bg-emerald-50 text-slate-950 shadow-sm shadow-emerald-100'
+                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                                : active
+                                  ? 'bg-white/[0.075] text-white shadow-lg shadow-black/10'
+                                  : 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-100'
+                            ].join(' ')}
+                          >
+                            {active ? (
+                              <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-emerald-300" />
+                            ) : null}
+                            <span className={[
+                              'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
+                              isLight
+                                ? active
+                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
+                                  : 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-900'
+                                : active
+                                  ? 'border-emerald-300/20 bg-emerald-300/15 text-emerald-200'
+                                  : 'border-white/5 bg-white/[0.025] text-slate-500 group-hover:text-slate-200'
+                            ].join(' ')}
+                            >
+                              <Icon className="h-4 w-4" aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
+                            {item.href === '/dashboard' && urgentCount > 0 ? (
+                              <span className={isLight ? 'rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700' : 'rounded-full border border-red-300/20 bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold text-red-100'}>
+                                {urgentCount}
+                              </span>
+                            ) : null}
+                            {item.href === '/dashboard/inbox' && inboxUnreadCount > 0 ? (
+                              <span className={isLight ? 'rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-300/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-100'}>
+                                {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
+                              </span>
+                            ) : null}
+                            {item.href === '/dashboard/inbox' && inboxHumanCount > 0 ? (
+                              <span className={isLight ? 'rounded-full border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-800' : 'rounded-full border border-orange-300/20 bg-orange-400/15 px-1.5 py-0.5 text-[10px] font-bold text-orange-100'}>
+                                {inboxHumanCount > 99 ? '99+' : inboxHumanCount}
+                              </span>
+                            ) : null}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   ) : null}
-                  {item.href === '/dashboard/inbox' && inboxUnreadCount > 0 ? (
-                    <span className={isLight ? 'rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-300/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-100'}>
-                      {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
-                    </span>
-                  ) : null}
-                  {item.href === '/dashboard/inbox' && inboxHumanCount > 0 ? (
-                    <span className={isLight ? 'rounded-full border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-800' : 'rounded-full border border-orange-300/20 bg-orange-400/15 px-1.5 py-0.5 text-[10px] font-bold text-orange-100'}>
-                      {inboxHumanCount > 99 ? '99+' : inboxHumanCount}
-                    </span>
-                  ) : null}
-                </Link>
+                </section>
               );
             })}
           </nav>
 
-          <div className="mt-auto hidden px-4 pb-5 pt-4 lg:block">
+          <div className="mt-auto px-4 pb-5 pt-3">
             <button
               type="button"
               onClick={handleLogout}
+              disabled={logoutLoading}
               className={[
-                'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition',
+                'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
                 isLight
                   ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-950'
                   : 'border-white/10 bg-white/[0.025] text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
@@ -351,7 +465,7 @@ const AppShellContent = ({ children }) => {
               <span className={isLight ? 'flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500' : 'flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-white/[0.025] text-slate-500'}>
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </span>
-              <span>{t('buttons.logout')}</span>
+              <span>{logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}</span>
             </button>
           </div>
         </aside>

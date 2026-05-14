@@ -18,21 +18,37 @@ export const LoginClient = () => {
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
+    let active = true;
 
     if (!supabase) {
       setError('Supabase Auth is not configured.');
       setCheckingSession(false);
-      return;
+      return undefined;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!active) {
+        return;
+      }
+
+      if (sessionError) {
+        console.error('Login session lookup failed', sessionError);
+        setCheckingSession(false);
+        return;
+      }
+
       if (data.session) {
+        setCheckingSession(false);
         router.replace('/dashboard');
         return;
       }
 
       setCheckingSession(false);
     });
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   const handleSubmit = async (event) => {
@@ -60,7 +76,7 @@ export const LoginClient = () => {
     }
 
     router.replace('/dashboard');
-    router.refresh();
+    setLoading(false);
   };
 
   return (
@@ -150,7 +166,7 @@ export const LoginClient = () => {
             disabled={loading || checkingSession}
             className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading || checkingSession ? 'Checking...' : 'Login'}
+            {checkingSession ? 'Checking session...' : loading ? 'Entering...' : 'Login'}
           </button>
         </form>
       </section>
