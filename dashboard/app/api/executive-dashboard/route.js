@@ -24,7 +24,7 @@ const safeRows = async (query, fallback = []) => {
   const { data, error } = await query;
 
   if (error) {
-    if (!isMissingRevenueTable(error)) {
+    if (!isMissingOptionalTable(error)) {
       console.warn('Executive dashboard rows unavailable', error.message);
     }
 
@@ -52,6 +52,13 @@ const isMissingRevenueTable = (error) => (
   error?.message?.includes('upsell_conversions')
   || error?.details?.includes('upsell_conversions')
   || error?.hint?.includes('upsell_conversions')
+);
+
+const isMissingOptionalTable = (error) => (
+  isMissingRevenueTable(error)
+  || error?.message?.includes('guest_ai_profiles')
+  || error?.details?.includes('guest_ai_profiles')
+  || error?.hint?.includes('guest_ai_profiles')
 );
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
@@ -139,6 +146,76 @@ const countBy = (rows, field) => rows.reduce((acc, row) => {
   return acc;
 }, {});
 
+const buildGuestSignals = ({
+  profiles = [],
+  guests = [],
+  guestMemory = [],
+  upsells = [],
+  conversions = [],
+  tickets = [],
+  conversations = []
+}) => {
+  const guestsById = new Map(guests.map((guest) => [guest.id, guest]));
+
+  if (profiles.length) {
+    return profiles.slice(0, 6).map((profile) => {
+      const guest = guestsById.get(profile.guest_id);
+
+      return {
+        guestId: profile.guest_id,
+        label: guest?.phone_number || profile.guest_id,
+        room: guest?.current_room || null,
+        score: Math.round(Number(profile.guest_score || 0)),
+        revenue: Number(profile.revenue_generated || 0),
+        risk: Number(profile.operational_risk_score || 0),
+        tags: profile.metadata?.tags || [],
+        href: `/dashboard/guest-memory/${profile.guest_id}`
+      };
+    });
+  }
+
+  const guestIds = [...new Set([
+    ...guestMemory.map((item) => item.guest_id),
+    ...upsells.map((item) => item.guest_id),
+    ...conversions.map((item) => item.guest_id),
+    ...tickets.map((item) => item.guest_id),
+    ...conversations.map((item) => item.guest_id)
+  ].filter(Boolean))];
+
+  return guestIds.map((guestId) => {
+    const guest = guestsById.get(guestId);
+    const memories = guestMemory.filter((item) => item.guest_id === guestId);
+    const guestUpsells = upsells.filter((item) => item.guest_id === guestId);
+    const guestConversions = conversions.filter((item) => item.guest_id === guestId);
+    const guestTickets = tickets.filter((item) => item.guest_id === guestId);
+    const acceptedRevenue = guestConversions
+      .filter((item) => item.status === 'accepted')
+      .reduce((total, item) => total + Number(item.estimated_amount || 0), 0);
+    const risk = Math.min(100, guestTickets.filter((item) => item.priority === 'urgent' || item.category === 'complaint' || item.category === 'emergency').length * 28);
+    const memoryKeys = new Set(memories.map((item) => item.memory_key));
+    const tags = [
+      acceptedRevenue >= 150 ? 'high_spender' : null,
+      guestUpsells.some((item) => ['room_upgrade', 'late_checkout'].includes(item.upsell_type)) ? 'upgrade_ready' : null,
+      memoryKeys.has('traveling_with_partner') || memoryKeys.has('anniversary_trip') ? 'romantic' : null,
+      risk >= 50 ? 'needs_attention' : null,
+      conversations.filter((item) => item.guest_id === guestId).length > 1 ? 'repeat_guest' : null
+    ].filter(Boolean);
+
+    return {
+      guestId,
+      label: guest?.phone_number || guestId,
+      room: guest?.current_room || null,
+      score: Math.round(Math.max(0, Math.min(100, 55 + memories.length * 3 + guestUpsells.length * 5 + acceptedRevenue / 10 - risk * 0.3))),
+      revenue: acceptedRevenue,
+      risk,
+      tags,
+      href: `/dashboard/guest-memory/${guestId}`
+    };
+  })
+    .sort((a, b) => (b.score + b.revenue / 10 + b.risk) - (a.score + a.revenue / 10 + a.risk))
+    .slice(0, 6);
+};
+
 const buildInsights = ({ guestMemory, upsells, aiLogs, conversations }) => {
   const memoryKeys = new Set(guestMemory.map((item) => item.memory_key));
   const languageCounts = countBy(aiLogs, 'detected_language');
@@ -200,6 +277,7 @@ export async function GET(request) {
       recentUpsells,
       recentConversions,
       recentGuestMemory,
+      recentGuestProfiles,
       reservationsToday,
       activeGuestsRows
     ] = await Promise.all([
@@ -228,7 +306,7 @@ export async function GET(request) {
         hotelId
       ).eq('status', 'scheduled')),
       safeRows(withHotel(
-        supabase.from('tickets').select('id, room_number, category, priority, status, title, created_at'),
+        supabase.from('tickets').select('id, hotel_id, guest_id, room_number, category, priority, status, title, created_at'),
         hotelId
       ).order('created_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
@@ -244,17 +322,21 @@ export async function GET(request) {
         hotelId
       ).order('created_at', { ascending: false }).limit(20)),
       safeRows(withHotel(
-        supabase.from('ai_upsells').select('id, upsell_type, title, confidence, status, accepted, rejected, created_at'),
+        supabase.from('ai_upsells').select('id, guest_id, upsell_type, title, confidence, status, accepted, rejected, created_at'),
         hotelId
       ).order('created_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
-        supabase.from('upsell_conversions').select('id, upsell_id, upsell_type, status, estimated_amount, currency, offer_sent_at, accepted_at, created_at, updated_at'),
+        supabase.from('upsell_conversions').select('id, guest_id, upsell_id, upsell_type, status, estimated_amount, currency, offer_sent_at, accepted_at, created_at, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
-        supabase.from('guest_memory').select('id, memory_key, memory_value, memory_type, updated_at, created_at'),
+        supabase.from('guest_memory').select('id, guest_id, memory_key, memory_value, memory_type, updated_at, created_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(25)),
+      safeRows(withHotel(
+        supabase.from('guest_ai_profiles').select('id, guest_id, guest_score, revenue_generated, operational_risk_score, metadata, updated_at'),
+        hotelId
+      ).order('guest_score', { ascending: false }).limit(10)),
       safeRows(withHotel(
         supabase.from('reservations').select('id, arrival_date, departure_date, status'),
         hotelId
@@ -295,6 +377,29 @@ export async function GET(request) {
     const guestSatisfactionScore = Math.max(78, Math.min(98, 94 - urgentTickets * 2 + completedTickets));
     const arrivalsToday = reservationsToday.filter((item) => item.arrival_date === todayDate).length;
     const departuresToday = reservationsToday.filter((item) => item.departure_date === todayDate).length;
+    const signalGuestIds = [...new Set([
+      ...recentGuestProfiles.map((item) => item.guest_id),
+      ...recentGuestMemory.map((item) => item.guest_id),
+      ...recentUpsells.map((item) => item.guest_id),
+      ...recentConversions.map((item) => item.guest_id),
+      ...allTickets.map((item) => item.guest_id),
+      ...recentConversations.map((item) => item.guest_id)
+    ].filter(Boolean))].slice(0, 50);
+    const signalGuests = signalGuestIds.length
+      ? await safeRows(
+        supabase.from('guests').select('id, phone_number, current_room, preferred_language').in('id', signalGuestIds),
+        'guests'
+      )
+      : [];
+    const guestSignals = buildGuestSignals({
+      profiles: recentGuestProfiles,
+      guests: signalGuests,
+      guestMemory: recentGuestMemory,
+      upsells: recentUpsells,
+      conversions: recentConversions,
+      tickets: allTickets,
+      conversations: recentConversations
+    });
 
     return NextResponse.json({
       hotel,
@@ -350,6 +455,7 @@ export async function GET(request) {
         conversionRate,
         topUpsellCategory
       },
+      guestSignals,
       activity: buildActivityFeed({
         aiLogs: recentAiLogs,
         tickets: allTickets.slice(0, 12),

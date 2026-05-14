@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { BrainCircuit, Check, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
@@ -256,6 +257,14 @@ export const GuestMemoryClient = () => {
               </div>
 
               <div className="flex flex-wrap items-start gap-2 xl:justify-end">
+                {memory.guest_id ? (
+                  <Link
+                    href={`/dashboard/guest-memory/${memory.guest_id}`}
+                    className={isLight ? 'rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-100' : 'rounded-lg border border-violet-300/20 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-100 hover:bg-violet-400/15'}
+                  >
+                    AI Profile
+                  </Link>
+                ) : null}
                 <button
                   type="button"
                   disabled={memory.status === 'saving'}

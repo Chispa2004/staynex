@@ -9,6 +9,7 @@ import { LiveActivityFeed } from './LiveActivityFeed';
 import { OperationsPanel } from './OperationsPanel';
 import { InsightsPanel } from './InsightsPanel';
 import { RevenueUpsellsPanel } from './RevenueUpsellsPanel';
+import { VipGuestsPanel } from './VipGuestsPanel';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
@@ -211,6 +212,7 @@ export const ExecutiveDashboardClient = () => {
       </div>
 
       <OperationsPanel operations={data?.operations || {}} />
+      <VipGuestsPanel guests={data?.guestSignals || []} />
       <InsightsPanel insights={data?.insights || []} />
     </section>
   );
