@@ -3,7 +3,6 @@ import {
   createMessage,
   findActiveConversation,
   getHotelKnowledge,
-  getOrCreateLocalTestHotel,
   touchConversation
 } from './supabase.service.js';
 import { analyzeGuestMessage } from './openai.service.js';
@@ -24,6 +23,7 @@ import {
   linkReservationToGuest
 } from './reservation.service.js';
 import { logger } from '../utils/logger.js';
+import { getDefaultHotel } from './hotel.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -71,7 +71,7 @@ export const processGuestMessage = async ({
     throw new Error('phone is required');
   }
 
-  const activeHotel = hotel || await getOrCreateLocalTestHotel();
+  const activeHotel = hotel || await getDefaultHotel();
   const cleanPhone = normalizeWhatsappNumber(phone);
 
   logger.info('Processing guest message', {
@@ -119,6 +119,7 @@ export const processGuestMessage = async ({
   });
 
   const conversationContext = await buildConversationContext({
+    hotel: activeHotel,
     guest,
     conversation,
     message,

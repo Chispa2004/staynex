@@ -1,13 +1,13 @@
 import {
   createGuest,
   findGuestByPhone,
-  getOrCreateLocalTestHotel,
   getSupabase,
   updateGuestLanguage
 } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 import { detectGuestLanguage } from './language.service.js';
 import { randomBytes } from 'node:crypto';
+import { getDefaultHotel, getHotelById } from './hotel.service.js';
 
 const cleanText = (value) => {
   if (typeof value !== 'string') {
@@ -57,13 +57,16 @@ const randomTokenSuffix = () => {
 
 export const generateReservationAccessToken = () => `STX-${randomTokenSuffix()}`;
 
-const getWhatsAppNumberForLinks = () => {
-  const rawNumber = process.env.TWILIO_WHATSAPP_FROM || '';
+const getWhatsAppNumberForLinks = (reservation = {}) => {
+  const rawNumber = reservation.hotel_whatsapp_number
+    || reservation.whatsapp_number
+    || process.env.TWILIO_WHATSAPP_FROM
+    || '';
   return rawNumber.replace(/^whatsapp:/i, '').replace(/[^\d]/g, '');
 };
 
 export const generateReservationWhatsAppLink = (reservation) => {
-  const whatsappNumber = getWhatsAppNumberForLinks();
+  const whatsappNumber = getWhatsAppNumberForLinks(reservation);
 
   if (!whatsappNumber) {
     logger.warn('Cannot generate reservation WhatsApp link without TWILIO_WHATSAPP_FROM');
@@ -157,9 +160,10 @@ export const createOrUpdateReservation = async (data) => {
   const client = getSupabase();
   const pmsProvider = cleanText(data.pms_provider) || 'mock';
   const pmsReservationId = cleanText(data.pms_reservation_id);
-  const hotel = data.hotel_id || data.hotelId
-    ? { id: data.hotel_id || data.hotelId }
-    : await getOrCreateLocalTestHotel();
+  const requestedHotelId = data.hotel_id || data.hotelId;
+  const hotel = requestedHotelId
+    ? await getHotelById(requestedHotelId) || { id: requestedHotelId }
+    : await getDefaultHotel();
   const hotelId = hotel.id;
   const guestPhone = normalizePhoneIfNeeded(data.guest_phone || data.guestPhone);
 
@@ -194,7 +198,8 @@ export const createOrUpdateReservation = async (data) => {
     || await generateUniqueReservationAccessToken(existingReservation?.id || null);
   const whatsappLink = generateReservationWhatsAppLink({
     guest_name: data.guest_name,
-    reservation_access_token: accessToken
+    reservation_access_token: accessToken,
+    hotel_whatsapp_number: hotel.whatsapp_number
   });
   const reservationRecord = getReservationRecord({
     data: {

@@ -55,6 +55,8 @@ const AppShellContent = ({ children }) => {
   const [inboxHumanCount, setInboxHumanCount] = useState(0);
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [sessionAccessToken, setSessionAccessToken] = useState(null);
+  const [currentHotel, setCurrentHotel] = useState(null);
   const { t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -80,6 +82,8 @@ const AppShellContent = ({ children }) => {
         return;
       }
 
+      setSessionAccessToken(data.session?.access_token || null);
+
       if (!data.session && !isLoginPage) {
         setIsAuthenticated(false);
         router.replace('/login');
@@ -97,8 +101,10 @@ const AppShellContent = ({ children }) => {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setIsAuthenticated(Boolean(session));
+      setSessionAccessToken(session?.access_token || null);
 
       if (!session && !isLoginPage) {
+        setCurrentHotel(null);
         router.replace('/login');
       }
 
@@ -112,6 +118,39 @@ const AppShellContent = ({ children }) => {
       listener.subscription.unsubscribe();
     };
   }, [isLoginPage, router]);
+
+  useEffect(() => {
+    if (isLoginPage || authLoading || !isAuthenticated) {
+      return undefined;
+    }
+
+    let active = true;
+
+    const loadCurrentHotel = async () => {
+      try {
+        const headers = sessionAccessToken
+          ? { Authorization: `Bearer ${sessionAccessToken}` }
+          : {};
+        const response = await fetch('/api/current-hotel', {
+          headers,
+          cache: 'no-store'
+        });
+        const body = await response.json();
+
+        if (active && response.ok) {
+          setCurrentHotel(body.hotel || null);
+        }
+      } catch (error) {
+        console.error('Current hotel lookup failed', error);
+      }
+    };
+
+    loadCurrentHotel();
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken]);
 
   const handleLogout = async () => {
     const supabase = getSupabaseBrowser();
@@ -183,6 +222,11 @@ const AppShellContent = ({ children }) => {
     );
   }
 
+  const sidebarHotelName = currentHotel?.name || 'Staynex';
+  const sidebarHotelSubtitle = currentHotel?.brand_name
+    || currentHotel?.description
+    || t('app.hotelOperations');
+
   return (
     <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}>
       <div className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
@@ -199,8 +243,12 @@ const AppShellContent = ({ children }) => {
               S
             </div>
             <div>
-              <p className={isLight ? 'text-base font-semibold leading-5 tracking-tight text-slate-950' : 'text-base font-semibold leading-5 tracking-tight text-white'}>Staynex</p>
-              <p className={isLight ? 'mt-0.5 text-xs text-slate-600' : 'mt-0.5 text-xs text-slate-500'}>{t('app.hotelOperations')}</p>
+              <p className={isLight ? 'max-w-44 truncate text-base font-semibold leading-5 tracking-tight text-slate-950' : 'max-w-44 truncate text-base font-semibold leading-5 tracking-tight text-white'}>
+                {sidebarHotelName}
+              </p>
+              <p className={isLight ? 'mt-0.5 max-w-44 truncate text-xs text-slate-600' : 'mt-0.5 max-w-44 truncate text-xs text-slate-500'}>
+                {sidebarHotelSubtitle}
+              </p>
             </div>
           </div>
 

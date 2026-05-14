@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const rooms = [101, 102, 103, 201, 202, 203, 301, 302];
 
@@ -21,6 +22,10 @@ const buildWhatsappLink = ({ whatsappNumber, room }) => (
   whatsappNumber
     ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(buildRoomMessage(room))}`
     : ''
+);
+
+const normalizeWhatsappNumber = (value) => (
+  value?.replace(/^whatsapp:/i, '').replace(/[^\d]/g, '') || ''
 );
 
 const Card = ({ children, className = '' }) => {
@@ -76,14 +81,48 @@ export const QrRoomsClient = ({ whatsappNumber }) => {
   const isLight = theme === 'light';
   const [qrCodes, setQrCodes] = useState({});
   const [copiedRoom, setCopiedRoom] = useState(null);
-  const whatsappConfigured = Boolean(whatsappNumber);
+  const [hotelWhatsappNumber, setHotelWhatsappNumber] = useState('');
+  const activeWhatsappNumber = hotelWhatsappNumber || whatsappNumber;
+  const whatsappConfigured = Boolean(activeWhatsappNumber);
 
   const roomLinks = useMemo(() => Object.fromEntries(
     rooms.map((room) => [
       room,
-      buildWhatsappLink({ whatsappNumber, room })
+      buildWhatsappLink({ whatsappNumber: activeWhatsappNumber, room })
     ])
-  ), [whatsappNumber]);
+  ), [activeWhatsappNumber]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadHotelWhatsappNumber = async () => {
+      try {
+        const supabase = getSupabaseBrowser();
+        const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
+        const headers = data?.session?.access_token
+          ? { Authorization: `Bearer ${data.session.access_token}` }
+          : {};
+        const response = await fetch('/api/current-hotel', {
+          headers,
+          cache: 'no-store'
+        });
+        const body = await response.json();
+        const normalizedNumber = normalizeWhatsappNumber(body.hotel?.whatsapp_number || '');
+
+        if (active && response.ok && normalizedNumber) {
+          setHotelWhatsappNumber(normalizedNumber);
+        }
+      } catch (error) {
+        console.error('QR Rooms hotel WhatsApp lookup failed', error);
+      }
+    };
+
+    loadHotelWhatsappNumber();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,7 +209,7 @@ export const QrRoomsClient = ({ whatsappNumber }) => {
                 {t('qrRooms.whatsappNumber')}
               </p>
               <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-950' : 'mt-1 text-sm font-semibold text-white'}>
-                {whatsappConfigured ? `+${whatsappNumber}` : t('qrRooms.missingWhatsappNumber')}
+                {whatsappConfigured ? `+${activeWhatsappNumber}` : t('qrRooms.missingWhatsappNumber')}
               </p>
             </div>
           </div>

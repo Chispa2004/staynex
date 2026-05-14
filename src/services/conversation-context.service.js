@@ -5,14 +5,16 @@ import {
 import { logger } from '../utils/logger.js';
 import { detectGuestLanguage } from './language.service.js';
 import { getLatestReservationForGuest } from './reservation.service.js';
+import { getHotelProfileForPrompt } from './hotel.service.js';
 
 export const buildConversationContext = async ({
+  hotel = null,
   guest,
   conversation,
   message,
   reservation = null
 }) => {
-  const [recentMessages, openTickets] = await Promise.all([
+  const [recentMessages, openTickets, hotelProfile] = await Promise.all([
     getRecentMessages({
       conversationId: conversation.id,
       limit: 8
@@ -20,7 +22,8 @@ export const buildConversationContext = async ({
     getOpenTicketsForGuest({
       guestId: guest.id,
       limit: 5
-    })
+    }),
+    hotel?.id ? getHotelProfileForPrompt(hotel.id) : Promise.resolve(null)
   ]);
 
   const activeReservation = reservation || await getLatestReservationForGuest({
@@ -38,6 +41,7 @@ export const buildConversationContext = async ({
     recentMessages,
     openTickets,
     language,
+    hotelProfile,
     reservation: activeReservation
       ? {
         id: activeReservation.id,
@@ -69,6 +73,7 @@ export const buildConversationContext = async ({
     recentMessages: recentMessages.length,
     openTickets: openTickets.length,
     language: context.language,
+    hotelId: context.hotelProfile?.id || hotel?.id || null,
     reservationId: context.reservation?.id || null
   });
 

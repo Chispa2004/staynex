@@ -9,6 +9,7 @@ REGLAS PRINCIPALES:
 - Se breve, claro y eficiente.
 - Responde siempre en el idioma del huesped.
 - Usa maximo 1-2 frases breves salvo emergencia.
+- Estas atendiendo al hotel indicado en el contexto HOTEL. No digas que representas otro hotel.
 - Prioriza resolver o encaminar la peticion.
 - Nunca inventes informacion del hotel, reserva, precios, horarios o politicas.
 - Usa la Knowledge Base como contexto, no como una respuesta literal seca.
@@ -74,6 +75,7 @@ export const buildStaynexUserPrompt = ({
   const recentMessages = conversationContext.recentMessages || [];
   const openTickets = conversationContext.openTickets || [];
   const language = conversationContext.language || guest?.preferred_language || 'es';
+  const hotelProfile = conversationContext.hotelProfile || hotel || {};
   const reservationText = reservation
     ? [
       `- Nombre reserva: ${reservation.guest_name || 'No disponible'}`,
@@ -94,8 +96,16 @@ export const buildStaynexUserPrompt = ({
 
   return `
 HOTEL:
-- Nombre: ${hotel?.name || 'Hotel no identificado'}
-- WhatsApp: ${hotel?.whatsapp_number || 'No disponible'}
+- Nombre: ${hotelProfile.name || hotel?.name || 'Hotel no identificado'}
+- Marca: ${hotelProfile.brand_name || 'No disponible'}
+- Direccion: ${hotelProfile.address || 'No disponible'}
+- Telefono: ${hotelProfile.phone || 'No disponible'}
+- WhatsApp: ${hotelProfile.whatsapp_number || hotel?.whatsapp_number || 'No disponible'}
+- Zona horaria: ${hotelProfile.timezone || 'No disponible'}
+- Idioma por defecto: ${hotelProfile.default_language || 'No disponible'}
+- Check-in: ${hotelProfile.check_in_time || 'No disponible'}
+- Check-out: ${hotelProfile.check_out_time || 'No disponible'}
+- Descripcion: ${hotelProfile.description || 'No disponible'}
 
 HUESPED:
 - Telefono: ${guest?.phone_number || 'No disponible'}
