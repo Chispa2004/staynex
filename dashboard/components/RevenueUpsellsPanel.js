@@ -8,7 +8,10 @@ const labels = {
   romantic_package: 'Romantic package',
   late_checkout: 'Late checkout',
   airport_transfer: 'Airport transfer',
-  room_upgrade: 'Room upgrade'
+  room_upgrade: 'Room upgrade',
+  spa: 'Spa',
+  dinner: 'Dinner',
+  breakfast_upgrade: 'Breakfast upgrade'
 };
 
 const formatCurrency = (value) => new Intl.NumberFormat(undefined, {
@@ -21,6 +24,9 @@ export const RevenueUpsellsPanel = ({ revenue = {} }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const byType = revenue.byType || {};
+  const revenueByType = revenue.revenueByType || {};
+  const topCategory = revenue.topUpsellCategory ? (labels[revenue.topUpsellCategory] || revenue.topUpsellCategory) : 'No category yet';
+  const maxRevenue = Math.max(1, ...Object.values(revenueByType).map((value) => Number(value || 0)));
 
   return (
     <ExecutiveCard className="p-5">
@@ -34,35 +40,43 @@ export const RevenueUpsellsPanel = ({ revenue = {} }) => {
         </span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Detected" value={revenue.totalUpsells || 0} />
-        <Metric label="Mock conversion" value={`${revenue.conversionRate || 0}%`} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Estimated revenue" value={formatCurrency(revenue.estimatedRevenue)} />
+        <Metric label="Accepted upsells" value={revenue.accepted || 0} />
+        <Metric label="Conversion rate" value={`${revenue.conversionRate || 0}%`} />
+        <Metric label="This month" value={formatCurrency(revenue.revenueThisMonth || revenue.acceptedRevenue)} />
       </div>
 
       <div className="mt-5 space-y-3">
         {Object.entries(labels).map(([key, label]) => {
-          const value = byType[key] || 0;
-          const max = Math.max(1, revenue.totalUpsells || 1);
+          const value = Number(revenueByType[key] || 0);
+          const count = byType[key] || 0;
 
           return (
             <div key={key}>
               <div className="mb-2 flex items-center justify-between gap-3">
                 <span className={isLight ? 'text-sm font-medium text-slate-700' : 'text-sm font-medium text-slate-300'}>{label}</span>
-                <ExecutiveBadge tone={value > 0 ? 'emerald' : 'slate'}>{value}</ExecutiveBadge>
+                <ExecutiveBadge tone={value > 0 ? 'emerald' : count > 0 ? 'sky' : 'slate'}>
+                  {value > 0 ? formatCurrency(value) : `${count} signals`}
+                </ExecutiveBadge>
               </div>
               <div className={isLight ? 'h-2 overflow-hidden rounded-full bg-slate-100' : 'h-2 overflow-hidden rounded-full bg-white/[0.06]'}>
-                <div className="h-full rounded-full bg-emerald-300 transition-all" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} />
+                <div className="h-full rounded-full bg-emerald-300 transition-all" style={{ width: `${Math.min(100, ((value || count) / (value > 0 ? maxRevenue : Math.max(1, revenue.totalUpsells || 1))) * 100)}%` }} />
               </div>
             </div>
           );
         })}
       </div>
 
+      <div className={isLight ? 'mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4' : 'mt-5 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-4'}>
+        <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700' : 'text-xs font-semibold uppercase tracking-[0.12em] text-emerald-200'}>Top performing upsell</p>
+        <p className={isLight ? 'mt-2 text-lg font-semibold text-slate-950' : 'mt-2 text-lg font-semibold text-white'}>{topCategory}</p>
+      </div>
+
       <div className={isLight ? 'mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600' : 'mt-5 rounded-xl border border-white/10 bg-white/[0.025] p-4 text-sm text-slate-400'}>
         <div className="flex gap-2">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
-          Revenue is estimated from detected opportunity types. Real conversion and PMS revenue can plug into this structure later.
+          Revenue is attributed from tracked upsell conversions. PMS-confirmed revenue can plug into this same structure later.
         </div>
       </div>
     </ExecutiveCard>

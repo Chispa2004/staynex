@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Clock3, RefreshCw, Search, Sparkles, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, Euro, RefreshCw, Send, Search, Sparkles, XCircle } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const filterTypes = ['all', 'room_upgrade', 'late_checkout', 'airport_transfer', 'romantic_package', 'spa', 'dinner', 'breakfast_upgrade'];
-const filterStatuses = ['all', 'suggested', 'shown', 'accepted', 'rejected'];
+const filterStatuses = ['all', 'suggested', 'shown', 'sent', 'accepted', 'rejected'];
 
 const formatDate = (value) => {
   if (!value) {
@@ -25,6 +25,12 @@ const formatConfidence = (value) => {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? `${Math.round(numberValue * 100)}%` : '-';
 };
+
+const formatCurrency = (value, currency = 'EUR') => new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency,
+  maximumFractionDigits: 0
+}).format(Number(value || 0));
 
 const Card = ({ children, className = '' }) => {
   const { theme } = useDashboardTheme();
@@ -50,6 +56,7 @@ const Badge = ({ children, tone = 'slate' }) => {
   const styles = {
     emerald: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200',
     red: isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100',
+    sky: isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-300/10 text-sky-100',
     violet: isLight ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-violet-300/20 bg-violet-400/10 text-violet-100',
     amber: isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
     slate: isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-white/[0.045] text-slate-300'
@@ -86,6 +93,7 @@ export const UpsellsClient = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState(null);
   const [error, setError] = useState(null);
 
   const inputClass = isLight
@@ -134,7 +142,8 @@ export const UpsellsClient = () => {
 
     return upsells.filter((upsell) => {
       const matchesType = typeFilter === 'all' || upsell.upsell_type === typeFilter;
-      const matchesStatus = statusFilter === 'all' || upsell.status === statusFilter;
+      const conversionStatus = upsell.conversion?.status || upsell.status;
+      const matchesStatus = statusFilter === 'all' || upsell.status === statusFilter || conversionStatus === statusFilter;
       const text = [
         upsell.title,
         upsell.description,
@@ -152,18 +161,62 @@ export const UpsellsClient = () => {
 
   const stats = useMemo(() => ({
     total: upsells.length,
-    accepted: upsells.filter((item) => item.accepted || item.status === 'accepted').length,
-    rejected: upsells.filter((item) => item.rejected || item.status === 'rejected').length,
-    pending: upsells.filter((item) => !item.accepted && !item.rejected && ['suggested', 'shown'].includes(item.status)).length
+    accepted: upsells.filter((item) => item.conversion?.status === 'accepted' || item.accepted || item.status === 'accepted').length,
+    rejected: upsells.filter((item) => item.conversion?.status === 'rejected' || item.rejected || item.status === 'rejected').length,
+    pending: upsells.filter((item) => !item.accepted && !item.rejected && ['suggested', 'shown', 'sent'].includes(item.conversion?.status || item.status)).length,
+    revenue: upsells
+      .filter((item) => item.conversion?.status === 'accepted' || item.accepted || item.status === 'accepted')
+      .reduce((total, item) => total + Number(item.conversion?.estimated_amount || item.estimated_amount || 0), 0)
   }), [upsells]);
+
+  const updateUpsellAction = async ({ upsellId, action }) => {
+    setUpdatingId(`${upsellId}-${action}`);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/upsells', {
+        method: 'PATCH',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          upsellId,
+          action
+        })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not update upsell');
+      }
+
+      setUpsells((current) => current.map((item) => (
+        item.id === upsellId
+          ? {
+            ...item,
+            ...body.upsell,
+            guest: item.guest,
+            reservation: item.reservation,
+            conversation: item.conversation
+          }
+          : item
+      )));
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={Sparkles} label="Total upsells" value={stats.total} tone="violet" />
         <StatCard icon={Clock3} label="Pending" value={stats.pending} tone="amber" />
         <StatCard icon={CheckCircle2} label="Accepted" value={stats.accepted} tone="emerald" />
         <StatCard icon={XCircle} label="Rejected" value={stats.rejected} tone="red" />
+        <StatCard icon={Euro} label="Accepted revenue" value={formatCurrency(stats.revenue)} tone="emerald" />
       </div>
 
       <Card className="p-4">
@@ -222,12 +275,15 @@ export const UpsellsClient = () => {
 
         <div className="divide-y divide-slate-200/10">
           {filteredUpsells.map((upsell) => (
-            <article key={upsell.id} className={isLight ? 'grid gap-4 p-4 hover:bg-slate-50 xl:grid-cols-[1.1fr_0.8fr_0.8fr_0.7fr]' : 'grid gap-4 p-4 hover:bg-white/[0.035] xl:grid-cols-[1.1fr_0.8fr_0.8fr_0.7fr]'}>
+            <article key={upsell.id} className={isLight ? 'grid gap-4 p-4 hover:bg-slate-50 xl:grid-cols-[1.1fr_0.75fr_0.75fr_0.9fr]' : 'grid gap-4 p-4 hover:bg-white/[0.035] xl:grid-cols-[1.1fr_0.75fr_0.75fr_0.9fr]'}>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="violet">{upsell.upsell_type}</Badge>
                   <Badge tone={upsell.status === 'accepted' ? 'emerald' : upsell.status === 'rejected' ? 'red' : 'amber'}>
                     {upsell.status}
+                  </Badge>
+                  <Badge tone={upsell.conversion?.status === 'accepted' ? 'emerald' : upsell.conversion?.status === 'rejected' ? 'red' : upsell.conversion?.status === 'sent' ? 'sky' : 'slate'}>
+                    {upsell.conversion?.status || 'pending'}
                   </Badge>
                 </div>
                 <h2 className="mt-3 text-sm font-semibold">{upsell.title}</h2>
@@ -260,14 +316,48 @@ export const UpsellsClient = () => {
               </div>
 
               <div className="text-sm">
-                <p className="font-semibold">Signal</p>
-                <p className={isLight ? 'mt-1 text-slate-600' : 'mt-1 text-slate-400'}>{upsell.trigger_source}</p>
+                <p className="font-semibold">Revenue attribution</p>
+                <p className={isLight ? 'mt-1 text-xl font-semibold text-slate-950' : 'mt-1 text-xl font-semibold text-white'}>
+                  {formatCurrency(upsell.conversion?.estimated_amount || upsell.estimated_amount, upsell.conversion?.currency || 'EUR')}
+                </p>
+                <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
+                  Signal: {upsell.trigger_source}
+                </p>
                 <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
                   Confidence {formatConfidence(upsell.confidence)}
                 </p>
                 <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
                   {formatDate(upsell.created_at)}
                 </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={updatingId === `${upsell.id}-send_offer`}
+                    onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'send_offer' })}
+                    className={isLight ? 'inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-60' : 'inline-flex items-center gap-1.5 rounded-lg border border-sky-300/20 bg-sky-300/10 px-2.5 py-1.5 text-xs font-semibold text-sky-100 hover:bg-sky-300/15 disabled:opacity-60'}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    Send Offer
+                  </button>
+                  <button
+                    type="button"
+                    disabled={updatingId === `${upsell.id}-mark_accepted`}
+                    onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'mark_accepted' })}
+                    className={isLight ? 'inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-60' : 'inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/15 disabled:opacity-60'}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Mark Accepted
+                  </button>
+                  <button
+                    type="button"
+                    disabled={updatingId === `${upsell.id}-mark_rejected`}
+                    onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'mark_rejected' })}
+                    className={isLight ? 'inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-60' : 'inline-flex items-center gap-1.5 rounded-lg border border-red-300/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/15 disabled:opacity-60'}
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Mark Rejected
+                  </button>
+                </div>
               </div>
             </article>
           ))}

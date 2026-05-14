@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Bot, CalendarClock, CircleDot, Lightbulb, MessageSquareText, Sparkles, TicketCheck } from 'lucide-react';
+import { Bot, CalendarClock, CircleDollarSign, CircleDot, Lightbulb, MessageSquareText, Sparkles, TicketCheck } from 'lucide-react';
 import { ExecutiveCard, ExecutiveBadge } from './ExecutiveCard';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
@@ -9,6 +9,7 @@ const icons = {
   whatsapp: MessageSquareText,
   ticket: TicketCheck,
   upsell: Sparkles,
+  revenue: CircleDollarSign,
   automation: CalendarClock,
   memory: Lightbulb,
   ai: Bot

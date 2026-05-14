@@ -1,5 +1,6 @@
 import { getSupabase, createTicketRecord } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
+import { createConversion } from './revenue.service.js';
 
 export const UPSELL_TYPES = {
   ROOM_UPGRADE: 'room_upgrade',
@@ -300,6 +301,25 @@ export const createAiUpsell = async ({
       confidence: data.confidence
     });
 
+    try {
+      await createConversion({
+        hotelId: hotel.id,
+        guestId: guest?.id || null,
+        reservationId: reservation?.id || null,
+        conversationId: conversation?.id || null,
+        upsellId: data.id,
+        upsellType: data.upsell_type,
+        status: 'pending',
+        source: 'ai_upsell',
+        notes: 'Created automatically from AI upsell detection'
+      });
+    } catch (conversionError) {
+      logger.warn('Revenue conversion write failed after upsell detection', {
+        message: conversionError.message
+      });
+    }
+
+
     return data;
   } catch (error) {
     logger.warn('AI upsell write failed', {
@@ -438,6 +458,17 @@ export const createUpsellInterestTicket = async ({
           status: 'accepted'
         })
         .eq('id', interest.upsell.id);
+
+      await createConversion({
+        hotelId: hotel.id,
+        guestId: guest?.id || null,
+        conversationId: conversation?.id || null,
+        upsellId: interest.upsell.id,
+        upsellType: interest.type,
+        status: 'accepted',
+        source: 'guest_interest',
+        notes: `Guest showed interest in ${interest.type}`
+      });
     } catch (error) {
       logger.warn('Could not mark upsell as accepted', { message: error.message });
     }

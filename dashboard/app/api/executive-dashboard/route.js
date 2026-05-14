@@ -24,7 +24,10 @@ const safeRows = async (query, fallback = []) => {
   const { data, error } = await query;
 
   if (error) {
-    console.warn('Executive dashboard rows unavailable', error.message);
+    if (!isMissingRevenueTable(error)) {
+      console.warn('Executive dashboard rows unavailable', error.message);
+    }
+
     return fallback;
   }
 
@@ -36,14 +39,20 @@ const withHotel = (query, hotelId) => (
 );
 
 const revenueByUpsellType = {
-  romantic_package: 95,
-  late_checkout: 45,
-  airport_transfer: 65,
+  late_checkout: 40,
   room_upgrade: 120,
+  airport_transfer: 60,
   spa: 80,
-  dinner: 70,
-  breakfast_upgrade: 30
+  romantic_package: 150,
+  dinner: 90,
+  breakfast_upgrade: 25
 };
+
+const isMissingRevenueTable = (error) => (
+  error?.message?.includes('upsell_conversions')
+  || error?.details?.includes('upsell_conversions')
+  || error?.hint?.includes('upsell_conversions')
+);
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
   type,
@@ -60,7 +69,8 @@ const buildActivityFeed = ({
   conversations,
   scheduledMessages,
   upsells,
-  guestMemory
+  guestMemory,
+  conversions = []
 }) => [
   ...conversations.map((item) => formatActivity({
     type: 'whatsapp',
@@ -73,7 +83,7 @@ const buildActivityFeed = ({
   ...tickets.map((item) => formatActivity({
     type: 'ticket',
     title: item.title || 'Ticket created',
-    description: `${item.category || 'ticket'} · ${item.priority || 'normal'}`,
+    description: `${item.category || 'ticket'} - ${item.priority || 'normal'}`,
     createdAt: item.created_at,
     tone: item.priority === 'urgent' ? 'red' : 'amber',
     href: `/dashboard/tickets/${item.id}`
@@ -81,7 +91,7 @@ const buildActivityFeed = ({
   ...upsells.map((item) => formatActivity({
     type: 'upsell',
     title: item.title || 'Upsell detected',
-    description: `${item.upsell_type || 'opportunity'} · ${Math.round(Number(item.confidence || 0) * 100)}% confidence`,
+    description: `${item.upsell_type || 'opportunity'} - ${Math.round(Number(item.confidence || 0) * 100)}% confidence`,
     createdAt: item.created_at,
     tone: 'violet',
     href: '/dashboard/upsells'
@@ -102,10 +112,18 @@ const buildActivityFeed = ({
     tone: 'emerald',
     href: '/dashboard/guest-memory'
   })),
+  ...conversions.map((item) => formatActivity({
+    type: 'revenue',
+    title: item.status === 'accepted' ? 'Revenue generated' : item.status === 'sent' ? 'Upsell offer sent' : 'Upsell conversion updated',
+    description: `${item.upsell_type} - ${new Intl.NumberFormat(undefined, { style: 'currency', currency: item.currency || 'EUR', maximumFractionDigits: 0 }).format(Number(item.estimated_amount || 0))}`,
+    createdAt: item.updated_at || item.accepted_at || item.offer_sent_at || item.created_at,
+    tone: item.status === 'accepted' ? 'emerald' : item.status === 'rejected' ? 'red' : 'sky',
+    href: '/dashboard/upsells'
+  })),
   ...aiLogs.map((item) => formatActivity({
     type: 'ai',
     title: item.ticket_created ? 'AI created a ticket' : 'AI response generated',
-    description: `${item.detected_intent || 'unknown'} · ${item.detected_language || 'auto'}`,
+    description: `${item.detected_intent || 'unknown'} - ${item.detected_language || 'auto'}`,
     createdAt: item.created_at,
     tone: item.emergency ? 'red' : 'slate',
     href: '/dashboard/ai-logs'
@@ -180,6 +198,7 @@ export async function GET(request) {
       recentAiLogs,
       recentScheduledMessages,
       recentUpsells,
+      recentConversions,
       recentGuestMemory,
       reservationsToday,
       activeGuestsRows
@@ -229,6 +248,10 @@ export async function GET(request) {
         hotelId
       ).order('created_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
+        supabase.from('upsell_conversions').select('id, upsell_id, upsell_type, status, estimated_amount, currency, offer_sent_at, accepted_at, created_at, updated_at'),
+        hotelId
+      ).order('updated_at', { ascending: false }).limit(50)),
+      safeRows(withHotel(
         supabase.from('guest_memory').select('id, memory_key, memory_value, memory_type, updated_at, created_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(25)),
@@ -244,9 +267,30 @@ export async function GET(request) {
 
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
     const upsellTypeCounts = countBy(recentUpsells, 'upsell_type');
-    const estimatedAiRevenue = recentUpsells.reduce((total, item) => (
-      total + (revenueByUpsellType[item.upsell_type] || 40)
+    const acceptedConversions = recentConversions.filter((item) => item.status === 'accepted');
+    const conversionTypeCounts = countBy(recentConversions, 'upsell_type');
+    const revenueByType = recentConversions.reduce((acc, item) => {
+      const key = item.upsell_type || 'unknown';
+      acc[key] = (acc[key] || 0) + Number(item.estimated_amount || 0);
+      return acc;
+    }, {});
+    const estimatedAiRevenue = recentConversions.length > 0
+      ? recentConversions.reduce((total, item) => total + Number(item.estimated_amount || 0), 0)
+      : recentUpsells.reduce((total, item) => (
+        total + (revenueByUpsellType[item.upsell_type] || 40)
+      ), 0);
+    const acceptedRevenue = acceptedConversions.reduce((total, item) => (
+      total + Number(item.estimated_amount || 0)
     ), 0);
+    const acceptedUpsells = acceptedConversions.length || recentUpsells.filter((item) => item.accepted || item.status === 'accepted').length;
+    const conversionRate = recentConversions.length > 0
+      ? Math.round((acceptedConversions.length / recentConversions.length) * 100)
+      : recentUpsells.length > 0
+        ? Math.round((acceptedUpsells / recentUpsells.length) * 100)
+        : 0;
+    const topUpsellCategory = Object.entries(revenueByType).sort((a, b) => b[1] - a[1])[0]?.[0]
+      || Object.entries(upsellTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
+      || null;
     const completedTickets = allTickets.filter((item) => item.status === 'completed').length;
     const guestSatisfactionScore = Math.max(78, Math.min(98, 94 - urgentTickets * 2 + completedTickets));
     const arrivalsToday = reservationsToday.filter((item) => item.arrival_date === todayDate).length;
@@ -263,7 +307,7 @@ export async function GET(request) {
         aiResponses,
         upsellsDetected,
         automationsScheduled,
-        estimatedAiRevenue,
+        estimatedAiRevenue: acceptedRevenue || estimatedAiRevenue,
         guestSatisfactionScore,
         urgentTickets
       },
@@ -290,16 +334,21 @@ export async function GET(request) {
       revenue: {
         totalUpsells: recentUpsells.length,
         byType: {
-          romantic_package: upsellTypeCounts.romantic_package || 0,
-          late_checkout: upsellTypeCounts.late_checkout || 0,
-          airport_transfer: upsellTypeCounts.airport_transfer || 0,
-          room_upgrade: upsellTypeCounts.room_upgrade || 0
+          romantic_package: conversionTypeCounts.romantic_package || upsellTypeCounts.romantic_package || 0,
+          late_checkout: conversionTypeCounts.late_checkout || upsellTypeCounts.late_checkout || 0,
+          airport_transfer: conversionTypeCounts.airport_transfer || upsellTypeCounts.airport_transfer || 0,
+          room_upgrade: conversionTypeCounts.room_upgrade || upsellTypeCounts.room_upgrade || 0,
+          spa: conversionTypeCounts.spa || upsellTypeCounts.spa || 0,
+          dinner: conversionTypeCounts.dinner || upsellTypeCounts.dinner || 0,
+          breakfast_upgrade: conversionTypeCounts.breakfast_upgrade || upsellTypeCounts.breakfast_upgrade || 0
         },
-        accepted: recentUpsells.filter((item) => item.accepted || item.status === 'accepted').length,
+        revenueByType,
+        accepted: acceptedUpsells,
+        acceptedRevenue,
         estimatedRevenue: estimatedAiRevenue,
-        conversionRate: recentUpsells.length > 0
-          ? Math.round((recentUpsells.filter((item) => item.accepted || item.status === 'accepted').length / recentUpsells.length) * 100)
-          : 18
+        revenueThisMonth: acceptedRevenue,
+        conversionRate,
+        topUpsellCategory
       },
       activity: buildActivityFeed({
         aiLogs: recentAiLogs,
@@ -307,7 +356,8 @@ export async function GET(request) {
         conversations: recentConversations,
         scheduledMessages: recentScheduledMessages,
         upsells: recentUpsells,
-        guestMemory: recentGuestMemory
+        guestMemory: recentGuestMemory,
+        conversions: recentConversions
       }),
       insights: buildInsights({
         guestMemory: recentGuestMemory,
