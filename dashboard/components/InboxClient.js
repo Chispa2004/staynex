@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AlertTriangle, Eye, EyeOff, RefreshCw, Send } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const formatDate = (value) => {
   if (!value) {
@@ -206,13 +207,29 @@ const updateConversationWithMessage = ({ conversations, conversationId, message 
       return conversation;
     }
 
+    const currentMessages = conversation.messages || [];
+
+    if (currentMessages.some((item) => item.id === message.id)) {
+      return {
+        ...conversation,
+        last_message_at: message.created_at || conversation.last_message_at,
+        lastMessage: message
+      };
+    }
+
     return {
       ...conversation,
-      last_message_at: message.created_at,
+      last_message_at: message.created_at || conversation.last_message_at,
       lastMessage: message,
-      messages: [...conversation.messages, message]
+      messages: [...currentMessages, message].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
     };
   })
+);
+
+const getConversationMessageCount = (conversations, conversationId) => (
+  conversations.find((conversation) => conversation.id === conversationId)?.messages?.length || 0
 );
 
 export const InboxClient = ({ conversations }) => {
@@ -232,6 +249,15 @@ export const InboxClient = ({ conversations }) => {
   const [readState, setReadState] = useState({});
   const [readStateLoaded, setReadStateLoaded] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [currentHotel, setCurrentHotel] = useState(null);
+  const [realtimeStatus, setRealtimeStatus] = useState('connecting');
+  const [refreshing, setRefreshing] = useState(false);
+  const itemsRef = useRef(sortedConversations);
+  const selectedIdRef = useRef(selectedId);
+  const messagesScrollRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const realtimeReloadTimerRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
 
   const selectedConversation = items.find((conversation) => conversation.id === selectedId) || null;
   const unreadTotal = useMemo(() => getTotalUnread(items, readState), [items, readState]);
@@ -244,6 +270,14 @@ export const InboxClient = ({ conversations }) => {
       ? items.filter((conversation) => getHumanEscalation(conversation).needsHuman)
       : items
   ), [activeFilter, items]);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   useEffect(() => {
     setReadState(readStoredReadState());
@@ -266,7 +300,63 @@ export const InboxClient = ({ conversations }) => {
     dispatchHumanTotal(humanTotal);
   }, [humanTotal]);
 
-  const markConversationAsRead = (conversationId) => {
+  const loadInbox = useCallback(async ({ silent = false, preserveSelection = true } = {}) => {
+    if (!silent) {
+      setRefreshing(true);
+    }
+
+    try {
+      const supabase = getSupabaseBrowser();
+      const { data } = supabase
+        ? await supabase.auth.getSession()
+        : { data: { session: null } };
+      const headers = data?.session?.access_token
+        ? { Authorization: `Bearer ${data.session.access_token}` }
+        : {};
+      const response = await fetch('/api/inbox', {
+        headers,
+        cache: 'no-store'
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not refresh inbox');
+      }
+
+      const nextItems = sortConversations(body.conversations || []);
+
+      setCurrentHotel(body.hotel || null);
+      setItems(nextItems);
+      setSelectedId((current) => {
+        const currentSelection = selectedIdRef.current || current;
+
+        if (preserveSelection && currentSelection && nextItems.some((conversation) => conversation.id === currentSelection)) {
+          return currentSelection;
+        }
+
+        if (current && nextItems.some((conversation) => conversation.id === current)) {
+          return current;
+        }
+
+        return requestedConversationId || nextItems[0]?.id || null;
+      });
+
+      return nextItems;
+    } catch (error) {
+      console.warn('Inbox refresh failed', error);
+      return null;
+    } finally {
+      if (!silent) {
+        setRefreshing(false);
+      }
+    }
+  }, [requestedConversationId]);
+
+  useEffect(() => {
+    loadInbox({ silent: true });
+  }, [loadInbox]);
+
+  const markConversationAsRead = useCallback((conversationId) => {
     if (!conversationId) {
       return;
     }
@@ -280,13 +370,178 @@ export const InboxClient = ({ conversations }) => {
       persistReadState(nextState);
       return nextState;
     });
-  };
+  }, []);
+
+  const isMessagesPanelNearBottom = useCallback(() => {
+    const element = messagesScrollRef.current;
+
+    if (!element) {
+      return true;
+    }
+
+    return element.scrollHeight - element.scrollTop - element.clientHeight < 120;
+  }, []);
+
+  const scrollMessagesToBottom = useCallback((behavior = 'smooth') => {
+    window.requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ block: 'end', behavior });
+    });
+  }, []);
+
+  const refreshInboxSilently = useCallback(async ({ reason = 'silent' } = {}) => {
+    const selectedBeforeReload = selectedIdRef.current;
+    const messagesBefore = selectedBeforeReload
+      ? getConversationMessageCount(itemsRef.current, selectedBeforeReload)
+      : 0;
+    const wasNearBottom = isMessagesPanelNearBottom();
+
+    if (reason === 'polling') {
+      console.log('Inbox polling refresh');
+    }
+
+    const nextItems = await loadInbox({
+      preserveSelection: true,
+      silent: true
+    });
+
+    if (!nextItems) {
+      return;
+    }
+
+    console.log('Inbox refreshed silently', { reason });
+
+    if (!selectedBeforeReload) {
+      return;
+    }
+
+    const messagesAfter = getConversationMessageCount(nextItems, selectedBeforeReload);
+    const hasNewActiveMessages = messagesAfter > messagesBefore;
+
+    if (hasNewActiveMessages) {
+      markConversationAsRead(selectedBeforeReload);
+    }
+
+    if (wasNearBottom || hasNewActiveMessages) {
+      scrollMessagesToBottom('smooth');
+    }
+  }, [isMessagesPanelNearBottom, loadInbox, markConversationAsRead, scrollMessagesToBottom]);
+
+  const scheduleRealtimeReload = useCallback((reason) => {
+    if (realtimeReloadTimerRef.current) {
+      window.clearTimeout(realtimeReloadTimerRef.current);
+    }
+
+    realtimeReloadTimerRef.current = window.setTimeout(async () => {
+      realtimeReloadTimerRef.current = null;
+      await refreshInboxSilently({ reason });
+
+      console.log('Inbox realtime reload completed', { reason });
+    }, 500);
+  }, [refreshInboxSilently]);
 
   useEffect(() => {
     if (readStateLoaded && selectedId) {
       markConversationAsRead(selectedId);
     }
-  }, [readStateLoaded, selectedId]);
+  }, [markConversationAsRead, readStateLoaded, selectedId]);
+
+  useEffect(() => {
+    scrollMessagesToBottom('auto');
+  }, [scrollMessagesToBottom, selectedConversation?.id]);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowser();
+
+    if (!supabase) {
+      console.warn('Inbox Realtime unavailable: missing Supabase browser client');
+      setRealtimeStatus('fallback');
+      return undefined;
+    }
+
+    const channel = supabase
+      .channel(`dashboard-inbox-${currentHotel?.id || 'all'}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          console.log('Message INSERT received', payload.new);
+          scheduleRealtimeReload('message_insert');
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversations',
+          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+        },
+        (payload) => {
+          console.log('Conversation UPDATE received', payload.new);
+          scheduleRealtimeReload('conversation_update');
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversations',
+          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+        },
+        (payload) => {
+          console.log('Conversation INSERT received', payload.new);
+          scheduleRealtimeReload('conversation_insert');
+        }
+      )
+      .subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Realtime connected');
+          setRealtimeStatus('connected');
+          return;
+        }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.warn('Inbox Realtime error', {
+            status,
+            error
+          });
+          setRealtimeStatus('fallback');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentHotel?.id, scheduleRealtimeReload]);
+
+  useEffect(() => () => {
+    if (realtimeReloadTimerRef.current) {
+      window.clearTimeout(realtimeReloadTimerRef.current);
+      realtimeReloadTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pollingIntervalRef.current) {
+      window.clearInterval(pollingIntervalRef.current);
+    }
+
+    pollingIntervalRef.current = window.setInterval(() => {
+      refreshInboxSilently({ reason: 'polling' });
+    }, 5000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        window.clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [refreshInboxSilently]);
 
   const sendMessage = async (event) => {
     event.preventDefault();
@@ -378,9 +633,24 @@ export const InboxClient = ({ conversations }) => {
               {humanTotal > 0 ? ` · ${t('inbox.humanTotal', { count: humanTotal })}` : ''}
             </p>
           </div>
-          <form action="/dashboard/inbox">
+          <div className="flex items-center gap-2">
+            <span
+              className={[
+                'hidden rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] sm:inline-flex',
+                realtimeStatus === 'connected'
+                  ? isLight
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+                  : isLight
+                    ? 'border-amber-200 bg-amber-50 text-amber-800'
+                    : 'border-amber-300/20 bg-amber-300/10 text-amber-100'
+              ].join(' ')}
+            >
+              {realtimeStatus === 'connected' ? 'Live' : 'Fallback'}
+            </span>
             <button
-              type="submit"
+              type="button"
+              onClick={() => loadInbox()}
               className={[
                 'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition',
                 isLight
@@ -389,10 +659,10 @@ export const InboxClient = ({ conversations }) => {
               ].join(' ')}
               title={t('buttons.refresh')}
             >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
               <span className="sr-only">{t('buttons.refresh')}</span>
             </button>
-          </form>
+          </div>
         </div>
 
         <div className={[
@@ -627,6 +897,7 @@ export const InboxClient = ({ conversations }) => {
           'min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-6 sm:px-6',
           isLight ? 'bg-slate-50' : 'bg-[#080c14]/45'
         ].join(' ')}
+        ref={messagesScrollRef}
         >
           {selectedConversation?.messages.map((item) => {
             const isStaff = item.sender_type === 'staff';
@@ -721,6 +992,7 @@ export const InboxClient = ({ conversations }) => {
               </div>
             );
           })}
+          <div ref={messagesEndRef} />
         </div>
 
         <form

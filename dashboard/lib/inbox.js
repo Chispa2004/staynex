@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from './supabase';
+import { getDefaultHotel } from './current-hotel';
 
 const groupMessagesByConversation = (messages) => messages.reduce((groups, message) => {
   const current = groups.get(message.conversation_id) || [];
@@ -85,13 +86,28 @@ const getGuestMemoryByGuest = async ({ supabase, guestIds }) => {
   }
 };
 
-export const getInboxConversations = async () => {
-  const supabase = getSupabaseAdmin();
+export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
+  let resolvedHotelId = hotelId;
 
-  const { data: conversations, error: conversationsError } = await supabase
+  if (!resolvedHotelId) {
+    try {
+      const defaultHotel = await getDefaultHotel(supabase);
+      resolvedHotelId = defaultHotel?.id || null;
+    } catch (error) {
+      console.warn('Inbox default hotel fallback unavailable', error.message);
+    }
+  }
+
+  let conversationsQuery = supabase
     .from('conversations')
-    .select('id, guest_id, status, last_message_at, created_at')
+    .select('id, hotel_id, guest_id, status, last_message_at, created_at')
     .order('last_message_at', { ascending: false });
+
+  if (resolvedHotelId) {
+    conversationsQuery = conversationsQuery.eq('hotel_id', resolvedHotelId);
+  }
+
+  const { data: conversations, error: conversationsError } = await conversationsQuery;
 
   if (conversationsError) {
     throw conversationsError;
