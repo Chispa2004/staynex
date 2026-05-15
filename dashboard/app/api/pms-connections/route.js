@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { PMS_PROVIDERS, redactConnection, saveConnection } from '@/lib/pms-connections';
+import { PMS_PROVIDERS, getProviderWebhookUrl, redactConnection, saveConnection } from '@/lib/pms-connections';
 
 const jsonError = (message, status = 500, extra = {}) => NextResponse.json({
   ok: false,
@@ -24,8 +24,14 @@ export async function GET(request) {
     return NextResponse.json({
       ok: true,
       hotel,
-      providers: PMS_PROVIDERS,
-      connections: (data || []).map(redactConnection)
+      providers: PMS_PROVIDERS.map((provider) => ({
+        ...provider,
+        webhookUrl: getProviderWebhookUrl(provider.key)
+      })),
+      connections: (data || []).map((connection) => ({
+        ...redactConnection(connection),
+        webhook_url: connection.webhook_url || getProviderWebhookUrl(connection.provider)
+      }))
     });
   } catch (error) {
     return jsonError(error.message || 'Could not load PMS connections');

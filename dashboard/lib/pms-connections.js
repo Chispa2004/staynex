@@ -22,10 +22,14 @@ export const redactConnection = (connection) => {
 };
 
 export const getBackendUrl = () => (
-  process.env.BACKEND_URL
+  process.env.PUBLIC_BACKEND_URL
+  || process.env.NEXT_PUBLIC_PUBLIC_BACKEND_URL
   || process.env.NEXT_PUBLIC_BACKEND_URL
+  || process.env.BACKEND_URL
   || 'http://localhost:3000'
 ).replace(/\/$/, '');
+
+export const getProviderWebhookUrl = (provider = 'apaleo') => `${getBackendUrl()}/integrations/${provider}/webhook`;
 
 const fetchWithTimeout = async (url, options = {}, timeoutMs = 22000) => {
   const controller = new AbortController();
@@ -64,6 +68,7 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
     base_url: payload.base_url || PMS_PROVIDERS.find((item) => item.key === provider)?.defaultBaseUrl || null,
     enabled: payload.enabled !== false,
     sync_status: existing?.sync_status || 'configured',
+    webhook_url: payload.webhook_url || existing?.webhook_url || getProviderWebhookUrl(provider),
     webhook_enabled: Boolean(payload.webhook_enabled || existing?.webhook_enabled),
     webhook_status: existing?.webhook_status || 'not_configured',
     metadata: {

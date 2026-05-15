@@ -113,3 +113,42 @@ export const getReservations = async ({
 
   return limitedReservations;
 };
+
+export const getReservationById = async ({
+  credentials = null,
+  config = null,
+  reservationId
+} = {}) => {
+  if (!reservationId) {
+    throw new Error('Apaleo reservationId is required');
+  }
+
+  logger.info('Apaleo reservation fetch by id started', {
+    reservationId
+  });
+
+  try {
+    const reservation = await apaleoFetch(`/booking/v1/reservations/${encodeURIComponent(reservationId)}`, {
+      config: credentials || config,
+      timeoutMs: Number(process.env.APALEO_TIMEOUT_MS || 15000),
+      query: {
+        expand: 'booker'
+      }
+    });
+
+    logger.info('Apaleo reservation fetched by id', {
+      reservationId
+    });
+
+    return reservation;
+  } catch (error) {
+    if (error.status === 404) {
+      logger.warn('Apaleo reservation not found by id', {
+        reservationId
+      });
+      return null;
+    }
+
+    throw error;
+  }
+};

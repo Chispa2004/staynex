@@ -263,7 +263,20 @@ const PmsStatusCard = ({ pmsStatus }) => {
                   {primaryProvider.lastSyncError ? 'Review' : '0'}
                 </p>
               </div>
+              <div>
+                <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Webhook</p>
+                <p className={isLight ? 'mt-1 font-semibold text-slate-900' : 'mt-1 font-semibold text-white'}>{primaryProvider.webhookStatus || 'manual setup'}</p>
+              </div>
+              <div>
+                <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Last event</p>
+                <p className={primaryProvider.lastWebhookError ? 'mt-1 font-semibold text-red-400' : isLight ? 'mt-1 font-semibold text-slate-900' : 'mt-1 font-semibold text-white'}>
+                  {primaryProvider.lastWebhookError ? 'Review' : primaryProvider.lastWebhookAt ? 'Received' : 'None'}
+                </p>
+              </div>
             </div>
+            {primaryProvider.lastWebhookError ? (
+              <p className="text-xs leading-5 text-red-400">{primaryProvider.lastWebhookError}</p>
+            ) : null}
           </div>
         ) : (
           <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>No PMS connected yet.</p>

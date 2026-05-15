@@ -9,7 +9,7 @@
     "dev": "nodemon src/server.js",
     "check": "node --check src/server.js",
     "check:env": "node scripts/check-env.js",
-    "check:syntax": "node --check src/server.js && node --check src/routes/integrations.routes.js && node --check src/utils/encryption.js && node --check src/services/pms-connections.service.js && node --check src/integrations/apaleo/apaleo-auth.service.js && node --check src/integrations/apaleo/apaleo-client.service.js && node --check src/integrations/apaleo/apaleo-reservations.service.js && node --check src/integrations/apaleo/apaleo-normalizer.service.js && node --check src/integrations/apaleo/apaleo-sync.service.js && node --check src/integrations/apaleo/apaleo-webhooks.service.js && node --check scripts/check-env.js && node --check scripts/test-message.js && node --check scripts/test-mock-ai.js && node --check scripts/test-knowledge.js && node --check scripts/test-knowledge-hotel.js && node --check scripts/test-memory.js && node --check scripts/test-guest-memory.js && node --check scripts/test-language.js && node --check scripts/test-pms-reservation.js && node --check scripts/test-reservation-token.js && node --check scripts/test-openai.js && node --check scripts/test-upsells.js && node --check scripts/test-automations.js && node --check scripts/test-apaleo-sync.js",
+    "check:syntax": "node --check src/server.js && node --check src/routes/integrations.routes.js && node --check src/utils/encryption.js && node --check src/services/pms-connections.service.js && node --check src/integrations/apaleo/apaleo-auth.service.js && node --check src/integrations/apaleo/apaleo-client.service.js && node --check src/integrations/apaleo/apaleo-reservations.service.js && node --check src/integrations/apaleo/apaleo-normalizer.service.js && node --check src/integrations/apaleo/apaleo-sync.service.js && node --check src/integrations/apaleo/apaleo-webhooks.service.js && node --check scripts/check-env.js && node --check scripts/test-message.js && node --check scripts/test-mock-ai.js && node --check scripts/test-knowledge.js && node --check scripts/test-knowledge-hotel.js && node --check scripts/test-memory.js && node --check scripts/test-guest-memory.js && node --check scripts/test-language.js && node --check scripts/test-pms-reservation.js && node --check scripts/test-reservation-token.js && node --check scripts/test-openai.js && node --check scripts/test-upsells.js && node --check scripts/test-automations.js && node --check scripts/test-apaleo-sync.js && node --check scripts/test-apaleo-webhook.js",
     "check:all": "npm run check:syntax && npm run dashboard:build",
     "test:message": "node scripts/test-message.js",
     "test:mock-ai": "node scripts/test-mock-ai.js",
@@ -24,6 +24,7 @@
     "test:upsells": "node scripts/test-upsells.js",
     "test:automations": "node scripts/test-automations.js",
     "test:apaleo-sync": "node scripts/test-apaleo-sync.js",
+    "test:apaleo-webhook": "node scripts/test-apaleo-webhook.js",
     "dashboard:dev": "npm --prefix dashboard run dev",
     "dashboard:build": "npm --prefix dashboard run build",
     "dashboard:start": "npm --prefix dashboard run start"

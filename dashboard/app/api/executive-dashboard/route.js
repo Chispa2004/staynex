@@ -372,7 +372,7 @@ export async function GET(request) {
         hotelId
       ).not('guest_id', 'is', null).limit(500)),
       safeRows(withHotel(
-        supabase.from('hotel_pms_connections').select('id, provider, enabled, sync_status, last_sync_at, last_sync_error, metadata, webhook_enabled, webhook_status, updated_at'),
+        supabase.from('hotel_pms_connections').select('id, provider, enabled, sync_status, last_sync_at, last_sync_error, metadata, webhook_url, webhook_enabled, webhook_status, last_webhook_at, last_webhook_error, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(10))
     ]);
@@ -545,7 +545,10 @@ export async function GET(request) {
           importedReservations: item.metadata?.last_sync_summary?.synced || 0,
           fetchedReservations: item.metadata?.last_sync_summary?.fetched || 0,
           webhookEnabled: item.webhook_enabled,
-          webhookStatus: item.webhook_status
+          webhookStatus: item.webhook_status,
+          webhookUrl: item.webhook_url,
+          lastWebhookAt: item.last_webhook_at,
+          lastWebhookError: item.last_webhook_error
         })),
         syncErrors: pmsConnections.filter((item) => item.last_sync_error).length
       },

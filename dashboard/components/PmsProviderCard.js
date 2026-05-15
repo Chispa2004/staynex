@@ -1,6 +1,7 @@
 'use client';
 
-import { CheckCircle2, Clock3, PlugZap } from 'lucide-react';
+import { CheckCircle2, Clock3, Copy, PlugZap } from 'lucide-react';
+import { useState } from 'react';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
@@ -33,8 +34,20 @@ export const PmsProviderCard = ({
 }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
   const connected = Boolean(connection?.enabled && connection?.has_client_secret);
   const available = provider.status === 'available';
+  const webhookUrl = connection?.webhook_url || provider.webhookUrl || '';
+
+  const copyWebhookUrl = async () => {
+    if (!webhookUrl) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(webhookUrl);
+    setCopiedWebhook(true);
+    window.setTimeout(() => setCopiedWebhook(false), 1800);
+  };
 
   return (
     <ExecutiveCard className="p-5">
@@ -77,6 +90,46 @@ export const PmsProviderCard = ({
           {connection.last_sync_error ? (
             <p className="mt-3 text-sm text-red-400">{connection.last_sync_error}</p>
           ) : null}
+          <div className={isLight ? 'mt-4 rounded-lg border border-slate-200 bg-white p-3' : 'mt-4 rounded-lg border border-white/10 bg-black/15 p-3'}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Webhook</p>
+                <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>
+                  {connection.webhook_status || 'not_configured'}
+                </p>
+              </div>
+              <ExecutiveBadge tone={connection.webhook_enabled || connection.last_webhook_at ? 'emerald' : 'slate'}>
+                {connection.last_webhook_at ? 'Receiving' : 'Manual setup'}
+              </ExecutiveBadge>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                readOnly
+                value={webhookUrl || 'Set PUBLIC_BACKEND_URL'}
+                className={isLight ? 'min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600' : 'min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs text-slate-300'}
+              />
+              <button
+                type="button"
+                onClick={copyWebhookUrl}
+                disabled={!webhookUrl}
+                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {copiedWebhook ? 'Copied' : 'Copy URL'}
+              </button>
+            </div>
+            <p className={isLight ? 'mt-2 text-xs leading-5 text-slate-500' : 'mt-2 text-xs leading-5 text-slate-500'}>
+              Copy this URL into Apaleo webhook configuration for reservation events: created, amended, canceled, deleted.
+            </p>
+            {connection.last_webhook_at ? (
+              <p className={isLight ? 'mt-2 text-xs text-slate-500' : 'mt-2 text-xs text-slate-500'}>
+                Last webhook: {formatDateTime(connection.last_webhook_at)}
+              </p>
+            ) : null}
+            {connection.last_webhook_error ? (
+              <p className="mt-2 text-xs text-red-400">{connection.last_webhook_error}</p>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className={isLight ? 'mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500' : 'mt-5 rounded-xl border border-dashed border-white/10 bg-white/[0.025] p-4 text-sm text-slate-500'}>

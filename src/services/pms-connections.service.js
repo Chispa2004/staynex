@@ -117,6 +117,8 @@ const buildConnectionRecord = ({
   enabled: Boolean(enabled),
   metadata,
   sync_status: 'configured',
+  webhook_url: `${process.env.PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:3000'}/integrations/${provider}/webhook`,
+  webhook_status: 'not_configured',
   updated_at: new Date().toISOString()
 });
 
@@ -173,7 +175,20 @@ export const updateHotelPmsConnection = async ({ connectionId, hotelId, updates 
     updated_at: new Date().toISOString()
   };
 
-  ['client_id', 'account_code', 'base_url', 'enabled', 'sync_status', 'webhook_enabled', 'webhook_status', 'metadata'].forEach((key) => {
+  [
+    'client_id',
+    'account_code',
+    'base_url',
+    'enabled',
+    'sync_status',
+    'webhook_url',
+    'webhook_secret',
+    'webhook_enabled',
+    'webhook_status',
+    'last_webhook_at',
+    'last_webhook_error',
+    'metadata'
+  ].forEach((key) => {
     if (updates[key] !== undefined) {
       updateRecord[key] = updates[key];
     }
@@ -344,7 +359,8 @@ export const syncHotelReservations = async ({
 
 export const getWebhookPreparation = ({ connectionId, provider }) => ({
   provider,
-  webhookUrl: `${process.env.BACKEND_URL || 'http://localhost:3000'}/integrations/${provider}/webhook/${connectionId || ':connectionId'}`,
-  status: 'not_implemented',
-  note: 'Webhook handlers are prepared structurally but not enabled yet.'
+  webhookUrl: `${process.env.PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:3000'}/integrations/${provider}/webhook`,
+  status: 'manual_setup',
+  connectionId,
+  note: 'Copy this URL into Apaleo webhook configuration for reservation events: created, amended, canceled, deleted.'
 });

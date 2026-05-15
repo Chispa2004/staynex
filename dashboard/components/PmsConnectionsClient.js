@@ -260,7 +260,7 @@ export const PmsConnectionsClient = () => {
           <div>
             <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>Safe PMS mode</p>
             <p className={isLight ? 'mt-1 text-sm leading-6 text-slate-600' : 'mt-1 text-sm leading-6 text-slate-400'}>
-              Staynex only authenticates, reads reservations and imports them through the existing reservation token flow. Webhooks are prepared but not active yet.
+              Staynex only authenticates, reads reservations and imports them through the existing reservation token flow. Webhooks receive Apaleo reservation events and never write back to PMS folios, charges or room assignments.
             </p>
           </div>
         </div>

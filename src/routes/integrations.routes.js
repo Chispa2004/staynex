@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ApaleoConfigurationError } from '../integrations/apaleo/apaleo-auth.service.js';
 import { syncReservationsFromApaleo } from '../integrations/apaleo/apaleo-sync.service.js';
+import { processApaleoWebhookEvent } from '../integrations/apaleo/apaleo-webhooks.service.js';
 import { getDefaultHotel } from '../services/hotel.service.js';
 import {
   deleteHotelPmsConnection,
@@ -69,6 +70,19 @@ router.post('/apaleo/sync', async (req, res, next) => {
 
     return next(error);
   }
+});
+
+router.post('/apaleo/webhook', async (req, res) => {
+  // TODO: validate Apaleo signature or a shared webhook secret when enabled in production.
+  const result = await processApaleoWebhookEvent(req.body || {}, req.headers || {});
+
+  res.status(200).json({
+    ok: true,
+    received: true,
+    processed: result.status === 'processed',
+    status: result.status,
+    error: result.error || null
+  });
 });
 
 router.get('/pms-connections/providers', (req, res) => {
