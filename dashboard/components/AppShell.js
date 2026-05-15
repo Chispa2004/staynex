@@ -18,6 +18,7 @@ import {
   LogOut,
   PlugZap,
   QrCode,
+  Rocket,
   Settings,
   Sparkles,
   TrendingUp,
@@ -69,6 +70,7 @@ const navigationGroups = [
     defaultOpen: true,
     items: [
       { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
+      { href: '/dashboard/onboarding', labelKey: 'sidebar.onboarding', icon: Rocket },
       { href: '/dashboard/settings/pms', labelKey: 'sidebar.pmsConnections', icon: PlugZap },
       { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
       { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
@@ -98,11 +100,13 @@ const AppShellContent = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [sessionAccessToken, setSessionAccessToken] = useState(null);
   const [currentHotel, setCurrentHotel] = useState(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
   const { t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const isLoginPage = pathname === '/login';
+  const isOnboardingPage = pathname === '/dashboard/onboarding';
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -199,6 +203,53 @@ const AppShellContent = ({ children }) => {
       active = false;
     };
   }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken]);
+
+  useEffect(() => {
+    if (isLoginPage || authLoading || !isAuthenticated) {
+      return undefined;
+    }
+
+    let active = true;
+
+    const loadOnboardingState = async () => {
+      try {
+        const headers = sessionAccessToken
+          ? { Authorization: `Bearer ${sessionAccessToken}` }
+          : {};
+        const response = await fetch('/api/onboarding/state', {
+          headers,
+          cache: 'no-store'
+        });
+        const body = await response.json();
+
+        if (!active || !response.ok) {
+          return;
+        }
+
+        const completed = Boolean(body.state?.onboarding_completed);
+        setOnboardingCompleted(completed);
+
+        if (!completed && !isOnboardingPage) {
+          router.replace('/dashboard/onboarding');
+        }
+      } catch (error) {
+        console.warn('Onboarding state lookup failed', error);
+      }
+    };
+
+    loadOnboardingState();
+    const handleOnboardingUpdate = (event) => {
+      const completed = Boolean(event.detail?.state?.onboarding_completed);
+      setOnboardingCompleted(completed);
+    };
+
+    window.addEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
+
+    return () => {
+      active = false;
+      window.removeEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
+    };
+  }, [authLoading, isAuthenticated, isLoginPage, isOnboardingPage, router, sessionAccessToken]);
 
   const handleLogout = async () => {
     if (logoutLoading) {
@@ -356,6 +407,18 @@ const AppShellContent = ({ children }) => {
                   {urgentCount}
                 </span>
               </div>
+            </div>
+          ) : null}
+
+          {!onboardingCompleted && !isOnboardingPage ? (
+            <div className="px-4 pb-5">
+              <Link
+                href="/dashboard/onboarding"
+                className={isLight ? 'flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800' : 'flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2.5 text-xs font-semibold text-emerald-100'}
+              >
+                <Rocket className="h-4 w-4" />
+                Finish onboarding
+              </Link>
             </div>
           ) : null}
 

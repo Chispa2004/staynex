@@ -59,12 +59,15 @@ const isMissingOptionalTable = (error) => (
   || error?.message?.includes('guest_ai_profiles')
   || error?.message?.includes('ai_offers')
   || error?.message?.includes('conversation_ai_state')
+  || error?.message?.includes('hotel_onboarding_state')
   || error?.details?.includes('guest_ai_profiles')
   || error?.details?.includes('ai_offers')
   || error?.details?.includes('conversation_ai_state')
+  || error?.details?.includes('hotel_onboarding_state')
   || error?.hint?.includes('guest_ai_profiles')
   || error?.hint?.includes('ai_offers')
   || error?.hint?.includes('conversation_ai_state')
+  || error?.hint?.includes('hotel_onboarding_state')
 );
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
@@ -297,7 +300,8 @@ export async function GET(request) {
       recentGuestProfiles,
       reservationsToday,
       activeGuestsRows,
-      pmsConnections
+      pmsConnections,
+      onboardingRows
     ] = await Promise.all([
       safeCount(withHotel(
         supabase.from('conversations').select('id', { count: 'exact', head: true }),
@@ -375,6 +379,12 @@ export async function GET(request) {
         supabase.from('hotel_pms_connections').select('id, provider, enabled, sync_status, last_sync_at, last_sync_error, metadata, webhook_url, webhook_enabled, webhook_status, last_webhook_at, last_webhook_error, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(10))
+      ,
+      hotelId
+        ? safeRows(
+          supabase.from('hotel_onboarding_state').select('*').eq('hotel_id', hotelId).limit(1)
+        )
+        : []
     ]);
 
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
@@ -551,6 +561,16 @@ export async function GET(request) {
           lastWebhookError: item.last_webhook_error
         })),
         syncErrors: pmsConnections.filter((item) => item.last_sync_error).length
+      },
+      onboardingHealth: {
+        completed: Boolean(onboardingRows[0]?.onboarding_completed),
+        currentStep: onboardingRows[0]?.current_step || 'hotel_setup',
+        completedSteps: onboardingRows[0]?.completed_steps || [],
+        pmsConnected: pmsConnections.some((item) => item.enabled),
+        whatsappConfigured: Boolean(hotel?.whatsapp_number),
+        aiActive: true,
+        reservationsSynced: pmsConnections.some((item) => Number(item.metadata?.last_sync_summary?.synced || 0) > 0),
+        kbCompleted: true
       },
       guestSignals,
       activity: buildActivityFeed({

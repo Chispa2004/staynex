@@ -25,6 +25,7 @@ export const translations = {
       analytics: 'Analítica',
       aiLogs: 'AI Logs',
       reservations: 'Reservas',
+      onboarding: 'Onboarding',
       upsells: 'Upsells',
       guestMemory: 'Guest Memory',
       automations: 'Automations',

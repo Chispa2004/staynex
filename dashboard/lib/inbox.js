@@ -1,6 +1,9 @@
 import { getSupabaseAdmin } from './supabase';
 import { getDefaultHotel } from './current-hotel';
 
+const INBOX_CONVERSATION_LIMIT = 100;
+const INBOX_MESSAGE_LIMIT = 3000;
+
 const groupMessagesByConversation = (messages) => messages.reduce((groups, message) => {
   const current = groups.get(message.conversation_id) || [];
   current.push(message);
@@ -9,6 +12,10 @@ const groupMessagesByConversation = (messages) => messages.reduce((groups, messa
 }, new Map());
 
 const getLatestAiLogsByConversation = async ({ supabase, conversationIds }) => {
+  if (!conversationIds.length) {
+    return new Map();
+  }
+
   try {
     const { data, error } = await supabase
       .from('ai_logs')
@@ -35,6 +42,10 @@ const getLatestAiLogsByConversation = async ({ supabase, conversationIds }) => {
 };
 
 const getActiveUpsellsByConversation = async ({ supabase, conversationIds }) => {
+  if (!conversationIds.length) {
+    return new Map();
+  }
+
   try {
     const { data, error } = await supabase
       .from('ai_upsells')
@@ -61,6 +72,10 @@ const getActiveUpsellsByConversation = async ({ supabase, conversationIds }) => 
 };
 
 const getActiveOffersByConversation = async ({ supabase, conversationIds }) => {
+  if (!conversationIds.length) {
+    return new Map();
+  }
+
   try {
     const { data, error } = await supabase
       .from('ai_offers')
@@ -87,6 +102,10 @@ const getActiveOffersByConversation = async ({ supabase, conversationIds }) => {
 };
 
 const getAiStateByConversation = async ({ supabase, conversationIds }) => {
+  if (!conversationIds.length) {
+    return new Map();
+  }
+
   try {
     const { data, error } = await supabase
       .from('conversation_ai_state')
@@ -109,6 +128,10 @@ const getAiStateByConversation = async ({ supabase, conversationIds }) => {
 };
 
 const getGuestMemoryByGuest = async ({ supabase, guestIds }) => {
+  if (!guestIds.length) {
+    return new Map();
+  }
+
   try {
     const { data, error } = await supabase
       .from('guest_memory')
@@ -149,7 +172,8 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   let conversationsQuery = supabase
     .from('conversations')
     .select('id, hotel_id, guest_id, status, last_message_at, created_at')
-    .order('last_message_at', { ascending: false });
+    .order('last_message_at', { ascending: false })
+    .limit(INBOX_CONVERSATION_LIMIT);
 
   if (resolvedHotelId) {
     conversationsQuery = conversationsQuery.eq('hotel_id', resolvedHotelId);
@@ -165,19 +189,23 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     return [];
   }
 
-  const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id))];
-  const conversationIds = conversations.map((conversation) => conversation.id);
-
-  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, offersByConversation, aiStateByConversation, memoryByGuest] = await Promise.all([
-    supabase
+  const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id).filter(Boolean))];
+  const conversationIds = conversations.map((conversation) => conversation.id).filter(Boolean);
+  const guestsQuery = guestIds.length
+    ? supabase
       .from('guests')
       .select('id, phone_number, current_room')
-      .in('id', guestIds),
+      .in('id', guestIds)
+    : Promise.resolve({ data: [], error: null });
+
+  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, offersByConversation, aiStateByConversation, memoryByGuest] = await Promise.all([
+    guestsQuery,
     supabase
       .from('messages')
       .select('id, conversation_id, sender_type, content, created_at')
       .in('conversation_id', conversationIds)
-      .order('created_at', { ascending: true }),
+      .order('created_at', { ascending: true })
+      .limit(INBOX_MESSAGE_LIMIT),
     getLatestAiLogsByConversation({ supabase, conversationIds }),
     getActiveUpsellsByConversation({ supabase, conversationIds }),
     getActiveOffersByConversation({ supabase, conversationIds }),

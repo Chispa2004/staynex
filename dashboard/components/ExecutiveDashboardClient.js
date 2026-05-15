@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Bot, CalendarPlus, Inbox, PlugZap, RefreshCw, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpen, Bot, CalendarPlus, Inbox, PlugZap, RefreshCw, Rocket, Sparkles } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { KPIGrid } from './KPIGrid';
 import { LiveActivityFeed } from './LiveActivityFeed';
@@ -82,8 +82,15 @@ export const ExecutiveDashboardClient = () => {
   const [schedulerRunning, setSchedulerRunning] = useState(false);
   const [schedulerResult, setSchedulerResult] = useState(null);
   const [error, setError] = useState(null);
+  const dashboardRequestInFlightRef = useRef(false);
 
   const loadDashboard = useCallback(async ({ silent = false } = {}) => {
+    if (dashboardRequestInFlightRef.current && silent) {
+      return;
+    }
+
+    dashboardRequestInFlightRef.current = true;
+
     if (!silent) {
       setRefreshing(true);
     }
@@ -106,6 +113,7 @@ export const ExecutiveDashboardClient = () => {
       console.error('Executive dashboard refresh failed', caughtError);
       setError(caughtError.message);
     } finally {
+      dashboardRequestInFlightRef.current = false;
       setLoading(false);
       if (!silent) {
         setRefreshing(false);
@@ -116,6 +124,10 @@ export const ExecutiveDashboardClient = () => {
   useEffect(() => {
     loadDashboard();
     const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
+
       loadDashboard({ silent: true });
     }, 15000);
 
@@ -210,6 +222,7 @@ export const ExecutiveDashboardClient = () => {
         <LiveActivityFeed activity={data?.activity || []} loading={loading} />
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-1">
           <RevenueUpsellsPanel revenue={data?.revenue || {}} />
+          <OnboardingHealthCard onboardingHealth={data?.onboardingHealth || {}} />
           <PmsStatusCard pmsStatus={data?.pmsStatus || {}} />
           <QuickActions runScheduler={runScheduler} schedulerRunning={schedulerRunning} />
         </div>
@@ -221,6 +234,45 @@ export const ExecutiveDashboardClient = () => {
       <VipGuestsPanel guests={data?.guestSignals || []} />
       <InsightsPanel insights={data?.insights || []} />
     </section>
+  );
+};
+
+const OnboardingHealthCard = ({ onboardingHealth }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const checks = [
+    ['PMS connected', onboardingHealth.pmsConnected],
+    ['WhatsApp configured', onboardingHealth.whatsappConfigured],
+    ['AI active', onboardingHealth.aiActive],
+    ['Reservations synced', onboardingHealth.reservationsSynced],
+    ['Knowledge Base', onboardingHealth.kbCompleted]
+  ];
+  const readyCount = checks.filter(([, ready]) => ready).length;
+
+  return (
+    <ExecutiveCard className="p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Onboarding Health</h2>
+          <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>{readyCount} of {checks.length} launch signals ready.</p>
+        </div>
+        <ExecutiveBadge tone={onboardingHealth.completed ? 'emerald' : 'amber'}>
+          {onboardingHealth.completed ? 'Complete' : onboardingHealth.currentStep || 'In progress'}
+        </ExecutiveBadge>
+      </div>
+      <div className="mt-4 space-y-2">
+        {checks.map(([label, ready]) => (
+          <div key={label} className={isLight ? 'flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm' : 'flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-sm'}>
+            <span className={isLight ? 'font-medium text-slate-700' : 'font-medium text-slate-300'}>{label}</span>
+            <span className={ready ? 'text-emerald-500' : 'text-amber-500'}>{ready ? 'Ready' : 'Pending'}</span>
+          </div>
+        ))}
+      </div>
+      <Link href="/dashboard/onboarding" className={isLight ? 'mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}>
+        <Rocket className="h-4 w-4" />
+        Open onboarding
+      </Link>
+    </ExecutiveCard>
   );
 };
 

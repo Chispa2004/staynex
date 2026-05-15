@@ -48,6 +48,51 @@ const sortConversations = (conversations) => [...conversations].sort(
   (a, b) => new Date(b.last_message_at || b.created_at).getTime() - new Date(a.last_message_at || a.created_at).getTime()
 );
 
+const debugInbox = (...args) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug(...args);
+  }
+};
+
+const dedupeMessages = (messages = []) => {
+  const seen = new Set();
+
+  return [...messages]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .filter((message) => {
+      const key = message.id || `${message.conversation_id}-${message.sender_type}-${message.created_at}-${message.content}`;
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    });
+};
+
+const normalizeInboxConversations = (conversations = []) => {
+  const byId = new Map();
+
+  conversations.forEach((conversation) => {
+    if (!conversation?.id) {
+      return;
+    }
+
+    const messages = dedupeMessages(conversation.messages || []);
+    const lastMessage = messages[messages.length - 1] || conversation.lastMessage || null;
+
+    byId.set(conversation.id, {
+      ...conversation,
+      messages,
+      lastMessage,
+      last_message_at: conversation.last_message_at || lastMessage?.created_at || conversation.created_at
+    });
+  });
+
+  return sortConversations([...byId.values()]);
+};
+
 const INBOX_READ_STATE_KEY = 'staynex_inbox_read_state';
 const INBOX_UNREAD_TOTAL_KEY = 'staynex_inbox_unread_total';
 const INBOX_HUMAN_TOTAL_KEY = 'staynex_inbox_human_total';
@@ -238,7 +283,7 @@ export const InboxClient = ({ conversations }) => {
   const { language, t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
-  const sortedConversations = useMemo(() => sortConversations(conversations), [conversations]);
+  const sortedConversations = useMemo(() => normalizeInboxConversations(conversations), [conversations]);
   const requestedConversationId = searchParams.get('conversationId');
   const [items, setItems] = useState(sortedConversations);
   const [selectedId, setSelectedId] = useState(
@@ -260,6 +305,10 @@ export const InboxClient = ({ conversations }) => {
   const messagesEndRef = useRef(null);
   const realtimeReloadTimerRef = useRef(null);
   const pollingIntervalRef = useRef(null);
+  const loadRequestIdRef = useRef(0);
+  const loadInFlightRef = useRef(false);
+  const mountedRef = useRef(false);
+  const pageVisibleRef = useRef(true);
 
   const selectedConversation = items.find((conversation) => conversation.id === selectedId) || null;
   const unreadTotal = useMemo(() => getTotalUnread(items, readState), [items, readState]);
@@ -276,6 +325,14 @@ export const InboxClient = ({ conversations }) => {
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -302,7 +359,15 @@ export const InboxClient = ({ conversations }) => {
     dispatchHumanTotal(humanTotal);
   }, [humanTotal]);
 
-  const loadInbox = useCallback(async ({ silent = false, preserveSelection = true } = {}) => {
+  const loadInbox = useCallback(async ({ silent = false, preserveSelection = true, force = false } = {}) => {
+    if (loadInFlightRef.current && silent && !force) {
+      return null;
+    }
+
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+    loadInFlightRef.current = true;
+
     if (!silent) {
       setRefreshing(true);
     }
@@ -325,7 +390,11 @@ export const InboxClient = ({ conversations }) => {
         throw new Error(body.error || 'Could not refresh inbox');
       }
 
-      const nextItems = sortConversations(body.conversations || []);
+      if (!mountedRef.current || requestId !== loadRequestIdRef.current) {
+        return null;
+      }
+
+      const nextItems = normalizeInboxConversations(body.conversations || []);
 
       setCurrentHotel(body.hotel || null);
       setItems(nextItems);
@@ -348,6 +417,10 @@ export const InboxClient = ({ conversations }) => {
       console.warn('Inbox refresh failed', error);
       return null;
     } finally {
+      if (requestId === loadRequestIdRef.current) {
+        loadInFlightRef.current = false;
+      }
+
       if (!silent) {
         setRefreshing(false);
       }
@@ -397,9 +470,7 @@ export const InboxClient = ({ conversations }) => {
       : 0;
     const wasNearBottom = isMessagesPanelNearBottom();
 
-    if (reason === 'polling') {
-      console.log('Inbox polling refresh');
-    }
+    debugInbox('Inbox refresh requested', { reason });
 
     const nextItems = await loadInbox({
       preserveSelection: true,
@@ -410,7 +481,7 @@ export const InboxClient = ({ conversations }) => {
       return;
     }
 
-    console.log('Inbox refreshed silently', { reason });
+    debugInbox('Inbox refreshed silently', { reason });
 
     if (!selectedBeforeReload) {
       return;
@@ -437,7 +508,7 @@ export const InboxClient = ({ conversations }) => {
       realtimeReloadTimerRef.current = null;
       await refreshInboxSilently({ reason });
 
-      console.log('Inbox realtime reload completed', { reason });
+      debugInbox('Inbox realtime reload completed', { reason });
     }, 500);
   }, [refreshInboxSilently]);
 
@@ -470,7 +541,7 @@ export const InboxClient = ({ conversations }) => {
           table: 'messages'
         },
         (payload) => {
-          console.log('Message INSERT received', payload.new);
+          debugInbox('Message INSERT received', payload.new);
           scheduleRealtimeReload('message_insert');
         }
       )
@@ -483,7 +554,7 @@ export const InboxClient = ({ conversations }) => {
           ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
         },
         (payload) => {
-          console.log('Conversation UPDATE received', payload.new);
+          debugInbox('Conversation UPDATE received', payload.new);
           scheduleRealtimeReload('conversation_update');
         }
       )
@@ -496,7 +567,7 @@ export const InboxClient = ({ conversations }) => {
           ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
         },
         (payload) => {
-          console.log('Conversation INSERT received', payload.new);
+          debugInbox('Conversation INSERT received', payload.new);
           scheduleRealtimeReload('conversation_insert');
         }
       )
@@ -509,7 +580,7 @@ export const InboxClient = ({ conversations }) => {
           ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
         },
         (payload) => {
-          console.log('AI Offer change received', payload.new || payload.old);
+          debugInbox('AI Offer change received', payload.new || payload.old);
           scheduleRealtimeReload('ai_offer_change');
         }
       )
@@ -522,13 +593,13 @@ export const InboxClient = ({ conversations }) => {
           ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
         },
         (payload) => {
-          console.log('AI Conversation State change received', payload.new || payload.old);
+          debugInbox('AI Conversation State change received', payload.new || payload.old);
           scheduleRealtimeReload('conversation_ai_state_change');
         }
       )
       .subscribe((status, error) => {
         if (status === 'SUBSCRIBED') {
-          console.log('Realtime connected');
+          debugInbox('Realtime connected');
           setRealtimeStatus('connected');
           return;
         }
@@ -560,6 +631,10 @@ export const InboxClient = ({ conversations }) => {
     }
 
     pollingIntervalRef.current = window.setInterval(() => {
+      if (!pageVisibleRef.current) {
+        return;
+      }
+
       refreshInboxSilently({ reason: 'polling' });
     }, 5000);
 
@@ -568,6 +643,23 @@ export const InboxClient = ({ conversations }) => {
         window.clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+    };
+  }, [refreshInboxSilently]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      pageVisibleRef.current = document.visibilityState !== 'hidden';
+
+      if (pageVisibleRef.current) {
+        refreshInboxSilently({ reason: 'visibility_resume' });
+      }
+    };
+
+    handleVisibilityChange();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [refreshInboxSilently]);
 

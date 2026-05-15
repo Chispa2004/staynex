@@ -193,14 +193,13 @@ const updateWebhookEvent = async (eventId, updates) => {
   }
 };
 
-const findExistingProcessedEvent = async (parsed) => {
+const findExistingWebhookEvent = async (parsed) => {
   try {
     const { data, error } = await getSupabase()
       .from('pms_webhook_events')
       .select('*')
       .eq('provider', parsed.provider)
       .eq('external_event_id', parsed.externalEventId)
-      .in('status', ['processed', 'ignored'])
       .limit(1)
       .maybeSingle();
 
@@ -215,6 +214,8 @@ const findExistingProcessedEvent = async (parsed) => {
     return null;
   }
 };
+
+const shouldIgnoreExistingEvent = (event) => ['processed', 'ignored'].includes(event?.status);
 
 export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = {}) => {
   const parsed = parseApaleoWebhookEvent(payload, headers);
@@ -245,9 +246,9 @@ export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = 
 };
 
 const createWebhookEvent = async ({ parsed, connection }) => {
-  const existing = await findExistingProcessedEvent(parsed);
+  const existing = await findExistingWebhookEvent(parsed);
 
-  if (existing) {
+  if (shouldIgnoreExistingEvent(existing)) {
     logger.info('Apaleo webhook duplicate ignored', {
       eventId: existing.id,
       externalEventId: parsed.externalEventId
@@ -255,6 +256,20 @@ const createWebhookEvent = async ({ parsed, connection }) => {
     return {
       event: existing,
       duplicate: true
+    };
+  }
+
+  if (existing) {
+    const updated = await updateWebhookEvent(existing.id, {
+      status: 'received',
+      error: null,
+      payload: parsed.payload,
+      processed_at: null
+    });
+
+    return {
+      event: updated || existing,
+      duplicate: false
     };
   }
 
@@ -277,8 +292,31 @@ const createWebhookEvent = async ({ parsed, connection }) => {
 
     if (error) {
       if (error.code === '23505') {
+        const existingAfterConflict = await findExistingWebhookEvent(parsed);
+
+        if (shouldIgnoreExistingEvent(existingAfterConflict)) {
+          return {
+            event: existingAfterConflict,
+            duplicate: true
+          };
+        }
+
+        if (existingAfterConflict) {
+          const updated = await updateWebhookEvent(existingAfterConflict.id, {
+            status: 'received',
+            error: null,
+            payload: parsed.payload,
+            processed_at: null
+          });
+
+          return {
+            event: updated || existingAfterConflict,
+            duplicate: false
+          };
+        }
+
         return {
-          event: await findExistingProcessedEvent(parsed),
+          event: null,
           duplicate: true
         };
       }

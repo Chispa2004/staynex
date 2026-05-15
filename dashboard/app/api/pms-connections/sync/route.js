@@ -3,6 +3,15 @@ import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { proxyBackendPmsAction } from '@/lib/pms-connections';
 
 const dateOnly = (value) => (typeof value === 'string' && value ? value.slice(0, 10) : null);
+const clampNumber = (value, fallback, min, max) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return Math.max(min, Math.min(max, Math.round(number)));
+};
 
 export async function POST(request) {
   try {
@@ -14,8 +23,8 @@ export async function POST(request) {
       provider: body.provider || 'apaleo',
       from: dateOnly(body.from),
       to: dateOnly(body.to),
-      pageSize: Number(body.pageSize || 25),
-      maxReservations: Number(body.maxReservations || 50)
+      pageSize: clampNumber(body.pageSize, 25, 1, 50),
+      maxReservations: clampNumber(body.maxReservations, 50, 1, 100)
     });
 
     return NextResponse.json(result);

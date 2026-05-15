@@ -44,6 +44,16 @@ const normalizeDate = (value) => {
   return value.slice(0, 10);
 };
 
+const clampNumber = (value, fallback, min, max) => {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return Math.max(min, Math.min(max, Math.round(number)));
+};
+
 router.post('/apaleo/sync', async (req, res, next) => {
   try {
     const hotel = await getDefaultHotel();
@@ -52,8 +62,8 @@ router.post('/apaleo/sync', async (req, res, next) => {
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),
       status: req.body?.status || undefined,
-      pageSize: Number(req.body?.pageSize || 25),
-      maxReservations: Number(req.body?.maxReservations || 50)
+      pageSize: clampNumber(req.body?.pageSize, 25, 1, 50),
+      maxReservations: clampNumber(req.body?.maxReservations, 50, 1, 100)
     });
 
     res.status(200).json({
@@ -204,8 +214,8 @@ router.post('/pms-connections/sync', async (req, res, next) => {
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),
       status: req.body?.status,
-      pageSize: Number(req.body?.pageSize || 25),
-      maxReservations: Number(req.body?.maxReservations || 50)
+      pageSize: clampNumber(req.body?.pageSize, 25, 1, 50),
+      maxReservations: clampNumber(req.body?.maxReservations, 50, 1, 100)
     });
 
     res.status(200).json({
