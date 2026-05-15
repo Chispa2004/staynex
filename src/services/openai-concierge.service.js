@@ -141,6 +141,7 @@ const buildPromptPayload = ({
   guest_memory: compactRows(conversationContext.guestMemory || [], ['memory_type', 'memory_key', 'memory_value', 'confidence']),
   open_tickets: compactRows(conversationContext.openTickets || [], ['category', 'priority', 'status', 'title']),
   hotel_knowledge: compactRows(hotelKnowledge, ['key', 'value', 'category', 'title']),
+  hotel_experiences: compactRows(conversationContext.hotelExperiences || [], ['title', 'description', 'category', 'tags', 'target_guest_types', 'price', 'partner_name']),
   conversation_state: {
     current_intent: conversationState.currentIntent || conversationState.current_intent || null,
     previous_intent: conversationState.previousIntent || conversationState.previous_intent || null,

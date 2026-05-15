@@ -448,6 +448,92 @@ const contextFromStay = ({ reservation = {}, guestMemory = [] } = {}) => {
   return matches;
 };
 
+const categoryToOfferType = {
+  boat_tour: 'boat_tour',
+  beach_club: 'beach_club',
+  restaurant: 'premium_dining',
+  nightlife: 'beach_club',
+  romantic: 'romantic_dinner',
+  family: 'family_activities',
+  kids: 'family_activities',
+  culture: 'cultural_tour',
+  golf: 'golf',
+  wellness: 'spa',
+  spa: 'spa_couple',
+  transfer: 'private_transfer',
+  adventure: 'local_experiences',
+  luxury: 'yacht_experience',
+  indoor: 'indoor_spa',
+  rainy_day: 'indoor_spa'
+};
+
+const experienceContextMap = {
+  boat_tour: EXPERIENCE_CONTEXT_TYPES.SEA_BEACH,
+  beach_club: EXPERIENCE_CONTEXT_TYPES.SEA_BEACH,
+  restaurant: EXPERIENCE_CONTEXT_TYPES.CULTURE,
+  nightlife: EXPERIENCE_CONTEXT_TYPES.VIP_LUXURY,
+  romantic: EXPERIENCE_CONTEXT_TYPES.COUPLES,
+  family: EXPERIENCE_CONTEXT_TYPES.FAMILY,
+  kids: EXPERIENCE_CONTEXT_TYPES.FAMILY,
+  culture: EXPERIENCE_CONTEXT_TYPES.CULTURE,
+  golf: EXPERIENCE_CONTEXT_TYPES.VIP_LUXURY,
+  wellness: EXPERIENCE_CONTEXT_TYPES.BAD_WEATHER,
+  spa: EXPERIENCE_CONTEXT_TYPES.BAD_WEATHER,
+  transfer: EXPERIENCE_CONTEXT_TYPES.VIP_LUXURY,
+  adventure: EXPERIENCE_CONTEXT_TYPES.DESTINATION,
+  luxury: EXPERIENCE_CONTEXT_TYPES.VIP_LUXURY,
+  indoor: EXPERIENCE_CONTEXT_TYPES.BAD_WEATHER,
+  rainy_day: EXPERIENCE_CONTEXT_TYPES.BAD_WEATHER
+};
+
+const wordsForExperience = (experience) => [
+  experience.title,
+  experience.slug,
+  experience.description,
+  experience.category,
+  experience.partner_name,
+  ...(experience.tags || []),
+  ...(experience.target_guest_types || [])
+].filter(Boolean);
+
+const ruleFromHotelExperience = ({ experience, message, guestMemory }) => {
+  const text = normalize(message);
+  const memoryKeys = getMemoryKeys(guestMemory);
+  const words = wordsForExperience(experience);
+  const category = experience.category || 'local_experiences';
+  const targets = new Set((experience.target_guest_types || []).map(normalize));
+  const tags = new Set((experience.tags || []).map(normalize));
+  const directMatch = includesAny(text, words);
+  const recommendationMatch = includesAny(text, recommendationWords);
+  const familyMatch = includesAny(text, ['children', 'kids', 'family', 'ninos', 'familia']) && (targets.has('family') || targets.has('kids') || ['family', 'kids'].includes(category));
+  const romanticMatch = includesAny(text, ['honeymoon', 'anniversary', 'romantic', 'luna de miel', 'aniversario', 'romantico']) && (targets.has('couples') || tags.has('romantic') || category === 'romantic');
+  const vipMatch = (memoryKeys.has('high_spender') || memoryKeys.has('repeat_guest') || includesAny(text, ['vip', 'luxury', 'private', 'premium', 'lujo'])) && (experience.vip_only || targets.has('vip') || category === 'luxury');
+  const rainMatch = includesAny(text, ['rain', 'rainy', 'bad weather', 'indoor', 'lluvia', 'mal tiempo']) && (experience.indoor || category === 'indoor' || category === 'rainy_day');
+
+  if (!directMatch && !recommendationMatch && !familyMatch && !romanticMatch && !vipMatch && !rainMatch) {
+    return null;
+  }
+
+  const context = experienceContextMap[category] || EXPERIENCE_CONTEXT_TYPES.DESTINATION;
+  const confidence = Math.min(0.94, 0.66
+    + (directMatch ? 0.16 : 0)
+    + (familyMatch || romanticMatch || vipMatch || rainMatch ? 0.12 : 0)
+    + Math.min(0.1, Number(experience.priority || 0) / 1000));
+
+  return {
+    context,
+    offerType: categoryToOfferType[category] || category,
+    triggerIntent: `hotel_experience_${category}`,
+    confidence,
+    memoryKey: experience.metadata?.memory_key || `interested_${categoryToOfferType[category] || category}`,
+    hotelExperience: experience,
+    suggestedMessage: {
+      en: `If you like, reception can also help with ${experience.title}.`,
+      es: `Si os apetece, recepcion tambien puede ayudaros con ${experience.title}.`
+    }
+  };
+};
+
 const buildOpportunity = ({
   rule,
   language,
@@ -477,10 +563,12 @@ const buildOpportunity = ({
 
   return {
     offerType: rule.offerType,
-    suggestedPrice: experienceDefaults[rule.offerType] || getDefaultUpsellAmount(rule.offerType),
+    suggestedPrice: rule.hotelExperience?.price || experienceDefaults[rule.offerType] || getDefaultUpsellAmount(rule.offerType),
     currency: 'EUR',
     confidence,
-    aiReason: `${rule.context} experience context detected. Timing: ${timing.reason}. Destination: ${destination.destination}.`,
+    aiReason: rule.hotelExperience
+      ? `${rule.context} matched hotel experience "${rule.hotelExperience.title}". Timing: ${timing.reason}. Destination: ${destination.destination}.`
+      : `${rule.context} experience context detected. Timing: ${timing.reason}. Destination: ${destination.destination}.`,
     triggerIntent: rule.triggerIntent,
     triggerSource: 'experience_intelligence',
     detectedContext: rule.context,
@@ -491,6 +579,12 @@ const buildOpportunity = ({
       experience_intelligence: true,
       experience_category: rule.context,
       experience_memory_key: rule.memoryKey || `interested_${rule.offerType}`,
+      hotel_experience_id: rule.hotelExperience?.id || null,
+      hotel_experience_title: rule.hotelExperience?.title || null,
+      hotel_experience_category: rule.hotelExperience?.category || null,
+      partner_name: rule.hotelExperience?.partner_name || null,
+      commission_percentage: rule.hotelExperience?.commission_percentage || null,
+      booking_url: rule.hotelExperience?.booking_url || null,
       destination_personality: destination.destination,
       revenue_timing_reason: timing.reason,
       fatigue_score: timing.fatigueScore,
@@ -505,6 +599,7 @@ export const detectExperienceOpportunities = ({
   message = '',
   hotel = {},
   hotelKnowledge = [],
+  hotelExperiences = [],
   reservation = null,
   guestMemory = [],
   conversationState = null,
@@ -513,6 +608,10 @@ export const detectExperienceOpportunities = ({
   language = 'en'
 } = {}) => {
   const text = normalize(message);
+  const catalogRules = (hotelExperiences || [])
+    .filter((experience) => experience.active !== false)
+    .map((experience) => ruleFromHotelExperience({ experience, message, guestMemory }))
+    .filter(Boolean);
   const matchedRules = baseExperienceRules
     .filter((rule) => includesAny(text, rule.words));
   const genericRecommendationRules = !matchedRules.length && includesAny(text, recommendationWords)
@@ -528,7 +627,7 @@ export const detectExperienceOpportunities = ({
       }
     }]
     : [];
-  const directMatches = [...matchedRules, ...genericRecommendationRules]
+  const directMatches = [...catalogRules, ...matchedRules, ...genericRecommendationRules]
     .map((rule) => buildOpportunity({
       rule,
       language,

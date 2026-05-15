@@ -61,6 +61,10 @@ import {
 } from './natural-conversation.service.js';
 import { detectContextualRevenueOpportunities } from './contextual-revenue.service.js';
 import { detectExperienceOpportunities } from './experience-intelligence.service.js';
+import {
+  getExperienceKnowledgeForPrompt,
+  getHotelExperiences
+} from './hotel-experience.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -178,12 +182,21 @@ export const processGuestMessage = async ({
       value: knowledgeResult.metadata.knowledgeValue
     }]
     : await getKnowledgeForHotel(activeHotel.id);
+  const hotelExperiences = await getHotelExperiences({
+    hotelId: activeHotel.id,
+    activeOnly: true,
+    limit: 80
+  });
+  const aiHotelKnowledge = [
+    ...hotelKnowledge,
+    ...getExperienceKnowledgeForPrompt(hotelExperiences)
+  ];
   const upsellOpportunities = detectUpsellOpportunities({
     reservation: conversationContext.reservation,
     language: conversationContext.language,
     message,
     recentMessages: conversationContext.recentMessages,
-    hotelKnowledge,
+    hotelKnowledge: aiHotelKnowledge,
     guestMemory: conversationContext.guestMemory
   });
   const conciergeIntent = detectGuestIntent({
@@ -224,7 +237,8 @@ export const processGuestMessage = async ({
   const experienceIntelligence = detectExperienceOpportunities({
     message,
     hotel: activeHotel,
-    hotelKnowledge,
+    hotelKnowledge: aiHotelKnowledge,
+    hotelExperiences,
     reservation: conversationContext.reservation,
     guestMemory: conversationContext.guestMemory,
     conversationState: preliminaryConversationState,
@@ -276,6 +290,7 @@ export const processGuestMessage = async ({
   });
 
   conversationContext.upsellOpportunities = upsellOpportunities;
+  conversationContext.hotelExperiences = hotelExperiences;
   conversationContext.responseGuidance = responseGuidance;
   conversationContext.concierge = {
     intent: primaryConciergeIntent,
@@ -296,7 +311,7 @@ export const processGuestMessage = async ({
       hotel: activeHotel,
       guest,
       message,
-      hotelKnowledge,
+      hotelKnowledge: aiHotelKnowledge,
       conversationContext,
       fallbackAiResponse: knowledgeResult?.aiResponse || null,
       fallbackMetadata: knowledgeResult
@@ -318,7 +333,7 @@ export const processGuestMessage = async ({
     hotel: activeHotel,
     guest,
     message,
-    hotelKnowledge,
+    hotelKnowledge: aiHotelKnowledge,
     conversationContext,
     conversationState,
     heuristic: {

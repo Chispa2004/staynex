@@ -90,6 +90,7 @@ export const buildStaynexUserPrompt = ({
   const responseGuidance = conversationContext.responseGuidance || {};
   const contextualRevenue = conversationContext.concierge?.contextualRevenue || {};
   const experienceIntelligence = conversationContext.concierge?.experienceIntelligence || {};
+  const hotelExperiences = conversationContext.hotelExperiences || [];
   const guestMemory = conversationContext.guestMemory || [];
   const language = conversationContext.language || guest?.preferred_language || 'es';
   const hotelProfile = conversationContext.hotelProfile || hotel || {};
@@ -134,6 +135,11 @@ export const buildStaynexUserPrompt = ({
       `- ${item.detectedContext}: ${item.offerType}. Timing: ${item.timing?.allowed ? 'permitido' : 'bloqueado'} (${item.timing?.reason || 'sin motivo'}). Destino: ${item.metadata?.destination_personality || experienceIntelligence.destination || 'general'}. Mensaje concierge: ${item.suggestedMessage || 'No disponible'}`
     )).join('\n')
     : 'No hay oportunidades de experiencia detectadas.';
+  const hotelExperiencesText = hotelExperiences.length
+    ? hotelExperiences.slice(0, 12).map((experience) => (
+      `- ${experience.title}: ${experience.description}. Categoria: ${experience.category}. Precio: ${experience.price || 'No disponible'} EUR. Tags: ${(experience.tags || []).join(', ') || 'sin tags'}`
+    )).join('\n')
+    : 'No hay experiencias configuradas para este hotel.';
   const guestMemoryText = formatGuestMemoryForPrompt(guestMemory);
 
   return `
@@ -162,6 +168,9 @@ ${reservationText}
 
 CONOCIMIENTO DEL HOTEL:
 ${knowledgeText}
+
+EXPERIENCIAS DEL HOTEL:
+${hotelExperiencesText}
 
 MENSAJES RECIENTES:
 ${recentMessagesText}
@@ -198,6 +207,7 @@ INSTRUCCIONES:
 - Si REVENUE CONTEXTUAL indica timing permitido, mencionalo solo como ayuda opcional y con una frase suave.
 - Si EXPERIENCE INTELLIGENCE indica timing bloqueado, no recomiendes experiencias.
 - Si el huesped pide recomendaciones, actividades, restaurantes, playas o planes locales, puedes sugerir experiencias de forma natural y breve.
+- Usa SOLO experiencias configuradas en EXPERIENCIAS DEL HOTEL o Knowledge Base del hotel actual. No inventes partners, precios ni disponibilidad.
 - No uses lenguaje como "compra", "oferta especial", "promocion limitada" o "reserva ya".
 `.trim();
 };

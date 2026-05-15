@@ -12,6 +12,7 @@ import {
   CalendarDays,
   ChevronDown,
   ConciergeBell,
+  Compass,
   Inbox,
   BookOpen,
   LayoutDashboard,
@@ -75,6 +76,7 @@ const navigationGroups = [
       { href: '/dashboard/analytics', labelKey: 'sidebar.analytics', icon: BarChart3 },
       { href: '/dashboard/ai-logs', labelKey: 'sidebar.aiLogs', icon: Activity },
       { href: '/dashboard/upsells', labelKey: 'sidebar.upsells', icon: TrendingUp },
+      { href: '/dashboard/experiences', labelKey: 'sidebar.experiences', icon: Compass },
       { href: '/dashboard/guest-memory', labelKey: 'sidebar.guestMemory', icon: BrainCircuit },
       { href: '/dashboard/automations', labelKey: 'sidebar.automations', icon: Bot }
     ]
