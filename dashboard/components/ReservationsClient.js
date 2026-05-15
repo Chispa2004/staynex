@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
@@ -670,9 +670,15 @@ export const ReservationsClient = () => {
   const [currentHotel, setCurrentHotel] = useState(null);
   const [currentRole, setCurrentRole] = useState('receptionist');
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const loadRequestIdRef = useRef(0);
+  const activeHotelIdRef = useRef(null);
 
   const loadReservations = async () => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
     setLoading(true);
+    setReservations([]);
+    setSelectedReservation(null);
     setError(null);
 
     try {
@@ -687,6 +693,20 @@ export const ReservationsClient = () => {
         throw new Error(payload.error || t('reservations.errors.loadFailed'));
       }
 
+      const nextHotelId = payload.hotel?.id || null;
+
+      if (requestId !== loadRequestIdRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('stale response ignored', { surface: 'reservations', hotelId: nextHotelId });
+        }
+        return;
+      }
+
+      if (activeHotelIdRef.current && nextHotelId && activeHotelIdRef.current !== nextHotelId && process.env.NODE_ENV !== 'production') {
+        console.info('state reset for hotel', { surface: 'reservations', hotelId: nextHotelId });
+      }
+
+      activeHotelIdRef.current = nextHotelId;
       setCurrentHotel(payload.hotel || null);
       setCurrentRole(payload.role || 'receptionist');
       const nextReservations = (payload.reservations || []).map((reservation) => ({
@@ -706,7 +726,9 @@ export const ReservationsClient = () => {
       console.error('Reservations fetch failed', loadError);
       setError(loadError.message);
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 

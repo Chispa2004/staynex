@@ -104,6 +104,7 @@ const INBOX_UNREAD_TOTAL_KEY = 'staynex_inbox_unread_total';
 const INBOX_UNREAD_EVENT = 'staynex:inbox-unread-updated';
 const INBOX_HUMAN_TOTAL_KEY = 'staynex_inbox_human_total';
 const INBOX_HUMAN_EVENT = 'staynex:inbox-human-updated';
+const scopedKey = (key, hotelId) => `${key}:${hotelId || 'none'}`;
 
 const AppShellContent = ({ children }) => {
   const pathname = usePathname();
@@ -204,11 +205,16 @@ const AppShellContent = ({ children }) => {
   }, [isLoginPage, router]);
 
   useEffect(() => {
-    if (isLoginPage || authLoading || !isAuthenticated) {
+    if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded || !currentHotel?.id) {
       return undefined;
     }
 
     let active = true;
+    setHotelContextLoaded(false);
+    setCurrentHotel(null);
+    setUrgentCount(0);
+    setInboxUnreadCount(0);
+    setInboxHumanCount(0);
 
     const loadCurrentHotel = async () => {
       try {
@@ -248,6 +254,13 @@ const AppShellContent = ({ children }) => {
             accessDenied: Boolean(body.accessDenied),
             accessDeniedReason: body.accessDeniedReason || null
           });
+          if (process.env.NODE_ENV !== 'production') {
+            console.info('workspace resolved', {
+              hotelId: body.hotel?.id || null,
+              role: body.role,
+              platformRole: body.platformRole || 'none'
+            });
+          }
           setHotelContextLoaded(true);
         } else if (active) {
           setHotelContextLoaded(true);
@@ -276,9 +289,10 @@ const AppShellContent = ({ children }) => {
 
     const loadOnboardingState = async () => {
       try {
-        const headers = sessionAccessToken
-          ? { Authorization: `Bearer ${sessionAccessToken}` }
-          : {};
+        const headers = {
+          ...(sessionAccessToken ? { Authorization: `Bearer ${sessionAccessToken}` } : {}),
+          'x-staynex-hotel-id': currentHotel.id
+        };
         const response = await fetch('/api/onboarding/state', {
           headers,
           cache: 'no-store'
@@ -312,7 +326,7 @@ const AppShellContent = ({ children }) => {
       active = false;
       window.removeEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
     };
-  }, [activeRole, authLoading, hotelContext.accessDenied, isAuthenticated, isLoginPage, isOnboardingPage, router, sessionAccessToken]);
+  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, router, sessionAccessToken]);
 
   useEffect(() => {
     if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
@@ -353,6 +367,9 @@ const AppShellContent = ({ children }) => {
     setSessionAccessToken(null);
     setCurrentHotel(null);
     clearWorkspaceSelection();
+    setUrgentCount(0);
+    setInboxUnreadCount(0);
+    setInboxHumanCount(0);
     setHotelContextLoaded(false);
     setLogoutLoading(false);
     router.replace('/login');
@@ -364,6 +381,14 @@ const AppShellContent = ({ children }) => {
     }
 
     setSwitchingHotel(true);
+    setHotelContextLoaded(false);
+    setCurrentHotel(null);
+    setUrgentCount(0);
+    setInboxUnreadCount(0);
+    setInboxHumanCount(0);
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('workspace changed', { hotelId });
+    }
 
     try {
       const body = await switchWorkspace({
@@ -386,10 +411,12 @@ const AppShellContent = ({ children }) => {
         accessDenied: Boolean(body.accessDenied),
         accessDeniedReason: body.accessDeniedReason || null
       });
+      setHotelContextLoaded(true);
       router.replace(getFirstAllowedRoute(body.role || 'owner'));
       router.refresh();
     } catch (error) {
       console.error('Hotel switch failed', error);
+      setHotelContextLoaded(true);
     } finally {
       setSwitchingHotel(false);
     }
@@ -415,11 +442,23 @@ const AppShellContent = ({ children }) => {
 
   useEffect(() => {
     const loadUrgentCount = async () => {
+      if (!hotelContextLoaded || !currentHotel?.id || hotelContext.accessDenied) {
+        setUrgentCount(0);
+        return;
+      }
+
       try {
-        const response = await fetch('/api/demo/stats');
+        const headers = {
+          ...(sessionAccessToken ? { Authorization: `Bearer ${sessionAccessToken}` } : {}),
+          'x-staynex-hotel-id': currentHotel.id
+        };
+        const response = await fetch('/api/tickets/stats', {
+          headers,
+          cache: 'no-store'
+        });
         const body = await response.json();
 
-        if (response.ok) {
+        if (response.ok && body.hotelId === currentHotel.id) {
           setUrgentCount(body.stats?.urgentTickets || 0);
         }
       } catch (error) {
@@ -428,21 +467,35 @@ const AppShellContent = ({ children }) => {
     };
 
     loadUrgentCount();
-  }, [pathname]);
+  }, [currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, pathname, sessionAccessToken]);
 
   useEffect(() => {
+    if (!hotelContextLoaded || !currentHotel?.id) {
+      setInboxUnreadCount(0);
+      setInboxHumanCount(0);
+      return undefined;
+    }
+
     const loadInboxCounts = () => {
-      const storedCount = Number(window.localStorage.getItem(INBOX_UNREAD_TOTAL_KEY) || 0);
-      const storedHumanCount = Number(window.localStorage.getItem(INBOX_HUMAN_TOTAL_KEY) || 0);
+      const storedCount = Number(window.localStorage.getItem(scopedKey(INBOX_UNREAD_TOTAL_KEY, currentHotel.id)) || 0);
+      const storedHumanCount = Number(window.localStorage.getItem(scopedKey(INBOX_HUMAN_TOTAL_KEY, currentHotel.id)) || 0);
       setInboxUnreadCount(Number.isFinite(storedCount) ? storedCount : 0);
       setInboxHumanCount(Number.isFinite(storedHumanCount) ? storedHumanCount : 0);
     };
 
     const handleUnreadUpdate = (event) => {
+      if (event.detail?.hotelId !== currentHotel.id) {
+        return;
+      }
+
       setInboxUnreadCount(event.detail?.total || 0);
     };
 
     const handleHumanUpdate = (event) => {
+      if (event.detail?.hotelId !== currentHotel.id) {
+        return;
+      }
+
       setInboxHumanCount(event.detail?.total || 0);
     };
 
@@ -456,7 +509,7 @@ const AppShellContent = ({ children }) => {
       window.removeEventListener(INBOX_HUMAN_EVENT, handleHumanUpdate);
       window.removeEventListener('storage', loadInboxCounts);
     };
-  }, []);
+  }, [currentHotel?.id, hotelContextLoaded]);
 
   useEffect(() => {
   const activeGroup = allowedNavigationGroups.find((group) => group.items.some((item) => (
@@ -493,6 +546,7 @@ const AppShellContent = ({ children }) => {
 
   const workspaceBrandColor = currentHotel?.brand_color || '#34d399';
   const workspaceSecondaryColor = currentHotel?.secondary_color || '#0f766e';
+  const sidebarHotelName = currentHotel?.name || 'Staynex';
   const isNavItemActive = (item) => item.href === '/dashboard'
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -733,7 +787,9 @@ const AppShellContent = ({ children }) => {
                 </div>
               </div>
             ) : null}
-            {children}
+            <div key={currentHotel?.id || 'no-workspace'}>
+              {children}
+            </div>
           </div>
         </main>
       </div>

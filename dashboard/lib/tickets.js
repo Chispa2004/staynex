@@ -1,11 +1,16 @@
 import { getSupabaseAdmin } from './supabase';
 
-export const getTickets = async () => {
-  const supabase = getSupabaseAdmin();
+const TICKET_SELECT = 'id, hotel_id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id, guest_id';
+
+export const getTickets = async ({ supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
+  if (!hotelId) {
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('tickets')
-    .select('id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id')
+    .select(TICKET_SELECT)
+    .eq('hotel_id', hotelId)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -15,12 +20,15 @@ export const getTickets = async () => {
   return data || [];
 };
 
-export const getTicketsByCategories = async (categories) => {
-  const supabase = getSupabaseAdmin();
+export const getTicketsByCategories = async (categories, { supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
+  if (!hotelId) {
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('tickets')
-    .select('id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id')
+    .select(TICKET_SELECT)
+    .eq('hotel_id', hotelId)
     .in('category', categories)
     .order('created_at', { ascending: false });
 
@@ -31,13 +39,16 @@ export const getTicketsByCategories = async (categories) => {
   return data || [];
 };
 
-export const getTicketDetail = async (ticketId) => {
-  const supabase = getSupabaseAdmin();
+export const getTicketDetail = async (ticketId, { supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
+  if (!hotelId) {
+    return null;
+  }
 
   const { data: ticket, error: ticketError } = await supabase
     .from('tickets')
-    .select('id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id')
+    .select(TICKET_SELECT)
     .eq('id', ticketId)
+    .eq('hotel_id', hotelId)
     .maybeSingle();
 
   if (ticketError) {
@@ -64,8 +75,11 @@ export const getTicketDetail = async (ticketId) => {
   };
 };
 
-export const updateTicketStatus = async ({ ticketId, status }) => {
-  const supabase = getSupabaseAdmin();
+export const updateTicketStatus = async ({ ticketId, status, supabase = getSupabaseAdmin(), hotelId = null }) => {
+  if (!hotelId) {
+    throw new Error('hotelId is required');
+  }
+
   const completedAt = status === 'completed' ? new Date().toISOString() : null;
 
   const { data, error } = await supabase
@@ -75,7 +89,8 @@ export const updateTicketStatus = async ({ ticketId, status }) => {
       completed_at: completedAt
     })
     .eq('id', ticketId)
-    .select('id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id')
+    .eq('hotel_id', hotelId)
+    .select(TICKET_SELECT)
     .single();
 
   if (error) {

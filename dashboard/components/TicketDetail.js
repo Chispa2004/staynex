@@ -31,6 +31,15 @@ const senderLabel = {
   staff: 'Staff'
 };
 
+const getAuthHeaders = async () => {
+  const supabase = getSupabaseBrowser();
+  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
+
+  return data?.session?.access_token
+    ? { Authorization: `Bearer ${data.session.access_token}` }
+    : {};
+};
+
 export const TicketDetail = ({ initialTicket, initialMessages }) => {
   const [ticket, setTicket] = useState(initialTicket);
   const [messages, setMessages] = useState(initialMessages);
@@ -99,6 +108,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
       const response = await fetch(`/api/tickets/${ticket.id}/status`, {
         method: 'PATCH',
         headers: {
+          ...(await getAuthHeaders()),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status })

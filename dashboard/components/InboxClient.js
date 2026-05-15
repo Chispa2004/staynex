@@ -100,47 +100,48 @@ const INBOX_UNREAD_TOTAL_KEY = 'staynex_inbox_unread_total';
 const INBOX_HUMAN_TOTAL_KEY = 'staynex_inbox_human_total';
 export const INBOX_UNREAD_EVENT = 'staynex:inbox-unread-updated';
 export const INBOX_HUMAN_EVENT = 'staynex:inbox-human-updated';
+const scopedKey = (key, hotelId) => `${key}:${hotelId || 'none'}`;
 
-const readStoredReadState = () => {
+const readStoredReadState = (hotelId) => {
   if (typeof window === 'undefined') {
     return {};
   }
 
   try {
-    return JSON.parse(window.localStorage.getItem(INBOX_READ_STATE_KEY) || '{}');
+    return JSON.parse(window.localStorage.getItem(scopedKey(INBOX_READ_STATE_KEY, hotelId)) || '{}');
   } catch (error) {
     console.error('Inbox read state could not be parsed', error);
     return {};
   }
 };
 
-const persistReadState = (nextState) => {
+const persistReadState = (nextState, hotelId) => {
   if (typeof window === 'undefined') {
     return;
   }
 
-  window.localStorage.setItem(INBOX_READ_STATE_KEY, JSON.stringify(nextState));
+  window.localStorage.setItem(scopedKey(INBOX_READ_STATE_KEY, hotelId), JSON.stringify(nextState));
 };
 
-const dispatchUnreadTotal = (total) => {
+const dispatchUnreadTotal = (total, hotelId) => {
   if (typeof window === 'undefined') {
     return;
   }
 
-  window.localStorage.setItem(INBOX_UNREAD_TOTAL_KEY, String(total));
+  window.localStorage.setItem(scopedKey(INBOX_UNREAD_TOTAL_KEY, hotelId), String(total));
   window.dispatchEvent(new CustomEvent(INBOX_UNREAD_EVENT, {
-    detail: { total }
+    detail: { total, hotelId }
   }));
 };
 
-const dispatchHumanTotal = (total) => {
+const dispatchHumanTotal = (total, hotelId) => {
   if (typeof window === 'undefined') {
     return;
   }
 
-  window.localStorage.setItem(INBOX_HUMAN_TOTAL_KEY, String(total));
+  window.localStorage.setItem(scopedKey(INBOX_HUMAN_TOTAL_KEY, hotelId), String(total));
   window.dispatchEvent(new CustomEvent(INBOX_HUMAN_EVENT, {
-    detail: { total }
+    detail: { total, hotelId }
   }));
 };
 
@@ -341,9 +342,15 @@ export const InboxClient = ({ conversations }) => {
   }, [selectedId]);
 
   useEffect(() => {
-    setReadState(readStoredReadState());
+    if (!currentHotel?.id) {
+      setReadState({});
+      setReadStateLoaded(false);
+      return;
+    }
+
+    setReadState(readStoredReadState(currentHotel.id));
     setReadStateLoaded(true);
-  }, []);
+  }, [currentHotel?.id]);
 
   useEffect(() => {
     if (requestedConversationId && items.some((conversation) => conversation.id === requestedConversationId)) {
@@ -352,14 +359,16 @@ export const InboxClient = ({ conversations }) => {
   }, [items, requestedConversationId]);
 
   useEffect(() => {
-    if (readStateLoaded) {
-      dispatchUnreadTotal(unreadTotal);
+    if (readStateLoaded && currentHotel?.id) {
+      dispatchUnreadTotal(unreadTotal, currentHotel.id);
     }
-  }, [readStateLoaded, unreadTotal]);
+  }, [currentHotel?.id, readStateLoaded, unreadTotal]);
 
   useEffect(() => {
-    dispatchHumanTotal(humanTotal);
-  }, [humanTotal]);
+    if (currentHotel?.id) {
+      dispatchHumanTotal(humanTotal, currentHotel.id);
+    }
+  }, [currentHotel?.id, humanTotal]);
 
   const loadInbox = useCallback(async ({ silent = false, preserveSelection = true, force = false } = {}) => {
     if (loadInFlightRef.current && silent && !force) {
@@ -397,6 +406,20 @@ export const InboxClient = ({ conversations }) => {
       }
 
       const nextItems = normalizeInboxConversations(body.conversations || []);
+      const nextHotelId = body.hotel?.id || null;
+      const previousHotelId = currentHotel?.id || null;
+
+      if (previousHotelId && nextHotelId && previousHotelId !== nextHotelId) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('state reset for hotel', { hotelId: nextHotelId, surface: 'inbox' });
+        }
+        setItems([]);
+        setSelectedId(null);
+        setReadState({});
+        setReadStateLoaded(false);
+        setMessage('');
+        setCopilotOpen(false);
+      }
 
       setCurrentHotel(body.hotel || null);
       setItems(nextItems);
@@ -427,7 +450,7 @@ export const InboxClient = ({ conversations }) => {
         setRefreshing(false);
       }
     }
-  }, [requestedConversationId]);
+  }, [currentHotel?.id, requestedConversationId]);
 
   useEffect(() => {
     loadInbox({ silent: true });
@@ -444,10 +467,10 @@ export const InboxClient = ({ conversations }) => {
         [conversationId]: new Date().toISOString()
       };
 
-      persistReadState(nextState);
+      persistReadState(nextState, currentHotel?.id);
       return nextState;
     });
-  }, []);
+  }, [currentHotel?.id]);
 
   const isMessagesPanelNearBottom = useCallback(() => {
     const element = messagesScrollRef.current;

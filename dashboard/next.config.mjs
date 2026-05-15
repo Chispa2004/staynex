@@ -12,7 +12,20 @@ const dashboardRoot = dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  outputFileTracingRoot: dashboardRoot
+  outputFileTracingRoot: dashboardRoot,
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, max-age=0, must-revalidate'
+          }
+        ]
+      }
+    ];
+  }
 };
 
 export default nextConfig;

@@ -8,6 +8,7 @@ import { TicketFilters } from './TicketFilters';
 import { TicketAgeLabel } from './TicketAgeLabel';
 import { TicketCategoryIcon } from './TicketCategoryIcon';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const STATUS_ACTIONS = [
   { value: 'open', labelKey: 'buttons.open', icon: Circle },
@@ -59,6 +60,15 @@ const mergeTicket = (items, ticket) => sortByNewest(
   items.map((item) => (item.id === ticket.id ? { ...item, ...ticket } : item))
 );
 
+const getAuthHeaders = async () => {
+  const supabase = getSupabaseBrowser();
+  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
+
+  return data?.session?.access_token
+    ? { Authorization: `Bearer ${data.session.access_token}` }
+    : {};
+};
+
 export const DepartmentTicketTable = ({ tickets, categories }) => {
   const router = useRouter();
   const { t } = useDashboardLanguage();
@@ -87,6 +97,7 @@ export const DepartmentTicketTable = ({ tickets, categories }) => {
       const response = await fetch(`/api/tickets/${ticketId}/status`, {
         method: 'PATCH',
         headers: {
+          ...(await getAuthHeaders()),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ status })

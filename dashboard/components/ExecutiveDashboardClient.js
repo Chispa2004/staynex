@@ -84,6 +84,8 @@ export const ExecutiveDashboardClient = () => {
   const [error, setError] = useState(null);
   const [demoMode, setDemoMode] = useState(false);
   const dashboardRequestInFlightRef = useRef(false);
+  const dashboardRequestIdRef = useRef(0);
+  const activeHotelIdRef = useRef(null);
 
   const loadDashboard = useCallback(async ({ silent = false } = {}) => {
     if (dashboardRequestInFlightRef.current && silent) {
@@ -91,9 +93,12 @@ export const ExecutiveDashboardClient = () => {
     }
 
     dashboardRequestInFlightRef.current = true;
+    const requestId = dashboardRequestIdRef.current + 1;
+    dashboardRequestIdRef.current = requestId;
 
     if (!silent) {
       setRefreshing(true);
+      setData(null);
     }
 
     try {
@@ -108,16 +113,35 @@ export const ExecutiveDashboardClient = () => {
         throw new Error(payload.error || 'Could not load executive dashboard');
       }
 
+      const payloadHotelId = payload.hotel?.id || null;
+
+      if (requestId !== dashboardRequestIdRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('stale response ignored', { surface: 'executive-dashboard', hotelId: payloadHotelId });
+        }
+        return;
+      }
+
+      if (activeHotelIdRef.current && payloadHotelId && activeHotelIdRef.current !== payloadHotelId) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('state reset for hotel', { surface: 'executive-dashboard', hotelId: payloadHotelId });
+        }
+        setData(null);
+      }
+
+      activeHotelIdRef.current = payloadHotelId;
       setData(payload);
       setError(null);
     } catch (caughtError) {
       console.error('Executive dashboard refresh failed', caughtError);
       setError(caughtError.message);
     } finally {
-      dashboardRequestInFlightRef.current = false;
-      setLoading(false);
-      if (!silent) {
-        setRefreshing(false);
+      if (requestId === dashboardRequestIdRef.current) {
+        dashboardRequestInFlightRef.current = false;
+        setLoading(false);
+        if (!silent) {
+          setRefreshing(false);
+        }
       }
     }
   }, []);

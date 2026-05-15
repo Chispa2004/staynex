@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Clock3, Euro, RefreshCw, Send, Search, Sparkles, XCircle } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
@@ -88,6 +88,8 @@ export const UpsellsClient = () => {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [error, setError] = useState(null);
+  const loadRequestIdRef = useRef(0);
+  const activeHotelIdRef = useRef(null);
 
   const inputClass = ui.input(isLight);
 
@@ -101,7 +103,10 @@ export const UpsellsClient = () => {
   };
 
   const loadUpsells = async () => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
     setLoading(true);
+    setUpsells([]);
     setError(null);
 
     try {
@@ -115,13 +120,29 @@ export const UpsellsClient = () => {
         throw new Error(body.error || 'Could not load upsells');
       }
 
+      const nextHotelId = body.hotel?.id || null;
+
+      if (requestId !== loadRequestIdRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('stale response ignored', { surface: 'upsells', hotelId: nextHotelId });
+        }
+        return;
+      }
+
+      if (activeHotelIdRef.current && nextHotelId && activeHotelIdRef.current !== nextHotelId && process.env.NODE_ENV !== 'production') {
+        console.info('state reset for hotel', { surface: 'upsells', hotelId: nextHotelId });
+      }
+
+      activeHotelIdRef.current = nextHotelId;
       setUpsells(body.upsells || []);
       setHotel(body.hotel || null);
       setCurrentRole(body.role || 'receptionist');
     } catch (caughtError) {
       setError(caughtError.message);
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 

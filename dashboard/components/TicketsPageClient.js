@@ -2,11 +2,10 @@
 
 import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { DepartmentTicketTable } from './DepartmentTicketTable';
-import { PageHeader } from './PageHeader';
-import { TicketStatsCards } from './TicketStatsCards';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { PageHeader } from '@/components/PageHeader';
+import { TicketsTable } from '@/components/TicketsTable';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -17,14 +16,7 @@ const getAuthHeaders = async () => {
     : {};
 };
 
-export const DepartmentTicketsView = ({
-  title,
-  titleKey,
-  eyebrow,
-  description,
-  descriptionKey,
-  categories
-}) => {
+export const TicketsPageClient = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,7 +30,7 @@ export const DepartmentTicketsView = ({
     setError(null);
 
     try {
-      const response = await fetch(`/api/tickets?categories=${encodeURIComponent(categories.join(','))}`, {
+      const response = await fetch('/api/tickets', {
         headers: await getAuthHeaders(),
         cache: 'no-store'
       });
@@ -50,7 +42,7 @@ export const DepartmentTicketsView = ({
 
       if (requestId !== requestIdRef.current) {
         if (process.env.NODE_ENV !== 'production') {
-          console.info('stale response ignored', { surface: 'department-tickets', hotelId: body.hotelId });
+          console.info('stale response ignored', { surface: 'tickets', hotelId: body.hotelId });
         }
         return;
       }
@@ -67,17 +59,14 @@ export const DepartmentTicketsView = ({
 
   useEffect(() => {
     loadTickets();
-  }, [categories.join(',')]);
+  }, []);
 
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <PageHeader
-          titleKey={titleKey}
-          descriptionKey={descriptionKey}
-          fallbackTitle={title}
-          fallbackDescription={description}
-          eyebrowKey={eyebrow === 'Operations' ? 'screens.operations' : undefined}
+          titleKey="screens.tickets"
+          descriptionKey="screens.ticketsDescription"
         />
 
         <button
@@ -96,16 +85,13 @@ export const DepartmentTicketsView = ({
           <div className="flex items-start gap-3">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-none text-red-300" aria-hidden="true" />
             <div>
-              <p className="font-semibold">Could not load tickets.</p>
+              <p className="font-semibold">No se pudieron cargar los tickets.</p>
               <p className="mt-1 text-red-100/80">{error.message}</p>
             </div>
           </div>
         </div>
       ) : (
-        <>
-          <TicketStatsCards tickets={tickets} />
-          <DepartmentTicketTable tickets={tickets} categories={categories} />
-        </>
+        <TicketsTable tickets={tickets} />
       )}
     </section>
   );
