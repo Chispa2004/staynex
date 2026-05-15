@@ -7,6 +7,8 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getDefaultRouteForRole } from '@/lib/permissions';
 
+const SESSION_CHECK_TIMEOUT_MS = 7000;
+
 export const LoginClient = () => {
   const router = useRouter();
   const { theme } = useDashboardTheme();
@@ -54,6 +56,7 @@ export const LoginClient = () => {
   useEffect(() => {
     const supabase = getSupabaseBrowser();
     let active = true;
+    let resolved = false;
 
     if (!supabase) {
       setError('Supabase Auth is not configured.');
@@ -61,10 +64,22 @@ export const LoginClient = () => {
       return undefined;
     }
 
+    const timeoutId = window.setTimeout(() => {
+      if (!active || resolved) {
+        return;
+      }
+
+      console.warn('workspace timeout', { phase: 'login-session' });
+      setCheckingSession(false);
+    }, SESSION_CHECK_TIMEOUT_MS);
+
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!active) {
         return;
       }
+
+      resolved = true;
+      window.clearTimeout(timeoutId);
 
       if (sessionError) {
         console.error('Login session lookup failed', sessionError);
@@ -83,6 +98,7 @@ export const LoginClient = () => {
 
     return () => {
       active = false;
+      window.clearTimeout(timeoutId);
     };
   }, [router]);
 

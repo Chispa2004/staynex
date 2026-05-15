@@ -199,6 +199,12 @@ export const getCurrentHotelForRequest = async (request) => {
         email,
         statuses: ['active']
       });
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('hotel assignments found', {
+          count: assignments?.length || 0,
+          requestedHotelId: requestedHotelId || null
+        });
+      }
     } catch (error) {
       assignments = isMissingHotelIdentitySchema(error) ? null : (() => { throw error; })();
     }

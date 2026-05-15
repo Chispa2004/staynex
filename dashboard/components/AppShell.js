@@ -105,6 +105,7 @@ const INBOX_UNREAD_EVENT = 'staynex:inbox-unread-updated';
 const INBOX_HUMAN_TOTAL_KEY = 'staynex_inbox_human_total';
 const INBOX_HUMAN_EVENT = 'staynex:inbox-human-updated';
 const scopedKey = (key, hotelId) => `${key}:${hotelId || 'none'}`;
+const WORKSPACE_RESOLUTION_TIMEOUT_MS = 7000;
 
 const AppShellContent = ({ children }) => {
   const pathname = usePathname();
@@ -132,6 +133,8 @@ const AppShellContent = ({ children }) => {
     accessDeniedReason: null
   });
   const [hotelContextLoaded, setHotelContextLoaded] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState(null);
+  const [workspaceRetryNonce, setWorkspaceRetryNonce] = useState(0);
   const [switchingHotel, setSwitchingHotel] = useState(false);
   const [welcomeState, setWelcomeState] = useState(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
@@ -159,6 +162,18 @@ const AppShellContent = ({ children }) => {
     }
 
     let active = true;
+    let resolved = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!active || resolved) {
+        return;
+      }
+
+      console.warn('workspace timeout', { phase: 'session' });
+      setAuthLoading(false);
+      if (!isLoginPage) {
+        router.replace('/login');
+      }
+    }, WORKSPACE_RESOLUTION_TIMEOUT_MS);
 
     const checkSession = async () => {
       const { data, error } = await supabase.auth.getSession();
@@ -167,11 +182,17 @@ const AppShellContent = ({ children }) => {
         return;
       }
 
+      resolved = true;
+      window.clearTimeout(timeoutId);
+
       if (error) {
         console.error('Session lookup failed', error);
       }
 
       setSessionAccessToken(data.session?.access_token || null);
+      if (data.session && process.env.NODE_ENV !== 'production') {
+        console.info('session found');
+      }
 
       if (!data.session && !isLoginPage) {
         setIsAuthenticated(false);
@@ -200,17 +221,31 @@ const AppShellContent = ({ children }) => {
 
     return () => {
       active = false;
+      window.clearTimeout(timeoutId);
       listener.subscription.unsubscribe();
     };
   }, [isLoginPage, router]);
 
   useEffect(() => {
-    if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded || !currentHotel?.id) {
+    if (isLoginPage || authLoading || !isAuthenticated) {
       return undefined;
     }
 
     let active = true;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      if (!active) {
+        return;
+      }
+
+      console.warn('workspace timeout', { phase: 'workspace' });
+      controller.abort();
+      setWorkspaceError('Workspace resolution timed out. Please retry.');
+      setHotelContextLoaded(true);
+    }, WORKSPACE_RESOLUTION_TIMEOUT_MS);
+
     setHotelContextLoaded(false);
+    setWorkspaceError(null);
     setCurrentHotel(null);
     setUrgentCount(0);
     setInboxUnreadCount(0);
@@ -224,9 +259,11 @@ const AppShellContent = ({ children }) => {
         };
         const response = await fetch('/api/current-hotel', {
           headers,
-          cache: 'no-store'
+          cache: 'no-store',
+          signal: controller.signal
         });
         const body = await response.json();
+        window.clearTimeout(timeoutId);
 
         if (active && response.ok) {
           setCurrentHotel(body.hotel || null);
@@ -263,13 +300,21 @@ const AppShellContent = ({ children }) => {
           }
           setHotelContextLoaded(true);
         } else if (active) {
+          setWorkspaceError(body.error || 'Could not resolve workspace.');
           setHotelContextLoaded(true);
         }
       } catch (error) {
-        console.error('Current hotel lookup failed', error);
+        if (error.name !== 'AbortError') {
+          console.error('Current hotel lookup failed', error);
+        }
         if (active) {
+          setWorkspaceError(error.name === 'AbortError'
+            ? 'Workspace resolution timed out. Please retry.'
+            : error.message || 'Could not resolve workspace.');
           setHotelContextLoaded(true);
         }
+      } finally {
+        window.clearTimeout(timeoutId);
       }
     };
 
@@ -277,8 +322,10 @@ const AppShellContent = ({ children }) => {
 
     return () => {
       active = false;
+      controller.abort();
+      window.clearTimeout(timeoutId);
     };
-  }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken]);
+  }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken, workspaceRetryNonce]);
 
   useEffect(() => {
     if (isLoginPage || authLoading || !isAuthenticated) {
@@ -300,7 +347,17 @@ const AppShellContent = ({ children }) => {
         const body = await response.json();
 
         if (!active || !response.ok) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('onboarding state missing or unavailable', {
+              ok: response.ok,
+              status: response.status
+            });
+          }
           return;
+        }
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.info(body.state?.id ? 'onboarding state found' : 'onboarding state missing');
         }
 
         const completed = Boolean(body.state?.onboarding_completed);
@@ -367,6 +424,7 @@ const AppShellContent = ({ children }) => {
     setSessionAccessToken(null);
     setCurrentHotel(null);
     clearWorkspaceSelection();
+    setWorkspaceError(null);
     setUrgentCount(0);
     setInboxUnreadCount(0);
     setInboxHumanCount(0);
@@ -382,6 +440,7 @@ const AppShellContent = ({ children }) => {
 
     setSwitchingHotel(true);
     setHotelContextLoaded(false);
+    setWorkspaceError(null);
     setCurrentHotel(null);
     setUrgentCount(0);
     setInboxUnreadCount(0);
@@ -540,6 +599,42 @@ const AppShellContent = ({ children }) => {
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
           Checking session...
         </div>
+      </div>
+    );
+  }
+
+  if (workspaceError && !currentHotel?.id) {
+    return (
+      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight px-4 text-slate-100`}>
+        <section className={isLight ? 'w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 text-slate-950 shadow-2xl shadow-slate-200/80' : 'w-full max-w-lg rounded-xl border border-white/10 bg-[#0b1019] p-6 text-white shadow-2xl shadow-black/30'}>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-amber-300/30 bg-amber-300/10 text-amber-400">
+            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <h1 className="mt-5 text-2xl font-semibold">Workspace could not load</h1>
+          <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
+            {workspaceError}
+          </p>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setWorkspaceError(null);
+                setHotelContextLoaded(false);
+                setWorkspaceRetryNonce((current) => current + 1);
+              }}
+              className={isLight ? 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className={isLight ? 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100' : 'inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2 text-sm font-semibold text-slate-400 hover:bg-white/[0.06]'}
+            >
+              {logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}
+            </button>
+          </div>
+        </section>
       </div>
     );
   }
