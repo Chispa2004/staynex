@@ -11,7 +11,17 @@ const jsonError = (message, status = 500) => NextResponse.json({
 
 export async function GET(request) {
   try {
-    const { hotel, hotelUser, role, permissions, availableHotels, fallback, user } = await getCurrentHotelForRequest(request);
+    const {
+      hotel,
+      hotelUser,
+      role,
+      permissions,
+      availableHotels,
+      fallback,
+      user,
+      accessDenied,
+      accessDeniedReason
+    } = await getCurrentHotelForRequest(request);
 
     return NextResponse.json({
       hotel,
@@ -20,7 +30,9 @@ export async function GET(request) {
       permissions,
       availableHotels,
       fallback,
-      user
+      user,
+      accessDenied: Boolean(accessDenied),
+      accessDeniedReason: accessDeniedReason || null
     });
   } catch (error) {
     console.error('Current hotel API failed', error);

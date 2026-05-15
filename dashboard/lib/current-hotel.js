@@ -1,5 +1,10 @@
 import { getSupabaseAdmin } from './supabase';
 import { getPermissionsForRole } from './permissions';
+import {
+  getUserHotelAssignments,
+  normalizeAuthEmail,
+  resolvePendingInvitationsForUser
+} from './user-invitations';
 
 const DEMO_HOTEL_SLUG = 'staynex-demo';
 const ACTIVE_HOTEL_COOKIE = 'staynex_active_hotel_id';
@@ -74,40 +79,6 @@ const chooseHotelAssignment = (assignments, requestedHotelId) => {
   return assignments.find((assignment) => assignment.is_default) || assignments[0];
 };
 
-const getAssignmentsForUser = async ({ supabase, userId, email }) => {
-  if (!userId && !email) {
-    return [];
-  }
-
-  const filters = [];
-
-  if (userId) {
-    filters.push(`user_id.eq.${userId}`);
-  }
-
-  if (email) {
-    filters.push(`email.ilike.${email}`);
-  }
-
-  const { data, error } = await supabase
-    .from('hotel_users')
-    .select('*, hotel:hotels(*)')
-    .or(filters.join(','))
-    .in('status', ['active'])
-    .order('is_default', { ascending: false })
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    if (isMissingHotelIdentitySchema(error)) {
-      return null;
-    }
-
-    throw error;
-  }
-
-  return data || [];
-};
-
 const getLegacyAssignmentForUser = async ({ supabase, userId }) => {
   if (!userId) {
     return null;
@@ -163,20 +134,41 @@ export const getCurrentHotelForRequest = async (request) => {
   const requestedHotelId = getRequestedHotelId(request);
   let userId = null;
   let email = null;
+  let authUser = null;
 
   if (token) {
     const { data, error } = await supabase.auth.getUser(token);
 
     if (!error) {
-      userId = data.user?.id || null;
-      email = data.user?.email || null;
+      authUser = data.user || null;
+      userId = authUser?.id || null;
+      email = normalizeAuthEmail(authUser?.email);
     } else {
       console.warn('Current hotel auth lookup failed', error.message);
     }
   }
 
   if (userId) {
-    const assignments = await getAssignmentsForUser({ supabase, userId, email });
+    try {
+      await resolvePendingInvitationsForUser({ supabase, user: authUser });
+    } catch (error) {
+      if (!isMissingHotelIdentitySchema(error)) {
+        throw error;
+      }
+    }
+
+    let assignments = [];
+
+    try {
+      assignments = await getUserHotelAssignments({
+        supabase,
+        userId,
+        email,
+        statuses: ['active']
+      });
+    } catch (error) {
+      assignments = isMissingHotelIdentitySchema(error) ? null : (() => { throw error; })();
+    }
 
     if (Array.isArray(assignments) && assignments.length > 0) {
       const selectedAssignment = chooseHotelAssignment(assignments, requestedHotelId);
@@ -215,6 +207,44 @@ export const getCurrentHotelForRequest = async (request) => {
           permissions: getPermissionsForRole(hotelUser.role),
           availableHotels,
           fallback: false,
+          user: { id: userId, email }
+        };
+      }
+    }
+
+    if (Array.isArray(assignments) && assignments.length === 0) {
+      const allAssignments = await getUserHotelAssignments({
+        supabase,
+        userId,
+        email,
+        statuses: null,
+        includeHotels: false
+      }).catch((error) => {
+        if (isMissingHotelIdentitySchema(error)) {
+          return null;
+        }
+
+        throw error;
+      });
+
+      if (Array.isArray(allAssignments) && allAssignments.length > 0) {
+        const disabled = allAssignments.every((assignment) => assignment.status === 'disabled');
+        const invited = allAssignments.some((assignment) => assignment.status === 'invited');
+
+        return {
+          supabase,
+          hotel: null,
+          hotelUser: null,
+          role: 'blocked',
+          permissions: [],
+          availableHotels: [],
+          fallback: false,
+          accessDenied: true,
+          accessDeniedReason: disabled
+            ? 'disabled'
+            : invited
+              ? 'invitation_pending'
+              : 'no_active_assignment',
           user: { id: userId, email }
         };
       }

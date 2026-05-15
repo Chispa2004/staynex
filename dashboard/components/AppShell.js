@@ -114,10 +114,13 @@ const AppShellContent = ({ children }) => {
     permissions: ['all'],
     availableHotels: [],
     hotelUser: null,
-    fallback: true
+    fallback: true,
+    accessDenied: false,
+    accessDeniedReason: null
   });
   const [hotelContextLoaded, setHotelContextLoaded] = useState(false);
   const [switchingHotel, setSwitchingHotel] = useState(false);
+  const [welcomeState, setWelcomeState] = useState(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
   const { t } = useDashboardLanguage();
@@ -161,10 +164,6 @@ const AppShellContent = ({ children }) => {
         setIsAuthenticated(false);
         setAuthLoading(false);
         router.replace('/login');
-      } else if (data.session && isLoginPage) {
-        setIsAuthenticated(true);
-        setAuthLoading(false);
-        router.replace('/dashboard');
       } else {
         setIsAuthenticated(Boolean(data.session));
         setAuthLoading(false);
@@ -183,9 +182,7 @@ const AppShellContent = ({ children }) => {
         router.replace('/login');
       }
 
-      if (session && isLoginPage) {
-        router.replace('/dashboard');
-      }
+      // LoginClient owns invitation resolution and role-based routing on /login.
     });
 
     return () => {
@@ -219,7 +216,9 @@ const AppShellContent = ({ children }) => {
             permissions: body.permissions || ['all'],
             availableHotels: body.availableHotels || [],
             hotelUser: body.hotelUser || null,
-            fallback: Boolean(body.fallback)
+            fallback: Boolean(body.fallback),
+            accessDenied: Boolean(body.accessDenied),
+            accessDeniedReason: body.accessDeniedReason || null
           });
           setHotelContextLoaded(true);
         } else if (active) {
@@ -265,7 +264,7 @@ const AppShellContent = ({ children }) => {
         const completed = Boolean(body.state?.onboarding_completed);
         setOnboardingCompleted(completed);
 
-        if (!completed && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
+        if (!hotelContext.accessDenied && !completed && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
           router.replace('/dashboard/onboarding');
         }
       } catch (error) {
@@ -285,17 +284,21 @@ const AppShellContent = ({ children }) => {
       active = false;
       window.removeEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
     };
-  }, [activeRole, authLoading, isAuthenticated, isLoginPage, isOnboardingPage, router, sessionAccessToken]);
+  }, [activeRole, authLoading, hotelContext.accessDenied, isAuthenticated, isLoginPage, isOnboardingPage, router, sessionAccessToken]);
 
   useEffect(() => {
     if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
       return;
     }
 
+    if (hotelContext.accessDenied) {
+      return;
+    }
+
     if (!canAccessRoute(activeRole, pathname)) {
       router.replace(getFirstAllowedRoute(activeRole));
     }
-  }, [activeRole, authLoading, hotelContextLoaded, isAuthenticated, isLoginPage, pathname, router]);
+  }, [activeRole, authLoading, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, pathname, router]);
 
   const handleLogout = async () => {
     if (logoutLoading) {
@@ -349,7 +352,9 @@ const AppShellContent = ({ children }) => {
         permissions: body.permissions || ['all'],
         availableHotels: body.availableHotels || [],
         hotelUser: body.hotelUser || null,
-        fallback: Boolean(body.fallback)
+        fallback: Boolean(body.fallback),
+        accessDenied: Boolean(body.accessDenied),
+        accessDeniedReason: body.accessDeniedReason || null
       });
       router.replace(getFirstAllowedRoute(body.role || 'owner'));
       router.refresh();
@@ -359,6 +364,24 @@ const AppShellContent = ({ children }) => {
       setSwitchingHotel(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const storedWelcome = window.sessionStorage.getItem('staynex_invitation_welcome');
+
+    if (storedWelcome) {
+      try {
+        setWelcomeState(JSON.parse(storedWelcome));
+      } catch (error) {
+        console.warn('Invitation welcome state could not be parsed', error);
+      }
+
+      window.sessionStorage.removeItem('staynex_invitation_welcome');
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const loadUrgentCount = async () => {
@@ -455,6 +478,35 @@ const AppShellContent = ({ children }) => {
       [groupId]: !current[groupId]
     }));
   };
+
+  if (hotelContext.accessDenied) {
+    const reasonCopy = {
+      disabled: 'Your Staynex access is disabled. Please contact your hotel administrator.',
+      invitation_pending: 'Your invitation is still pending. Log in with the invited email or contact your administrator.',
+      no_active_assignment: 'No active hotel assignment is available for your user.'
+    };
+
+    return (
+      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight px-4 text-slate-100`}>
+        <section className={isLight ? 'w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 text-slate-950 shadow-2xl shadow-slate-200/80' : 'w-full max-w-lg rounded-xl border border-white/10 bg-[#0b1019] p-6 text-white shadow-2xl shadow-black/30'}>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-orange-300/30 bg-orange-300/10 text-orange-400">
+            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <h1 className="mt-5 text-2xl font-semibold">Access needs attention</h1>
+          <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
+            {reasonCopy[hotelContext.accessDeniedReason] || 'Your account is not assigned to an active hotel yet.'}
+          </p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={isLight ? 'mt-6 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'mt-6 inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
+          >
+            {logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}
+          </button>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}>
@@ -656,6 +708,23 @@ const AppShellContent = ({ children }) => {
               <ThemeToggle />
               <LanguageSelector />
             </div>
+            {welcomeState ? (
+              <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold">Welcome to {welcomeState.hotelName || sidebarHotelName}</p>
+                    <p className="mt-1 opacity-80">Your role is {ROLE_LABELS[welcomeState.role] || welcomeState.role}. Staynex linked your invitation automatically.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setWelcomeState(null)}
+                    className={isLight ? 'rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100' : 'rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/15'}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {children}
           </div>
         </main>

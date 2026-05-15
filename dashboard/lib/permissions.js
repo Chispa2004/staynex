@@ -133,6 +133,21 @@ export const filterNavigationByRole = (navigationGroups, role) => navigationGrou
   .filter((group) => group.items.length > 0);
 
 export const getFirstAllowedRoute = (role) => {
+  const roleDefaultRoutes = {
+    owner: '/dashboard',
+    admin: '/dashboard',
+    manager: '/dashboard',
+    receptionist: '/dashboard/inbox',
+    housekeeping: '/dashboard/housekeeping',
+    maintenance: '/dashboard/maintenance',
+    analyst: '/dashboard/analytics'
+  };
+  const defaultRoute = roleDefaultRoutes[role];
+
+  if (defaultRoute && canAccessRoute(role, defaultRoute)) {
+    return defaultRoute;
+  }
+
   const preferredRoutes = [
     '/dashboard',
     '/dashboard/inbox',
@@ -145,3 +160,5 @@ export const getFirstAllowedRoute = (role) => {
 
   return preferredRoutes.find((route) => canAccessRoute(role, route)) || '/dashboard';
 };
+
+export const getDefaultRouteForRole = getFirstAllowedRoute;

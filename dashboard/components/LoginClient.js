@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { getDefaultRouteForRole } from '@/lib/permissions';
 
 export const LoginClient = () => {
   const router = useRouter();
@@ -15,6 +16,40 @@ export const LoginClient = () => {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState(null);
+
+  const resolveInvitationsAndRoute = async (session) => {
+    const token = session?.access_token;
+
+    if (!token) {
+      router.replace('/dashboard');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/resolve-invitations', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const body = await response.json();
+      const role = body.role || 'owner';
+
+      if (response.ok && body.resolvedCount > 0 && typeof window !== 'undefined') {
+        window.sessionStorage.setItem('staynex_invitation_welcome', JSON.stringify({
+          hotelName: body.hotel?.name || null,
+          role
+        }));
+      }
+
+      router.replace(response.ok ? (body.defaultRoute || getDefaultRouteForRole(role)) : '/dashboard');
+      router.refresh();
+    } catch (caughtError) {
+      console.error('Invitation resolution failed after login', caughtError);
+      router.replace('/dashboard');
+      router.refresh();
+    }
+  };
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -39,7 +74,7 @@ export const LoginClient = () => {
 
       if (data.session) {
         setCheckingSession(false);
-        router.replace('/dashboard');
+        resolveInvitationsAndRoute(data.session);
         return;
       }
 
@@ -64,7 +99,7 @@ export const LoginClient = () => {
       return;
     }
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password
     });
@@ -75,7 +110,7 @@ export const LoginClient = () => {
       return;
     }
 
-    router.replace('/dashboard');
+    await resolveInvitationsAndRoute(data.session);
     setLoading(false);
   };
 

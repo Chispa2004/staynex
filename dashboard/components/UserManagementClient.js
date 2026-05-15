@@ -284,6 +284,9 @@ export const UserManagementClient = () => {
 
                 <div className="space-y-2">
                   <StatusBadge status={user.status} />
+                  {user.status === 'invited' ? (
+                    <p className={ui.text.muted(isLight)}>Awaiting acceptance</p>
+                  ) : null}
                   <select
                     value={user.status}
                     onChange={(event) => updateUser(user.id, { status: event.target.value })}
@@ -303,6 +306,16 @@ export const UserManagementClient = () => {
                   >
                     {user.is_default ? 'Default' : 'Set default'}
                   </button>
+                  {user.status === 'invited' ? (
+                    <button
+                      type="button"
+                      disabled
+                      title="Email resend will be connected later"
+                      className={ui.button(isLight, 'secondary')}
+                    >
+                      Resend
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => disableUser(user.id)}
