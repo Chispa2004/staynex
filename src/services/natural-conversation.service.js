@@ -62,7 +62,16 @@ const offerKeywords = {
   airport_transfer: ['airport transfer', 'airport', 'aeropuerto', 'transfer', 'traslado', 'flight', 'vuelo'],
   room_upgrade: ['upgrade', 'suite', 'better room', 'habitacion mejor', 'mejor habitacion'],
   dinner: ['restaurant', 'restaurante', 'dinner', 'cena', 'table', 'mesa'],
-  breakfast_upgrade: ['breakfast included', 'add breakfast', 'anadir desayuno', 'desayuno incluido']
+  breakfast_upgrade: ['breakfast included', 'add breakfast', 'anadir desayuno', 'desayuno incluido'],
+  early_checkin: ['arrive early', 'early arrival', 'flight lands early', 'check in before', 'early check-in', 'early checkin', 'llegamos pronto', 'llegamos temprano', 'entrar antes'],
+  luggage_storage: ['luggage', 'bags', 'equipaje', 'maletas'],
+  shower_room: ['shower room', 'ducha'],
+  wine: ['wine', 'vino', 'cava', 'champagne'],
+  family_activities: ['children', 'kids', 'family', 'ninos', 'niños', 'familia'],
+  extra_bed: ['extra bed', 'cama extra'],
+  babysitting: ['babysitting', 'babysitter', 'canguro'],
+  kids_menu: ['kids menu', 'menu infantil'],
+  vip_welcome: ['vip', 'welcome amenity']
 };
 
 const informationalKeywords = [
@@ -202,6 +211,13 @@ export const shouldSuppressOfferForNaturalConversation = ({
     return {
       suppress: true,
       reason: 'passive_context_only'
+    };
+  }
+
+  if (opportunity?.timing && !opportunity.timing.allowed) {
+    return {
+      suppress: true,
+      reason: opportunity.timing.reason || 'revenue_timing_blocked'
     };
   }
 

@@ -59,6 +59,7 @@ import {
   chooseNaturalConciergeResponse,
   shouldSuppressOfferForNaturalConversation
 } from './natural-conversation.service.js';
+import { detectContextualRevenueOpportunities } from './contextual-revenue.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -202,29 +203,43 @@ export const processGuestMessage = async ({
   const primaryConciergeIntent = preliminaryConversationState.primaryIntent?.intent
     ? preliminaryConversationState.primaryIntent
     : conciergeIntent;
-  const conciergeRevenueOpportunity = detectRevenueOpportunity({
+  const conciergeRisk = detectConciergeOperationalRisk({
+    intentResult: primaryConciergeIntent,
+    message
+  });
+  const intentRevenueOpportunity = detectRevenueOpportunity({
     intentResult: primaryConciergeIntent,
     context: conversationContext
   });
-  const conciergeRevenueOpportunities = detectedConciergeIntents
+  const contextualRevenue = detectContextualRevenueOpportunities({
+    message,
+    reservation: conversationContext.reservation,
+    guestMemory: conversationContext.guestMemory,
+    conversationState: preliminaryConversationState,
+    risk: conciergeRisk,
+    sentiment: preliminaryConversationState.sentiment,
+    language: conversationContext.language
+  });
+  const conciergeRevenueOpportunities = [
+    ...contextualRevenue.opportunities,
+    ...detectedConciergeIntents
     .map((intentResult) => detectRevenueOpportunity({
       intentResult,
       context: conversationContext
     }))
     .filter(Boolean)
+  ]
     .filter((opportunity, index, list) => (
       list.findIndex((item) => item.offerType === opportunity.offerType) === index
-    ));
+    ))
+    .sort((a, b) => Number(Boolean(b.timing?.allowed)) - Number(Boolean(a.timing?.allowed)) || Number(b.confidence || 0) - Number(a.confidence || 0));
+  const conciergeRevenueOpportunity = contextualRevenue.primaryOpportunity || intentRevenueOpportunity || conciergeRevenueOpportunities[0] || null;
   const conversationState = await buildConversationState({
     hotelId: activeHotel.id,
     conversationId: conversation.id,
     message,
     detectedIntents: detectedConciergeIntents,
     offerType: conciergeRevenueOpportunity?.offerType || getOfferTypeForIntent(primaryConciergeIntent.intent)
-  });
-  const conciergeRisk = detectConciergeOperationalRisk({
-    intentResult: primaryConciergeIntent,
-    message
   });
   const preliminaryOfferSuppression = shouldSuppressOfferForNaturalConversation({
     message,
@@ -254,6 +269,7 @@ export const processGuestMessage = async ({
     allIntents: detectedConciergeIntents,
     revenueOpportunity: preliminaryOfferSuppression.suppress ? null : conciergeRevenueOpportunity,
     revenueOpportunities: conciergeRevenueOpportunities,
+    contextualRevenue,
     risk: conciergeRisk,
     departmentAction: conciergeDepartmentAction,
     state: conversationState
@@ -300,7 +316,12 @@ export const processGuestMessage = async ({
       risk: conciergeRisk,
       suggested_response: rawAiResponse.reply,
       suppressed_offer: preliminaryOfferSuppression.suppress,
-      response_guidance: responseGuidance
+      response_guidance: responseGuidance,
+      contextual_revenue: {
+        contexts: contextualRevenue.contexts,
+        primary_offer_type: contextualRevenue.primaryOpportunity?.offerType || null,
+        timing: contextualRevenue.primaryOpportunity?.timing || null
+      }
     }
   });
   const openAiResult = openAiConcierge.ok ? openAiConcierge.result : null;

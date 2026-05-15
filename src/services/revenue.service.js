@@ -8,7 +8,16 @@ export const UPSELL_REVENUE_DEFAULTS = {
   spa: 80,
   romantic_package: 150,
   dinner: 90,
-  breakfast_upgrade: 25
+  breakfast_upgrade: 25,
+  early_checkin: 45,
+  luggage_storage: 15,
+  shower_room: 35,
+  wine: 55,
+  family_activities: 50,
+  extra_bed: 35,
+  babysitting: 80,
+  kids_menu: 25,
+  vip_welcome: 75
 };
 
 const isMissingRevenueTable = (error) => (

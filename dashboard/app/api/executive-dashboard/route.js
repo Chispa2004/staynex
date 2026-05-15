@@ -357,7 +357,7 @@ export async function GET(request) {
         hotelId
       ).order('updated_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
-        supabase.from('ai_offers').select('id, guest_id, conversation_id, offer_type, suggested_price, currency, status, confidence, ai_reason, created_at, updated_at'),
+        supabase.from('ai_offers').select('id, guest_id, conversation_id, offer_type, suggested_price, currency, status, confidence, ai_reason, metadata, created_at, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
@@ -452,6 +452,17 @@ export async function GET(request) {
     const offerRevenueGenerated = acceptedOffers.reduce((total, item) => total + Number(item.suggested_price || 0), 0);
     const offerTypeCounts = countBy(recentOffers, 'offer_type');
     const topOfferCategory = Object.entries(offerTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    const contextualOffers = recentOffers.filter((item) => item.metadata?.contextual_revenue);
+    const contextualAccepted = contextualOffers.filter((item) => item.status === 'accepted');
+    const contextualPotentialRevenue = contextualOffers
+      .filter((item) => ['suggested', 'sent'].includes(item.status))
+      .reduce((total, item) => total + Number(item.suggested_price || 0), 0);
+    const contextualGeneratedRevenue = contextualAccepted.reduce((total, item) => total + Number(item.suggested_price || 0), 0);
+    const contextualByContext = contextualOffers.reduce((acc, item) => {
+      const key = item.metadata?.detected_context || 'contextual';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
     const activeEscalations = recentConversationStates.filter((item) => ['reception_required', 'manager_required', 'urgent'].includes(item.escalation_level));
     const unresolvedComplaints = recentConversationStates.filter((item) => String(item.current_intent || '').startsWith('complaint_'));
     const repeatedFrustrations = recentConversationStates.filter((item) => item.sentiment === 'negative');
@@ -528,6 +539,30 @@ export async function GET(request) {
         topCategory: topOfferCategory,
         byType: offerTypeCounts,
         recentOffers: recentOffers.slice(0, 6)
+      },
+      contextualRevenue: {
+        activeOpportunities: contextualOffers.filter((item) => ['suggested', 'sent'].includes(item.status)).length,
+        accepted: contextualAccepted.length,
+        potentialRevenue: contextualPotentialRevenue,
+        generatedRevenue: contextualGeneratedRevenue,
+        byContext: contextualByContext,
+        averageConfidence: contextualOffers.length
+          ? Math.round((contextualOffers.reduce((total, item) => total + Number(item.confidence || 0), 0) / contextualOffers.length) * 100)
+          : 0,
+        recent: contextualOffers.slice(0, 6).map((item) => ({
+          id: item.id,
+          offerType: item.offer_type,
+          status: item.status,
+          suggestedPrice: item.suggested_price,
+          currency: item.currency,
+          confidence: item.confidence,
+          reason: item.ai_reason,
+          detectedContext: item.metadata?.detected_context || null,
+          timingReason: item.metadata?.revenue_timing_reason || null,
+          fatigueScore: item.metadata?.fatigue_score ?? null,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at
+        }))
       },
       conversationIntelligence: {
         activeEscalations: activeEscalations.length,

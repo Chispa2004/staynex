@@ -12,6 +12,7 @@ import { RevenueUpsellsPanel } from './RevenueUpsellsPanel';
 import { VipGuestsPanel } from './VipGuestsPanel';
 import { ConciergeRevenuePanel } from './ConciergeRevenuePanel';
 import { ConversationIntelligencePanel } from './ConversationIntelligencePanel';
+import { ContextualRevenuePanel } from './ContextualRevenuePanel';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
@@ -265,6 +266,7 @@ export const ExecutiveDashboardClient = () => {
         <LiveActivityFeed activity={data?.activity || []} loading={loading} />
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-1">
           <RevenueUpsellsPanel revenue={data?.revenue || {}} />
+          <ContextualRevenuePanel data={data?.contextualRevenue || {}} />
           <OnboardingHealthCard onboardingHealth={data?.onboardingHealth || {}} />
           <PmsStatusCard pmsStatus={data?.pmsStatus || {}} />
           <QuickActions runScheduler={runScheduler} schedulerRunning={schedulerRunning} />

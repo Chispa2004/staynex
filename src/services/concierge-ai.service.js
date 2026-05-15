@@ -271,6 +271,13 @@ export const createAiOffer = async ({
       ai_reason: opportunity.aiReason,
       metadata: {
         trigger_intent: opportunity.triggerIntent,
+        trigger_source: opportunity.triggerSource || null,
+        detected_context: opportunity.detectedContext || null,
+        suggested_message: opportunity.suggestedMessage || null,
+        contextual_revenue: Boolean(opportunity.metadata?.contextual_revenue),
+        revenue_timing_reason: opportunity.metadata?.revenue_timing_reason || opportunity.timing?.reason || null,
+        fatigue_score: opportunity.metadata?.fatigue_score ?? opportunity.fatigueScore ?? null,
+        memory_keys: opportunity.metadata?.memory_keys || [],
         future_pms_sync: true
       },
       updated_at: new Date().toISOString()

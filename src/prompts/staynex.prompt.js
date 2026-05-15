@@ -34,6 +34,7 @@ KNOWLEDGE BASE Y RECOMENDACIONES:
 - Si existe una oportunidad de upselling en el contexto, puedes sugerirla solo si encaja naturalmente con el mensaje actual y no esta suprimida por cooldown.
 - No vendas agresivamente, no insistas y no inventes precios ni disponibilidad.
 - Para preguntas informativas simples como desayuno, checkout, WiFi, parking, piscina o horarios, responde solo a esa pregunta. No anadas ofertas.
+- Revenue contextual solo debe sonar como ayuda de concierge: early check-in, late checkout, equipaje, transfer, familia, aniversario o VIP. Nunca uses lenguaje de promocion.
 
 CREACION DE TICKETS:
 Crea ticket solo si hay una peticion operativa real, incidencia, reserva de servicio, queja o emergencia.
@@ -86,6 +87,7 @@ export const buildStaynexUserPrompt = ({
   const openTickets = conversationContext.openTickets || [];
   const upsellOpportunities = conversationContext.upsellOpportunities || [];
   const responseGuidance = conversationContext.responseGuidance || {};
+  const contextualRevenue = conversationContext.concierge?.contextualRevenue || {};
   const guestMemory = conversationContext.guestMemory || [];
   const language = conversationContext.language || guest?.preferred_language || 'es';
   const hotelProfile = conversationContext.hotelProfile || hotel || {};
@@ -120,6 +122,11 @@ export const buildStaynexUserPrompt = ({
       `- Motivo supresion: ${responseGuidance.offer_suppression_reason || 'ninguno'}`
     ].join('\n')
     : 'No hay reglas adicionales de estilo.';
+  const contextualRevenueText = contextualRevenue.opportunities?.length
+    ? contextualRevenue.opportunities.map((item) => (
+      `- ${item.detectedContext}: ${item.offerType}. Timing: ${item.timing?.allowed ? 'permitido' : 'bloqueado'} (${item.timing?.reason || 'sin motivo'}). Fatigue: ${item.fatigueScore ?? 0}. Mensaje suave: ${item.suggestedMessage || 'No disponible'}`
+    )).join('\n')
+    : 'No hay oportunidades contextuales de revenue.';
   const guestMemoryText = formatGuestMemoryForPrompt(guestMemory);
 
   return `
@@ -161,6 +168,9 @@ ${upsellText}
 GUIA DE RESPUESTA NATURAL:
 ${responseGuidanceText}
 
+REVENUE CONTEXTUAL:
+${contextualRevenueText}
+
 MENSAJE DEL HUESPED:
 "${message}"
 
@@ -174,5 +184,7 @@ INSTRUCCIONES:
 - Usa la memoria del huesped para ayudar mejor, pero no digas "lo se porque lo dijiste antes".
 - Si GUIA DE RESPUESTA NATURAL indica oferta suprimida, no incluyas esa oferta en la respuesta.
 - Si el mensaje actual es informativo, no uses memorias como aniversario o pareja para vender algo.
+- Si REVENUE CONTEXTUAL indica timing bloqueado, no menciones esa oferta.
+- Si REVENUE CONTEXTUAL indica timing permitido, mencionalo solo como ayuda opcional y con una frase suave.
 `.trim();
 };
