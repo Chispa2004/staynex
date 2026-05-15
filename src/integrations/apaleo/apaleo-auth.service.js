@@ -110,6 +110,12 @@ export const getApaleoAccessToken = async ({ forceRefresh = false, config: overr
       signal: controller.signal
     });
     text = await response.text();
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Apaleo authentication timed out after ${process.env.APALEO_TIMEOUT_MS || TOKEN_TIMEOUT_MS}ms`);
+    }
+
+    throw error;
   } finally {
     clearTimeout(timeout);
   }

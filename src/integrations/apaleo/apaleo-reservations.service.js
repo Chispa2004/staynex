@@ -1,8 +1,10 @@
 import { apaleoFetch } from './apaleo-client.service.js';
 import { logger } from '../../utils/logger.js';
 
-const MAX_PAGE_SIZE = 100;
-const MAX_PAGES = 20;
+const DEFAULT_PAGE_SIZE = 25;
+const DEFAULT_MAX_RESERVATIONS = 50;
+const MAX_PAGE_SIZE = 50;
+const MAX_PAGES = 4;
 
 const extractReservations = (payload) => {
   if (Array.isArray(payload)) {
@@ -45,14 +47,27 @@ export const getReservations = async ({
   to,
   status,
   config = null,
-  pageSize = MAX_PAGE_SIZE
+  pageSize = DEFAULT_PAGE_SIZE,
+  maxReservations = DEFAULT_MAX_RESERVATIONS
 } = {}) => {
   const reservations = [];
-  const normalizedPageSize = Math.min(Math.max(Number(pageSize) || MAX_PAGE_SIZE, 1), 200);
+  const normalizedPageSize = Math.min(Math.max(Number(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+  const normalizedMaxReservations = Math.min(Math.max(Number(maxReservations) || DEFAULT_MAX_RESERVATIONS, 1), 200);
+  const maxPagesForLimit = Math.ceil(normalizedMaxReservations / normalizedPageSize);
+  const pageLimit = Math.min(MAX_PAGES, maxPagesForLimit);
 
-  for (let pageNumber = 1; pageNumber <= MAX_PAGES; pageNumber += 1) {
+  logger.info('Apaleo reservations fetch started', {
+    from,
+    to,
+    status: status || 'any',
+    pageSize: normalizedPageSize,
+    maxReservations: normalizedMaxReservations
+  });
+
+  for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
     const payload = await apaleoFetch('/booking/v1/reservations', {
       config,
+      timeoutMs: Number(process.env.APALEO_TIMEOUT_MS || 15000),
       query: {
         pageNumber,
         pageSize: normalizedPageSize,
@@ -73,6 +88,10 @@ export const getReservations = async ({
       totalCount: count ?? null
     });
 
+    if (reservations.length >= normalizedMaxReservations) {
+      break;
+    }
+
     if (!hasNextPage({
       payload,
       page: pageNumber,
@@ -84,5 +103,13 @@ export const getReservations = async ({
     }
   }
 
-  return reservations;
+  const limitedReservations = reservations.slice(0, normalizedMaxReservations);
+
+  logger.info('Apaleo reservations fetch finished', {
+    fetched: limitedReservations.length,
+    pageSize: normalizedPageSize,
+    maxReservations: normalizedMaxReservations
+  });
+
+  return limitedReservations;
 };

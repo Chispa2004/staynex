@@ -91,6 +91,12 @@ export const apaleoFetch = async (path, {
     }
 
     return payload;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Apaleo API request timed out after ${timeoutMs}ms`);
+    }
+
+    throw error;
   } finally {
     clearTimeout(timeout);
   }

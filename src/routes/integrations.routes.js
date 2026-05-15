@@ -50,7 +50,9 @@ router.post('/apaleo/sync', async (req, res, next) => {
       hotelId: hotel?.id || null,
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),
-      status: req.body?.status || undefined
+      status: req.body?.status || undefined,
+      pageSize: Number(req.body?.pageSize || 25),
+      maxReservations: Number(req.body?.maxReservations || 50)
     });
 
     res.status(200).json({
@@ -187,7 +189,9 @@ router.post('/pms-connections/sync', async (req, res, next) => {
       provider: req.body?.provider || 'apaleo',
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),
-      status: req.body?.status
+      status: req.body?.status,
+      pageSize: Number(req.body?.pageSize || 25),
+      maxReservations: Number(req.body?.maxReservations || 50)
     });
 
     res.status(200).json({

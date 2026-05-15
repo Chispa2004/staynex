@@ -13,7 +13,9 @@ export async function POST(request) {
       hotelId: hotel.id,
       provider: body.provider || 'apaleo',
       from: dateOnly(body.from),
-      to: dateOnly(body.to)
+      to: dateOnly(body.to),
+      pageSize: Number(body.pageSize || 25),
+      maxReservations: Number(body.maxReservations || 50)
     });
 
     return NextResponse.json(result);

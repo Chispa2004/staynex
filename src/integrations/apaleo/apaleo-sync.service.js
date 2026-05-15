@@ -24,14 +24,29 @@ export const syncReservationsFromApaleo = async ({
   from,
   to,
   status,
-  connection = null
+  connection = null,
+  pageSize = 25,
+  maxReservations = 50
 } = {}) => {
   const config = connectionToConfig(connection);
+  logger.info('Apaleo sync started', {
+    hotelId,
+    from,
+    to,
+    status: status || 'any',
+    pageSize,
+    maxReservations
+  });
   const rawReservations = await getReservations({
     from,
     to,
     status,
-    config
+    config,
+    pageSize,
+    maxReservations
+  });
+  logger.info('Apaleo reservations fetched', {
+    count: rawReservations.length
   });
   const summary = {
     fetched: rawReservations.length,
@@ -73,6 +88,12 @@ export const syncReservationsFromApaleo = async ({
     }
   }
 
+  logger.info('Apaleo reservations normalized and synced', {
+    fetched: summary.fetched,
+    synced: summary.synced,
+    skipped: summary.skipped,
+    errors: summary.errors.length
+  });
   logger.info('Apaleo reservations sync completed', summary);
   return summary;
 };

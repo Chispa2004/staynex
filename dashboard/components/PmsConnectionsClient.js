@@ -153,7 +153,7 @@ export const PmsConnectionsClient = () => {
 
   const syncReservations = async (provider) => {
     setBusyAction('sync');
-    setFeedback(null);
+    setFeedback({ type: 'info', message: `Sync started for ${provider.name}. Importing up to 50 reservations.` });
 
     try {
       const headers = await getAuthHeaders();
@@ -166,6 +166,8 @@ export const PmsConnectionsClient = () => {
         },
         body: JSON.stringify({
           provider: provider.key,
+          pageSize: 25,
+          maxReservations: 50,
           ...window
         })
       });
@@ -181,7 +183,12 @@ export const PmsConnectionsClient = () => {
       });
       await loadConnections();
     } catch (error) {
-      setFeedback({ type: 'error', message: error.message });
+      setFeedback({
+        type: 'error',
+        message: error.name === 'AbortError'
+          ? 'Sync timed out after 22 seconds. Try a smaller date window or run it again.'
+          : error.message
+      });
     } finally {
       setBusyAction(null);
     }
@@ -239,9 +246,9 @@ export const PmsConnectionsClient = () => {
       </div>
 
       {feedback ? (
-        <ExecutiveCard className={feedback.type === 'error' ? 'border-red-300/25 p-4' : 'border-emerald-300/25 p-4'}>
+        <ExecutiveCard className={feedback.type === 'error' ? 'border-red-300/25 p-4' : feedback.type === 'info' ? 'border-sky-300/25 p-4' : 'border-emerald-300/25 p-4'}>
           <div className="flex items-start gap-3">
-            <AlertTriangle className={feedback.type === 'error' ? 'mt-0.5 h-4 w-4 text-red-400' : 'mt-0.5 h-4 w-4 text-emerald-400'} />
+            <AlertTriangle className={feedback.type === 'error' ? 'mt-0.5 h-4 w-4 text-red-400' : feedback.type === 'info' ? 'mt-0.5 h-4 w-4 text-sky-400' : 'mt-0.5 h-4 w-4 text-emerald-400'} />
             <p className={isLight ? 'text-sm text-slate-700' : 'text-sm text-slate-300'}>{feedback.message}</p>
           </div>
         </ExecutiveCard>

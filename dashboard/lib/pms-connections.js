@@ -27,6 +27,20 @@ export const getBackendUrl = () => (
   || 'http://localhost:3000'
 ).replace(/\/$/, '');
 
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 22000) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 export const saveConnection = async ({ supabase, hotelId, payload }) => {
   const provider = payload.provider || 'apaleo';
   const existingResult = await supabase
@@ -80,8 +94,16 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
   return redactConnection(data);
 };
 
-export const proxyBackendPmsAction = async ({ action, hotelId, provider = 'apaleo', from, to }) => {
-  const response = await fetch(`${getBackendUrl()}/integrations/pms-connections/${action}`, {
+export const proxyBackendPmsAction = async ({
+  action,
+  hotelId,
+  provider = 'apaleo',
+  from,
+  to,
+  pageSize = 25,
+  maxReservations = 50
+}) => {
+  const response = await fetchWithTimeout(`${getBackendUrl()}/integrations/pms-connections/${action}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -90,7 +112,9 @@ export const proxyBackendPmsAction = async ({ action, hotelId, provider = 'apale
       hotelId,
       provider,
       from,
-      to
+      to,
+      pageSize,
+      maxReservations
     })
   });
   const body = await response.json().catch(() => ({}));

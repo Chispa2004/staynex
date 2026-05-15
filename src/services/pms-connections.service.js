@@ -282,7 +282,9 @@ export const syncHotelReservations = async ({
   provider = 'apaleo',
   from,
   to,
-  status
+  status,
+  pageSize = 25,
+  maxReservations = 50
 } = {}) => {
   const connection = await getHotelPmsConnection({ hotelId, provider });
 
@@ -306,7 +308,9 @@ export const syncHotelReservations = async ({
       from,
       to,
       status,
-      connection
+      connection,
+      pageSize,
+      maxReservations
     });
 
     await client
