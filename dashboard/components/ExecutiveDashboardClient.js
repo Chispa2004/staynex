@@ -82,6 +82,7 @@ export const ExecutiveDashboardClient = () => {
   const [schedulerRunning, setSchedulerRunning] = useState(false);
   const [schedulerResult, setSchedulerResult] = useState(null);
   const [error, setError] = useState(null);
+  const [demoMode, setDemoMode] = useState(false);
   const dashboardRequestInFlightRef = useRef(false);
 
   const loadDashboard = useCallback(async ({ silent = false } = {}) => {
@@ -122,6 +123,7 @@ export const ExecutiveDashboardClient = () => {
   }, []);
 
   useEffect(() => {
+    setDemoMode(window.localStorage.getItem('staynex_demo_mode') === 'true');
     loadDashboard();
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === 'hidden') {
@@ -133,6 +135,14 @@ export const ExecutiveDashboardClient = () => {
 
     return () => window.clearInterval(intervalId);
   }, [loadDashboard]);
+
+  const toggleDemoMode = () => {
+    setDemoMode((current) => {
+      const next = !current;
+      window.localStorage.setItem('staynex_demo_mode', String(next));
+      return next;
+    });
+  };
 
   const runScheduler = async () => {
     setSchedulerRunning(true);
@@ -171,6 +181,7 @@ export const ExecutiveDashboardClient = () => {
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <ExecutiveBadge tone="emerald">LIVE</ExecutiveBadge>
+            {demoMode ? <ExecutiveBadge tone="violet">DEMO MODE</ExecutiveBadge> : null}
             <ExecutiveBadge tone="slate">{formatHotelDateTime(hotelTimeZone)}</ExecutiveBadge>
           </div>
           <h1 className={isLight ? 'text-3xl font-semibold tracking-tight text-slate-950 sm:text-5xl' : 'text-3xl font-semibold tracking-tight text-white sm:text-5xl'}>
@@ -190,6 +201,14 @@ export const ExecutiveDashboardClient = () => {
           >
             <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
             Refresh
+          </button>
+          <button
+            type="button"
+            onClick={toggleDemoMode}
+            className={demoMode ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-violet-200/60 bg-violet-300 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-violet-500/15 transition hover:bg-violet-200' : isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.08] hover:text-white'}
+          >
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            {demoMode ? 'Demo Mode On' : 'Demo Mode'}
           </button>
           <button
             type="button"

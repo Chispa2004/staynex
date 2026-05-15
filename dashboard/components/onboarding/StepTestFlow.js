@@ -18,7 +18,9 @@ export const StepTestFlow = () => {
   const isLight = theme === 'light';
   const [creating, setCreating] = useState(false);
   const [demoing, setDemoing] = useState(false);
+  const [showcaseGenerating, setShowcaseGenerating] = useState(false);
   const [result, setResult] = useState(null);
+  const [showcaseSummary, setShowcaseSummary] = useState(null);
   const [feedback, setFeedback] = useState(null);
 
   const createReservation = async () => {
@@ -81,6 +83,34 @@ export const StepTestFlow = () => {
     }
   };
 
+  const generateShowcase = async () => {
+    setShowcaseGenerating(true);
+    setFeedback(null);
+
+    try {
+      const response = await fetch('/api/demo/generate', {
+        method: 'POST',
+        headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clean: true,
+          applyHotelBranding: true
+        })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not generate commercial demo data');
+      }
+
+      setShowcaseSummary(body.summary || null);
+      setFeedback({ type: 'success', text: 'Commercial showcase data is ready.' });
+    } catch (error) {
+      setFeedback({ type: 'error', text: error.message });
+    } finally {
+      setShowcaseGenerating(false);
+    }
+  };
+
   return (
     <ExecutiveCard className="p-6">
       <ExecutiveBadge tone="amber">Step 7</ExecutiveBadge>
@@ -96,6 +126,10 @@ export const StepTestFlow = () => {
           <MessageCircle className="h-4 w-4" />
           {demoing ? 'Creating...' : 'Create demo data'}
         </button>
+        <button type="button" onClick={generateShowcase} disabled={showcaseGenerating} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-800 hover:bg-violet-100 disabled:opacity-60' : 'inline-flex items-center gap-2 rounded-lg border border-violet-300/20 bg-violet-400/10 px-4 py-2.5 text-sm font-semibold text-violet-100 hover:bg-violet-400/15 disabled:opacity-60'}>
+          <FlaskConical className="h-4 w-4" />
+          {showcaseGenerating ? 'Generating...' : 'Generate commercial showcase'}
+        </button>
       </div>
 
       {result ? (
@@ -108,6 +142,14 @@ export const StepTestFlow = () => {
               <ExternalLink className="h-4 w-4" />
             </a>
           ) : null}
+        </div>
+      ) : null}
+
+      {showcaseSummary ? (
+        <div className={isLight ? 'mt-5 grid gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-900 sm:grid-cols-3' : 'mt-5 grid gap-3 rounded-xl border border-violet-300/20 bg-violet-400/10 p-4 text-sm text-violet-100 sm:grid-cols-3'}>
+          <p><strong>{showcaseSummary.guests || 0}</strong> guests</p>
+          <p><strong>{showcaseSummary.conversations || 0}</strong> conversations</p>
+          <p><strong>{showcaseSummary.revenueOpportunities || 0}</strong> revenue opportunities</p>
         </div>
       ) : null}
 
