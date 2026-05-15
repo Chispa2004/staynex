@@ -127,27 +127,28 @@ export const detectUpsellOpportunities = ({
   hotelKnowledge = [],
   guestMemory = []
 } = {}) => {
-  const text = normalize([
-    message,
-    ...recentMessages.map((item) => item.content || '')
-  ].join(' '));
+  const currentText = normalize(message);
+  const recentText = normalize(recentMessages.map((item) => item.content || '').join(' '));
+  const text = [currentText, recentText].join(' ');
   const boardBasis = normalize(reservation?.board_basis || '');
   const roomType = normalize(reservation?.room_type || '');
   const memoryKeys = new Set((guestMemory || []).map((item) => item.memory_key));
   const stayLength = dayDiff(reservation?.arrival_date, reservation?.departure_date);
   const arrivalInDays = daysUntil(reservation?.arrival_date);
   const departureInDays = daysUntil(reservation?.departure_date);
+  const currentMentionsRomantic = includesAny(currentText, ['pareja', 'romantic', 'romantico', 'romantica', 'anniversary', 'aniversario', 'honeymoon', 'luna de miel']);
+  const currentMentionsTransfer = includesAny(currentText, ['aeropuerto', 'airport', 'transfer', 'traslado', 'flight', 'vuelo']);
+  const currentMentionsLateCheckout = includesAny(currentText, ['late checkout', 'leave later', 'salir mas tarde', 'salida tarde', 'check out tarde', 'checkout tarde']);
+  const currentMentionsDinner = includesAny(currentText, ['cena', 'cenar', 'dinner', 'restaurant', 'restaurante']);
+  const currentMentionsSpa = includesAny(currentText, ['spa', 'masaje', 'massage', 'relax', 'relaj', 'wellness']);
+  const currentMentionsUpgrade = includesAny(currentText, ['upgrade', 'mejor habitacion', 'habitacion mejor', 'suite']);
   const opportunities = [];
 
-  if (
-    includesAny(text, ['pareja', 'romantic', 'romantico', 'romantica', 'anniversary', 'aniversario', 'honeymoon', 'luna de miel'])
-    || memoryKeys.has('traveling_with_partner')
-    || memoryKeys.has('anniversary_trip')
-  ) {
+  if (currentMentionsRomantic) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.ROMANTIC_PACKAGE,
       description: 'Guest context suggests a couple or romantic stay.',
-      triggerSource: memoryKeys.has('anniversary_trip') ? 'guest_memory' : 'conversation_context',
+      triggerSource: 'current_message',
       confidence: memoryKeys.has('anniversary_trip') ? 0.9 : 0.86,
       language,
       metadata: { stayLength, boardBasis: reservation?.board_basis || null, memoryKeys: Array.from(memoryKeys) }
@@ -155,68 +156,64 @@ export const detectUpsellOpportunities = ({
   }
 
   if (
-    includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado', 'flight', 'vuelo'])
-    || memoryKeys.has('interested_transfer')
+    currentMentionsTransfer
     || (arrivalInDays !== null && arrivalInDays >= 0 && arrivalInDays <= 7)
   ) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.AIRPORT_TRANSFER,
       description: 'Guest may need arrival transport support.',
-      triggerSource: memoryKeys.has('interested_transfer') ? 'guest_memory' : includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado']) ? 'message_keyword' : 'pre_arrival',
-      confidence: memoryKeys.has('interested_transfer') ? 0.86 : includesAny(text, ['aeropuerto', 'airport', 'transfer', 'traslado']) ? 0.9 : 0.68,
+      triggerSource: currentMentionsTransfer ? 'current_message' : 'pre_arrival',
+      confidence: currentMentionsTransfer ? 0.9 : 0.68,
       language,
       metadata: { arrivalInDays, arrivalDate: reservation?.arrival_date || null }
     }));
   }
 
   if (
-    includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde', 'check out tarde', 'checkout tarde'])
-    || memoryKeys.has('interested_late_checkout')
+    currentMentionsLateCheckout
     || departureInDays === 1
   ) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.LATE_CHECKOUT,
       description: 'Departure timing may make late checkout useful.',
-      triggerSource: memoryKeys.has('interested_late_checkout') ? 'guest_memory' : includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde']) ? 'message_keyword' : 'departure_timing',
-      confidence: memoryKeys.has('interested_late_checkout') ? 0.86 : includesAny(text, ['late checkout', 'salir mas tarde', 'salida tarde']) ? 0.88 : 0.7,
+      triggerSource: currentMentionsLateCheckout ? 'current_message' : 'departure_timing',
+      confidence: currentMentionsLateCheckout ? 0.88 : 0.7,
       language,
       metadata: { departureInDays, departureDate: reservation?.departure_date || null }
     }));
   }
 
   if (
-    includesAny(text, ['cena', 'cenar', 'dinner', 'restaurant', 'restaurante'])
-    || memoryKeys.has('interested_romantic_dinner')
-    || memoryKeys.has('traveling_with_partner')
+    currentMentionsDinner
     || (boardBasis.includes('breakfast') && Number(stayLength) >= 3)
   ) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.DINNER,
       description: 'Reservation or conversation suggests dinner may be useful.',
-      triggerSource: memoryKeys.has('interested_romantic_dinner') || memoryKeys.has('traveling_with_partner') ? 'guest_memory' : includesAny(text, ['cena', 'cenar', 'dinner', 'restaurant', 'restaurante']) ? 'message_keyword' : 'reservation_board_basis',
-      confidence: memoryKeys.has('interested_romantic_dinner') ? 0.88 : includesAny(text, ['cena', 'cenar', 'dinner']) ? 0.88 : 0.72,
+      triggerSource: currentMentionsDinner ? 'current_message' : 'reservation_board_basis',
+      confidence: currentMentionsDinner ? 0.88 : 0.72,
       language,
       metadata: { stayLength, boardBasis: reservation?.board_basis || null }
     }));
   }
 
-  if (includesAny(text, ['spa', 'masaje', 'massage', 'relax', 'relaj', 'wellness']) || memoryKeys.has('interested_spa')) {
+  if (currentMentionsSpa) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.SPA,
       description: 'Guest mentioned relaxation, spa or massage.',
-      triggerSource: memoryKeys.has('interested_spa') ? 'guest_memory' : 'message_keyword',
-      confidence: memoryKeys.has('interested_spa') ? 0.84 : 0.86,
+      triggerSource: 'current_message',
+      confidence: memoryKeys.has('interested_spa') ? 0.9 : 0.86,
       language,
       metadata: { knowledgeKeys: hotelKnowledge.map((item) => item.key).filter(Boolean).slice(0, 5) }
     }));
   }
 
-  if (includesAny(text, ['upgrade', 'mejor habitacion', 'habitacion mejor', 'suite']) || roomType.includes('standard')) {
+  if (currentMentionsUpgrade || roomType.includes('standard')) {
     opportunities.push(buildOpportunity({
       type: UPSELL_TYPES.ROOM_UPGRADE,
       description: 'Room type or message suggests a room upgrade could be relevant.',
-      triggerSource: includesAny(text, ['upgrade', 'mejor habitacion', 'suite']) ? 'message_keyword' : 'reservation_room_type',
-      confidence: includesAny(text, ['upgrade', 'mejor habitacion', 'suite']) ? 0.84 : 0.62,
+      triggerSource: currentMentionsUpgrade ? 'current_message' : 'reservation_room_type',
+      confidence: currentMentionsUpgrade ? 0.84 : 0.62,
       language,
       metadata: { roomType: reservation?.room_type || null }
     }));

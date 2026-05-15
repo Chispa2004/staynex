@@ -150,28 +150,28 @@ export const generateSuggestedOffer = ({ opportunity, language = 'en' } = {}) =>
 
   const messages = {
     late_checkout: {
-      es: `Late checkout puede estar disponible segun ocupacion. Puedo ofrecer salida a las 14:00 por ${price}. Quieres que lo reserve para ti?`,
-      en: `Late checkout may be available depending on occupancy. I can offer a 2pm checkout for ${price}. Would you like me to reserve it for you?`
+      es: `Podemos consultar late checkout hasta las 14:00 por ${price}, sujeto a disponibilidad. Quieres que lo solicite?`,
+      en: `We can check late checkout until 2pm for ${price}, subject to availability. Would you like me to request it?`
     },
     room_upgrade: {
-      es: `Podemos consultar una mejora de habitacion premium desde ${price}. Quieres que recepcion revise disponibilidad?`,
-      en: `We can check a premium room upgrade from ${price}. Would you like reception to review availability?`
+      es: `Puedo pedir a recepcion que revise una mejora de habitacion desde ${price}, si hay disponibilidad.`,
+      en: `I can ask reception to check a room upgrade from ${price}, if available.`
     },
     airport_transfer: {
-      es: `Podemos ayudarte con transfer al aeropuerto desde ${price}. Quieres que recepcion lo prepare?`,
-      en: `We can help arrange an airport transfer from ${price}. Would you like reception to prepare it?`
+      es: `Podemos ayudarte con transfer desde ${price}. Quieres que recepcion te confirme opciones?`,
+      en: `We can help with a transfer from ${price}. Would you like reception to confirm the options?`
     },
     romantic_package: {
-      es: `Felicidades. Tambien ofrecemos un paquete romantico desde ${price} con detalles especiales. Quieres mas informacion?`,
-      en: `Congratulations. We also offer a romantic package from ${price} with special touches. Would you like more information?`
+      es: `Felicidades. Si os apetece, puedo pedir a recepcion detalles de un paquete romantico desde ${price}.`,
+      en: `Congratulations. If you like, I can ask reception for details about a romantic package from ${price}.`
     },
     spa: {
-      es: `Podemos ayudarte con una experiencia de spa desde ${price}. Quieres que consulte disponibilidad?`,
-      en: `We can help with a spa experience from ${price}. Would you like me to check availability?`
+      es: `Puedo consultar disponibilidad de spa desde ${price} si te apetece.`,
+      en: `I can check spa availability from ${price} if you like.`
     },
     dinner: {
-      es: `Puedo avisar al restaurante para ayudarte con la reserva. Tenemos opciones desde ${price}. Quieres que lo prepare?`,
-      en: `I can notify the restaurant team to help with a booking. Options start from ${price}. Would you like me to prepare it?`
+      es: `Puedo avisar al restaurante para ayudarte con una reserva; hay opciones desde ${price}.`,
+      en: `I can notify the restaurant team to help with a booking; options start from ${price}.`
     }
   };
 
@@ -276,21 +276,21 @@ export const createAiOffer = async ({
       updated_at: new Date().toISOString()
     };
 
-    const { data: existing, error: existingError } = await supabase
-      .from('ai_offers')
-      .select('*')
-      .eq('conversation_id', conversation.id)
-      .eq('offer_type', opportunity.offerType)
-      .in('status', ['suggested', 'sent'])
-      .limit(1)
-      .maybeSingle();
+      const { data: existing, error: existingError } = await supabase
+        .from('ai_offers')
+        .select('*')
+        .eq('conversation_id', conversation.id)
+        .eq('offer_type', opportunity.offerType)
+        .in('status', ['suggested', 'sent', 'accepted', 'rejected'])
+        .limit(1)
+        .maybeSingle();
 
     if (existingError && !isMissingOffersTable(existingError)) {
       throw existingError;
     }
 
     if (existing) {
-      return existing;
+      return ['accepted', 'rejected'].includes(existing.status) ? null : existing;
     }
 
     const { data, error } = await supabase

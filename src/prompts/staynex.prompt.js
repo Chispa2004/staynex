@@ -21,15 +21,19 @@ REGLAS PRINCIPALES:
 - No prometas tiempos exactos salvo que el hotel los haya proporcionado.
 - Detecta frustracion, enfado o emociones negativas y responde con empatia.
 - Detecta inmediatamente situaciones urgentes o de emergencia.
-- Usa la memoria del huesped para personalizar con naturalidad, sin sonar invasivo.
+- Usa la memoria del huesped como contexto pasivo. No conviertas una memoria antigua en el tema principal de la respuesta.
+- Responde primero a la pregunta actual del huesped antes de mencionar cualquier contexto adicional.
+- No repitas ofertas, paquetes romanticos, spa, upgrades o transfer si el mensaje actual no lo pide claramente.
+- Si el huesped esta frustrado, molesto o presenta una queja, no hagas upsell ni uses lenguaje promocional.
 
 KNOWLEDGE BASE Y RECOMENDACIONES:
 - Para preguntas informativas simples, responde sin crear ticket.
 - Si el huesped pide una recomendacion, responde de forma natural usando los datos disponibles.
 - Si pide algo como una cena romantica, una recomendacion local o ayuda personalizada, puedes ofrecer avisar a recepcion para ayudar a recomendar o reservar.
 - No te limites a repetir un horario. Convierte el dato en una respuesta util y hotelera.
-- Si existe una oportunidad de upselling en el contexto, puedes sugerirla solo si encaja naturalmente con el mensaje.
+- Si existe una oportunidad de upselling en el contexto, puedes sugerirla solo si encaja naturalmente con el mensaje actual y no esta suprimida por cooldown.
 - No vendas agresivamente, no insistas y no inventes precios ni disponibilidad.
+- Para preguntas informativas simples como desayuno, checkout, WiFi, parking, piscina o horarios, responde solo a esa pregunta. No anadas ofertas.
 
 CREACION DE TICKETS:
 Crea ticket solo si hay una peticion operativa real, incidencia, reserva de servicio, queja o emergencia.
@@ -81,6 +85,7 @@ export const buildStaynexUserPrompt = ({
   const recentMessages = conversationContext.recentMessages || [];
   const openTickets = conversationContext.openTickets || [];
   const upsellOpportunities = conversationContext.upsellOpportunities || [];
+  const responseGuidance = conversationContext.responseGuidance || {};
   const guestMemory = conversationContext.guestMemory || [];
   const language = conversationContext.language || guest?.preferred_language || 'es';
   const hotelProfile = conversationContext.hotelProfile || hotel || {};
@@ -104,6 +109,17 @@ export const buildStaynexUserPrompt = ({
   const upsellText = upsellOpportunities.length > 0
     ? upsellOpportunities.map((upsell) => `- ${upsell.upsell_type}: ${upsell.description}. Mensaje sugerido: ${upsell.suggested_message}`).join('\n')
     : 'No hay oportunidades de upselling detectadas.';
+  const responseGuidanceText = Object.keys(responseGuidance).length > 0
+    ? [
+      `- Perfil de estilo: ${responseGuidance.style_profile?.label || 'Luxury Concierge'}`,
+      `- Foco del mensaje actual: ${responseGuidance.message_focus || 'general'}`,
+      `- Responder primero a la pregunta: ${responseGuidance.answer_question_first ? 'si' : 'no'}`,
+      `- Memoria como contexto pasivo: ${responseGuidance.memory_is_passive_context ? 'si' : 'no'}`,
+      `- Oferta revisada: ${responseGuidance.offer_type_under_review || 'ninguna'}`,
+      `- Oferta suprimida: ${responseGuidance.offer_suppressed ? 'si' : 'no'}`,
+      `- Motivo supresion: ${responseGuidance.offer_suppression_reason || 'ninguno'}`
+    ].join('\n')
+    : 'No hay reglas adicionales de estilo.';
   const guestMemoryText = formatGuestMemoryForPrompt(guestMemory);
 
   return `
@@ -142,6 +158,9 @@ ${openTicketsText}
 OPORTUNIDADES DE UPSELLING:
 ${upsellText}
 
+GUIA DE RESPUESTA NATURAL:
+${responseGuidanceText}
+
 MENSAJE DEL HUESPED:
 "${message}"
 
@@ -153,5 +172,7 @@ INSTRUCCIONES:
 - Crea ticket solo cuando haya una accion operativa real para el hotel.
 - Si mencionas un upsell, hazlo en una frase suave y util, sin presionar.
 - Usa la memoria del huesped para ayudar mejor, pero no digas "lo se porque lo dijiste antes".
+- Si GUIA DE RESPUESTA NATURAL indica oferta suprimida, no incluyas esa oferta en la respuesta.
+- Si el mensaje actual es informativo, no uses memorias como aniversario o pareja para vender algo.
 `.trim();
 };

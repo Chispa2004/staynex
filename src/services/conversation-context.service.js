@@ -9,7 +9,16 @@ import { getLatestReservationForGuest } from './reservation.service.js';
 import { getHotelProfileForPrompt } from './hotel.service.js';
 import { getGuestMemory } from './guest-memory.service.js';
 
-const OFFER_COOLDOWN_HOURS = 12;
+const DEFAULT_OFFER_COOLDOWN_HOURS = 12;
+const OFFER_COOLDOWN_HOURS_BY_TYPE = {
+  romantic_package: 24,
+  late_checkout: 12,
+  spa: 24,
+  airport_transfer: 24,
+  room_upgrade: 12,
+  dinner: 12,
+  breakfast_upgrade: 12
+};
 
 const intentPriority = {
   emergency: 100,
@@ -165,8 +174,10 @@ export const shouldSuppressRepeatedOffer = ({ offerType = null, previousState = 
     return false;
   }
 
+  const cooldownHours = OFFER_COOLDOWN_HOURS_BY_TYPE[offerType] || DEFAULT_OFFER_COOLDOWN_HOURS;
+
   return previousState.last_offer_type === offerType
-    && hoursSince(previousState.last_offer_sent_at) < OFFER_COOLDOWN_HOURS;
+    && hoursSince(previousState.last_offer_sent_at) < cooldownHours;
 };
 
 export const buildConversationState = async ({
@@ -213,7 +224,8 @@ export const buildConversationState = async ({
     escalationLevel,
     metadata: {
       detected_intents: detectedIntents,
-      cooldown_hours: OFFER_COOLDOWN_HOURS,
+      cooldown_hours: OFFER_COOLDOWN_HOURS_BY_TYPE[offerType || offerIntentMap[primary.intent]] || DEFAULT_OFFER_COOLDOWN_HOURS,
+      cooldown_hours_by_type: OFFER_COOLDOWN_HOURS_BY_TYPE,
       dominant_priority: primary.priority || 0
     },
     response

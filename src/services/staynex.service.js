@@ -54,6 +54,11 @@ import {
   persistConciergeMemory
 } from './concierge-ai.service.js';
 import { enhanceConciergeIntelligence } from './openai-concierge.service.js';
+import {
+  buildResponseGuidance,
+  chooseNaturalConciergeResponse,
+  shouldSuppressOfferForNaturalConversation
+} from './natural-conversation.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -221,17 +226,33 @@ export const processGuestMessage = async ({
     intentResult: primaryConciergeIntent,
     message
   });
+  const preliminaryOfferSuppression = shouldSuppressOfferForNaturalConversation({
+    message,
+    offerType: conciergeRevenueOpportunity?.offerType || getOfferTypeForIntent(primaryConciergeIntent.intent),
+    intent: primaryConciergeIntent.intent,
+    opportunity: conciergeRevenueOpportunity,
+    conversationState,
+    risk: conciergeRisk,
+    sentiment: conversationState.sentiment
+  });
+  const responseGuidance = buildResponseGuidance({
+    message,
+    conversationState,
+    offerType: conciergeRevenueOpportunity?.offerType || null,
+    offerSuppression: preliminaryOfferSuppression
+  });
   const conciergeDepartmentAction = generateDepartmentAction({
     intentResult: primaryConciergeIntent,
-    opportunity: conversationState.suppressedOffer ? null : conciergeRevenueOpportunity,
+    opportunity: preliminaryOfferSuppression.suppress ? null : conciergeRevenueOpportunity,
     risk: conciergeRisk
   });
 
   conversationContext.upsellOpportunities = upsellOpportunities;
+  conversationContext.responseGuidance = responseGuidance;
   conversationContext.concierge = {
     intent: primaryConciergeIntent,
     allIntents: detectedConciergeIntents,
-    revenueOpportunity: conversationState.suppressedOffer ? null : conciergeRevenueOpportunity,
+    revenueOpportunity: preliminaryOfferSuppression.suppress ? null : conciergeRevenueOpportunity,
     revenueOpportunities: conciergeRevenueOpportunities,
     risk: conciergeRisk,
     departmentAction: conciergeDepartmentAction,
@@ -278,7 +299,8 @@ export const processGuestMessage = async ({
       offer_type: conciergeRevenueOpportunity?.offerType || null,
       risk: conciergeRisk,
       suggested_response: rawAiResponse.reply,
-      suppressed_offer: conversationState.suppressedOffer
+      suppressed_offer: preliminaryOfferSuppression.suppress,
+      response_guidance: responseGuidance
     }
   });
   const openAiResult = openAiConcierge.ok ? openAiConcierge.result : null;
@@ -308,6 +330,16 @@ export const processGuestMessage = async ({
       reason: openAiResult.risk_flags?.[0] || openAiResult.escalation_level || 'openai_escalation'
     }
     : conciergeRisk;
+  const finalOfferSuppression = shouldSuppressOfferForNaturalConversation({
+    message,
+    offerType: enhancedRevenueOpportunity?.offerType || null,
+    intent: enhancedPrimaryIntent.intent,
+    opportunity: enhancedRevenueOpportunity,
+    conversationState,
+    risk: enhancedRisk,
+    sentiment: openAiResult?.sentiment || conversationState.sentiment
+  });
+  const offerAllowedInReply = Boolean(enhancedRevenueOpportunity && !finalOfferSuppression.suppress);
 
   const humanEscalation = detectHumanEscalation({
     message,
@@ -329,16 +361,25 @@ export const processGuestMessage = async ({
     : {
       ...rawAiResponse,
       escalate_to_human: rawAiResponse.escalate_to_human || humanEscalation.needsHuman
-    };
+  };
   const conciergeReply = generateConciergeResponse({
     intentResult: enhancedPrimaryIntent,
-    opportunity: conversationState.suppressedOffer ? null : enhancedRevenueOpportunity,
+    opportunity: offerAllowedInReply ? enhancedRevenueOpportunity : null,
     risk: enhancedRisk,
     language: conversationContext.language
   });
   const enhancedSuggestedResponse = openAiResult?.suggested_response?.trim();
   const secondaryConciergeResponses = conciergeRevenueOpportunities
     .filter((opportunity) => opportunity.offerType !== enhancedRevenueOpportunity?.offerType)
+    .filter((opportunity) => !shouldSuppressOfferForNaturalConversation({
+      message,
+      offerType: opportunity.offerType,
+      intent: detectedConciergeIntents.find((item) => getOfferTypeForIntent(item.intent) === opportunity.offerType)?.intent || null,
+      opportunity,
+      conversationState,
+      risk: enhancedRisk,
+      sentiment: openAiResult?.sentiment || conversationState.sentiment
+    }).suppress)
     .slice(0, 1)
     .map((opportunity) => generateConciergeResponse({
       intentResult: detectedConciergeIntents.find((item) => getOfferTypeForIntent(item.intent) === opportunity.offerType),
@@ -346,10 +387,21 @@ export const processGuestMessage = async ({
       risk: { hasRisk: false },
       language: conversationContext.language
     }));
+  const naturalPrimaryReply = chooseNaturalConciergeResponse({
+    baseResponse: aiResponse.reply,
+    openAiSuggestedResponse: enhancedSuggestedResponse,
+    conciergeResponse: conciergeReply,
+    offerType: enhancedRevenueOpportunity?.offerType || null,
+    offerAllowed: offerAllowedInReply,
+    risk: enhancedRisk
+  });
   const contextualConciergeReply = generateContextualResponse({
-    fallbackResponse: enhancedSuggestedResponse || conciergeReply,
-    state: conversationState,
-    responses: [enhancedSuggestedResponse || conciergeReply, ...secondaryConciergeResponses]
+    fallbackResponse: naturalPrimaryReply,
+    state: {
+      ...conversationState,
+      suppressedOffer: finalOfferSuppression.suppress
+    },
+    responses: [naturalPrimaryReply, ...secondaryConciergeResponses]
   });
   const aiResponseWithConcierge = contextualConciergeReply && !aiResponse.emergency
     ? {
@@ -358,7 +410,7 @@ export const processGuestMessage = async ({
       intent: enhancedPrimaryIntent.intent || aiResponse.intent,
       confidence: Math.max(Number(aiResponse.confidence || 0), Number(enhancedPrimaryIntent.confidence || 0.75)),
       concierge_intent: enhancedPrimaryIntent.intent,
-      upsell_opportunity: Boolean(!conversationState.suppressedOffer && enhancedRevenueOpportunity) || aiResponse.upsell_opportunity,
+      upsell_opportunity: Boolean(offerAllowedInReply && enhancedRevenueOpportunity) || aiResponse.upsell_opportunity,
       escalate_to_human: aiResponse.escalate_to_human || enhancedRisk.hasRisk
     }
     : {
@@ -368,7 +420,7 @@ export const processGuestMessage = async ({
   const aiResponseWithUpsell = upsellOpportunities.length > 0
     ? {
       ...aiResponseWithConcierge,
-      upsell_opportunity: true
+      upsell_opportunity: Boolean(offerAllowedInReply && enhancedRevenueOpportunity) || aiResponseWithConcierge.upsell_opportunity
     }
     : aiResponseWithConcierge;
 
@@ -392,10 +444,19 @@ export const processGuestMessage = async ({
   const conciergeOffers = [];
 
   for (const opportunity of conciergeRevenueOpportunities) {
+    const suppression = shouldSuppressOfferForNaturalConversation({
+      message,
+      offerType: opportunity.offerType,
+      intent: detectedConciergeIntents.find((item) => getOfferTypeForIntent(item.intent) === opportunity.offerType)?.intent || enhancedPrimaryIntent.intent,
+      opportunity,
+      conversationState,
+      risk: enhancedRisk,
+      sentiment: openAiResult?.sentiment || conversationState.sentiment
+    });
     const suppressThisOffer = opportunity.offerType === enhancedRevenueOpportunity?.offerType
-      && conversationState.suppressedOffer;
+      && suppression.suppress;
 
-    if (suppressThisOffer) {
+    if (suppression.suppress) {
       continue;
     }
 
@@ -405,7 +466,7 @@ export const processGuestMessage = async ({
       conversation,
       reservation: conversationContext.reservation,
       opportunity: opportunity.offerType === enhancedRevenueOpportunity?.offerType ? enhancedRevenueOpportunity : opportunity,
-      status: contextualConciergeReply && opportunity.offerType === enhancedRevenueOpportunity?.offerType ? 'sent' : 'suggested'
+      status: !suppressThisOffer && offerAllowedInReply && contextualConciergeReply && opportunity.offerType === enhancedRevenueOpportunity?.offerType ? 'sent' : 'suggested'
     });
 
     if (offerRecord) {
@@ -419,7 +480,7 @@ export const processGuestMessage = async ({
     guest,
     reservation: conversationContext.reservation,
     intentResult: enhancedPrimaryIntent,
-    opportunity: conversationState.suppressedOffer ? null : enhancedRevenueOpportunity,
+    opportunity: offerAllowedInReply ? enhancedRevenueOpportunity : null,
     risk: enhancedRisk
   });
   const recentUpsells = storedUpsells.length > 0
@@ -479,10 +540,12 @@ export const processGuestMessage = async ({
         openai_concierge_used: Boolean(openAiResult),
         openai_secondary_intents: openAiResult?.secondary_intents || [],
         openai_risk_flags: openAiResult?.risk_flags || [],
-        openai_department_actions: openAiResult?.department_actions || []
+        openai_department_actions: openAiResult?.department_actions || [],
+        natural_response_guidance: responseGuidance,
+        final_offer_suppression: finalOfferSuppression
       }
     },
-    offerType: conciergeOffer?.offer_type || null,
+    offerType: conciergeOffer?.status === 'sent' ? conciergeOffer.offer_type : null,
     aiResponse: aiResponseWithUpsell.reply,
     aiSummary: openAiResult?.summary || null,
     aiReasoning: openAiResult?.reasoning || null,
@@ -534,13 +597,13 @@ export const processGuestMessage = async ({
     aiModel: aiResponseWithUpsell.aiModel || aiResponseWithUpsell.ai_model || null,
     fallbackUsed: Boolean(aiResponseWithUpsell.fallbackUsed ?? aiResponseWithUpsell.fallback_used),
     upsellDetected: Boolean(primaryUpsell),
-    upsellType: primaryUpsell?.upsell_type || enhancedRevenueOpportunity?.offerType || null,
-    upsellConfidence: primaryUpsell?.confidence || enhancedRevenueOpportunity?.confidence || null,
+    upsellType: primaryUpsell?.upsell_type || (offerAllowedInReply ? enhancedRevenueOpportunity?.offerType : null) || null,
+    upsellConfidence: primaryUpsell?.confidence || (offerAllowedInReply ? enhancedRevenueOpportunity?.confidence : null) || null,
     memoryUsed: memoryKeysUsed.length > 0,
     memoryKeysUsed: memoryKeysUsed,
     conciergeIntent: enhancedPrimaryIntent.intent || conversationState.currentIntent || null,
     offerCreated: conciergeOffers.length > 0,
-    offerType: conciergeOffer?.offer_type || enhancedRevenueOpportunity?.offerType || null,
+    offerType: conciergeOffer?.offer_type || (offerAllowedInReply ? enhancedRevenueOpportunity?.offerType : null) || null,
     offerStatus: conciergeOffer?.status || null,
     openAiConciergeUsed: Boolean(openAiResult),
     openAiConciergeModel: openAiConcierge.model || null,
@@ -601,8 +664,9 @@ export const processGuestMessage = async ({
       state: savedConversationState,
       offer: conciergeOffer,
       offers: conciergeOffers,
-      revenueOpportunity: conversationState.suppressedOffer ? null : enhancedRevenueOpportunity,
-      suppressedOffer: conversationState.suppressedOffer,
+      revenueOpportunity: offerAllowedInReply ? enhancedRevenueOpportunity : null,
+      suppressedOffer: finalOfferSuppression.suppress,
+      suppressionReason: finalOfferSuppression.reason,
       risk: enhancedRisk,
       openAi: openAiConcierge,
       departmentAction: conciergeDepartmentAction
