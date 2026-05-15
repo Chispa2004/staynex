@@ -29,3 +29,8 @@ create index if not exists hotel_users_multi_property_access_idx
 -- update hotel_users
 -- set platform_role = 'platform_admin', multi_property_access = true
 -- where email = 'founder@staynex.com';
+
+update hotel_users
+set platform_role = 'platform_admin',
+    multi_property_access = true
+where email = 'chema@hoyos.com';
