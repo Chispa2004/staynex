@@ -28,9 +28,16 @@ import {
 } from 'lucide-react';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
+import { HotelWorkspaceSwitcher } from './HotelWorkspaceSwitcher';
 import { DashboardLanguageProvider, useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { DashboardThemeProvider, useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import {
+  clearWorkspaceSelection,
+  getWorkspaceRequestHeaders,
+  persistWorkspaceSelection,
+  switchWorkspace
+} from '@/lib/workspace-context';
 import {
   canAccess,
   canAccessRoute,
@@ -200,9 +207,10 @@ const AppShellContent = ({ children }) => {
 
     const loadCurrentHotel = async () => {
       try {
-        const headers = sessionAccessToken
-          ? { Authorization: `Bearer ${sessionAccessToken}` }
-          : {};
+        const headers = {
+          ...(sessionAccessToken ? { Authorization: `Bearer ${sessionAccessToken}` } : {}),
+          ...getWorkspaceRequestHeaders()
+        };
         const response = await fetch('/api/current-hotel', {
           headers,
           cache: 'no-store'
@@ -211,6 +219,16 @@ const AppShellContent = ({ children }) => {
 
         if (active && response.ok) {
           setCurrentHotel(body.hotel || null);
+          if (body.hotel?.id) {
+            persistWorkspaceSelection({
+              hotelId: body.hotel.id,
+              workspace: {
+                hotel: body.hotel,
+                role: body.role,
+                hotelUser: body.hotelUser
+              }
+            });
+          }
           setHotelContext({
             role: body.role || 'owner',
             permissions: body.permissions || ['all'],
@@ -316,6 +334,7 @@ const AppShellContent = ({ children }) => {
     setIsAuthenticated(false);
     setSessionAccessToken(null);
     setCurrentHotel(null);
+    clearWorkspaceSelection();
     setHotelContextLoaded(false);
     setLogoutLoading(false);
     router.replace('/login');
@@ -329,22 +348,10 @@ const AppShellContent = ({ children }) => {
     setSwitchingHotel(true);
 
     try {
-      const headers = sessionAccessToken
-        ? { Authorization: `Bearer ${sessionAccessToken}` }
-        : {};
-      const response = await fetch('/api/current-hotel', {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ hotelId })
+      const body = await switchWorkspace({
+        hotelId,
+        accessToken: sessionAccessToken
       });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not switch hotel');
-      }
 
       setCurrentHotel(body.hotel || null);
       setHotelContext({
@@ -461,16 +468,13 @@ const AppShellContent = ({ children }) => {
     );
   }
 
-  const sidebarHotelName = currentHotel?.name || 'Staynex';
-  const sidebarHotelSubtitle = currentHotel?.brand_name
-    || currentHotel?.description
-    || t('app.hotelOperations');
+  const workspaceBrandColor = currentHotel?.brand_color || '#34d399';
+  const workspaceSecondaryColor = currentHotel?.secondary_color || '#0f766e';
   const isNavItemActive = (item) => item.href === '/dashboard'
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
   const groupHasActiveRoute = (group) => group.items.some(isNavItemActive);
   const availableHotels = hotelContext.availableHotels || [];
-  const canShowHotelSwitcher = availableHotels.length > 1;
 
   const toggleGroup = (groupId) => {
     setOpenGroups((current) => ({
@@ -509,7 +513,13 @@ const AppShellContent = ({ children }) => {
   }
 
   return (
-    <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}>
+    <div
+      className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}
+      style={{
+        '--workspace-brand': workspaceBrandColor,
+        '--workspace-secondary': workspaceSecondaryColor
+      }}
+    >
       <div className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
         <aside className={[
           'flex max-h-[42dvh] shrink-0 flex-col overflow-y-auto border-b shadow-2xl backdrop-blur-xl lg:h-full lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r',
@@ -518,42 +528,15 @@ const AppShellContent = ({ children }) => {
             : 'border-white/10 bg-[#070b12]/95 shadow-black/30'
         ].join(' ')}
         >
-          <div className="flex min-h-24 items-center gap-3 px-5 pb-3 pt-5">
-            <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg border border-emerald-300/20 bg-emerald-300 text-base font-black text-slate-950 shadow-lg shadow-emerald-500/15">
-              <span className="absolute inset-x-0 top-0 h-px bg-white/70" />
-              S
-            </div>
-            <div>
-              <p className={isLight ? 'max-w-44 truncate text-base font-semibold leading-5 tracking-tight text-slate-950' : 'max-w-44 truncate text-base font-semibold leading-5 tracking-tight text-white'}>
-                {sidebarHotelName}
-              </p>
-              <p className={isLight ? 'mt-0.5 max-w-44 truncate text-xs text-slate-600' : 'mt-0.5 max-w-44 truncate text-xs text-slate-500'}>
-                {sidebarHotelSubtitle}
-              </p>
-              <p className={isLight ? 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700' : 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-300'}>
-                {ROLE_LABELS[activeRole] || activeRole}
-              </p>
-            </div>
-          </div>
-
-          {canShowHotelSwitcher ? (
-            <div className="px-4 pb-4">
-              <label className="sr-only" htmlFor="hotel-switcher">Switch hotel</label>
-              <select
-                id="hotel-switcher"
-                value={currentHotel?.id || ''}
-                onChange={(event) => handleHotelSwitch(event.target.value)}
-                disabled={switchingHotel}
-                className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-emerald-300 disabled:opacity-60' : 'w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition focus:border-emerald-300/30 disabled:opacity-60'}
-              >
-                {availableHotels.map((assignment) => (
-                  <option key={assignment.hotel.id} value={assignment.hotel.id}>
-                    {assignment.hotel.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+          <HotelWorkspaceSwitcher
+            currentHotel={currentHotel}
+            availableHotels={availableHotels}
+            activeRole={activeRole}
+            switching={switchingHotel}
+            onSwitch={handleHotelSwitch}
+            accessToken={sessionAccessToken}
+            onWorkspaceCreated={handleHotelSwitch}
+          />
 
           {urgentCount > 0 ? (
             <div className="px-4 pb-5 pt-1">

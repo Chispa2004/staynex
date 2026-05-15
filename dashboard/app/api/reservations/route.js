@@ -56,10 +56,16 @@ export async function GET(request) {
     let conversationsByGuestId = {};
 
     if (guestIds.length > 0) {
-      const { data: conversations, error: conversationsError } = await supabase
+      let conversationsQuery = supabase
         .from('conversations')
         .select('id, guest_id, status, last_message_at, created_at')
-        .in('guest_id', guestIds)
+        .in('guest_id', guestIds);
+
+      if (hotel?.id) {
+        conversationsQuery = conversationsQuery.eq('hotel_id', hotel.id);
+      }
+
+      const { data: conversations, error: conversationsError } = await conversationsQuery
         .order('last_message_at', { ascending: false, nullsFirst: false });
 
       if (conversationsError) {

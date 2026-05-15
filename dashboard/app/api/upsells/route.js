@@ -77,13 +77,13 @@ export async function GET(request) {
       { data: conversations = [] }
     ] = await Promise.all([
       guestIds.length
-        ? supabase.from('guests').select('id, phone_number, current_room').in('id', guestIds)
+        ? supabase.from('guests').select('id, phone_number, current_room').eq('hotel_id', hotel.id).in('id', guestIds)
         : Promise.resolve({ data: [] }),
       reservationIds.length
-        ? supabase.from('reservations').select('id, pms_reservation_id, guest_name, arrival_date, departure_date').in('id', reservationIds)
+        ? supabase.from('reservations').select('id, pms_reservation_id, guest_name, arrival_date, departure_date').eq('hotel_id', hotel.id).in('id', reservationIds)
         : Promise.resolve({ data: [] }),
       conversationIds.length
-        ? supabase.from('conversations').select('id, status, last_message_at').in('id', conversationIds)
+        ? supabase.from('conversations').select('id, status, last_message_at').eq('hotel_id', hotel.id).in('id', conversationIds)
         : Promise.resolve({ data: [] })
     ]);
 

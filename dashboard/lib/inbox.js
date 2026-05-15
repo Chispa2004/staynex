@@ -127,19 +127,25 @@ const getAiStateByConversation = async ({ supabase, conversationIds }) => {
   }
 };
 
-const getGuestMemoryByGuest = async ({ supabase, guestIds }) => {
+const getGuestMemoryByGuest = async ({ supabase, guestIds, hotelId }) => {
   if (!guestIds.length) {
     return new Map();
   }
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('guest_memory')
       .select('id, guest_id, memory_type, memory_key, memory_value, confidence, is_active, updated_at')
       .in('guest_id', guestIds)
       .eq('is_active', true)
       .order('updated_at', { ascending: false })
       .limit(500);
+
+    if (hotelId) {
+      query = query.eq('hotel_id', hotelId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       throw error;
@@ -191,12 +197,16 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
 
   const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id).filter(Boolean))];
   const conversationIds = conversations.map((conversation) => conversation.id).filter(Boolean);
-  const guestsQuery = guestIds.length
+  let guestsQuery = guestIds.length
     ? supabase
       .from('guests')
       .select('id, phone_number, current_room')
       .in('id', guestIds)
     : Promise.resolve({ data: [], error: null });
+
+  if (guestIds.length && resolvedHotelId) {
+    guestsQuery = guestsQuery.eq('hotel_id', resolvedHotelId);
+  }
 
   const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, offersByConversation, aiStateByConversation, memoryByGuest] = await Promise.all([
     guestsQuery,
@@ -210,7 +220,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     getActiveUpsellsByConversation({ supabase, conversationIds }),
     getActiveOffersByConversation({ supabase, conversationIds }),
     getAiStateByConversation({ supabase, conversationIds }),
-    getGuestMemoryByGuest({ supabase, guestIds })
+    getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
   ]);
 
   if (guestsError) {

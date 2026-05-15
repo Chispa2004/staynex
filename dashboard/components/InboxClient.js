@@ -675,9 +675,17 @@ export const InboxClient = ({ conversations }) => {
     setSending(true);
 
     try {
+      const supabase = getSupabaseBrowser();
+      const { data } = supabase
+        ? await supabase.auth.getSession()
+        : { data: { session: null } };
+      const headers = data?.session?.access_token
+        ? { Authorization: `Bearer ${data.session.access_token}` }
+        : {};
       const response = await fetch('/api/messages/send', {
         method: 'POST',
         headers: {
+          ...headers,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
