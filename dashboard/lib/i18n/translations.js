@@ -222,7 +222,7 @@ export const translations = {
       },
       created: 'Creados',
       resolved: 'Resueltos',
-      mockNotice: 'Datos mock para demo. Preparado para conectar con Supabase Analytics.'
+      mockNotice: 'Datos reales del hotel activo. No se muestran metricas hasta resolver el workspace.'
     },
     aiLogs: {
       filters: {
@@ -566,7 +566,7 @@ export const translations = {
       },
       created: 'Created',
       resolved: 'Resolved',
-      mockNotice: 'Mock data for demo. Ready to connect with Supabase Analytics.'
+      mockNotice: 'Live data for the active hotel. Metrics are hidden until the workspace is resolved.'
     },
     aiLogs: {
       filters: {
@@ -909,7 +909,7 @@ export const translations = {
       },
       created: 'Crees',
       resolved: 'Resolus',
-      mockNotice: 'Donnees mock pour demo. Pret a connecter avec Supabase Analytics.'
+      mockNotice: 'Donnees reelles de l hotel actif. Les metriques restent masquees jusqu a la resolution du workspace.'
     },
     aiLogs: {
       filters: {
@@ -1256,7 +1256,7 @@ export const translations = {
       },
       created: 'Erstellt',
       resolved: 'Geloest',
-      mockNotice: 'Mock-Daten fuer Demo. Bereit fuer Supabase Analytics.'
+      mockNotice: 'Live-Daten fuer das aktive Hotel. Metriken bleiben verborgen, bis der Workspace geladen ist.'
     },
     aiLogs: {
       filters: {

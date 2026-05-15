@@ -138,6 +138,7 @@ const AppShellContent = ({ children }) => {
   const [switchingHotel, setSwitchingHotel] = useState(false);
   const [welcomeState, setWelcomeState] = useState(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
   const { t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
@@ -250,6 +251,8 @@ const AppShellContent = ({ children }) => {
     setUrgentCount(0);
     setInboxUnreadCount(0);
     setInboxHumanCount(0);
+    setOnboardingChecked(false);
+    setOnboardingCompleted(true);
 
     const loadCurrentHotel = async () => {
       try {
@@ -332,7 +335,13 @@ const AppShellContent = ({ children }) => {
       return undefined;
     }
 
+    if (!hotelContextLoaded || !currentHotel?.id || hotelContext.accessDenied) {
+      setOnboardingChecked(Boolean(hotelContext.accessDenied));
+      return undefined;
+    }
+
     let active = true;
+    setOnboardingChecked(false);
 
     const loadOnboardingState = async () => {
       try {
@@ -346,13 +355,18 @@ const AppShellContent = ({ children }) => {
         });
         const body = await response.json();
 
-        if (!active || !response.ok) {
+        if (!active) {
+          return;
+        }
+
+        if (!response.ok) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn('onboarding state missing or unavailable', {
               ok: response.ok,
               status: response.status
             });
           }
+          setOnboardingChecked(true);
           return;
         }
 
@@ -362,12 +376,19 @@ const AppShellContent = ({ children }) => {
 
         const completed = Boolean(body.state?.onboarding_completed);
         setOnboardingCompleted(completed);
+        setOnboardingChecked(true);
 
         if (!hotelContext.accessDenied && !completed && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.info('onboarding incomplete', { redirectTarget: '/dashboard/onboarding' });
+          }
           router.replace('/dashboard/onboarding');
         }
       } catch (error) {
         console.warn('Onboarding state lookup failed', error);
+        if (active) {
+          setOnboardingChecked(true);
+        }
       }
     };
 
@@ -375,6 +396,7 @@ const AppShellContent = ({ children }) => {
     const handleOnboardingUpdate = (event) => {
       const completed = Boolean(event.detail?.state?.onboarding_completed);
       setOnboardingCompleted(completed);
+      setOnboardingChecked(true);
     };
 
     window.addEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
@@ -428,6 +450,8 @@ const AppShellContent = ({ children }) => {
     setUrgentCount(0);
     setInboxUnreadCount(0);
     setInboxHumanCount(0);
+    setOnboardingChecked(false);
+    setOnboardingCompleted(true);
     setHotelContextLoaded(false);
     setLogoutLoading(false);
     router.replace('/login');
@@ -445,6 +469,8 @@ const AppShellContent = ({ children }) => {
     setUrgentCount(0);
     setInboxUnreadCount(0);
     setInboxHumanCount(0);
+    setOnboardingChecked(false);
+    setOnboardingCompleted(true);
     if (process.env.NODE_ENV !== 'production') {
       console.info('workspace changed', { hotelId });
     }
@@ -456,6 +482,7 @@ const AppShellContent = ({ children }) => {
       });
 
       setCurrentHotel(body.hotel || null);
+      setOnboardingChecked(false);
       setHotelContext({
         role: body.role || 'owner',
         permissions: body.permissions || ['all'],
@@ -680,6 +707,20 @@ const AppShellContent = ({ children }) => {
             {logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}
           </button>
         </section>
+      </div>
+    );
+  }
+
+  if (!isOnboardingPage && canAccess(activeRole, 'onboarding') && currentHotel?.id && !onboardingChecked) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('analytics gated', { reason: 'workspace_onboarding_pending', pathname });
+    }
+
+    return (
+      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
+          Preparing workspace...
+        </div>
       </div>
     );
   }
