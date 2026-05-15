@@ -234,6 +234,10 @@ export const generateConciergeResponse = ({ intentResult, opportunity, risk, lan
     return offerMessage;
   }
 
+  if (opportunity?.suggestedMessage) {
+    return opportunity.suggestedMessage;
+  }
+
   if (intentResult?.intent === 'celebration_signal') {
     return language === 'es'
       ? 'Felicidades. Si quieres, puedo avisar a recepcion para preparar algun detalle especial durante tu estancia.'
@@ -275,9 +279,14 @@ export const createAiOffer = async ({
         detected_context: opportunity.detectedContext || null,
         suggested_message: opportunity.suggestedMessage || null,
         contextual_revenue: Boolean(opportunity.metadata?.contextual_revenue),
+        experience_intelligence: Boolean(opportunity.metadata?.experience_intelligence),
+        experience_category: opportunity.metadata?.experience_category || null,
+        destination_personality: opportunity.metadata?.destination_personality || null,
+        experience_memory_key: opportunity.metadata?.experience_memory_key || null,
         revenue_timing_reason: opportunity.metadata?.revenue_timing_reason || opportunity.timing?.reason || null,
         fatigue_score: opportunity.metadata?.fatigue_score ?? opportunity.fatigueScore ?? null,
         memory_keys: opportunity.metadata?.memory_keys || [],
+        future_partner_marketplace: Boolean(opportunity.metadata?.future_partner_marketplace),
         future_pms_sync: true
       },
       updated_at: new Date().toISOString()
@@ -359,8 +368,8 @@ export const persistConciergeMemory = async ({
 
   if (opportunity?.offerType) {
     memories.push({
-      memoryType: 'upsell_interest',
-      memoryKey: `interested_${opportunity.offerType}`,
+      memoryType: opportunity.metadata?.experience_intelligence ? 'experience_interest' : 'upsell_interest',
+      memoryKey: opportunity.metadata?.experience_memory_key || `interested_${opportunity.offerType}`,
       memoryValue: 'true',
       confidence: opportunity.confidence || 0.75
     });

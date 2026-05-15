@@ -151,6 +151,7 @@ const buildPromptPayload = ({
   },
   response_guidance: conversationContext.responseGuidance || null,
   contextual_revenue: conversationContext.concierge?.contextualRevenue || null,
+  experience_intelligence: conversationContext.concierge?.experienceIntelligence || null,
   heuristic
 });
 
@@ -162,6 +163,8 @@ If a guest changes topic, follow the latest relevant intent. Do not repeat an ol
 Do not mention romantic stays, spa, upgrades, transfers or other offers unless the current message clearly asks for that service or the response_guidance says the offer is not suppressed.
 If response_guidance.offer_suppressed is true, do not include that offer in suggested_response even if guest memory contains related signals.
 Use contextual_revenue only as a concierge moment: early arrival, late departure, family planning, honeymoon, VIP repeat guest. Suggest softly only if timing.allowed is true.
+Use experience_intelligence as local concierge context only: activities, restaurants, beach clubs, excursions, culture, bad-weather plans or local experiences. Suggest experiences naturally when the guest asks for recommendations or the moment is clearly relevant.
+Never sound like a marketplace or travel agency. Avoid phrases such as "buy", "special deal", "limited offer" or "book now".
 If the guest asks a simple informational question such as breakfast hours, checkout, WiFi, parking or location, answer only that question.
 If sentiment is negative, complaint or urgent, disable revenue language and prioritize empathy, resolution and escalation.
 Sound like a real premium hotel concierge: natural, concise, calm, and never salesy.

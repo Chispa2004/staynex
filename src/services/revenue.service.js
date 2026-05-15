@@ -17,7 +17,24 @@ export const UPSELL_REVENUE_DEFAULTS = {
   extra_bed: 35,
   babysitting: 80,
   kids_menu: 25,
-  vip_welcome: 75
+  vip_welcome: 75,
+  boat_tour: 95,
+  sunset_cruise: 120,
+  snorkeling: 65,
+  beach_club: 85,
+  water_park: 45,
+  romantic_dinner: 110,
+  spa_couple: 140,
+  wine_tasting: 75,
+  yacht_experience: 350,
+  private_transfer: 80,
+  premium_dining: 150,
+  golf: 120,
+  cultural_tour: 55,
+  gastronomy_tour: 80,
+  museum_visit: 30,
+  indoor_spa: 80,
+  local_experiences: 60
 };
 
 const isMissingRevenueTable = (error) => (

@@ -46,7 +46,25 @@ const revenueByUpsellType = {
   spa: 80,
   romantic_package: 150,
   dinner: 90,
-  breakfast_upgrade: 25
+  breakfast_upgrade: 25,
+  boat_tour: 95,
+  sunset_cruise: 120,
+  snorkeling: 65,
+  beach_club: 85,
+  family_activities: 50,
+  water_park: 45,
+  romantic_dinner: 110,
+  spa_couple: 140,
+  wine_tasting: 75,
+  yacht_experience: 350,
+  private_transfer: 80,
+  premium_dining: 150,
+  golf: 120,
+  cultural_tour: 55,
+  gastronomy_tour: 80,
+  museum_visit: 30,
+  indoor_spa: 80,
+  local_experiences: 60
 };
 
 const isMissingRevenueTable = (error) => (
@@ -124,7 +142,9 @@ const buildActivityFeed = ({
   })),
   ...offers.map((item) => formatActivity({
     type: 'revenue',
-    title: item.status === 'accepted' ? 'AI offer accepted' : item.status === 'sent' ? 'AI offer sent' : 'AI revenue opportunity',
+    title: item.metadata?.experience_intelligence
+      ? 'Experience opportunity detected'
+      : item.status === 'accepted' ? 'AI offer accepted' : item.status === 'sent' ? 'AI offer sent' : 'AI revenue opportunity',
     description: `${item.offer_type} - ${new Intl.NumberFormat(undefined, { style: 'currency', currency: item.currency || 'EUR', maximumFractionDigits: 0 }).format(Number(item.suggested_price || 0))}`,
     createdAt: item.updated_at || item.created_at,
     tone: item.status === 'accepted' ? 'emerald' : item.status === 'rejected' ? 'red' : 'violet',
@@ -463,6 +483,17 @@ export async function GET(request) {
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
+    const experienceOffers = recentOffers.filter((item) => item.metadata?.experience_intelligence);
+    const experienceAccepted = experienceOffers.filter((item) => item.status === 'accepted');
+    const experiencePotentialRevenue = experienceOffers
+      .filter((item) => ['suggested', 'sent'].includes(item.status))
+      .reduce((total, item) => total + Number(item.suggested_price || 0), 0);
+    const experienceGeneratedRevenue = experienceAccepted.reduce((total, item) => total + Number(item.suggested_price || 0), 0);
+    const experienceByCategory = experienceOffers.reduce((acc, item) => {
+      const key = item.metadata?.experience_category || item.metadata?.detected_context || 'experience';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
     const activeEscalations = recentConversationStates.filter((item) => ['reception_required', 'manager_required', 'urgent'].includes(item.escalation_level));
     const unresolvedComplaints = recentConversationStates.filter((item) => String(item.current_intent || '').startsWith('complaint_'));
     const repeatedFrustrations = recentConversationStates.filter((item) => item.sentiment === 'negative');
@@ -558,6 +589,31 @@ export async function GET(request) {
           confidence: item.confidence,
           reason: item.ai_reason,
           detectedContext: item.metadata?.detected_context || null,
+          timingReason: item.metadata?.revenue_timing_reason || null,
+          fatigueScore: item.metadata?.fatigue_score ?? null,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at
+        }))
+      },
+      experienceIntelligence: {
+        activeOpportunities: experienceOffers.filter((item) => ['suggested', 'sent'].includes(item.status)).length,
+        accepted: experienceAccepted.length,
+        potentialRevenue: experiencePotentialRevenue,
+        generatedRevenue: experienceGeneratedRevenue,
+        byCategory: experienceByCategory,
+        averageConfidence: experienceOffers.length
+          ? Math.round((experienceOffers.reduce((total, item) => total + Number(item.confidence || 0), 0) / experienceOffers.length) * 100)
+          : 0,
+        recent: experienceOffers.slice(0, 6).map((item) => ({
+          id: item.id,
+          offerType: item.offer_type,
+          status: item.status,
+          suggestedPrice: item.suggested_price,
+          currency: item.currency,
+          confidence: item.confidence,
+          reason: item.ai_reason,
+          experienceCategory: item.metadata?.experience_category || null,
+          destinationPersonality: item.metadata?.destination_personality || null,
           timingReason: item.metadata?.revenue_timing_reason || null,
           fatigueScore: item.metadata?.fatigue_score ?? null,
           createdAt: item.created_at,

@@ -43,7 +43,33 @@ const offerCooldownHours = {
   airport_transfer: 24,
   room_upgrade: 12,
   dinner: 12,
-  breakfast_upgrade: 12
+  breakfast_upgrade: 12,
+  early_checkin: 12,
+  luggage_storage: 12,
+  shower_room: 12,
+  wine: 24,
+  family_activities: 24,
+  extra_bed: 12,
+  babysitting: 24,
+  kids_menu: 12,
+  vip_welcome: 24,
+  boat_tour: 24,
+  sunset_cruise: 24,
+  snorkeling: 24,
+  beach_club: 24,
+  water_park: 24,
+  romantic_dinner: 24,
+  spa_couple: 24,
+  wine_tasting: 24,
+  yacht_experience: 24,
+  private_transfer: 24,
+  premium_dining: 24,
+  golf: 24,
+  cultural_tour: 24,
+  gastronomy_tour: 24,
+  museum_visit: 24,
+  indoor_spa: 24,
+  local_experiences: 24
 };
 
 const offerIntentMap = {
@@ -71,7 +97,24 @@ const offerKeywords = {
   extra_bed: ['extra bed', 'cama extra'],
   babysitting: ['babysitting', 'babysitter', 'canguro'],
   kids_menu: ['kids menu', 'menu infantil'],
-  vip_welcome: ['vip', 'welcome amenity']
+  vip_welcome: ['vip', 'welcome amenity'],
+  boat_tour: ['boat', 'catamaran', 'boat tour', 'excursion', 'barco', 'catamaran'],
+  sunset_cruise: ['sunset cruise', 'sunset', 'atardecer'],
+  snorkeling: ['snorkeling', 'snorkel', 'scuba', 'buceo'],
+  beach_club: ['beach club', 'beach', 'playa', 'club de playa'],
+  water_park: ['water park', 'parque acuatico'],
+  romantic_dinner: ['romantic dinner', 'cena romantica', 'honeymoon', 'anniversary', 'luna de miel', 'aniversario'],
+  spa_couple: ['couple spa', 'spa couple', 'spa pareja'],
+  wine_tasting: ['wine tasting', 'cata', 'vino'],
+  yacht_experience: ['yacht', 'yate', 'private boat', 'barco privado'],
+  private_transfer: ['private transfer', 'transfer privado'],
+  premium_dining: ['premium dining', 'fine dining', 'gastronomy', 'gastronomia'],
+  golf: ['golf'],
+  cultural_tour: ['museum', 'old town', 'culture', 'museo', 'casco antiguo', 'cultura'],
+  gastronomy_tour: ['gastronomy tour', 'local food', 'gastronomia', 'comida local'],
+  museum_visit: ['museum', 'museo'],
+  indoor_spa: ['rain', 'rainy', 'bad weather', 'indoor', 'lluvia', 'mal tiempo', 'interior'],
+  local_experiences: ['what to do', 'activities', 'plans', 'que hacer', 'actividades', 'planes']
 };
 
 const informationalKeywords = [

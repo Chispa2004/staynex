@@ -60,6 +60,7 @@ import {
   shouldSuppressOfferForNaturalConversation
 } from './natural-conversation.service.js';
 import { detectContextualRevenueOpportunities } from './contextual-revenue.service.js';
+import { detectExperienceOpportunities } from './experience-intelligence.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -220,8 +221,20 @@ export const processGuestMessage = async ({
     sentiment: preliminaryConversationState.sentiment,
     language: conversationContext.language
   });
+  const experienceIntelligence = detectExperienceOpportunities({
+    message,
+    hotel: activeHotel,
+    hotelKnowledge,
+    reservation: conversationContext.reservation,
+    guestMemory: conversationContext.guestMemory,
+    conversationState: preliminaryConversationState,
+    risk: conciergeRisk,
+    sentiment: preliminaryConversationState.sentiment,
+    language: conversationContext.language
+  });
   const conciergeRevenueOpportunities = [
     ...contextualRevenue.opportunities,
+    ...experienceIntelligence.opportunities,
     ...detectedConciergeIntents
     .map((intentResult) => detectRevenueOpportunity({
       intentResult,
@@ -233,7 +246,7 @@ export const processGuestMessage = async ({
       list.findIndex((item) => item.offerType === opportunity.offerType) === index
     ))
     .sort((a, b) => Number(Boolean(b.timing?.allowed)) - Number(Boolean(a.timing?.allowed)) || Number(b.confidence || 0) - Number(a.confidence || 0));
-  const conciergeRevenueOpportunity = contextualRevenue.primaryOpportunity || intentRevenueOpportunity || conciergeRevenueOpportunities[0] || null;
+  const conciergeRevenueOpportunity = contextualRevenue.primaryOpportunity || experienceIntelligence.primaryOpportunity || intentRevenueOpportunity || conciergeRevenueOpportunities[0] || null;
   const conversationState = await buildConversationState({
     hotelId: activeHotel.id,
     conversationId: conversation.id,
@@ -270,6 +283,7 @@ export const processGuestMessage = async ({
     revenueOpportunity: preliminaryOfferSuppression.suppress ? null : conciergeRevenueOpportunity,
     revenueOpportunities: conciergeRevenueOpportunities,
     contextualRevenue,
+    experienceIntelligence,
     risk: conciergeRisk,
     departmentAction: conciergeDepartmentAction,
     state: conversationState
@@ -321,6 +335,12 @@ export const processGuestMessage = async ({
         contexts: contextualRevenue.contexts,
         primary_offer_type: contextualRevenue.primaryOpportunity?.offerType || null,
         timing: contextualRevenue.primaryOpportunity?.timing || null
+      },
+      experience_intelligence: {
+        contexts: experienceIntelligence.contexts,
+        destination: experienceIntelligence.destination,
+        primary_offer_type: experienceIntelligence.primaryOpportunity?.offerType || null,
+        timing: experienceIntelligence.primaryOpportunity?.timing || null
       }
     }
   });

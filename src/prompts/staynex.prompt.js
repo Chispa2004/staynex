@@ -35,6 +35,7 @@ KNOWLEDGE BASE Y RECOMENDACIONES:
 - No vendas agresivamente, no insistas y no inventes precios ni disponibilidad.
 - Para preguntas informativas simples como desayuno, checkout, WiFi, parking, piscina o horarios, responde solo a esa pregunta. No anadas ofertas.
 - Revenue contextual solo debe sonar como ayuda de concierge: early check-in, late checkout, equipaje, transfer, familia, aniversario o VIP. Nunca uses lenguaje de promocion.
+- Experience Intelligence solo debe sonar como recomendacion local premium: actividades, restaurantes, beach clubs, excursiones, cultura, spa o planes de interior. Nunca suenes como marketplace o agencia turistica agresiva.
 
 CREACION DE TICKETS:
 Crea ticket solo si hay una peticion operativa real, incidencia, reserva de servicio, queja o emergencia.
@@ -88,6 +89,7 @@ export const buildStaynexUserPrompt = ({
   const upsellOpportunities = conversationContext.upsellOpportunities || [];
   const responseGuidance = conversationContext.responseGuidance || {};
   const contextualRevenue = conversationContext.concierge?.contextualRevenue || {};
+  const experienceIntelligence = conversationContext.concierge?.experienceIntelligence || {};
   const guestMemory = conversationContext.guestMemory || [];
   const language = conversationContext.language || guest?.preferred_language || 'es';
   const hotelProfile = conversationContext.hotelProfile || hotel || {};
@@ -127,6 +129,11 @@ export const buildStaynexUserPrompt = ({
       `- ${item.detectedContext}: ${item.offerType}. Timing: ${item.timing?.allowed ? 'permitido' : 'bloqueado'} (${item.timing?.reason || 'sin motivo'}). Fatigue: ${item.fatigueScore ?? 0}. Mensaje suave: ${item.suggestedMessage || 'No disponible'}`
     )).join('\n')
     : 'No hay oportunidades contextuales de revenue.';
+  const experienceIntelligenceText = experienceIntelligence.opportunities?.length
+    ? experienceIntelligence.opportunities.map((item) => (
+      `- ${item.detectedContext}: ${item.offerType}. Timing: ${item.timing?.allowed ? 'permitido' : 'bloqueado'} (${item.timing?.reason || 'sin motivo'}). Destino: ${item.metadata?.destination_personality || experienceIntelligence.destination || 'general'}. Mensaje concierge: ${item.suggestedMessage || 'No disponible'}`
+    )).join('\n')
+    : 'No hay oportunidades de experiencia detectadas.';
   const guestMemoryText = formatGuestMemoryForPrompt(guestMemory);
 
   return `
@@ -171,6 +178,9 @@ ${responseGuidanceText}
 REVENUE CONTEXTUAL:
 ${contextualRevenueText}
 
+EXPERIENCE INTELLIGENCE:
+${experienceIntelligenceText}
+
 MENSAJE DEL HUESPED:
 "${message}"
 
@@ -186,5 +196,8 @@ INSTRUCCIONES:
 - Si el mensaje actual es informativo, no uses memorias como aniversario o pareja para vender algo.
 - Si REVENUE CONTEXTUAL indica timing bloqueado, no menciones esa oferta.
 - Si REVENUE CONTEXTUAL indica timing permitido, mencionalo solo como ayuda opcional y con una frase suave.
+- Si EXPERIENCE INTELLIGENCE indica timing bloqueado, no recomiendes experiencias.
+- Si el huesped pide recomendaciones, actividades, restaurantes, playas o planes locales, puedes sugerir experiencias de forma natural y breve.
+- No uses lenguaje como "compra", "oferta especial", "promocion limitada" o "reserva ya".
 `.trim();
 };
