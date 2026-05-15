@@ -21,6 +21,7 @@ import {
   QrCode,
   Rocket,
   Settings,
+  ShieldCheck,
   Sparkles,
   TrendingUp,
   TicketCheck,
@@ -139,6 +140,7 @@ const AppShellContent = ({ children }) => {
   const [workspaceRetryNonce, setWorkspaceRetryNonce] = useState(0);
   const [switchingHotel, setSwitchingHotel] = useState(false);
   const [welcomeState, setWelcomeState] = useState(null);
+  const [supportSession, setSupportSession] = useState(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
@@ -253,6 +255,9 @@ const AppShellContent = ({ children }) => {
     setUrgentCount(0);
     setInboxUnreadCount(0);
     setInboxHumanCount(0);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('staynex_support_session');
+    }
     setOnboardingChecked(false);
     setOnboardingCompleted(true);
 
@@ -527,6 +532,28 @@ const AppShellContent = ({ children }) => {
       window.sessionStorage.removeItem('staynex_invitation_welcome');
     }
   }, [pathname]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const rawSession = window.sessionStorage.getItem('staynex_support_session');
+
+    if (!rawSession || !currentHotel?.id) {
+      setSupportSession(null);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(rawSession);
+      setSupportSession(parsed.hotelId === currentHotel.id ? parsed : null);
+    } catch (error) {
+      console.warn('Support session state could not be parsed', error);
+      window.sessionStorage.removeItem('staynex_support_session');
+      setSupportSession(null);
+    }
+  }, [currentHotel?.id, pathname]);
 
   useEffect(() => {
     const loadUrgentCount = async () => {
@@ -908,6 +935,29 @@ const AppShellContent = ({ children }) => {
               <ThemeToggle />
               <LanguageSelector />
             </div>
+            {supportSession ? (
+              <div className={isLight ? 'mb-6 rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900 shadow-sm shadow-sky-100' : 'mb-6 rounded-xl border border-sky-300/20 bg-sky-300/10 px-5 py-4 text-sm text-sky-100 shadow-lg shadow-sky-950/10'}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                    <div>
+                      <p className="font-semibold">Support session active</p>
+                      <p className="mt-1 opacity-80">You are viewing {supportSession.hotelName || sidebarHotelName} as internal Staynex support. This access is audit logged and should be treated as read-only unless escalation is required.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.sessionStorage.removeItem('staynex_support_session');
+                      setSupportSession(null);
+                    }}
+                    className={isLight ? 'rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100' : 'rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-1.5 text-xs font-semibold text-sky-100 hover:bg-sky-300/15'}
+                  >
+                    End banner
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {welcomeState ? (
               <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

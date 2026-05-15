@@ -1,11 +1,30 @@
 'use client';
 
-import { Building2, RefreshCw, ShieldCheck } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  BarChart3,
+  Building2,
+  CheckCircle2,
+  ChevronRight,
+  CircleDollarSign,
+  DoorOpen,
+  PlugZap,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Users
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { persistWorkspaceSelection } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
+
+const plans = ['starter', 'professional', 'enterprise', 'enterprise_demo', 'pro_demo'];
+const languages = ['es', 'en', 'fr', 'de'];
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -16,25 +35,165 @@ const getAuthHeaders = async () => {
     : {};
 };
 
-const WorkspaceMark = ({ hotel }) => (
+const initialForm = {
+  name: '',
+  brand_name: '',
+  slug: '',
+  timezone: 'Europe/Madrid',
+  default_language: 'es',
+  whatsapp_number: '',
+  support_email: '',
+  brand_color: '#34d399',
+  subscription_plan: 'starter',
+  admin_email: ''
+};
+
+const formatCurrency = (value) => new Intl.NumberFormat('en', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0
+}).format(Number(value || 0));
+
+const formatDate = (value) => {
+  if (!value) return 'No activity';
+  return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+};
+
+const WorkspaceMark = ({ hotel, size = 'h-11 w-11' }) => (
   <span
-    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-black text-white"
-    style={{ backgroundColor: hotel.brand_color || '#34d399' }}
+    className={cn('flex shrink-0 items-center justify-center rounded-xl text-sm font-black text-white shadow-lg', size)}
+    style={{ backgroundColor: hotel?.brand_color || '#34d399' }}
     aria-hidden="true"
   >
-    {(hotel.name || 'H').slice(0, 2).toUpperCase()}
+    {(hotel?.name || 'H').slice(0, 2).toUpperCase()}
   </span>
 );
 
+const StatCard = ({ icon: Icon, label, value, helper, isLight, tone = 'emerald' }) => (
+  <article className={cn('rounded-xl border p-4', ui.surface(isLight))}>
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <p className={ui.text.eyebrow(isLight)}>{label}</p>
+        <p className={cn('mt-3 text-2xl font-semibold', ui.text.title(isLight))}>{value}</p>
+        {helper ? <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{helper}</p> : null}
+      </div>
+      <span className={cn(
+        'flex h-10 w-10 items-center justify-center rounded-lg border',
+        tone === 'violet' ? ui.badge(isLight, 'violet') : tone === 'sky' ? ui.badge(isLight, 'sky') : ui.badge(isLight, 'emerald')
+      )}>
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+    </div>
+  </article>
+);
+
+const HealthBar = ({ value = 0, isLight }) => {
+  const tone = value >= 75 ? 'bg-emerald-400' : value >= 50 ? 'bg-amber-400' : 'bg-red-400';
+
+  return (
+    <div className={cn('h-2 overflow-hidden rounded-full', isLight ? 'bg-slate-100' : 'bg-white/10')}>
+      <div className={cn('h-full rounded-full transition-all', tone)} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+    </div>
+  );
+};
+
+const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
+  const [form, setForm] = useState(initialForm);
+
+  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit(form);
+      }}
+      className={cn('rounded-xl border p-5', ui.surface(isLight))}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className={ui.text.eyebrow(isLight)}>Create workspace</p>
+          <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>New hotel tenant</h2>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>Creates the hotel, onboarding state and first invited admin.</p>
+        </div>
+        <button type="button" onClick={onCancel} className={ui.button(isLight, 'ghost')}>Cancel</button>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Hotel name</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.name} onChange={(event) => update('name', event.target.value)} required />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Brand name</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.brand_name} onChange={(event) => update('brand_name', event.target.value)} />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Workspace slug</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.slug} onChange={(event) => update('slug', event.target.value)} placeholder="hotel-costa-azul" />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Admin email</span>
+          <input className={cn('w-full', ui.input(isLight))} type="email" value={form.admin_email} onChange={(event) => update('admin_email', event.target.value)} required />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Timezone</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.timezone} onChange={(event) => update('timezone', event.target.value)} />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Language</span>
+          <select className={cn('w-full', ui.input(isLight))} value={form.default_language} onChange={(event) => update('default_language', event.target.value)}>
+            {languages.map((language) => <option key={language} value={language}>{language.toUpperCase()}</option>)}
+          </select>
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>WhatsApp</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.whatsapp_number} onChange={(event) => update('whatsapp_number', event.target.value)} placeholder="+34123456789" />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Support email</span>
+          <input className={cn('w-full', ui.input(isLight))} type="email" value={form.support_email} onChange={(event) => update('support_email', event.target.value)} />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Brand color</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.brand_color} onChange={(event) => update('brand_color', event.target.value)} />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Subscription plan</span>
+          <select className={cn('w-full', ui.input(isLight))} value={form.subscription_plan} onChange={(event) => update('subscription_plan', event.target.value)}>
+            {plans.map((plan) => <option key={plan} value={plan}>{plan.replaceAll('_', ' ')}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <div className="mt-5 flex justify-end">
+        <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {saving ? 'Creating...' : 'Create Hotel Workspace'}
+        </button>
+      </div>
+    </form>
+  );
+};
+
 export const PlatformConsoleClient = () => {
+  const router = useRouter();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
-  const [hotels, setHotels] = useState([]);
+  const [data, setData] = useState({ hotels: [], metrics: {}, revenue: {} });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
 
-  const loadHotels = async () => {
-    setLoading(true);
+  const hotels = data.hotels || [];
+  const metrics = data.metrics || {};
+  const revenue = data.revenue || {};
+  const canCreate = data.platformRole === 'platform_admin';
+
+  const loadPlatform = async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
@@ -45,10 +204,10 @@ export const PlatformConsoleClient = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not load tenants');
+        throw new Error(body.error || 'Could not load platform console');
       }
 
-      setHotels(body.hotels || []);
+      setData(body);
     } catch (caughtError) {
       setError(caughtError.message);
     } finally {
@@ -57,72 +216,219 @@ export const PlatformConsoleClient = () => {
   };
 
   useEffect(() => {
-    loadHotels();
+    loadPlatform();
   }, []);
+
+  const sortedHotels = useMemo(() => [...hotels].sort((a, b) => (b.lastActivityAt || '').localeCompare(a.lastActivityAt || '')), [hotels]);
+
+  const createHotel = async (form) => {
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await fetch('/api/platform/hotels', {
+        method: 'POST',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(form)
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not create hotel workspace');
+      }
+
+      setNotice(`Workspace created for ${body.hotel?.name || 'hotel'}. Admin invitation saved.`);
+      setShowCreate(false);
+      await loadPlatform({ silent: true });
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const enterSupport = async (hotel) => {
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await fetch(`/api/platform/hotels/${hotel.id}/support`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        cache: 'no-store'
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not enter support session');
+      }
+
+      window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
+      persistWorkspaceSelection({
+        hotelId: hotel.id,
+        workspace: {
+          hotel: body.hotel,
+          role: 'support',
+          supportSession: body.supportSession
+        }
+      });
+      router.push('/dashboard');
+      router.refresh();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">
-            Platform console
-          </p>
-          <h1 className={isLight ? 'mt-3 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl' : 'mt-3 text-3xl font-semibold tracking-normal text-white sm:text-4xl'}>
-            Tenant workspaces
-          </h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">Platform operations</p>
+          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>Staynex SaaS console</h1>
           <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
-            Internal Staynex console for platform admins. Hotel admins never see this area.
+            Internal operations hub for tenants, health, revenue, PMS status and support access.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={loadHotels}
-          className={ui.button(isLight, 'secondary')}
-        >
-          <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-          Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => loadPlatform()} className={ui.button(isLight, 'secondary')}>
+            <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
+            Refresh
+          </button>
+          {canCreate ? (
+            <button type="button" onClick={() => setShowCreate(true)} className={ui.button(isLight, 'primary')}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Create Hotel Workspace
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {error ? (
-        <PremiumEmptyState
-          icon={ShieldCheck}
-          title="Platform access unavailable"
-          description={error}
-        />
+        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
+          {error}
+        </div>
+      ) : null}
+      {notice ? (
+        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+          {notice}
+        </div>
       ) : null}
 
-      {!error ? (
+      {showCreate ? <CreateHotelForm isLight={isLight} saving={saving} onSubmit={createHotel} onCancel={() => setShowCreate(false)} /> : null}
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={Building2} isLight={isLight} label="Total hotels" value={loading ? '...' : metrics.totalHotels || 0} helper={`${metrics.activeHotels || 0} active`} />
+        <StatCard icon={Sparkles} isLight={isLight} label="AI handled" value={loading ? '...' : `${metrics.aiHandledPercent || 0}%`} helper={`${metrics.totalConversations || 0} conversations`} tone="violet" />
+        <StatCard icon={CircleDollarSign} isLight={isLight} label="AI revenue" value={loading ? '...' : formatCurrency(metrics.totalAiRevenue)} helper={`${metrics.offerConversionRate || 0}% conversion`} />
+        <StatCard icon={PlugZap} isLight={isLight} label="PMS connected" value={loading ? '...' : metrics.pmsConnectedHotels || 0} helper={`${metrics.totalActiveUsers || 0} active users`} tone="sky" />
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
         <section className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
-          <div className={isLight ? 'border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900' : 'border-b border-white/10 px-4 py-3 text-sm font-semibold text-white'}>
-            {loading ? 'Loading tenants...' : `${hotels.length} tenant workspaces`}
+          <div className={cn('border-b px-4 py-3', isLight ? 'border-slate-200' : 'border-white/10')}>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>Tenant workspaces</h2>
+              <p className={cn('text-xs', ui.text.muted(isLight))}>{loading ? 'Loading...' : `${hotels.length} hotels`}</p>
+            </div>
           </div>
+
           <div className="divide-y divide-slate-200/10">
-            {hotels.map((hotel) => (
-              <article key={hotel.id} className={isLight ? 'flex items-center gap-4 p-4 hover:bg-slate-50' : 'flex items-center gap-4 p-4 hover:bg-white/[0.035]'}>
-                <WorkspaceMark hotel={hotel} />
-                <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-sm font-semibold">{hotel.name}</h2>
-                  <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
-                    {hotel.workspace_slug || hotel.slug} · {hotel.timezone || 'timezone unset'}
-                  </p>
+            {sortedHotels.map((hotel) => (
+              <article key={hotel.id} className={cn('grid gap-4 p-4 transition hover:bg-emerald-300/[0.035] lg:grid-cols-[minmax(0,1.2fr)_0.8fr_0.8fr_auto]', isLight ? 'hover:bg-slate-50' : '')}>
+                <div className="flex min-w-0 gap-3">
+                  <WorkspaceMark hotel={hotel} />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link href={`/platform/hotels/${hotel.id}`} className={cn('truncate text-sm font-semibold hover:text-emerald-300', ui.text.title(isLight))}>
+                        {hotel.name}
+                      </Link>
+                      <span className={ui.badge(isLight, hotel.subscription_plan ? 'emerald' : 'slate', true)}>{hotel.plan_label || 'No plan'}</span>
+                    </div>
+                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{hotel.workspace_slug || hotel.slug} / created {formatDate(hotel.created_at)}</p>
+                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Last activity: {formatDate(hotel.lastActivityAt)}</p>
+                  </div>
                 </div>
-                <span className={ui.badge(isLight, hotel.subscription_plan ? 'emerald' : 'slate')}>
-                  {hotel.subscription_plan || 'no plan'}
-                </span>
+
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={cn('text-xs font-semibold', ui.text.muted(isLight))}>Health</span>
+                    <span className={cn('text-xs font-bold', ui.text.title(isLight))}>{hotel.healthScore || 0}%</span>
+                  </div>
+                  <div className="mt-2"><HealthBar value={hotel.healthScore || 0} isLight={isLight} /></div>
+                  <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>Onboarding {hotel.onboarding?.percent || 0}%</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className={ui.text.muted(isLight)}>PMS</span><p className="font-semibold">{hotel.pms?.enabled ? hotel.pms.provider : 'Disconnected'}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>Users</span><p className="font-semibold">{hotel.stats?.activeUsers || 0}/{hotel.stats?.users || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>Reservations</span><p className="font-semibold">{hotel.stats?.reservations || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>Revenue</span><p className="font-semibold">{formatCurrency((hotel.stats?.revenue || 0) + (hotel.stats?.experienceRevenue || 0))}</p></div>
+                </div>
+
+                <div className="flex items-center gap-2 lg:justify-end">
+                  <button type="button" onClick={() => enterSupport(hotel)} className={ui.button(isLight, 'secondary')}>
+                    <DoorOpen className="h-4 w-4" aria-hidden="true" />
+                    Support
+                  </button>
+                  <Link href={`/platform/hotels/${hotel.id}`} className={ui.iconButton(isLight, 'ghost')} aria-label={`Open ${hotel.name}`}>
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </div>
               </article>
             ))}
           </div>
+
           {!loading && hotels.length === 0 ? (
             <PremiumEmptyState
               icon={Building2}
-              title="No tenant workspaces yet"
-              description="Create the first hotel workspace from the workspace switcher."
+              title="No hotel workspaces yet"
+              description="Create the first tenant workspace to start onboarding a hotel."
               className="m-4"
             />
           ) : null}
         </section>
-      ) : null}
+
+        <aside className="space-y-6">
+          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+            <p className={ui.text.eyebrow(isLight)}>Global revenue</p>
+            <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{formatCurrency(metrics.totalAiRevenue)}</h2>
+            <div className="mt-4 space-y-3">
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Upsell revenue</span><strong>{formatCurrency(metrics.totalUpsellRevenue)}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Experience revenue</span><strong>{formatCurrency(metrics.totalExperienceRevenue)}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Accepted offers</span><strong>{metrics.acceptedOffers || 0}</strong></div>
+            </div>
+          </section>
+
+          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+            <p className={ui.text.eyebrow(isLight)}>Top hotels by revenue</p>
+            <div className="mt-4 space-y-3">
+              {(revenue.topHotels || []).filter((item) => item.revenue > 0).map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate">{item.name}</span>
+                  <strong>{formatCurrency(item.revenue)}</strong>
+                </div>
+              ))}
+              {!(revenue.topHotels || []).some((item) => item.revenue > 0) ? (
+                <p className={cn('text-sm', ui.text.muted(isLight))}>No revenue attributed yet.</p>
+              ) : null}
+            </div>
+          </section>
+
+          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+            <p className={ui.text.eyebrow(isLight)}>Platform controls</p>
+            <div className="mt-4 space-y-2 text-sm">
+              <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Platform-only access enforced</p>
+              <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-300" /> Support access is audit logged</p>
+              <p className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-emerald-300" /> Billing-ready plan structure</p>
+              <p className="flex items-center gap-2"><Users className="h-4 w-4 text-emerald-300" /> Global user operations</p>
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 };
