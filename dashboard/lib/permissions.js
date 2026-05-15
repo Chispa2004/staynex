@@ -29,18 +29,17 @@ const rolePermissions = {
     'tickets',
     'department_views',
     'reservations',
+    'reservations_manage',
     'guest_memory',
+    'guest_memory_page',
     'upsells',
+    'upsells_manage',
     'analytics',
     'automations',
     'knowledge_base',
-    'qr_rooms',
-    'onboarding',
-    'pms_connections_read',
-    'settings'
+    'qr_rooms'
   ],
   receptionist: [
-    'dashboard',
     'inbox',
     'tickets',
     'reservations_read',
@@ -55,7 +54,6 @@ const rolePermissions = {
     'tickets_maintenance'
   ],
   analyst: [
-    'dashboard',
     'analytics',
     'revenue_read',
     'upsells_read',
@@ -70,7 +68,7 @@ const routeRules = [
   { pattern: /^\/dashboard\/upsells(?:\/.*)?$/, permission: 'upsells' },
   { pattern: /^\/dashboard\/automations(?:\/.*)?$/, permission: 'automations' },
   { pattern: /^\/dashboard\/analytics(?:\/.*)?$/, permission: 'analytics' },
-  { pattern: /^\/dashboard\/guest-memory(?:\/.*)?$/, permission: 'guest_memory' },
+  { pattern: /^\/dashboard\/guest-memory(?:\/.*)?$/, permission: 'guest_memory_page' },
   { pattern: /^\/dashboard\/reservations(?:\/.*)?$/, permission: 'reservations' },
   { pattern: /^\/dashboard\/knowledge(?:\/.*)?$/, permission: 'knowledge_base' },
   { pattern: /^\/dashboard\/settings\/knowledge(?:\/.*)?$/, permission: 'knowledge_base' },
@@ -106,9 +104,9 @@ export const canAccess = (role, permission) => {
     guest_memory: 'guest_memory_limited',
     upsells: 'upsells_read',
     revenue: 'revenue_read',
-    pms_connections: 'pms_connections_read',
-    housekeeping: 'tickets_housekeeping',
-    maintenance: 'tickets_maintenance'
+    housekeeping: ['tickets_housekeeping', 'department_views'],
+    maintenance: ['tickets_maintenance', 'department_views'],
+    reception: 'department_views'
   };
   const alias = aliases[permission];
 

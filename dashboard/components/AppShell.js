@@ -575,7 +575,7 @@ const AppShellContent = ({ children }) => {
             </div>
           ) : null}
 
-          {!onboardingCompleted && !isOnboardingPage ? (
+          {!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding') ? (
             <div className="px-4 pb-5">
               <Link
                 href="/dashboard/onboarding"

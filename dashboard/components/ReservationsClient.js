@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { canAccess } from '@/lib/permissions';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
 
@@ -667,6 +668,7 @@ export const ReservationsClient = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentHotel, setCurrentHotel] = useState(null);
+  const [currentRole, setCurrentRole] = useState('receptionist');
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const loadReservations = async () => {
@@ -686,6 +688,7 @@ export const ReservationsClient = () => {
       }
 
       setCurrentHotel(payload.hotel || null);
+      setCurrentRole(payload.role || 'receptionist');
       const nextReservations = (payload.reservations || []).map((reservation) => ({
         ...reservation,
         hotel: payload.hotel || null,
@@ -733,6 +736,7 @@ export const ReservationsClient = () => {
       && matchesSearch(reservation, search)
     ))
   ), [reservations, activeFilter, search]);
+  const canManageReservations = canAccess(currentRole, 'reservations_manage');
 
   const copyValue = async ({ key, value }) => {
     if (!value) {
@@ -773,14 +777,16 @@ export const ReservationsClient = () => {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setCreateModalOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200"
-          >
-            <UserPlus className="h-4 w-4" aria-hidden="true" />
-            Create Test Reservation
-          </button>
+          {canManageReservations ? (
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200"
+            >
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              Create Test Reservation
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={loadReservations}
@@ -792,14 +798,16 @@ export const ReservationsClient = () => {
         </div>
       </div>
 
-      <TestReservationModal
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onCreated={handleTestReservationCreated}
-        copyValue={copyValue}
-        copiedAction={copiedAction}
-        hotel={currentHotel}
-      />
+      {canManageReservations ? (
+        <TestReservationModal
+          open={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          onCreated={handleTestReservationCreated}
+          copyValue={copyValue}
+          copiedAction={copiedAction}
+          hotel={currentHotel}
+        />
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={Hotel} label={t('reservations.stats.total')} value={stats.total} />

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { canAccess } from '@/lib/permissions';
+import { canAccess, getPermissionsForRole } from '@/lib/permissions';
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -77,6 +77,8 @@ export async function GET(request) {
 
     return NextResponse.json({
       hotel,
+      role,
+      permissions: getPermissionsForRole(role),
       reservations: reservations.map((reservation) => {
         const linkedConversation = reservation.guest_id
           ? conversationsByGuestId[reservation.guest_id] || null

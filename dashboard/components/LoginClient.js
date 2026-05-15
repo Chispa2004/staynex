@@ -21,7 +21,7 @@ export const LoginClient = () => {
     const token = session?.access_token;
 
     if (!token) {
-      router.replace('/dashboard');
+      router.replace(getDefaultRouteForRole('owner'));
       return;
     }
 
@@ -42,11 +42,11 @@ export const LoginClient = () => {
         }));
       }
 
-      router.replace(response.ok ? (body.defaultRoute || getDefaultRouteForRole(role)) : '/dashboard');
+      router.replace(response.ok ? (body.defaultRoute || getDefaultRouteForRole(role)) : getDefaultRouteForRole(role));
       router.refresh();
     } catch (caughtError) {
       console.error('Invitation resolution failed after login', caughtError);
-      router.replace('/dashboard');
+      router.replace(getDefaultRouteForRole('owner'));
       router.refresh();
     }
   };

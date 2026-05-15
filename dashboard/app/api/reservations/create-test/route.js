@@ -60,7 +60,7 @@ export async function POST(request) {
 
     const { hotel, role } = await getCurrentHotelForRequest(request);
 
-    if (!canAccess(role, 'reservations')) {
+    if (!canAccess(role, 'reservations_manage')) {
       return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403 });
     }
     const payload = buildPmsPayload({ body, hotel });

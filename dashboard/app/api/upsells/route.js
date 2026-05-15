@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { canAccess } from '@/lib/permissions';
+import { canAccess, getPermissionsForRole } from '@/lib/permissions';
 
 const isMissingUpsellsTable = (error) => (
   error?.message?.includes('ai_upsells')
@@ -93,6 +93,8 @@ export async function GET(request) {
 
     return NextResponse.json({
       hotel,
+      role,
+      permissions: getPermissionsForRole(role),
       upsells: (upsells || []).map((upsell) => ({
         ...upsell,
         guest: guestsById.get(upsell.guest_id) || null,
@@ -183,7 +185,7 @@ export async function PATCH(request) {
   try {
     const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
 
-    if (!canAccess(role, 'upsells')) {
+    if (!canAccess(role, 'upsells_manage')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
     const body = await request.json();

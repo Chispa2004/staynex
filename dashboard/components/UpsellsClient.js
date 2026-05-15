@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Euro, RefreshCw, Send, Search, Sparkles, XCircle } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { canAccess } from '@/lib/permissions';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
 
@@ -80,6 +81,7 @@ export const UpsellsClient = () => {
   const isLight = theme === 'light';
   const [upsells, setUpsells] = useState([]);
   const [hotel, setHotel] = useState(null);
+  const [currentRole, setCurrentRole] = useState('receptionist');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -115,6 +117,7 @@ export const UpsellsClient = () => {
 
       setUpsells(body.upsells || []);
       setHotel(body.hotel || null);
+      setCurrentRole(body.role || 'receptionist');
     } catch (caughtError) {
       setError(caughtError.message);
     } finally {
@@ -157,6 +160,7 @@ export const UpsellsClient = () => {
       .filter((item) => item.conversion?.status === 'accepted' || item.accepted || item.status === 'accepted')
       .reduce((total, item) => total + Number(item.conversion?.estimated_amount || item.estimated_amount || 0), 0)
   }), [upsells]);
+  const canManageUpsells = canAccess(currentRole, 'upsells_manage');
 
   const updateUpsellAction = async ({ upsellId, action }) => {
     setUpdatingId(`${upsellId}-${action}`);
@@ -318,35 +322,41 @@ export const UpsellsClient = () => {
                 <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
                   {formatDate(upsell.created_at)}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={updatingId === `${upsell.id}-send_offer`}
-                    onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'send_offer' })}
-                    className={cn(ui.button(isLight, 'secondary'), 'px-2.5 py-1.5 text-xs', isLight ? 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100' : 'border-sky-300/20 bg-sky-300/10 text-sky-100 hover:bg-sky-300/15')}
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    Send Offer
-                  </button>
-                  <button
-                    type="button"
-                    disabled={updatingId === `${upsell.id}-mark_accepted`}
-                    onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'mark_accepted' })}
-                    className={cn(ui.button(isLight, 'secondary'), 'px-2.5 py-1.5 text-xs', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15')}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Mark Accepted
-                  </button>
-                  <button
-                    type="button"
-                    disabled={updatingId === `${upsell.id}-mark_rejected`}
-                    onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'mark_rejected' })}
-                    className={cn(ui.button(isLight, 'danger'), 'px-2.5 py-1.5 text-xs')}
-                  >
-                    <XCircle className="h-3.5 w-3.5" />
-                    Mark Rejected
-                  </button>
-                </div>
+                {canManageUpsells ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={updatingId === `${upsell.id}-send_offer`}
+                      onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'send_offer' })}
+                      className={cn(ui.button(isLight, 'secondary'), 'px-2.5 py-1.5 text-xs', isLight ? 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100' : 'border-sky-300/20 bg-sky-300/10 text-sky-100 hover:bg-sky-300/15')}
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      Send Offer
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updatingId === `${upsell.id}-mark_accepted`}
+                      onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'mark_accepted' })}
+                      className={cn(ui.button(isLight, 'secondary'), 'px-2.5 py-1.5 text-xs', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15')}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Mark Accepted
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updatingId === `${upsell.id}-mark_rejected`}
+                      onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'mark_rejected' })}
+                      className={cn(ui.button(isLight, 'danger'), 'px-2.5 py-1.5 text-xs')}
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      Mark Rejected
+                    </button>
+                  </div>
+                ) : (
+                  <p className={isLight ? 'mt-3 text-xs font-medium text-slate-500' : 'mt-3 text-xs font-medium text-slate-500'}>
+                    Read-only for this role
+                  </p>
+                )}
               </div>
             </article>
           ))}

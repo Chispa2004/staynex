@@ -65,7 +65,7 @@ export async function PATCH(request) {
   try {
     const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
 
-    if (!canAccess(role, 'upsells')) {
+    if (!canAccess(role, 'upsells_manage')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
     const body = await request.json();
