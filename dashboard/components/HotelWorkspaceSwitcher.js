@@ -2,7 +2,7 @@
 
 import { Building2, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { canAccess, ROLE_LABELS } from '@/lib/permissions';
+import { ROLE_LABELS } from '@/lib/permissions';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const getInitials = (name = 'Staynex') => name
@@ -43,6 +43,8 @@ export const HotelWorkspaceSwitcher = ({
   availableHotels = [],
   activeRole,
   switching,
+  canSwitchWorkspaces = false,
+  canCreateWorkspaces = false,
   onSwitch,
   accessToken,
   onWorkspaceCreated
@@ -55,8 +57,8 @@ export const HotelWorkspaceSwitcher = ({
   const [workspaceName, setWorkspaceName] = useState('');
   const [createError, setCreateError] = useState(null);
   const containerRef = useRef(null);
-  const canSwitch = availableHotels.length > 1;
-  const canCreateWorkspace = canAccess(activeRole, 'workspace_create');
+  const canSwitch = canSwitchWorkspaces && availableHotels.length > 1;
+  const canCreateWorkspace = canCreateWorkspaces;
   const canOpenMenu = canSwitch || canCreateWorkspace;
 
   useEffect(() => {

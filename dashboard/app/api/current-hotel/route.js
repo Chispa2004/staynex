@@ -6,6 +6,11 @@ const jsonError = (message, status = 500) => NextResponse.json({
   role: 'admin',
   permissions: [],
   availableHotels: [],
+  platformRole: 'none',
+  platformPermissions: [],
+  multiPropertyAccess: false,
+  canSwitchWorkspaces: false,
+  canCreateWorkspaces: false,
   error: message
 }, { status });
 
@@ -16,6 +21,11 @@ export async function GET(request) {
       hotelUser,
       role,
       permissions,
+      platformRole,
+      platformPermissions,
+      multiPropertyAccess,
+      canSwitchWorkspaces,
+      canCreateWorkspaces,
       availableHotels,
       fallback,
       user,
@@ -28,6 +38,11 @@ export async function GET(request) {
       hotelUser,
       role,
       permissions,
+      platformRole: platformRole || 'none',
+      platformPermissions: platformPermissions || [],
+      multiPropertyAccess: Boolean(multiPropertyAccess),
+      canSwitchWorkspaces: Boolean(canSwitchWorkspaces),
+      canCreateWorkspaces: Boolean(canCreateWorkspaces),
       availableHotels,
       fallback,
       user,
@@ -62,6 +77,11 @@ export async function POST(request) {
       hotelUser: context.hotelUser,
       role: context.role,
       permissions: context.permissions,
+      platformRole: context.platformRole || 'none',
+      platformPermissions: context.platformPermissions || [],
+      multiPropertyAccess: Boolean(context.multiPropertyAccess),
+      canSwitchWorkspaces: Boolean(context.canSwitchWorkspaces),
+      canCreateWorkspaces: Boolean(context.canCreateWorkspaces),
       availableHotels: context.availableHotels,
       fallback: context.fallback
     });

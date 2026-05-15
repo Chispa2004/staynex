@@ -18,11 +18,40 @@ export const ROLE_LABELS = {
   analyst: 'Analyst'
 };
 
-const ownerPermissions = ['all'];
+export const PLATFORM_ROLES = ['platform_admin', 'support', 'none'];
+
+export const PLATFORM_ROLE_LABELS = {
+  platform_admin: 'Platform admin',
+  support: 'Support',
+  none: 'Hotel workspace'
+};
+
+const hotelAdminPermissions = [
+  'dashboard',
+  'inbox',
+  'tickets',
+  'department_views',
+  'reservations',
+  'reservations_manage',
+  'guest_memory',
+  'guest_memory_page',
+  'upsells',
+  'upsells_manage',
+  'analytics',
+  'automations',
+  'knowledge_base',
+  'qr_rooms',
+  'onboarding',
+  'pms_connections',
+  'pms_connections_manage',
+  'settings',
+  'user_management',
+  'ai_logs'
+];
 
 const rolePermissions = {
-  owner: ownerPermissions,
-  admin: ownerPermissions,
+  owner: hotelAdminPermissions,
+  admin: hotelAdminPermissions,
   manager: [
     'dashboard',
     'inbox',
@@ -59,6 +88,21 @@ const rolePermissions = {
     'upsells_read',
     'reservations_read'
   ]
+};
+
+const platformPermissions = {
+  platform_admin: [
+    'workspace_switch',
+    'workspace_create',
+    'platform_console',
+    'tenant_support'
+  ],
+  support: [
+    'workspace_switch',
+    'platform_console',
+    'tenant_support'
+  ],
+  none: []
 };
 
 const routeRules = [
@@ -116,6 +160,15 @@ export const canAccess = (role, permission) => {
 
   return alias ? permissions.includes(alias) : false;
 };
+
+export const getPermissionsForPlatformRole = (platformRole = 'none') => {
+  const normalizedRole = PLATFORM_ROLES.includes(platformRole) ? platformRole : 'none';
+  return platformPermissions[normalizedRole] || [];
+};
+
+export const canAccessPlatform = (platformRole, permission) => (
+  getPermissionsForPlatformRole(platformRole).includes(permission)
+);
 
 export const getRoutePermission = (pathname = '') => (
   routeRules.find((rule) => rule.pattern.test(pathname))?.permission || 'dashboard'

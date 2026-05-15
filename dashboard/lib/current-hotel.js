@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from './supabase';
-import { getPermissionsForRole } from './permissions';
+import { canAccessPlatform, getPermissionsForPlatformRole, getPermissionsForRole } from './permissions';
 import {
   getUserHotelAssignments,
   normalizeAuthEmail,
@@ -56,6 +56,8 @@ const normalizeHotelUser = (row) => ({
   email: row.email || null,
   role: row.role || 'receptionist',
   status: row.status || 'active',
+  platform_role: row.platform_role || 'none',
+  multi_property_access: Boolean(row.multi_property_access),
   is_default: Boolean(row.is_default),
   invited_at: row.invited_at || null,
   accepted_at: row.accepted_at || null,
@@ -63,12 +65,12 @@ const normalizeHotelUser = (row) => ({
   updated_at: row.updated_at || null
 });
 
-const chooseHotelAssignment = (assignments, requestedHotelId) => {
+const chooseHotelAssignment = (assignments, requestedHotelId, { allowRequested = true } = {}) => {
   if (!assignments.length) {
     return null;
   }
 
-  if (requestedHotelId) {
+  if (allowRequested && requestedHotelId) {
     const requested = assignments.find((assignment) => assignment.hotel_id === requestedHotelId);
 
     if (requested) {
@@ -77,6 +79,37 @@ const chooseHotelAssignment = (assignments, requestedHotelId) => {
   }
 
   return assignments.find((assignment) => assignment.is_default) || assignments[0];
+};
+
+const resolveTenantAccess = (assignments = []) => {
+  const platformAssignment = assignments.find((assignment) => (
+    assignment.platform_role && assignment.platform_role !== 'none'
+  ));
+  const platformRole = platformAssignment?.platform_role || 'none';
+  const multiPropertyAccess = assignments.some((assignment) => Boolean(assignment.multi_property_access));
+  const canSwitchWorkspaces = canAccessPlatform(platformRole, 'workspace_switch') || multiPropertyAccess;
+  const canCreateWorkspaces = canAccessPlatform(platformRole, 'workspace_create');
+
+  return {
+    platformRole,
+    platformPermissions: getPermissionsForPlatformRole(platformRole),
+    multiPropertyAccess,
+    canSwitchWorkspaces,
+    canCreateWorkspaces
+  };
+};
+
+const getAllHotelWorkspaces = async (supabase) => {
+  const { data, error } = await supabase
+    .from('hotels')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
 };
 
 const getLegacyAssignmentForUser = async ({ supabase, userId }) => {
@@ -171,10 +204,19 @@ export const getCurrentHotelForRequest = async (request) => {
     }
 
     if (Array.isArray(assignments) && assignments.length > 0) {
-      const selectedAssignment = chooseHotelAssignment(assignments, requestedHotelId);
-      const hotel = selectedAssignment?.hotel || await getHotelById(supabase, selectedAssignment?.hotel_id);
+      const tenantAccess = resolveTenantAccess(assignments);
+      const canUseRequestedHotel = tenantAccess.canSwitchWorkspaces;
+      const selectedAssignment = chooseHotelAssignment(assignments, requestedHotelId, {
+        allowRequested: canUseRequestedHotel
+      });
+      let hotel = selectedAssignment?.hotel || await getHotelById(supabase, selectedAssignment?.hotel_id);
+
+      if (tenantAccess.canSwitchWorkspaces && tenantAccess.platformRole !== 'none' && requestedHotelId) {
+        hotel = await getHotelById(supabase, requestedHotelId) || hotel;
+      }
 
       if (hotel) {
+        const selectedAssignmentForHotel = assignments.find((assignment) => assignment.hotel_id === hotel.id) || selectedAssignment;
         if (selectedAssignment.user_id === null) {
           await supabase
             .from('hotel_users')
@@ -187,17 +229,42 @@ export const getCurrentHotelForRequest = async (request) => {
         }
 
         const hotelUser = normalizeHotelUser({
-          ...selectedAssignment,
-          user_id: selectedAssignment.user_id || userId
+          ...selectedAssignmentForHotel,
+          hotel_id: hotel.id,
+          user_id: selectedAssignmentForHotel?.user_id || userId,
+          email: selectedAssignmentForHotel?.email || email,
+          role: selectedAssignmentForHotel?.role || 'owner',
+          status: selectedAssignmentForHotel?.status || 'active',
+          platform_role: tenantAccess.platformRole,
+          multi_property_access: tenantAccess.multiPropertyAccess
         });
-        const availableHotels = assignments
-          .filter((assignment) => assignment.hotel)
-          .map((assignment) => ({
-            hotel: assignment.hotel,
-            hotelUser: normalizeHotelUser(assignment),
-            role: assignment.role || 'receptionist',
-            isDefault: Boolean(assignment.is_default)
-          }));
+        const availableHotels = tenantAccess.canSwitchWorkspaces
+          ? (
+            tenantAccess.platformRole !== 'none'
+              ? (await getAllHotelWorkspaces(supabase)).map((workspaceHotel) => {
+                const assignment = assignments.find((item) => item.hotel_id === workspaceHotel.id);
+                return {
+                  hotel: workspaceHotel,
+                  hotelUser: assignment ? normalizeHotelUser(assignment) : null,
+                  role: assignment?.role || 'owner',
+                  isDefault: Boolean(assignment?.is_default)
+                };
+              })
+              : assignments
+                .filter((assignment) => assignment.hotel)
+                .map((assignment) => ({
+                  hotel: assignment.hotel,
+                  hotelUser: normalizeHotelUser(assignment),
+                  role: assignment.role || 'receptionist',
+                  isDefault: Boolean(assignment.is_default)
+                }))
+          )
+          : [{
+            hotel,
+            hotelUser,
+            role: hotelUser.role,
+            isDefault: true
+          }];
 
         return {
           supabase,
@@ -205,6 +272,11 @@ export const getCurrentHotelForRequest = async (request) => {
           hotelUser,
           role: hotelUser.role,
           permissions: getPermissionsForRole(hotelUser.role),
+          platformRole: tenantAccess.platformRole,
+          platformPermissions: tenantAccess.platformPermissions,
+          multiPropertyAccess: tenantAccess.multiPropertyAccess,
+          canSwitchWorkspaces: tenantAccess.canSwitchWorkspaces,
+          canCreateWorkspaces: tenantAccess.canCreateWorkspaces,
           availableHotels,
           fallback: false,
           user: { id: userId, email }
@@ -271,6 +343,11 @@ export const getCurrentHotelForRequest = async (request) => {
             },
             role,
             permissions: getPermissionsForRole(role),
+            platformRole: 'none',
+            platformPermissions: [],
+            multiPropertyAccess: false,
+            canSwitchWorkspaces: false,
+            canCreateWorkspaces: false,
             availableHotels: [{ hotel, role, isDefault: true }],
             fallback: false,
             user: { id: userId, email }
@@ -289,6 +366,11 @@ export const getCurrentHotelForRequest = async (request) => {
     hotelUser: null,
     role,
     permissions: getPermissionsForRole(role),
+    platformRole: 'none',
+    platformPermissions: [],
+    multiPropertyAccess: false,
+    canSwitchWorkspaces: false,
+    canCreateWorkspaces: false,
     availableHotels: fallbackHotel ? [{ hotel: fallbackHotel, role, isDefault: true }] : [],
     fallback: true,
     user: userId || email ? { id: userId, email } : null

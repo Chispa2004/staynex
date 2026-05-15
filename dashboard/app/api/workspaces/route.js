@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { canAccess } from '@/lib/permissions';
 
 const slugify = (value) => String(value || 'hotel')
   .trim()
@@ -19,9 +18,9 @@ const normalizeOptional = (value) => {
 export async function POST(request) {
   try {
     const context = await getCurrentHotelForRequest(request);
-    const { supabase, role, user } = context;
+    const { supabase, user } = context;
 
-    if (!canAccess(role, 'workspace_create') || !user?.id || !user?.email) {
+    if (!context.canCreateWorkspaces || !user?.id || !user?.email) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 

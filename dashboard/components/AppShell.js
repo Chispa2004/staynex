@@ -119,6 +119,11 @@ const AppShellContent = ({ children }) => {
   const [hotelContext, setHotelContext] = useState({
     role: 'owner',
     permissions: ['all'],
+    platformRole: 'none',
+    platformPermissions: [],
+    multiPropertyAccess: false,
+    canSwitchWorkspaces: false,
+    canCreateWorkspaces: false,
     availableHotels: [],
     hotelUser: null,
     fallback: true,
@@ -232,6 +237,11 @@ const AppShellContent = ({ children }) => {
           setHotelContext({
             role: body.role || 'owner',
             permissions: body.permissions || ['all'],
+            platformRole: body.platformRole || 'none',
+            platformPermissions: body.platformPermissions || [],
+            multiPropertyAccess: Boolean(body.multiPropertyAccess),
+            canSwitchWorkspaces: Boolean(body.canSwitchWorkspaces),
+            canCreateWorkspaces: Boolean(body.canCreateWorkspaces),
             availableHotels: body.availableHotels || [],
             hotelUser: body.hotelUser || null,
             fallback: Boolean(body.fallback),
@@ -313,6 +323,14 @@ const AppShellContent = ({ children }) => {
       return;
     }
 
+    if (pathname.startsWith('/platform')) {
+      if (!hotelContext.platformPermissions?.includes('platform_console')) {
+        router.replace(getFirstAllowedRoute(activeRole));
+      }
+
+      return;
+    }
+
     if (!canAccessRoute(activeRole, pathname)) {
       router.replace(getFirstAllowedRoute(activeRole));
     }
@@ -357,6 +375,11 @@ const AppShellContent = ({ children }) => {
       setHotelContext({
         role: body.role || 'owner',
         permissions: body.permissions || ['all'],
+        platformRole: body.platformRole || 'none',
+        platformPermissions: body.platformPermissions || [],
+        multiPropertyAccess: Boolean(body.multiPropertyAccess),
+        canSwitchWorkspaces: Boolean(body.canSwitchWorkspaces),
+        canCreateWorkspaces: Boolean(body.canCreateWorkspaces),
         availableHotels: body.availableHotels || [],
         hotelUser: body.hotelUser || null,
         fallback: Boolean(body.fallback),
@@ -533,6 +556,8 @@ const AppShellContent = ({ children }) => {
             availableHotels={availableHotels}
             activeRole={activeRole}
             switching={switchingHotel}
+            canSwitchWorkspaces={hotelContext.canSwitchWorkspaces}
+            canCreateWorkspaces={hotelContext.canCreateWorkspaces}
             onSwitch={handleHotelSwitch}
             accessToken={sessionAccessToken}
             onWorkspaceCreated={handleHotelSwitch}
