@@ -8,6 +8,8 @@ import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
+import { PremiumEmptyState } from './PremiumEmptyState';
+import { cn, ui } from '@/lib/ui/styles';
 
 const formatDate = (value) => {
   if (!value) {
@@ -750,16 +752,11 @@ export const InboxClient = ({ conversations }) => {
 
   if (items.length === 0) {
     return (
-      <div className={[
-        'rounded-lg border border-dashed px-6 py-12 text-center shadow-2xl',
-        isLight
-          ? 'border-slate-300 bg-white text-slate-900 shadow-slate-200/70'
-          : 'border-white/10 bg-white/[0.035] shadow-black/10'
-      ].join(' ')}
-      >
-        <p className={isLight ? 'text-sm font-medium text-slate-900' : 'text-sm font-medium text-slate-200'}>{t('inbox.noConversations')}</p>
-        <p className={isLight ? 'mt-2 text-sm text-slate-600' : 'mt-2 text-sm text-slate-500'}>{t('inbox.noConversationsDescription')}</p>
-      </div>
+      <PremiumEmptyState
+        icon={Bot}
+        title={t('inbox.noConversations')}
+        description={t('inbox.noConversationsDescription')}
+      />
     );
   }
 
@@ -819,12 +816,12 @@ export const InboxClient = ({ conversations }) => {
             <button
               type="button"
               onClick={() => loadInbox()}
-              className={[
+              className={cn(
                 'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition',
                 isLight
                   ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                   : 'border-white/10 bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-100'
-              ].join(' ')}
+              )}
               title={t('buttons.refresh')}
             >
               <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
@@ -873,9 +870,11 @@ export const InboxClient = ({ conversations }) => {
 
         <div className="executive-scroll min-h-0 flex-1 overflow-y-auto p-2">
           {visibleItems.length === 0 ? (
-            <div className={isLight ? 'rounded-lg border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500' : 'rounded-lg border border-dashed border-white/10 bg-white/[0.025] px-4 py-8 text-center text-sm text-slate-500'}>
-              {t('inbox.noNeedsHuman')}
-            </div>
+            <PremiumEmptyState
+              icon={AlertTriangle}
+              title={t('inbox.noNeedsHuman')}
+              className="min-h-32 px-4 py-8"
+            />
           ) : null}
           {visibleItems.map((conversation) => {
             const active = conversation.id === selectedId;
@@ -981,11 +980,8 @@ export const InboxClient = ({ conversations }) => {
                 </p>
                 {aiState?.current_intent ? (
                   <div className="mt-3 flex flex-wrap gap-1.5">
-                    <span className={isLight ? 'rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-800' : 'rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-1 text-[11px] font-semibold text-violet-100'}>
+                    <span className={ui.badge(isLight, 'violet', true)}>
                       {aiState.current_intent}
-                    </span>
-                    <span className={isLight ? 'rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600' : 'rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-semibold text-slate-300'}>
-                      {Math.round(Number(aiState.intent_confidence || 0) * 100)}%
                     </span>
                   </div>
                 ) : null}
@@ -1032,7 +1028,7 @@ export const InboxClient = ({ conversations }) => {
               <button
                 type="button"
                 onClick={() => setCopilotOpen((current) => !current)}
-                className={[
+                className={cn(
                   'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition',
                   copilotOpen
                     ? isLight
@@ -1041,7 +1037,7 @@ export const InboxClient = ({ conversations }) => {
                     : isLight
                       ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       : 'border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
-                ].join(' ')}
+                )}
               >
                 <Bot className="h-4 w-4" aria-hidden="true" />
                 AI Copilot

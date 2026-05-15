@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { ExecutiveCard, ExecutiveBadge } from './ExecutiveCard';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { ui } from '@/lib/ui/styles';
 
 const formatNumber = (value) => new Intl.NumberFormat().format(Number(value || 0));
 const formatCurrency = (value) => new Intl.NumberFormat(undefined, {
@@ -48,7 +49,9 @@ export const KPIGrid = ({ kpis = {}, loading = false }) => {
                   {item.label}
                 </p>
                 <p className={isLight ? 'mt-3 text-3xl font-semibold tracking-tight text-slate-950' : 'mt-3 text-3xl font-semibold tracking-tight text-white'}>
-                  {loading ? '...' : item.format(kpis[item.key])}
+                  {loading ? (
+                    <span className={`${ui.skeleton(isLight)} block h-9 w-24`} aria-label="Loading metric" />
+                  ) : item.format(kpis[item.key])}
                 </p>
               </div>
               <span className={isLight ? 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700' : 'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-slate-200'}>
@@ -56,7 +59,7 @@ export const KPIGrid = ({ kpis = {}, loading = false }) => {
               </span>
             </div>
             <div className="mt-4">
-              <ExecutiveBadge tone={item.tone}>Live metric</ExecutiveBadge>
+              <ExecutiveBadge tone={item.tone}>Live</ExecutiveBadge>
             </div>
           </ExecutiveCard>
         );

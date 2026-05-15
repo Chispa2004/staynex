@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Euro, RefreshCw, Send, Search, Sparkles, XCircle } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { PremiumEmptyState } from './PremiumEmptyState';
+import { cn, ui } from '@/lib/ui/styles';
 
 const filterTypes = ['all', 'room_upgrade', 'late_checkout', 'airport_transfer', 'romantic_package', 'spa', 'dinner', 'breakfast_upgrade'];
 const filterStatuses = ['all', 'suggested', 'shown', 'sent', 'accepted', 'rejected'];
@@ -37,13 +39,11 @@ const Card = ({ children, className = '' }) => {
   const isLight = theme === 'light';
 
   return (
-    <section className={[
-      'rounded-lg border shadow-xl',
-      isLight
-        ? 'border-slate-200 bg-white text-slate-900 shadow-slate-200/70'
-        : 'border-white/10 bg-[#0b1019]/88 text-slate-100 shadow-black/15',
+    <section className={cn(
+      'rounded-xl border transition duration-200',
+      ui.surface(isLight),
       className
-    ].join(' ')}
+    )}
     >
       {children}
     </section>
@@ -53,17 +53,8 @@ const Card = ({ children, className = '' }) => {
 const Badge = ({ children, tone = 'slate' }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
-  const styles = {
-    emerald: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200',
-    red: isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100',
-    sky: isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-300/10 text-sky-100',
-    violet: isLight ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-violet-300/20 bg-violet-400/10 text-violet-100',
-    amber: isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
-    slate: isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-white/[0.045] text-slate-300'
-  };
-
   return (
-    <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${styles[tone] || styles.slate}`}>
+    <span className={ui.badge(isLight, tone)}>
       {children}
     </span>
   );
@@ -96,9 +87,7 @@ export const UpsellsClient = () => {
   const [updatingId, setUpdatingId] = useState(null);
   const [error, setError] = useState(null);
 
-  const inputClass = isLight
-    ? 'rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500'
-    : 'rounded-lg border border-white/10 bg-[#0b1019] px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-300/40';
+  const inputClass = ui.input(isLight);
 
   const getAuthHeaders = async () => {
     const supabase = getSupabaseBrowser();
@@ -230,7 +219,7 @@ export const UpsellsClient = () => {
           <button
             type="button"
             onClick={loadUpsells}
-            className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
+            className={ui.button(isLight, 'secondary')}
           >
             <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
             Refresh
@@ -275,7 +264,7 @@ export const UpsellsClient = () => {
 
         <div className="divide-y divide-slate-200/10">
           {filteredUpsells.map((upsell) => (
-            <article key={upsell.id} className={isLight ? 'grid gap-4 p-4 hover:bg-slate-50 xl:grid-cols-[1.1fr_0.75fr_0.75fr_0.9fr]' : 'grid gap-4 p-4 hover:bg-white/[0.035] xl:grid-cols-[1.1fr_0.75fr_0.75fr_0.9fr]'}>
+            <article key={upsell.id} className={isLight ? 'grid gap-4 p-4 transition hover:bg-slate-50 xl:grid-cols-[1.1fr_0.75fr_0.75fr_0.9fr]' : 'grid gap-4 p-4 transition hover:bg-white/[0.035] xl:grid-cols-[1.1fr_0.75fr_0.75fr_0.9fr]'}>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone="violet">{upsell.upsell_type}</Badge>
@@ -334,7 +323,7 @@ export const UpsellsClient = () => {
                     type="button"
                     disabled={updatingId === `${upsell.id}-send_offer`}
                     onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'send_offer' })}
-                    className={isLight ? 'inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-60' : 'inline-flex items-center gap-1.5 rounded-lg border border-sky-300/20 bg-sky-300/10 px-2.5 py-1.5 text-xs font-semibold text-sky-100 hover:bg-sky-300/15 disabled:opacity-60'}
+                    className={cn(ui.button(isLight, 'secondary'), 'px-2.5 py-1.5 text-xs', isLight ? 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100' : 'border-sky-300/20 bg-sky-300/10 text-sky-100 hover:bg-sky-300/15')}
                   >
                     <Send className="h-3.5 w-3.5" />
                     Send Offer
@@ -343,7 +332,7 @@ export const UpsellsClient = () => {
                     type="button"
                     disabled={updatingId === `${upsell.id}-mark_accepted`}
                     onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'mark_accepted' })}
-                    className={isLight ? 'inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-60' : 'inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/15 disabled:opacity-60'}
+                    className={cn(ui.button(isLight, 'secondary'), 'px-2.5 py-1.5 text-xs', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15')}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Mark Accepted
@@ -352,7 +341,7 @@ export const UpsellsClient = () => {
                     type="button"
                     disabled={updatingId === `${upsell.id}-mark_rejected`}
                     onClick={() => updateUpsellAction({ upsellId: upsell.id, action: 'mark_rejected' })}
-                    className={isLight ? 'inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-60' : 'inline-flex items-center gap-1.5 rounded-lg border border-red-300/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/15 disabled:opacity-60'}
+                    className={cn(ui.button(isLight, 'danger'), 'px-2.5 py-1.5 text-xs')}
                   >
                     <XCircle className="h-3.5 w-3.5" />
                     Mark Rejected
@@ -363,9 +352,12 @@ export const UpsellsClient = () => {
           ))}
 
           {!loading && filteredUpsells.length === 0 ? (
-            <div className={isLight ? 'px-4 py-12 text-center text-sm text-slate-500' : 'px-4 py-12 text-center text-sm text-slate-500'}>
-              No upsell opportunities yet.
-            </div>
+            <PremiumEmptyState
+              icon={Sparkles}
+              title="No upsell opportunities yet"
+              description="Staynex will surface revenue signals here when guests ask about upgrades, late checkout, transfers or experiences."
+              className="m-4"
+            />
           ) : null}
         </div>
       </Card>

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { BrainCircuit, Check, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { PremiumEmptyState } from './PremiumEmptyState';
+import { cn, ui } from '@/lib/ui/styles';
 
 const memoryTypes = [
   'all',
@@ -42,12 +44,8 @@ export const GuestMemoryClient = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const cardClass = isLight
-    ? 'rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-200/70'
-    : 'rounded-lg border border-white/10 bg-[#0b1019]/88 shadow-xl shadow-black/15';
-  const inputClass = isLight
-    ? 'rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-500'
-    : 'rounded-lg border border-white/10 bg-[#0b1019] px-3 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-emerald-300/40';
+  const cardClass = cn('rounded-xl border transition duration-200', ui.surface(isLight));
+  const inputClass = ui.input(isLight);
 
   const getAuthHeaders = async () => {
     const supabase = getSupabaseBrowser();
@@ -202,7 +200,7 @@ export const GuestMemoryClient = () => {
           <button
             type="button"
             onClick={loadMemories}
-            className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
+            className={ui.button(isLight, 'secondary')}
           >
             <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
             Refresh
@@ -295,9 +293,12 @@ export const GuestMemoryClient = () => {
           ))}
 
           {!loading && filteredMemories.length === 0 ? (
-            <div className={isLight ? 'px-4 py-12 text-center text-sm text-slate-500' : 'px-4 py-12 text-center text-sm text-slate-500'}>
-              No guest memory yet.
-            </div>
+            <PremiumEmptyState
+              icon={BrainCircuit}
+              title="No guest memory yet"
+              description="Guest preferences, interests and useful service context will appear here as conversations and stays accumulate."
+              className="m-4"
+            />
           ) : null}
         </div>
       </section>

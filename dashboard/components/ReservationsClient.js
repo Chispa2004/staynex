@@ -22,6 +22,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { PremiumEmptyState } from './PremiumEmptyState';
+import { cn, ui } from '@/lib/ui/styles';
 
 const filterOptions = [
   { key: 'upcoming', labelKey: 'reservations.filters.upcoming' },
@@ -251,13 +253,11 @@ const Card = ({ children, className = '' }) => {
 
   return (
     <section
-      className={[
-        'rounded-lg border shadow-xl',
-        isLight
-          ? 'border-slate-200 bg-white text-slate-900 shadow-slate-200/70'
-          : 'border-white/10 bg-[#0b1019]/88 text-slate-100 shadow-black/15',
+      className={cn(
+        'rounded-xl border transition duration-200',
+        ui.surface(isLight),
         className
-      ].join(' ')}
+      )}
     >
       {children}
     </section>
@@ -267,23 +267,8 @@ const Card = ({ children, className = '' }) => {
 const Badge = ({ children, tone = 'slate' }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
-  const styles = {
-    emerald: isLight
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200',
-    sky: isLight
-      ? 'border-sky-200 bg-sky-50 text-sky-800'
-      : 'border-sky-300/20 bg-sky-400/10 text-sky-100',
-    amber: isLight
-      ? 'border-amber-200 bg-amber-50 text-amber-800'
-      : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
-    slate: isLight
-      ? 'border-slate-200 bg-slate-50 text-slate-700'
-      : 'border-white/10 bg-white/[0.045] text-slate-300'
-  };
-
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold ${styles[tone] || styles.slate}`}>
+    <span className={ui.badge(isLight, tone, true)}>
       {children}
     </span>
   );
@@ -884,13 +869,18 @@ export const ReservationsClient = () => {
           </div>
 
           {loading ? (
-            <div className={isLight ? 'p-8 text-center text-sm text-slate-500' : 'p-8 text-center text-sm text-slate-500'}>
-              {t('reservations.loading')}
+            <div className="space-y-3 p-5" aria-label={t('reservations.loading')}>
+              {[0, 1, 2, 3].map((item) => (
+                <div key={item} className={`${ui.skeleton(isLight)} h-14 w-full`} />
+              ))}
             </div>
           ) : filteredReservations.length === 0 ? (
-            <div className={isLight ? 'p-8 text-center text-sm text-slate-500' : 'p-8 text-center text-sm text-slate-500'}>
-              {reservations.length === 0 ? t('reservations.empty') : t('reservations.noMatches')}
-            </div>
+            <PremiumEmptyState
+              icon={CalendarDays}
+              title={reservations.length === 0 ? t('reservations.empty') : t('reservations.noMatches')}
+              description="Create a test reservation or sync your PMS to start the pre-stay flow."
+              className="m-4"
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-[1600px] w-full text-left">

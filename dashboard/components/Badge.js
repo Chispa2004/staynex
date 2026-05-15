@@ -2,6 +2,7 @@
 
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { cn, ui } from '@/lib/ui/styles';
 
 const darkPriorityStyles = {
   low: 'border-slate-500/30 bg-slate-400/10 text-slate-200',
@@ -31,7 +32,7 @@ const lightStatusStyles = {
   cancelled: 'border-rose-200 bg-rose-50 text-rose-800'
 };
 
-const baseStyles = 'inline-flex min-w-20 items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold capitalize';
+const baseStyles = 'min-w-20 justify-center capitalize';
 
 const humanize = (value) => value?.replaceAll('_', ' ') || 'unknown';
 
@@ -41,7 +42,7 @@ export const PriorityBadge = ({ priority }) => {
   const priorityStyles = theme === 'light' ? lightPriorityStyles : darkPriorityStyles;
 
   return (
-    <span className={`${baseStyles} ${priorityStyles[priority] || priorityStyles.normal} ${priority === 'urgent' ? 'animate-pulse uppercase tracking-wide' : ''}`}>
+    <span className={cn(ui.badge(theme === 'light', 'slate'), baseStyles, priorityStyles[priority] || priorityStyles.normal, priority === 'urgent' ? 'animate-pulse uppercase tracking-wide' : '')}>
       {t(`priority.${priority || 'normal'}`) || humanize(priority)}
     </span>
   );
@@ -53,7 +54,7 @@ export const StatusBadge = ({ status }) => {
   const statusStyles = theme === 'light' ? lightStatusStyles : darkStatusStyles;
 
   return (
-    <span className={`${baseStyles} ${statusStyles[status] || statusStyles.open}`}>
+    <span className={cn(ui.badge(theme === 'light', 'slate'), baseStyles, statusStyles[status] || statusStyles.open)}>
       {t(`status.${status || 'unknown'}`) || humanize(status)}
     </span>
   );
