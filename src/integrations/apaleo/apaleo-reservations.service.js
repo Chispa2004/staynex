@@ -44,6 +44,7 @@ export const getReservations = async ({
   from,
   to,
   status,
+  config = null,
   pageSize = MAX_PAGE_SIZE
 } = {}) => {
   const reservations = [];
@@ -51,6 +52,7 @@ export const getReservations = async ({
 
   for (let pageNumber = 1; pageNumber <= MAX_PAGES; pageNumber += 1) {
     const payload = await apaleoFetch('/booking/v1/reservations', {
+      config,
       query: {
         pageNumber,
         pageSize: normalizedPageSize,

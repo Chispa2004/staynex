@@ -40,10 +40,11 @@ export const apaleoFetch = async (path, {
   method = 'GET',
   query,
   body,
+  config: overrideConfig = null,
   timeoutMs = DEFAULT_TIMEOUT_MS
 } = {}) => {
-  const config = getApaleoConfig();
-  const token = await getApaleoAccessToken();
+  const config = getApaleoConfig(overrideConfig);
+  const token = await getApaleoAccessToken({ config });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const url = buildUrl({

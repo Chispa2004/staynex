@@ -20,7 +20,30 @@ const requiredEnv = [
   'APALEO_ACCOUNT_CODE'
 ];
 
-export const getApaleoConfig = () => {
+export const getApaleoConfig = (overrideConfig = null) => {
+  if (overrideConfig) {
+    const missingConfig = [
+      ['clientId', 'APALEO_CLIENT_ID'],
+      ['clientSecret', 'APALEO_CLIENT_SECRET'],
+      ['accountCode', 'APALEO_ACCOUNT_CODE']
+    ].filter(([key]) => !overrideConfig[key]).map(([, envName]) => envName);
+
+    if (missingConfig.length > 0) {
+      throw new ApaleoConfigurationError(
+        `Missing Apaleo connection values: ${missingConfig.join(', ')}`,
+        missingConfig
+      );
+    }
+
+    return {
+      clientId: overrideConfig.clientId,
+      clientSecret: overrideConfig.clientSecret,
+      accountCode: overrideConfig.accountCode,
+      baseUrl: overrideConfig.baseUrl || 'https://api.apaleo.com',
+      scope: overrideConfig.scope || ''
+    };
+  }
+
   const missingEnv = requiredEnv.filter((name) => !process.env[name]);
 
   if (missingEnv.length > 0) {
@@ -39,14 +62,21 @@ export const getApaleoConfig = () => {
   };
 };
 
-export const getApaleoAccessToken = async ({ forceRefresh = false } = {}) => {
-  const now = Date.now();
+const getCacheKey = (config) => `${config.accountCode}:${config.clientId}`;
 
-  if (!forceRefresh && cachedToken?.accessToken && cachedToken.expiresAt > now + TOKEN_EXPIRY_SAFETY_MS) {
-    return cachedToken.accessToken;
+export const getApaleoAccessToken = async ({ forceRefresh = false, config: overrideConfig = null } = {}) => {
+  const now = Date.now();
+  const config = getApaleoConfig(overrideConfig);
+  const cacheKey = getCacheKey(config);
+
+  if (
+    !forceRefresh
+    && cachedToken?.[cacheKey]?.accessToken
+    && cachedToken[cacheKey].expiresAt > now + TOKEN_EXPIRY_SAFETY_MS
+  ) {
+    return cachedToken[cacheKey].accessToken;
   }
 
-  const config = getApaleoConfig();
   const body = new URLSearchParams({
     grant_type: 'client_credentials'
   });
@@ -104,15 +134,18 @@ export const getApaleoAccessToken = async ({ forceRefresh = false } = {}) => {
   }
 
   cachedToken = {
-    accessToken: payload.access_token,
-    expiresAt: now + Number(payload.expires_in || 3600) * 1000
+    ...(cachedToken || {}),
+    [cacheKey]: {
+      accessToken: payload.access_token,
+      expiresAt: now + Number(payload.expires_in || 3600) * 1000
+    }
   };
 
   logger.info('Apaleo access token ready', {
     expiresInSeconds: payload.expires_in || 3600
   });
 
-  return cachedToken.accessToken;
+  return cachedToken[cacheKey].accessToken;
 };
 
 export const clearApaleoTokenCache = () => {

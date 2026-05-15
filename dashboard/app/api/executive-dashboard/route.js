@@ -296,7 +296,8 @@ export async function GET(request) {
       recentGuestMemory,
       recentGuestProfiles,
       reservationsToday,
-      activeGuestsRows
+      activeGuestsRows,
+      pmsConnections
     ] = await Promise.all([
       safeCount(withHotel(
         supabase.from('conversations').select('id', { count: 'exact', head: true }),
@@ -369,7 +370,11 @@ export async function GET(request) {
       safeRows(withHotel(
         supabase.from('conversations').select('guest_id'),
         hotelId
-      ).not('guest_id', 'is', null).limit(500))
+      ).not('guest_id', 'is', null).limit(500)),
+      safeRows(withHotel(
+        supabase.from('hotel_pms_connections').select('id, provider, enabled, sync_status, last_sync_at, last_sync_error, metadata, webhook_enabled, webhook_status, updated_at'),
+        hotelId
+      ).order('updated_at', { ascending: false }).limit(10))
     ]);
 
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
@@ -528,6 +533,21 @@ export async function GET(request) {
           : 0,
         aiRevenueGenerated: offerRevenueGenerated || acceptedRevenue,
         states: recentConversationStates.slice(0, 8)
+      },
+      pmsStatus: {
+        connected: pmsConnections.filter((item) => item.enabled).length,
+        providers: pmsConnections.map((item) => ({
+          provider: item.provider,
+          enabled: item.enabled,
+          syncStatus: item.sync_status,
+          lastSyncAt: item.last_sync_at,
+          lastSyncError: item.last_sync_error,
+          importedReservations: item.metadata?.last_sync_summary?.synced || 0,
+          fetchedReservations: item.metadata?.last_sync_summary?.fetched || 0,
+          webhookEnabled: item.webhook_enabled,
+          webhookStatus: item.webhook_status
+        })),
+        syncErrors: pmsConnections.filter((item) => item.last_sync_error).length
       },
       guestSignals,
       activity: buildActivityFeed({

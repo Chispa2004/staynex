@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Bot, CalendarPlus, Inbox, RefreshCw, Sparkles } from 'lucide-react';
+import { BookOpen, Bot, CalendarPlus, Inbox, PlugZap, RefreshCw, Sparkles } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { KPIGrid } from './KPIGrid';
 import { LiveActivityFeed } from './LiveActivityFeed';
@@ -68,6 +68,7 @@ const formatHotelDateTime = (timezone) => {
 const quickActions = [
   { label: 'Open Inbox', href: '/dashboard/inbox', icon: Inbox, tone: 'emerald' },
   { label: 'Create Reservation', href: '/dashboard/reservations', icon: CalendarPlus, tone: 'sky' },
+  { label: 'PMS Connections', href: '/dashboard/settings/pms', icon: PlugZap, tone: 'emerald' },
   { label: 'View Upsells', href: '/dashboard/upsells', icon: Sparkles, tone: 'violet' },
   { label: 'Open Knowledge Base', href: '/dashboard/knowledge', icon: BookOpen, tone: 'amber' }
 ];
@@ -209,6 +210,7 @@ export const ExecutiveDashboardClient = () => {
         <LiveActivityFeed activity={data?.activity || []} loading={loading} />
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-1">
           <RevenueUpsellsPanel revenue={data?.revenue || {}} />
+          <PmsStatusCard pmsStatus={data?.pmsStatus || {}} />
           <QuickActions runScheduler={runScheduler} schedulerRunning={schedulerRunning} />
         </div>
       </div>
@@ -219,6 +221,58 @@ export const ExecutiveDashboardClient = () => {
       <VipGuestsPanel guests={data?.guestSignals || []} />
       <InsightsPanel insights={data?.insights || []} />
     </section>
+  );
+};
+
+const PmsStatusCard = ({ pmsStatus }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const providers = pmsStatus.providers || [];
+  const primaryProvider = providers[0] || null;
+
+  return (
+    <ExecutiveCard className="p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>PMS Status</h2>
+          <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>Hotel PMS connectivity and sync health.</p>
+        </div>
+        <ExecutiveBadge tone={pmsStatus.connected > 0 ? 'emerald' : 'slate'}>
+          {pmsStatus.connected > 0 ? 'Connected' : 'Not connected'}
+        </ExecutiveBadge>
+      </div>
+
+      <div className={isLight ? 'mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4' : 'mt-4 rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
+        {primaryProvider ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <PlugZap className="h-4 w-4 text-emerald-400" />
+              <div>
+                <p className={isLight ? 'text-sm font-semibold text-slate-900' : 'text-sm font-semibold text-white'}>{primaryProvider.provider}</p>
+                <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>{primaryProvider.syncStatus || 'configured'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Imported</p>
+                <p className={isLight ? 'mt-1 font-semibold text-slate-900' : 'mt-1 font-semibold text-white'}>{primaryProvider.importedReservations || 0}</p>
+              </div>
+              <div>
+                <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Errors</p>
+                <p className={primaryProvider.lastSyncError ? 'mt-1 font-semibold text-red-400' : isLight ? 'mt-1 font-semibold text-slate-900' : 'mt-1 font-semibold text-white'}>
+                  {primaryProvider.lastSyncError ? 'Review' : '0'}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>No PMS connected yet.</p>
+        )}
+      </div>
+      <Link href="/dashboard/settings/pms" className={isLight ? 'mt-4 inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'mt-4 inline-flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}>
+        Manage PMS
+      </Link>
+    </ExecutiveCard>
   );
 };
 

@@ -28,6 +28,7 @@ export const translations = {
       upsells: 'Upsells',
       guestMemory: 'Guest Memory',
       automations: 'Automations',
+      pmsConnections: 'PMS Connections',
       qrRooms: 'QR Rooms',
       settings: 'Ajustes',
       knowledgeBase: 'Knowledge Base',
@@ -100,6 +101,8 @@ export const translations = {
       guestMemoryDescription: 'Preferencias e informacion util recordada por Staynex para atencion personalizada.',
       automations: 'Automations',
       automationsDescription: 'Mensajes IA programados para journeys pre-stay, in-stay y post-stay.',
+      pmsConnections: 'PMS Connections',
+      pmsConnectionsDescription: 'Conecta el PMS del hotel, prueba credenciales y sincroniza reservas.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'Genera códigos QR por habitación para abrir WhatsApp con el contexto de habitación incluido.'
     },
@@ -343,7 +346,8 @@ export const translations = {
       missingWhatsappNumber: 'Configura TWILIO_WHATSAPP_FROM'
     },
     settings: {
-      knowledgeDescription: 'Edita la información del hotel que Staynex usa para responder preguntas de huéspedes.'
+      knowledgeDescription: 'Edita la información del hotel que Staynex usa para responder preguntas de huéspedes.',
+      pmsDescription: 'Conecta Apaleo y futuros PMS por hotel, sin tocar código.'
     }
   },
   en: {

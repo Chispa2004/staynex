@@ -16,6 +16,7 @@ import {
   BookOpen,
   LayoutDashboard,
   LogOut,
+  PlugZap,
   QrCode,
   Settings,
   Sparkles,
@@ -68,6 +69,7 @@ const navigationGroups = [
     defaultOpen: true,
     items: [
       { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
+      { href: '/dashboard/settings/pms', labelKey: 'sidebar.pmsConnections', icon: PlugZap },
       { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
       { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
       { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }

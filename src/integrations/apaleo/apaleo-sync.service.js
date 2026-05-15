@@ -1,19 +1,37 @@
 import { scheduleReservationAutomations } from '../../services/automation.service.js';
 import { createOrUpdateReservation } from '../../services/reservation.service.js';
 import { logger } from '../../utils/logger.js';
+import { decryptSecret } from '../../utils/encryption.js';
 import { getReservations } from './apaleo-reservations.service.js';
 import { normalizeApaleoReservation } from './apaleo-normalizer.service.js';
+
+const connectionToConfig = (connection) => {
+  if (!connection) {
+    return null;
+  }
+
+  return {
+    clientId: connection.client_id,
+    clientSecret: decryptSecret(connection.encrypted_client_secret),
+    accountCode: connection.account_code,
+    baseUrl: connection.base_url || 'https://api.apaleo.com',
+    scope: connection.metadata?.scope || ''
+  };
+};
 
 export const syncReservationsFromApaleo = async ({
   hotelId,
   from,
   to,
-  status
+  status,
+  connection = null
 } = {}) => {
+  const config = connectionToConfig(connection);
   const rawReservations = await getReservations({
     from,
     to,
-    status
+    status,
+    config
   });
   const summary = {
     fetched: rawReservations.length,
