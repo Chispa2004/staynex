@@ -5,6 +5,7 @@ import pmsRoutes from './routes/pms.routes.js';
 import testRoutes from './routes/test.routes.js';
 import messagesRoutes from './routes/messages.routes.js';
 import debugRoutes from './routes/debug.routes.js';
+import integrationsRoutes from './routes/integrations.routes.js';
 import { validateEnvironment } from './config/env.js';
 import { logger } from './utils/logger.js';
 
@@ -34,6 +35,7 @@ app.use('/webhooks', whatsappRoutes);
 app.use('/webhooks/pms', pmsRoutes);
 app.use('/', testRoutes);
 app.use('/messages', messagesRoutes);
+app.use('/integrations', integrationsRoutes);
 
 if (process.env.NODE_ENV !== 'production') {
   app.use('/debug', debugRoutes);
