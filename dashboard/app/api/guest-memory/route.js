@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
 
 const isMissingGuestMemoryTable = (error) => (
   error?.message?.includes('guest_memory')
@@ -9,7 +10,11 @@ const isMissingGuestMemoryTable = (error) => (
 
 export async function GET(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'guest_memory')) {
+      return NextResponse.json({ hotel, memories: [], error: 'Access denied' }, { status: 403 });
+    }
 
     if (!hotel?.id) {
       return NextResponse.json({ memories: [] });
@@ -61,7 +66,11 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'guest_memory')) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
     const body = await request.json();
 
     if (!body.id) {
@@ -99,7 +108,11 @@ export async function PATCH(request) {
 
 export async function DELETE(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'guest_memory')) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
     const body = await request.json();
 
     if (!body.id) {

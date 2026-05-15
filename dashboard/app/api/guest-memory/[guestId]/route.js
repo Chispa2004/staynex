@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
 import {
   buildDepartmentContext,
   buildTimeline,
@@ -60,8 +61,12 @@ const getLastStay = (reservations = []) => reservations
 
 export async function GET(request, { params }) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
     const { guestId } = await params;
+
+    if (!canAccess(role, 'guest_memory')) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     if (!hotel?.id || !guestId) {
       return NextResponse.json({ error: 'Guest not found' }, { status: 404 });

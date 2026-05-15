@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
 
 const startOfTodayIso = () => {
   const date = new Date();
@@ -276,7 +277,11 @@ const buildInsights = ({ guestMemory, upsells, aiLogs, conversations }) => {
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, fallback } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, fallback, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'dashboard')) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
     const hotelId = hotel?.id || null;
     const today = startOfTodayIso();
     const todayDate = todayKey();

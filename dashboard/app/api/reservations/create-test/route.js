@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
 
 const getBackendUrl = () => (
   process.env.BACKEND_URL ||
@@ -57,7 +58,11 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    const { hotel } = await getCurrentHotelForRequest(request);
+    const { hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'reservations')) {
+      return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403 });
+    }
     const payload = buildPmsPayload({ body, hotel });
 
     // This simulator intentionally enters through the same PMS webhook used by future providers.

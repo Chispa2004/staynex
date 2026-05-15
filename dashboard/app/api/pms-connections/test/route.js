@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { proxyBackendPmsAction } from '@/lib/pms-connections';
+import { canAccess } from '@/lib/permissions';
 
 export async function POST(request) {
   try {
-    const { hotel } = await getCurrentHotelForRequest(request);
+    const { hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'pms_connections_manage')) {
+      return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403 });
+    }
     const body = await request.json().catch(() => ({}));
     const result = await proxyBackendPmsAction({
       action: 'test',

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
 
 const isMissingAutomationTables = (error) => (
   error?.message?.includes('automation_rules')
@@ -12,7 +13,11 @@ const isMissingAutomationTables = (error) => (
 
 export async function GET(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'automations')) {
+      return NextResponse.json({ hotel, scheduledMessages: [], rules: [], error: 'Access denied' }, { status: 403 });
+    }
 
     if (!hotel?.id) {
       return NextResponse.json({ hotel, scheduledMessages: [], rules: [] });

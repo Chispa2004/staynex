@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -24,7 +25,11 @@ const getJourneyStatus = (reservation) => {
 
 export async function GET(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'reservations')) {
+      return NextResponse.json({ hotel, reservations: [], error: 'Access denied' }, { status: 403 });
+    }
 
     let query = supabase
       .from('reservations')

@@ -1,4 +1,5 @@
 import { getCurrentHotelForRequest } from './current-hotel';
+import { canAccess } from './permissions';
 
 const isMissingKnowledgeMetadataColumns = (error) => (
   error?.message?.includes('title')
@@ -23,6 +24,12 @@ export const getKnowledgeContext = async (request) => {
 
   if (!hotel?.id) {
     throw new Error('No hotel available for knowledge base');
+  }
+
+  if (!canAccess(role, 'knowledge_base')) {
+    const error = new Error('Access denied');
+    error.status = 403;
+    throw error;
   }
 
   return {

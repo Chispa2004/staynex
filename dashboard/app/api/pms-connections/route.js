@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { PMS_PROVIDERS, getProviderWebhookUrl, redactConnection, saveConnection } from '@/lib/pms-connections';
+import { canAccess } from '@/lib/permissions';
 
 const jsonError = (message, status = 500, extra = {}) => NextResponse.json({
   ok: false,
@@ -10,7 +11,11 @@ const jsonError = (message, status = 500, extra = {}) => NextResponse.json({
 
 export async function GET(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'pms_connections')) {
+      return jsonError('Access denied', 403);
+    }
     const { data, error } = await supabase
       .from('hotel_pms_connections')
       .select('*')
@@ -40,7 +45,11 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'pms_connections_manage')) {
+      return jsonError('Access denied', 403);
+    }
     const payload = await request.json();
     const connection = await saveConnection({
       supabase,
@@ -65,7 +74,11 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'pms_connections_manage')) {
+      return jsonError('Access denied', 403);
+    }
     const { searchParams } = new URL(request.url);
     const connectionId = searchParams.get('id');
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
 
 const isMissingTable = (error, tableName) => (
   error?.message?.includes(tableName)
@@ -62,7 +63,11 @@ const ensureConversion = async ({ supabase, hotelId, offer, status }) => {
 
 export async function PATCH(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'upsells')) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
     const body = await request.json();
     const { offerId, action } = body;
 

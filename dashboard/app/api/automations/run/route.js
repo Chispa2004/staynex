@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { runDashboardAutomationScheduler } from '@/lib/automation-runner';
+import { canAccess } from '@/lib/permissions';
 
 export async function GET() {
   return NextResponse.json({
@@ -11,7 +12,11 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'automations')) {
+      return NextResponse.json({ ok: false, scheduled: 0, error: 'Access denied' }, { status: 403 });
+    }
 
     if (!hotel?.id) {
       return NextResponse.json(

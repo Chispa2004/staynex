@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
 
 const isMissingUpsellsTable = (error) => (
   error?.message?.includes('ai_upsells')
@@ -27,7 +28,11 @@ const getDefaultAmount = (type) => revenueDefaults[type] || 50;
 
 export async function GET(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'upsells')) {
+      return NextResponse.json({ hotel, upsells: [], error: 'Access denied' }, { status: 403 });
+    }
 
     if (!hotel?.id) {
       return NextResponse.json({ upsells: [] });
@@ -176,7 +181,11 @@ const ensureConversion = async ({ supabase, upsell, status = 'pending' }) => {
 
 export async function PATCH(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+
+    if (!canAccess(role, 'upsells')) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
     const body = await request.json();
     const action = body.action;
     const upsellId = body.upsellId;

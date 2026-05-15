@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -23,6 +23,7 @@ import {
   Sparkles,
   TrendingUp,
   TicketCheck,
+  UserCog,
   Wrench
 } from 'lucide-react';
 import { LanguageSelector } from './LanguageSelector';
@@ -30,6 +31,13 @@ import { ThemeToggle } from './ThemeToggle';
 import { DashboardLanguageProvider, useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { DashboardThemeProvider, useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import {
+  canAccess,
+  canAccessRoute,
+  filterNavigationByRole,
+  getFirstAllowedRoute,
+  ROLE_LABELS
+} from '@/lib/permissions';
 
 const navigationGroups = [
   {
@@ -72,6 +80,7 @@ const navigationGroups = [
       { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
       { href: '/dashboard/onboarding', labelKey: 'sidebar.onboarding', icon: Rocket },
       { href: '/dashboard/settings/pms', labelKey: 'sidebar.pmsConnections', icon: PlugZap },
+      { href: '/dashboard/settings/users', labelKey: 'sidebar.users', icon: UserCog },
       { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
       { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
       { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }
@@ -100,6 +109,15 @@ const AppShellContent = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [sessionAccessToken, setSessionAccessToken] = useState(null);
   const [currentHotel, setCurrentHotel] = useState(null);
+  const [hotelContext, setHotelContext] = useState({
+    role: 'owner',
+    permissions: ['all'],
+    availableHotels: [],
+    hotelUser: null,
+    fallback: true
+  });
+  const [hotelContextLoaded, setHotelContextLoaded] = useState(false);
+  const [switchingHotel, setSwitchingHotel] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
   const { t } = useDashboardLanguage();
@@ -107,6 +125,11 @@ const AppShellContent = ({ children }) => {
   const isLight = theme === 'light';
   const isLoginPage = pathname === '/login';
   const isOnboardingPage = pathname === '/dashboard/onboarding';
+  const activeRole = hotelContext.role || 'owner';
+  const allowedNavigationGroups = useMemo(
+    () => filterNavigationByRole(navigationGroups, activeRole),
+    [activeRole]
+  );
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -191,9 +214,22 @@ const AppShellContent = ({ children }) => {
 
         if (active && response.ok) {
           setCurrentHotel(body.hotel || null);
+          setHotelContext({
+            role: body.role || 'owner',
+            permissions: body.permissions || ['all'],
+            availableHotels: body.availableHotels || [],
+            hotelUser: body.hotelUser || null,
+            fallback: Boolean(body.fallback)
+          });
+          setHotelContextLoaded(true);
+        } else if (active) {
+          setHotelContextLoaded(true);
         }
       } catch (error) {
         console.error('Current hotel lookup failed', error);
+        if (active) {
+          setHotelContextLoaded(true);
+        }
       }
     };
 
@@ -229,7 +265,7 @@ const AppShellContent = ({ children }) => {
         const completed = Boolean(body.state?.onboarding_completed);
         setOnboardingCompleted(completed);
 
-        if (!completed && !isOnboardingPage) {
+        if (!completed && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
           router.replace('/dashboard/onboarding');
         }
       } catch (error) {
@@ -249,7 +285,17 @@ const AppShellContent = ({ children }) => {
       active = false;
       window.removeEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
     };
-  }, [authLoading, isAuthenticated, isLoginPage, isOnboardingPage, router, sessionAccessToken]);
+  }, [activeRole, authLoading, isAuthenticated, isLoginPage, isOnboardingPage, router, sessionAccessToken]);
+
+  useEffect(() => {
+    if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
+      return;
+    }
+
+    if (!canAccessRoute(activeRole, pathname)) {
+      router.replace(getFirstAllowedRoute(activeRole));
+    }
+  }, [activeRole, authLoading, hotelContextLoaded, isAuthenticated, isLoginPage, pathname, router]);
 
   const handleLogout = async () => {
     if (logoutLoading) {
@@ -267,8 +313,51 @@ const AppShellContent = ({ children }) => {
     setIsAuthenticated(false);
     setSessionAccessToken(null);
     setCurrentHotel(null);
+    setHotelContextLoaded(false);
     setLogoutLoading(false);
     router.replace('/login');
+  };
+
+  const handleHotelSwitch = async (hotelId) => {
+    if (!hotelId || hotelId === currentHotel?.id || switchingHotel) {
+      return;
+    }
+
+    setSwitchingHotel(true);
+
+    try {
+      const headers = sessionAccessToken
+        ? { Authorization: `Bearer ${sessionAccessToken}` }
+        : {};
+      const response = await fetch('/api/current-hotel', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ hotelId })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not switch hotel');
+      }
+
+      setCurrentHotel(body.hotel || null);
+      setHotelContext({
+        role: body.role || 'owner',
+        permissions: body.permissions || ['all'],
+        availableHotels: body.availableHotels || [],
+        hotelUser: body.hotelUser || null,
+        fallback: Boolean(body.fallback)
+      });
+      router.replace(getFirstAllowedRoute(body.role || 'owner'));
+      router.refresh();
+    } catch (error) {
+      console.error('Hotel switch failed', error);
+    } finally {
+      setSwitchingHotel(false);
+    }
   };
 
   useEffect(() => {
@@ -317,7 +406,7 @@ const AppShellContent = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const activeGroup = navigationGroups.find((group) => group.items.some((item) => (
+  const activeGroup = allowedNavigationGroups.find((group) => group.items.some((item) => (
       item.href === '/dashboard'
         ? pathname === item.href
         : pathname === item.href || pathname.startsWith(`${item.href}/`)
@@ -329,7 +418,7 @@ const AppShellContent = ({ children }) => {
         [activeGroup.id]: true
       }));
     }
-  }, [pathname]);
+  }, [allowedNavigationGroups, pathname]);
 
   if (isLoginPage) {
     return (
@@ -339,7 +428,7 @@ const AppShellContent = ({ children }) => {
     );
   }
 
-  if (authLoading || !isAuthenticated) {
+  if (authLoading || !isAuthenticated || !hotelContextLoaded) {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
@@ -357,6 +446,8 @@ const AppShellContent = ({ children }) => {
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
   const groupHasActiveRoute = (group) => group.items.some(isNavItemActive);
+  const availableHotels = hotelContext.availableHotels || [];
+  const canShowHotelSwitcher = availableHotels.length > 1;
 
   const toggleGroup = (groupId) => {
     setOpenGroups((current) => ({
@@ -387,8 +478,30 @@ const AppShellContent = ({ children }) => {
               <p className={isLight ? 'mt-0.5 max-w-44 truncate text-xs text-slate-600' : 'mt-0.5 max-w-44 truncate text-xs text-slate-500'}>
                 {sidebarHotelSubtitle}
               </p>
+              <p className={isLight ? 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700' : 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-300'}>
+                {ROLE_LABELS[activeRole] || activeRole}
+              </p>
             </div>
           </div>
+
+          {canShowHotelSwitcher ? (
+            <div className="px-4 pb-4">
+              <label className="sr-only" htmlFor="hotel-switcher">Switch hotel</label>
+              <select
+                id="hotel-switcher"
+                value={currentHotel?.id || ''}
+                onChange={(event) => handleHotelSwitch(event.target.value)}
+                disabled={switchingHotel}
+                className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-emerald-300 disabled:opacity-60' : 'w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-200 outline-none transition focus:border-emerald-300/30 disabled:opacity-60'}
+              >
+                {availableHotels.map((assignment) => (
+                  <option key={assignment.hotel.id} value={assignment.hotel.id}>
+                    {assignment.hotel.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
 
           {urgentCount > 0 ? (
             <div className="px-4 pb-5 pt-1">
@@ -423,7 +536,7 @@ const AppShellContent = ({ children }) => {
           ) : null}
 
           <nav className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
-            {navigationGroups.map((group) => {
+            {allowedNavigationGroups.map((group) => {
               const isOpen = openGroups[group.id];
               const activeGroup = groupHasActiveRoute(group);
 

@@ -31,6 +31,7 @@ export const translations = {
       automations: 'Automations',
       pmsConnections: 'PMS Connections',
       qrRooms: 'QR Rooms',
+      users: 'Usuarios',
       settings: 'Ajustes',
       knowledgeBase: 'Knowledge Base',
       demo: 'Demo'
@@ -104,6 +105,8 @@ export const translations = {
       automationsDescription: 'Mensajes IA programados para journeys pre-stay, in-stay y post-stay.',
       pmsConnections: 'PMS Connections',
       pmsConnectionsDescription: 'Conecta el PMS del hotel, prueba credenciales y sincroniza reservas.',
+      users: 'Usuarios del hotel',
+      usersDescription: 'Gestiona accesos, roles y asignaciones de usuarios para este hotel.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'Genera códigos QR por habitación para abrir WhatsApp con el contexto de habitación incluido.'
     },
@@ -370,7 +373,9 @@ export const translations = {
       upsells: 'Upsells',
       guestMemory: 'Guest Memory',
       automations: 'Automations',
+      pmsConnections: 'PMS Connections',
       qrRooms: 'QR Rooms',
+      users: 'Users',
       settings: 'Settings',
       knowledgeBase: 'Knowledge Base',
       demo: 'Demo'
@@ -442,6 +447,10 @@ export const translations = {
       guestMemoryDescription: 'Guest preferences and useful context remembered by Staynex for personalized service.',
       automations: 'Automations',
       automationsDescription: 'Scheduled AI messages for pre-stay, in-stay and post-stay journeys.',
+      pmsConnections: 'PMS Connections',
+      pmsConnectionsDescription: 'Connect the hotel PMS, test credentials and sync reservations.',
+      users: 'Hotel users',
+      usersDescription: 'Manage user access, roles and hotel assignments.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'Generate room QR codes that open WhatsApp with room context included.'
     },
@@ -707,7 +716,9 @@ export const translations = {
       upsells: 'Upsells',
       guestMemory: 'Memoire client',
       automations: 'Automatisations',
+      pmsConnections: 'Connexions PMS',
       qrRooms: 'QR Rooms',
+      users: 'Utilisateurs',
       settings: 'Paramètres',
       knowledgeBase: 'Base de connaissances',
       demo: 'Démo'
@@ -779,6 +790,10 @@ export const translations = {
       guestMemoryDescription: 'Preferences et contexte utile memorises par Staynex pour personnaliser le service.',
       automations: 'Automatisations',
       automationsDescription: 'Messages IA programmes pour les parcours pre-stay, in-stay et post-stay.',
+      pmsConnections: 'Connexions PMS',
+      pmsConnectionsDescription: 'Connectez le PMS de l hotel, testez les identifiants et synchronisez les reservations.',
+      users: 'Utilisateurs hotel',
+      usersDescription: 'Gerez les acces, roles et affectations des utilisateurs.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'Generez des QR par chambre pour ouvrir WhatsApp avec le contexte de chambre.'
     },
@@ -1044,7 +1059,9 @@ export const translations = {
       upsells: 'Upsells',
       guestMemory: 'Gastgedaechtnis',
       automations: 'Automationen',
+      pmsConnections: 'PMS-Verbindungen',
       qrRooms: 'QR Rooms',
+      users: 'Benutzer',
       settings: 'Einstellungen',
       knowledgeBase: 'Wissensdatenbank',
       demo: 'Demo'
@@ -1116,6 +1133,10 @@ export const translations = {
       guestMemoryDescription: 'Von Staynex gespeicherte Praeferenzen und nuetzlicher Gastkontext.',
       automations: 'Automationen',
       automationsDescription: 'Geplante KI-Nachrichten fuer Pre-Stay, In-Stay und Post-Stay Journeys.',
+      pmsConnections: 'PMS-Verbindungen',
+      pmsConnectionsDescription: 'Hotel-PMS verbinden, Zugangsdaten testen und Reservierungen synchronisieren.',
+      users: 'Hotelbenutzer',
+      usersDescription: 'Zugriff, Rollen und Hotelzuordnungen verwalten.',
       qrRooms: 'QR Rooms',
       qrRoomsDescription: 'QR-Codes pro Zimmer erstellen, die WhatsApp mit Zimmerkontext oeffnen.'
     },
