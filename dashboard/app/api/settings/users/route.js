@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { canAccess, ROLES } from '@/lib/permissions';
+import { canAccess } from '@/lib/permissions';
 
 const STATUSES = ['active', 'invited', 'disabled'];
+const HOTEL_USER_MANAGEMENT_ROLES = ['admin', 'receptionist'];
 
 const jsonError = (message, status = 500) => NextResponse.json({
   users: [],
@@ -23,6 +24,18 @@ const getContext = async (request) => {
   }
 
   return context;
+};
+
+const normalizeAllowedHotelRole = (role) => {
+  const normalizedRole = String(role || '').trim().toLowerCase();
+
+  if (!HOTEL_USER_MANAGEMENT_ROLES.includes(normalizedRole)) {
+    const error = new Error('Role not allowed from hotel user management.');
+    error.status = 400;
+    throw error;
+  }
+
+  return normalizedRole;
 };
 
 export async function GET(request) {
@@ -55,7 +68,7 @@ export async function POST(request) {
     const { supabase, hotel } = await getContext(request);
     const body = await request.json();
     const email = String(body.email || '').trim().toLowerCase();
-    const role = ROLES.includes(body.role) ? body.role : 'receptionist';
+    const role = normalizeAllowedHotelRole(body.role || 'receptionist');
 
     if (!email || !email.includes('@')) {
       return jsonError('A valid email is required', 400);
@@ -95,8 +108,8 @@ export async function PATCH(request) {
       return jsonError('User assignment id is required', 400);
     }
 
-    if (body.role && ROLES.includes(body.role)) {
-      updates.role = body.role;
+    if (body.role !== undefined) {
+      updates.role = normalizeAllowedHotelRole(body.role);
     }
 
     if (body.status && STATUSES.includes(body.status)) {

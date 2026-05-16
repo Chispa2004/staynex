@@ -10,6 +10,12 @@ import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
 
 const statuses = ['active', 'invited', 'disabled'];
+const HOTEL_MANAGEMENT_ROLES = ['admin', 'receptionist'];
+
+const roleDescriptions = {
+  admin: 'Can configure the hotel, PMS, users, experiences and settings.',
+  receptionist: 'Can manage Inbox, tickets, reservations, experience bookings, experiences and local knowledge.'
+};
 
 const formatDate = (value) => {
   if (!value) {
@@ -35,8 +41,14 @@ const RoleBadge = ({ role }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const tone = role === 'owner' || role === 'admin' ? 'emerald' : role === 'manager' ? 'sky' : 'slate';
+  const isLegacy = !HOTEL_MANAGEMENT_ROLES.includes(role);
 
-  return <span className={ui.badge(isLight, tone)}>{ROLE_LABELS[role] || role}</span>;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className={ui.badge(isLight, tone)}>{ROLE_LABELS[role] || role}</span>
+      {isLegacy ? <span className={ui.badge(isLight, 'amber')}>Legacy role</span> : null}
+    </span>
+  );
 };
 
 const StatusBadge = ({ status }) => {
@@ -197,6 +209,10 @@ export const UserManagementClient = () => {
       </div>
 
       <form onSubmit={inviteUser} className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+        <div className="mb-4">
+          <p className={cn('text-sm font-semibold', isLight ? 'text-slate-950' : 'text-white')}>Add hotel user</p>
+          <p className={ui.text.body(isLight)}>Choose whether this user is an Admin or Receptionist.</p>
+        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="min-w-0 flex-1">
             <label className={ui.text.eyebrow(isLight)} htmlFor="invite-email">Email</label>
@@ -217,14 +233,17 @@ export const UserManagementClient = () => {
               onChange={(event) => setRole(event.target.value)}
               className={`${ui.input(isLight)} mt-2 w-full`}
             >
-              {ROLES.map((item) => (
+              {HOTEL_MANAGEMENT_ROLES.map((item) => (
                 <option key={item} value={item}>{ROLE_LABELS[item]}</option>
               ))}
             </select>
+            <p className={cn('mt-2 text-xs leading-5', isLight ? 'text-slate-500' : 'text-slate-400')}>
+              {roleDescriptions[role]}
+            </p>
           </div>
           <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
             <UserPlus className="h-4 w-4" aria-hidden="true" />
-            {saving ? 'Saving...' : 'Add user'}
+            {saving ? 'Saving...' : 'Add hotel user'}
           </button>
           <button type="button" onClick={loadUsers} className={ui.button(isLight, 'secondary')}>
             <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
@@ -277,14 +296,22 @@ export const UserManagementClient = () => {
                 <div className="space-y-2">
                   <RoleBadge role={user.role} />
                   <select
-                    value={user.role}
+                    value={HOTEL_MANAGEMENT_ROLES.includes(user.role) ? user.role : ''}
                     onChange={(event) => updateUser(user.id, { role: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
                   >
-                    {ROLES.map((item) => (
+                    {!HOTEL_MANAGEMENT_ROLES.includes(user.role) ? (
+                      <option value="" disabled>{ROLE_LABELS[user.role] || user.role}</option>
+                    ) : null}
+                    {HOTEL_MANAGEMENT_ROLES.map((item) => (
                       <option key={item} value={item}>{ROLE_LABELS[item]}</option>
                     ))}
                   </select>
+                  <p className={ui.text.muted(isLight)}>
+                    {HOTEL_MANAGEMENT_ROLES.includes(user.role)
+                      ? roleDescriptions[user.role]
+                      : 'Existing advanced role. It can be changed to Admin or Receptionist from this screen.'}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
