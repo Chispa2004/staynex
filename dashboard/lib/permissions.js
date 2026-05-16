@@ -39,6 +39,8 @@ const hotelAdminPermissions = [
   'upsells_manage',
   'experiences',
   'experiences_manage',
+  'experience_bookings',
+  'experience_bookings_manage',
   'analytics',
   'automations',
   'knowledge_base',
@@ -67,6 +69,8 @@ const rolePermissions = {
     'upsells_manage',
     'experiences',
     'experiences_manage',
+    'experience_bookings',
+    'experience_bookings_manage',
     'analytics',
     'automations',
     'knowledge_base',
@@ -76,7 +80,9 @@ const rolePermissions = {
     'inbox',
     'tickets',
     'reservations_read',
-    'guest_memory_limited'
+    'guest_memory_limited',
+    'experience_bookings',
+    'experience_bookings_manage'
   ],
   housekeeping: [
     'housekeeping',
@@ -115,6 +121,7 @@ const routeRules = [
   { pattern: /^\/dashboard\/ai-logs(?:\/.*)?$/, permission: 'ai_logs' },
   { pattern: /^\/dashboard\/upsells(?:\/.*)?$/, permission: 'upsells' },
   { pattern: /^\/dashboard\/experiences(?:\/.*)?$/, permission: 'experiences' },
+  { pattern: /^\/dashboard\/experience-bookings(?:\/.*)?$/, permission: 'experience_bookings' },
   { pattern: /^\/dashboard\/automations(?:\/.*)?$/, permission: 'automations' },
   { pattern: /^\/dashboard\/analytics(?:\/.*)?$/, permission: 'analytics' },
   { pattern: /^\/dashboard\/guest-memory(?:\/.*)?$/, permission: 'guest_memory_page' },

@@ -622,6 +622,19 @@ export const InboxClient = ({ conversations }) => {
           scheduleRealtimeReload('conversation_ai_state_change');
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'experience_booking_requests',
+          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+        },
+        (payload) => {
+          debugInbox('Experience booking request change received', payload.new || payload.old);
+          scheduleRealtimeReload('experience_booking_request_change');
+        }
+      )
       .subscribe((status, error) => {
         if (status === 'SUBSCRIBED') {
           debugInbox('Realtime connected');
@@ -795,6 +808,7 @@ export const InboxClient = ({ conversations }) => {
     selectedHumanEscalation.needsHuman,
     (selectedConversation?.offers || []).length > 0,
     (selectedConversation?.upsells || []).length > 0,
+    (selectedConversation?.experienceBookings || []).length > 0,
     selectedConversation?.aiState?.escalation_level && selectedConversation.aiState.escalation_level !== 'ai_handled'
   ].filter(Boolean).length;
   const inboxGridColumns = copilotOpen
@@ -917,6 +931,7 @@ export const InboxClient = ({ conversations }) => {
             const isNew = getIsNewConversation(conversation, readState);
             const hasUpsell = (conversation.upsells || []).length > 0;
             const hasOffer = (conversation.offers || []).length > 0;
+            const hasExperienceBooking = (conversation.experienceBookings || []).length > 0;
             const aiState = conversation.aiState;
 
             return (
@@ -980,6 +995,10 @@ export const InboxClient = ({ conversations }) => {
                     {unread ? (
                       <span className="rounded-full bg-emerald-300 px-2 py-1 text-[11px] font-black text-slate-950 shadow-lg shadow-emerald-500/20">
                         {unreadCount > 9 ? '9+' : t('inbox.newCount', { count: unreadCount })}
+                      </span>
+                    ) : hasExperienceBooking ? (
+                      <span className={isLight ? 'rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800' : 'rounded-full border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold text-amber-100'}>
+                        Experience request
                       </span>
                     ) : hasOffer ? (
                       <span className={isLight ? 'rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-100'}>

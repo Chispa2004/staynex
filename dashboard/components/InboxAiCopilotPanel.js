@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, BadgeEuro, BrainCircuit, CheckCircle2, Clock3, Sparkles, TicketPlus, UserRound, XCircle } from 'lucide-react';
+import { AlertTriangle, BadgeEuro, BrainCircuit, CalendarCheck, CheckCircle2, Clock3, Sparkles, UserRound, XCircle } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const formatCurrency = (value, currency = 'EUR') => new Intl.NumberFormat(undefined, {
@@ -73,6 +73,7 @@ export const InboxAiCopilotPanel = ({
   const isLight = theme === 'light';
   const offers = conversation?.offers || [];
   const upsells = conversation?.upsells || [];
+  const experienceBookings = conversation?.experienceBookings || [];
   const memory = conversation?.guestMemory || [];
   const aiState = conversation?.aiState || null;
   const activeOffer = offers[0] || null;
@@ -153,6 +154,29 @@ export const InboxAiCopilotPanel = ({
               <Pill key={upsell.id} tone="violet">{upsell.upsell_type}</Pill>
             ))}
           </div>
+        </Section>
+
+        <Section title="Experience Bookings" icon={CalendarCheck}>
+          {experienceBookings.length ? (
+            <div className="space-y-2">
+              {experienceBookings.slice(0, 4).map((booking) => (
+                <div key={booking.id} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-sm text-slate-300'}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold">{booking.experience_title}</span>
+                    <Pill tone={booking.status === 'confirmed' ? 'emerald' : 'amber'}>{booking.status}</Pill>
+                  </div>
+                  <p className="mt-1 text-xs opacity-75">
+                    {booking.partner_name || 'Internal concierge'} / potential {formatCurrency(booking.estimated_revenue)}
+                  </p>
+                </div>
+              ))}
+              <Link href="/dashboard/experience-bookings" className={isLight ? 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/[0.08]'}>
+                Open booking workflow
+              </Link>
+            </div>
+          ) : (
+            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>No active experience booking request.</p>
+          )}
         </Section>
 
         <Section title="Guest Memory" icon={UserRound}>

@@ -101,6 +101,36 @@ const getActiveOffersByConversation = async ({ supabase, conversationIds }) => {
   }
 };
 
+const getExperienceBookingsByConversation = async ({ supabase, conversationIds }) => {
+  if (!conversationIds.length) {
+    return new Map();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('experience_booking_requests')
+      .select('id, conversation_id, experience_title, partner_name, status, estimated_revenue, commission_estimate, requested_date, requested_time, created_at, updated_at')
+      .in('conversation_id', conversationIds)
+      .in('status', ['pending', 'reviewing', 'confirmed'])
+      .order('created_at', { ascending: false })
+      .limit(250);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((bookingsByConversation, booking) => {
+      const current = bookingsByConversation.get(booking.conversation_id) || [];
+      current.push(booking);
+      bookingsByConversation.set(booking.conversation_id, current);
+      return bookingsByConversation;
+    }, new Map());
+  } catch (error) {
+    console.warn('Inbox experience booking metadata unavailable', error.message);
+    return new Map();
+  }
+};
+
 const getAiStateByConversation = async ({ supabase, conversationIds }) => {
   if (!conversationIds.length) {
     return new Map();
@@ -208,7 +238,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     guestsQuery = guestsQuery.eq('hotel_id', resolvedHotelId);
   }
 
-  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, offersByConversation, aiStateByConversation, memoryByGuest] = await Promise.all([
+  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest] = await Promise.all([
     guestsQuery,
     supabase
       .from('messages')
@@ -219,6 +249,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     getLatestAiLogsByConversation({ supabase, conversationIds }),
     getActiveUpsellsByConversation({ supabase, conversationIds }),
     getActiveOffersByConversation({ supabase, conversationIds }),
+    getExperienceBookingsByConversation({ supabase, conversationIds }),
     getAiStateByConversation({ supabase, conversationIds }),
     getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
   ]);
@@ -247,6 +278,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
       aiLog: aiLogsByConversation.get(conversation.id) || null,
       upsells: upsellsByConversation.get(conversation.id) || [],
       offers: offersByConversation.get(conversation.id) || [],
+      experienceBookings: experienceBookingsByConversation.get(conversation.id) || [],
       aiState: aiStateByConversation.get(conversation.id) || null
     };
   });

@@ -10,6 +10,7 @@ import {
   BrainCircuit,
   Bot,
   CalendarDays,
+  CalendarCheck,
   ChevronDown,
   ConciergeBell,
   Compass,
@@ -56,7 +57,8 @@ const navigationGroups = [
     items: [
       { href: '/dashboard', labelKey: 'screens.dashboard', icon: LayoutDashboard },
       { href: '/dashboard/inbox', labelKey: 'sidebar.inbox', icon: Inbox },
-      { href: '/dashboard/tickets', labelKey: 'sidebar.tickets', icon: TicketCheck }
+      { href: '/dashboard/tickets', labelKey: 'sidebar.tickets', icon: TicketCheck },
+      { href: '/dashboard/experience-bookings', labelKey: 'sidebar.experienceBookings', icon: CalendarCheck }
     ]
   },
   {

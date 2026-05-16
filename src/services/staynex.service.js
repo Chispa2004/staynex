@@ -65,6 +65,11 @@ import {
   getExperienceKnowledgeForPrompt,
   getHotelExperiences
 } from './hotel-experience.service.js';
+import {
+  createExperienceBookingRequest,
+  detectExperienceBookingIntent,
+  getExperienceBookingConfirmationReply
+} from './experience-booking.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -473,7 +478,7 @@ export const processGuestMessage = async ({
       ...aiResponse,
       concierge_intent: enhancedPrimaryIntent.intent
     };
-  const aiResponseWithUpsell = upsellOpportunities.length > 0
+  let aiResponseWithUpsell = upsellOpportunities.length > 0
     ? {
       ...aiResponseWithConcierge,
       upsell_opportunity: Boolean(offerAllowedInReply && enhancedRevenueOpportunity) || aiResponseWithConcierge.upsell_opportunity
@@ -531,6 +536,39 @@ export const processGuestMessage = async ({
   }
 
   const conciergeOffer = conciergeOffers[0] || null;
+  const experienceBookingIntent = await detectExperienceBookingIntent({
+    message,
+    conversationId: conversation.id,
+    hotelExperiences
+  });
+  const experienceBookingRequest = await createExperienceBookingRequest({
+    hotel: activeHotel,
+    guest,
+    conversation,
+    reservation: conversationContext.reservation,
+    message,
+    hotelExperiences,
+    intent: experienceBookingIntent
+  });
+
+  if (experienceBookingRequest) {
+    aiResponseWithUpsell = {
+      ...aiResponseWithUpsell,
+      reply: getExperienceBookingConfirmationReply({
+        language: conversationContext.language
+      }),
+      concierge_intent: aiResponseWithUpsell.concierge_intent || 'experience_booking_request',
+      intent: aiResponseWithUpsell.intent || 'experience_booking_request',
+      upsell_opportunity: true
+    };
+
+    await createMessage({
+      conversationId: conversation.id,
+      senderType: 'ai',
+      content: `Experience booking request created: ${experienceBookingRequest.experience_title}. Reception must confirm availability before the guest is told it is confirmed.`
+    });
+  }
+
   const conciergeMemories = await persistConciergeMemory({
     hotel: activeHotel,
     guest,
@@ -661,6 +699,8 @@ export const processGuestMessage = async ({
     offerCreated: conciergeOffers.length > 0,
     offerType: conciergeOffer?.offer_type || (offerAllowedInReply ? enhancedRevenueOpportunity?.offerType : null) || null,
     offerStatus: conciergeOffer?.status || null,
+    experienceBookingRequestCreated: Boolean(experienceBookingRequest),
+    experienceBookingRequestId: experienceBookingRequest?.id || null,
     openAiConciergeUsed: Boolean(openAiResult),
     openAiConciergeModel: openAiConcierge.model || null,
     openAiConciergeFallback: Boolean(openAiConcierge.fallback),
@@ -691,6 +731,7 @@ export const processGuestMessage = async ({
     memoriesDetected: detectedMemories.length + conciergeMemories.length,
     conciergeIntent: enhancedPrimaryIntent.intent || conversationState.currentIntent || null,
     conciergeOfferId: conciergeOffer?.id || null,
+    experienceBookingRequestId: experienceBookingRequest?.id || null,
     conversationStateId: savedConversationState?.id || null,
     openAiConciergeUsed: Boolean(openAiResult),
     openAiConciergeFallback: Boolean(openAiConcierge.fallback),
@@ -725,7 +766,8 @@ export const processGuestMessage = async ({
       suppressionReason: finalOfferSuppression.reason,
       risk: enhancedRisk,
       openAi: openAiConcierge,
-      departmentAction: conciergeDepartmentAction
+      departmentAction: conciergeDepartmentAction,
+      experienceBookingRequest
     },
     memories: savedMemories,
     reservation: conversationContext.reservation,
