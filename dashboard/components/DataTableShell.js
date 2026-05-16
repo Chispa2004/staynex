@@ -66,7 +66,7 @@ export const DataTableShell = ({
         ref={topScrollRef}
         onScroll={() => syncScroll(topScrollRef, tableScrollRef)}
         className={cn(
-          'executive-scroll sticky top-0 z-20 mb-2 overflow-x-auto rounded-lg border px-1 py-1',
+          'executive-scroll mb-2 overflow-x-auto rounded-lg border px-1 py-1',
           isLight ? 'border-slate-200 bg-white shadow-sm shadow-slate-200/70' : 'border-white/10 bg-[#0b1019] shadow-lg shadow-black/20'
         )}
         aria-label="Horizontal table scroll"
@@ -78,7 +78,7 @@ export const DataTableShell = ({
         ref={tableScrollRef}
         onScroll={() => syncScroll(tableScrollRef, topScrollRef)}
         className={cn(
-          'executive-scroll max-h-[min(72vh,760px)] overflow-auto overscroll-contain',
+          'executive-scroll overflow-x-auto overflow-y-hidden overscroll-contain',
           isLight ? 'bg-white' : 'bg-[#0b1019]/20'
         )}
       >
@@ -89,8 +89,8 @@ export const DataTableShell = ({
 
       {hasPagination ? (
         <div className={cn(
-          'sticky bottom-0 z-20 flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
-          isLight ? 'border-slate-200 bg-white/95 text-slate-600 shadow-[0_-12px_30px_rgba(15,23,42,0.06)] backdrop-blur' : 'border-white/10 bg-[#0b1019]/95 text-slate-400 shadow-[0_-12px_30px_rgba(0,0,0,0.22)] backdrop-blur'
+          'flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+          isLight ? 'border-slate-200 bg-white text-slate-600' : 'border-white/10 bg-[#0b1019] text-slate-400'
         )}
         >
           <p className="text-sm">

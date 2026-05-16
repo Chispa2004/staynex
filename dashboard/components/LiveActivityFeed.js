@@ -42,7 +42,7 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
     : activity;
 
   return (
-    <ExecutiveCard className="flex h-fit max-h-[clamp(520px,72vh,860px)] min-h-[480px] flex-col overflow-hidden">
+    <ExecutiveCard className="overflow-hidden">
       <div className={isLight ? 'border-b border-slate-200 px-5 py-4' : 'border-b border-white/10 px-5 py-4'}>
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -53,7 +53,7 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
         </div>
       </div>
 
-      <div className="executive-scroll min-h-0 flex-1 space-y-3 overflow-y-auto scroll-pb-8 p-3 pb-8 pr-2">
+      <div className="executive-scroll max-h-[min(620px,68vh)] space-y-3 overflow-y-auto p-3 pb-4 pr-2">
         {items.length === 0 ? (
           <div className={isLight ? 'rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500' : 'rounded-lg border border-dashed border-white/10 bg-white/[0.025] p-8 text-center text-sm text-slate-500'}>
             No live activity yet.
