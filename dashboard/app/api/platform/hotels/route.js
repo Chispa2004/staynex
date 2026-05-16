@@ -75,6 +75,16 @@ export async function GET(request) {
     const { supabase, user, platformRole, platformPermissions } = await getPlatformContext(request);
     const overview = await getPlatformOverview(supabase);
 
+    await writePlatformAuditLog({
+      supabase,
+      actor: user,
+      platformRole,
+      action: 'platform_dashboard_accessed',
+      metadata: {
+        hotels: overview.metrics?.totalHotels || 0
+      }
+    });
+
     return NextResponse.json({
       ...overview,
       platformRole,

@@ -3,12 +3,16 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  AlertTriangle,
   BarChart3,
+  BookOpen,
   Building2,
+  CalendarCheck,
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
   DoorOpen,
+  MessageSquareText,
   PlugZap,
   Plus,
   RefreshCw,
@@ -25,6 +29,7 @@ import { PremiumEmptyState } from './PremiumEmptyState';
 
 const plans = ['starter', 'professional', 'enterprise', 'enterprise_demo', 'pro_demo'];
 const languages = ['es', 'en', 'fr', 'de'];
+const healthFilters = ['all', 'Healthy', 'Needs setup', 'Attention', 'Inactive'];
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -184,6 +189,8 @@ export const PlatformConsoleClient = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [planFilter, setPlanFilter] = useState('all');
+  const [healthFilter, setHealthFilter] = useState('all');
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
@@ -219,7 +226,10 @@ export const PlatformConsoleClient = () => {
     loadPlatform();
   }, []);
 
-  const sortedHotels = useMemo(() => [...hotels].sort((a, b) => (b.lastActivityAt || '').localeCompare(a.lastActivityAt || '')), [hotels]);
+  const sortedHotels = useMemo(() => [...hotels]
+    .filter((hotel) => planFilter === 'all' || hotel.subscription_plan === planFilter)
+    .filter((hotel) => healthFilter === 'all' || hotel.healthStatus === healthFilter)
+    .sort((a, b) => (b.lastActivityAt || '').localeCompare(a.lastActivityAt || '')), [healthFilter, hotels, planFilter]);
 
   const createHotel = async (form) => {
     setSaving(true);
@@ -320,25 +330,40 @@ export const PlatformConsoleClient = () => {
 
       {showCreate ? <CreateHotelForm isLight={isLight} saving={saving} onSubmit={createHotel} onCancel={() => setShowCreate(false)} /> : null}
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={Building2} isLight={isLight} label="Total hotels" value={loading ? '...' : metrics.totalHotels || 0} helper={`${metrics.activeHotels || 0} active`} />
-        <StatCard icon={Sparkles} isLight={isLight} label="AI handled" value={loading ? '...' : `${metrics.aiHandledPercent || 0}%`} helper={`${metrics.totalConversations || 0} conversations`} tone="violet" />
-        <StatCard icon={CircleDollarSign} isLight={isLight} label="AI revenue" value={loading ? '...' : formatCurrency(metrics.totalAiRevenue)} helper={`${metrics.offerConversionRate || 0}% conversion`} />
+        <StatCard icon={AlertTriangle} isLight={isLight} label="Need attention" value={loading ? '...' : metrics.hotelsNeedingAttention || 0} helper="Health, PMS or urgent issues" tone="sky" />
+        <StatCard icon={CalendarCheck} isLight={isLight} label="Reservations" value={loading ? '...' : metrics.totalReservations || 0} helper={`${metrics.totalExperienceBookings || 0} experience bookings`} />
+        <StatCard icon={MessageSquareText} isLight={isLight} label="AI conversations" value={loading ? '...' : metrics.totalAiConversations || 0} helper={`${metrics.aiHandledPercent || 0}% handled`} tone="violet" />
+        <StatCard icon={CircleDollarSign} isLight={isLight} label="Revenue generated" value={loading ? '...' : formatCurrency(metrics.totalAiRevenue)} helper={`${metrics.offerConversionRate || 0}% offer conversion`} />
         <StatCard icon={PlugZap} isLight={isLight} label="PMS connected" value={loading ? '...' : metrics.pmsConnectedHotels || 0} helper={`${metrics.totalActiveUsers || 0} active users`} tone="sky" />
+        <StatCard icon={Sparkles} isLight={isLight} label="Experience catalog" value={loading ? '...' : metrics.totalExperiences || 0} helper={`${metrics.totalLocalKnowledge || 0} local knowledge cards`} tone="violet" />
+        <StatCard icon={BookOpen} isLight={isLight} label="WhatsApp ready" value={loading ? '...' : metrics.whatsappConfiguredHotels || 0} helper="Hotels with configured number" />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
         <section className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
           <div className={cn('border-b px-4 py-3', isLight ? 'border-slate-200' : 'border-white/10')}>
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>Tenant workspaces</h2>
-              <p className={cn('text-xs', ui.text.muted(isLight))}>{loading ? 'Loading...' : `${hotels.length} hotels`}</p>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>Tenant workspaces</h2>
+                <p className={cn('text-xs', ui.text.muted(isLight))}>{loading ? 'Loading...' : `${sortedHotels.length} of ${hotels.length} hotels`}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <select value={planFilter} onChange={(event) => setPlanFilter(event.target.value)} className={cn('w-40', ui.input(isLight))}>
+                  <option value="all">All plans</option>
+                  {plans.map((plan) => <option key={plan} value={plan}>{plan.replaceAll('_', ' ')}</option>)}
+                </select>
+                <select value={healthFilter} onChange={(event) => setHealthFilter(event.target.value)} className={cn('w-40', ui.input(isLight))}>
+                  {healthFilters.map((health) => <option key={health} value={health}>{health === 'all' ? 'All health' : health}</option>)}
+                </select>
+              </div>
             </div>
           </div>
 
           <div className="divide-y divide-slate-200/10">
             {sortedHotels.map((hotel) => (
-              <article key={hotel.id} className={cn('grid gap-4 p-4 transition hover:bg-emerald-300/[0.035] lg:grid-cols-[minmax(0,1.2fr)_0.8fr_0.8fr_auto]', isLight ? 'hover:bg-slate-50' : '')}>
+              <article key={hotel.id} className={cn('grid gap-4 p-4 transition hover:bg-emerald-300/[0.035] xl:grid-cols-[minmax(0,1.15fr)_0.75fr_1fr_auto]', isLight ? 'hover:bg-slate-50' : '')}>
                 <div className="flex min-w-0 gap-3">
                   <WorkspaceMark hotel={hotel} />
                   <div className="min-w-0">
@@ -348,7 +373,8 @@ export const PlatformConsoleClient = () => {
                       </Link>
                       <span className={ui.badge(isLight, hotel.subscription_plan ? 'emerald' : 'slate', true)}>{hotel.plan_label || 'No plan'}</span>
                     </div>
-                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{hotel.workspace_slug || hotel.slug} / created {formatDate(hotel.created_at)}</p>
+                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{hotel.brand_name || hotel.name} / {hotel.workspace_slug || hotel.slug}</p>
+                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Created {formatDate(hotel.created_at)}</p>
                     <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Last activity: {formatDate(hotel.lastActivityAt)}</p>
                   </div>
                 </div>
@@ -359,14 +385,18 @@ export const PlatformConsoleClient = () => {
                     <span className={cn('text-xs font-bold', ui.text.title(isLight))}>{hotel.healthScore || 0}%</span>
                   </div>
                   <div className="mt-2"><HealthBar value={hotel.healthScore || 0} isLight={isLight} /></div>
-                  <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>Onboarding {hotel.onboarding?.percent || 0}%</p>
+                  <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>{hotel.healthStatus || 'Unknown'} / onboarding {hotel.onboarding?.percent || 0}%</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div><span className={ui.text.muted(isLight)}>PMS</span><p className="font-semibold">{hotel.pms?.enabled ? hotel.pms.provider : 'Disconnected'}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>WhatsApp</span><p className="font-semibold">{hotel.stats?.whatsappConfigured ? 'Ready' : 'Missing'}</p></div>
                   <div><span className={ui.text.muted(isLight)}>Users</span><p className="font-semibold">{hotel.stats?.activeUsers || 0}/{hotel.stats?.users || 0}</p></div>
                   <div><span className={ui.text.muted(isLight)}>Reservations</span><p className="font-semibold">{hotel.stats?.reservations || 0}</p></div>
-                  <div><span className={ui.text.muted(isLight)}>Revenue</span><p className="font-semibold">{formatCurrency((hotel.stats?.revenue || 0) + (hotel.stats?.experienceRevenue || 0))}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>AI handled</span><p className="font-semibold">{hotel.stats?.aiHandled || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>Open tickets</span><p className="font-semibold">{hotel.stats?.openTickets || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>Bookings</span><p className="font-semibold">{hotel.stats?.experienceBookings || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>Revenue</span><p className="font-semibold">{formatCurrency((hotel.stats?.revenue || 0) + (hotel.stats?.offerRevenue || 0) + (hotel.stats?.experienceRevenue || 0))}</p></div>
                 </div>
 
                 <div className="flex items-center gap-2 lg:justify-end">
@@ -398,7 +428,9 @@ export const PlatformConsoleClient = () => {
             <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{formatCurrency(metrics.totalAiRevenue)}</h2>
             <div className="mt-4 space-y-3">
               <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Upsell revenue</span><strong>{formatCurrency(metrics.totalUpsellRevenue)}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>AI offer revenue</span><strong>{formatCurrency(metrics.totalOfferRevenue)}</strong></div>
               <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Experience revenue</span><strong>{formatCurrency(metrics.totalExperienceRevenue)}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Experience bookings</span><strong>{formatCurrency(metrics.totalExperienceBookingRevenue)}</strong></div>
               <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Accepted offers</span><strong>{metrics.acceptedOffers || 0}</strong></div>
             </div>
           </section>

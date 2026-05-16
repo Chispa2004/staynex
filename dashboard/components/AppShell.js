@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Activity,
   BarChart3,
+  Building2,
   BrainCircuit,
   Bot,
   CalendarDays,
@@ -159,6 +160,7 @@ const AppShellContent = ({ children }) => {
     () => filterNavigationByRole(navigationGroups, activeRole),
     [activeRole]
   );
+  const canAccessPlatformConsole = hotelContext.platformRole === 'platform_admin';
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -429,7 +431,7 @@ const AppShellContent = ({ children }) => {
     }
 
     if (pathname.startsWith('/platform')) {
-      if (!hotelContext.platformPermissions?.includes('platform_console')) {
+      if (hotelContext.platformRole !== 'platform_admin') {
         router.replace(getFirstAllowedRoute(activeRole));
       }
 
@@ -852,6 +854,41 @@ const AppShellContent = ({ children }) => {
           ) : null}
 
           <nav className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+            {canAccessPlatformConsole ? (
+              <section className="space-y-1.5">
+                <Link
+                  href="/platform"
+                  className={[
+                    'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition',
+                    pathname.startsWith('/platform')
+                      ? isLight
+                        ? 'bg-emerald-50 text-slate-950 shadow-sm shadow-emerald-100'
+                        : 'bg-white/[0.075] text-white shadow-lg shadow-black/10'
+                      : isLight
+                        ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                        : 'text-slate-300 hover:bg-white/[0.045] hover:text-slate-100'
+                  ].join(' ')}
+                >
+                  {pathname.startsWith('/platform') ? (
+                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-emerald-300" />
+                  ) : null}
+                  <span className={[
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
+                    pathname.startsWith('/platform')
+                      ? isLight
+                        ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
+                        : 'border-emerald-300/20 bg-emerald-300/15 text-emerald-200'
+                      : isLight
+                        ? 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-900'
+                        : 'border-white/5 bg-white/[0.025] text-slate-500 group-hover:text-slate-200'
+                  ].join(' ')}
+                  >
+                    <Building2 className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">Staynex Platform</span>
+                </Link>
+              </section>
+            ) : null}
             {allowedNavigationGroups.map((group) => {
               const isOpen = openGroups[group.id];
               const activeGroup = groupHasActiveRoute(group);

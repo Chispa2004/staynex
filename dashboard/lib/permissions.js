@@ -118,7 +118,6 @@ const platformPermissions = {
   ],
   support: [
     'workspace_switch',
-    'platform_console',
     'tenant_support'
   ],
   none: []

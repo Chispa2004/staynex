@@ -7,12 +7,16 @@ import {
   BadgeCheck,
   Building2,
   CalendarDays,
+  CalendarCheck,
   CircleDollarSign,
   DoorOpen,
+  MessageSquareText,
   PlugZap,
   RefreshCw,
   Save,
   ShieldAlert,
+  Sparkles,
+  TicketCheck,
   Users
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -85,12 +89,25 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
   const pmsConnections = detail?.pmsConnections || [];
   const conversions = detail?.conversions || [];
   const offers = detail?.offers || [];
+  const experienceBookings = detail?.experienceBookings || [];
+  const localKnowledge = detail?.localKnowledge || [];
+  const knowledgeEntries = detail?.knowledgeEntries || [];
   const auditLogs = detail?.auditLogs || [];
 
   const revenue = useMemo(() => ({
     accepted: conversions.filter((item) => item.status === 'accepted').reduce((total, item) => total + Number(item.estimated_amount || 0), 0),
-    offers: offers.filter((item) => item.status === 'accepted').reduce((total, item) => total + Number(item.suggested_price || 0), 0)
-  }), [conversions, offers]);
+    offers: offers.filter((item) => item.status === 'accepted').reduce((total, item) => total + Number(item.suggested_price || 0), 0),
+    experienceBookings: experienceBookings
+      .filter((item) => ['confirmed', 'completed'].includes(item.status))
+      .reduce((total, item) => total + Number(item.estimated_revenue || 0), 0)
+  }), [conversions, experienceBookings, offers]);
+
+  const usersByStatus = useMemo(() => ({
+    admins: users.filter((item) => ['owner', 'admin'].includes(item.role)).length,
+    receptionists: users.filter((item) => item.role === 'receptionist').length,
+    invited: users.filter((item) => item.status === 'invited').length,
+    disabled: users.filter((item) => item.status === 'disabled').length
+  }), [users]);
 
   const loadDetail = async () => {
     setLoading(true);
@@ -277,7 +294,16 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
         <DetailStat icon={BadgeCheck} isLight={isLight} label="Health score" value={`${hotel?.healthScore || 0}%`} />
         <DetailStat icon={PlugZap} isLight={isLight} label="PMS" value={hotel?.pms?.enabled ? hotel.pms.provider : 'Disconnected'} />
         <DetailStat icon={Users} isLight={isLight} label="Users" value={`${hotel?.stats?.activeUsers || 0}/${hotel?.stats?.users || 0}`} />
-        <DetailStat icon={CircleDollarSign} isLight={isLight} label="Revenue" value={formatCurrency(revenue.accepted + revenue.offers)} />
+        <DetailStat icon={CircleDollarSign} isLight={isLight} label="Revenue" value={formatCurrency(revenue.accepted + revenue.offers + revenue.experienceBookings)} />
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <DetailStat icon={CalendarDays} isLight={isLight} label="Reservations" value={hotel?.stats?.reservations || 0} />
+        <DetailStat icon={MessageSquareText} isLight={isLight} label="Conversations" value={hotel?.stats?.conversations || 0} />
+        <DetailStat icon={TicketCheck} isLight={isLight} label="Open tickets" value={hotel?.stats?.openTickets || 0} />
+        <DetailStat icon={CalendarCheck} isLight={isLight} label="Bookings" value={hotel?.stats?.experienceBookings || 0} />
+        <DetailStat icon={Sparkles} isLight={isLight} label="Experiences" value={hotel?.stats?.experiences || 0} />
+        <DetailStat icon={Building2} isLight={isLight} label="Knowledge" value={(hotel?.stats?.localKnowledge || 0) + (hotel?.stats?.knowledgeBase || 0)} />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
@@ -352,10 +378,22 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
           <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
             <p className={ui.text.eyebrow(isLight)}>Usage snapshot</p>
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div><span className={ui.text.muted(isLight)}>Reservations</span><p className="font-semibold">{detail?.reservations?.length || 0} recent</p></div>
+              <div><span className={ui.text.muted(isLight)}>Reservations</span><p className="font-semibold">{hotel?.stats?.reservations || 0}</p></div>
               <div><span className={ui.text.muted(isLight)}>Conversations</span><p className="font-semibold">{hotel?.stats?.conversations || 0}</p></div>
-              <div><span className={ui.text.muted(isLight)}>Tickets</span><p className="font-semibold">{hotel?.stats?.tickets || 0}</p></div>
-              <div><span className={ui.text.muted(isLight)}>Experiences</span><p className="font-semibold">{detail?.experiences?.length || 0}</p></div>
+              <div><span className={ui.text.muted(isLight)}>AI handled</span><p className="font-semibold">{hotel?.stats?.aiHandled || 0}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Open tickets</span><p className="font-semibold">{hotel?.stats?.openTickets || 0}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Experience bookings</span><p className="font-semibold">{hotel?.stats?.experienceBookings || 0}</p></div>
+              <div><span className={ui.text.muted(isLight)}>WhatsApp</span><p className="font-semibold">{hotel?.stats?.whatsappConfigured ? 'Ready' : 'Missing'}</p></div>
+            </div>
+          </section>
+
+          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+            <p className={ui.text.eyebrow(isLight)}>Content</p>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div><span className={ui.text.muted(isLight)}>Experiences</span><p className="font-semibold">{detail?.experiences?.length || 0} recent</p></div>
+              <div><span className={ui.text.muted(isLight)}>Local knowledge</span><p className="font-semibold">{localKnowledge.length}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Knowledge base</span><p className="font-semibold">{knowledgeEntries.length}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Active catalog</span><p className="font-semibold">{detail?.experiences?.filter((item) => item.active).length || 0}</p></div>
             </div>
           </section>
         </aside>
@@ -363,7 +401,12 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
 
       <section className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
         <div className={cn('border-b px-4 py-3', isLight ? 'border-slate-200' : 'border-white/10')}>
-          <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>Hotel users</h2>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>Hotel users</h2>
+            <p className={cn('text-xs', ui.text.muted(isLight))}>
+              {usersByStatus.admins} admins / {usersByStatus.receptionists} receptionists / {usersByStatus.invited} invited / {usersByStatus.disabled} disabled
+            </p>
+          </div>
         </div>
         <div className="divide-y divide-slate-200/10">
           {users.map((hotelUser) => (
@@ -408,8 +451,10 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
           <p className={ui.text.eyebrow(isLight)}>Revenue operations</p>
           <div className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Upsell conversions</span><strong>{formatCurrency(revenue.accepted)}</strong></div>
-            <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Experience offers</span><strong>{formatCurrency(revenue.offers)}</strong></div>
+            <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Accepted AI offers</span><strong>{formatCurrency(revenue.offers)}</strong></div>
+            <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Experience bookings</span><strong>{formatCurrency(revenue.experienceBookings)}</strong></div>
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Accepted offers</span><strong>{offers.filter((item) => item.status === 'accepted').length}</strong></div>
+            <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Conversion rate</span><strong>{hotel?.stats?.offerConversionRate || 0}%</strong></div>
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Open tickets</span><strong>{detail?.tickets?.filter((item) => item.status !== 'closed').length || 0}</strong></div>
           </div>
         </div>

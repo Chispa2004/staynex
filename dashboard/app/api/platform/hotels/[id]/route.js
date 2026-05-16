@@ -13,8 +13,20 @@ const statusValues = ['active', 'invited', 'disabled'];
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
-    const { supabase, platformRole, platformPermissions } = await getPlatformContext(request);
+    const { supabase, user, platformRole, platformPermissions } = await getPlatformContext(request);
     const detail = await getHotelPlatformDetail(supabase, id);
+
+    await writePlatformAuditLog({
+      supabase,
+      actor: user,
+      platformRole,
+      action: 'hotel_viewed',
+      hotelId: id,
+      metadata: {
+        hotel_name: detail.hotel?.name || null,
+        source: 'platform_hotel_detail'
+      }
+    });
 
     return NextResponse.json({
       ...detail,
