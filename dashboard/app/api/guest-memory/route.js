@@ -17,7 +17,7 @@ export async function GET(request) {
     }
 
     if (!hotel?.id) {
-      return NextResponse.json({ memories: [] });
+      return NextResponse.json({ hotel, hotelId: null, memories: [] });
     }
 
     const { data: memories, error } = await supabase
@@ -29,7 +29,7 @@ export async function GET(request) {
 
     if (error) {
       if (isMissingGuestMemoryTable(error)) {
-        return NextResponse.json({ hotel, memories: [] });
+        return NextResponse.json({ hotel, hotelId: hotel.id, memories: [] });
       }
 
       throw error;
@@ -51,6 +51,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       hotel,
+      hotelId: hotel.id,
       memories: (memories || []).map((memory) => ({
         ...memory,
         guest: guestsById.get(memory.guest_id) || null

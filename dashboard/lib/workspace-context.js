@@ -68,6 +68,7 @@ export const getWorkspaceRequestHeaders = () => {
 export const switchWorkspace = async ({ hotelId, accessToken }) => {
   const response = await fetch('/api/current-hotel', {
     method: 'POST',
+    cache: 'no-store',
     headers: {
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       'Content-Type': 'application/json',

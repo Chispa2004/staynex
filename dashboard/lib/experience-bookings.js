@@ -54,6 +54,7 @@ export const getExperienceBookings = async (request) => {
     if (isMissingBookingsTable(error)) {
       return {
         hotel,
+        hotelId: hotel.id,
         role,
         bookings: [],
         missingTable: true
@@ -65,6 +66,7 @@ export const getExperienceBookings = async (request) => {
 
   return {
     hotel,
+    hotelId: hotel.id,
     role,
     bookings: (data || []).map(normalizeBooking)
   };

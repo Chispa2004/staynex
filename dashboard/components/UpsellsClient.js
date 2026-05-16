@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Clock3, Euro, RefreshCw, Send, Search, Sparkles, XCircle } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { canAccess } from '@/lib/permissions';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
@@ -118,6 +119,10 @@ export const UpsellsClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load upsells');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'upsells')) {
+        return;
       }
 
       const nextHotelId = body.hotel?.id || null;

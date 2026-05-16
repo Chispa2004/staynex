@@ -16,6 +16,7 @@ import { ContextualRevenuePanel } from './ContextualRevenuePanel';
 import { ExperienceOpportunitiesPanel } from './ExperienceOpportunitiesPanel';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { getActiveTenantId, shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -116,6 +117,10 @@ export const ExecutiveDashboardClient = () => {
         throw new Error(payload.error || 'Could not load executive dashboard');
       }
 
+      if (!shouldAcceptTenantPayload(payload, 'executive-dashboard')) {
+        return;
+      }
+
       const payloadHotelId = payload.hotel?.id || null;
 
       if (requestId !== dashboardRequestIdRef.current) {
@@ -150,7 +155,8 @@ export const ExecutiveDashboardClient = () => {
   }, []);
 
   useEffect(() => {
-    setDemoMode(window.localStorage.getItem('staynex_demo_mode') === 'true');
+    const hotelId = getActiveTenantId();
+    setDemoMode(window.localStorage.getItem(`staynex_demo_mode:${hotelId || 'none'}`) === 'true');
     loadDashboard();
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === 'hidden') {
@@ -166,7 +172,8 @@ export const ExecutiveDashboardClient = () => {
   const toggleDemoMode = () => {
     setDemoMode((current) => {
       const next = !current;
-      window.localStorage.setItem('staynex_demo_mode', String(next));
+      const hotelId = activeHotelIdRef.current || getActiveTenantId() || 'none';
+      window.localStorage.setItem(`staynex_demo_mode:${hotelId}`, String(next));
       return next;
     });
   };

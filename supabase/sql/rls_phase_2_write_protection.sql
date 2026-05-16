@@ -202,7 +202,7 @@ begin
       ('reservations', array['owner', 'admin', 'manager']::text[], array['owner', 'admin', 'manager']::text[]),
       ('conversations', array['owner', 'admin', 'manager', 'receptionist']::text[], array['owner', 'admin', 'manager']::text[]),
       ('tickets', array['owner', 'admin', 'manager', 'receptionist', 'housekeeping', 'maintenance']::text[], array['owner', 'admin', 'manager', 'receptionist', 'housekeeping', 'maintenance']::text[]),
-      ('hotel_experiences', array['owner', 'admin', 'manager']::text[], array['owner', 'admin', 'manager']::text[]),
+      ('hotel_experiences', array['owner', 'admin', 'manager', 'receptionist']::text[], array['owner', 'admin', 'manager']::text[]),
       ('local_knowledge_items', array['owner', 'admin', 'manager', 'receptionist']::text[], array['owner', 'admin', 'manager']::text[]),
       ('experience_booking_requests', array['owner', 'admin', 'manager', 'receptionist']::text[], array['owner', 'admin', 'manager', 'receptionist']::text[]),
       ('guest_memory', array['owner', 'admin', 'manager', 'receptionist']::text[], array['owner', 'admin', 'manager']::text[]),

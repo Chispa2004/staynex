@@ -65,6 +65,7 @@ export const getKnowledgeEntries = async (request) => {
 
   return {
     hotel,
+    hotelId: hotel.id,
     role,
     fallback,
     entries: (data || []).map(normalizeEntry)

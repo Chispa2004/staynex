@@ -83,6 +83,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       hotel,
+      hotelId: hotel?.id || null,
       role,
       permissions: getPermissionsForRole(role),
       reservations: reservations.map((reservation) => {

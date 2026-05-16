@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { canAccess } from '@/lib/permissions';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
@@ -691,6 +692,10 @@ export const ReservationsClient = () => {
 
       if (!response.ok) {
         throw new Error(payload.error || t('reservations.errors.loadFailed'));
+      }
+
+      if (!shouldAcceptTenantPayload(payload, 'reservations')) {
+        return;
       }
 
       const nextHotelId = payload.hotel?.id || null;

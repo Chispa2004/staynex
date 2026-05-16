@@ -123,6 +123,7 @@ export const getLocalKnowledgeItems = async (request) => {
     if (isMissingLocalKnowledgeTable(error)) {
       return {
         hotel,
+        hotelId: hotel.id,
         role,
         fallback,
         items: [],
@@ -135,6 +136,7 @@ export const getLocalKnowledgeItems = async (request) => {
 
   return {
     hotel,
+    hotelId: hotel.id,
     role,
     fallback,
     items: (data || []).map(normalizeItem)

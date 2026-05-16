@@ -24,7 +24,7 @@ export async function GET(request) {
     const conversationIds = (conversations || []).map((conversation) => conversation.id);
 
     if (conversationIds.length === 0) {
-      return NextResponse.json({ logs: [] });
+      return NextResponse.json({ hotel, hotelId: hotel?.id || null, logs: [] });
     }
 
     const { data, error } = await supabase
@@ -39,6 +39,8 @@ export async function GET(request) {
     }
 
     return NextResponse.json({
+      hotel,
+      hotelId: hotel?.id || null,
       logs: data || []
     });
   } catch (error) {

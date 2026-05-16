@@ -6,6 +6,7 @@ import { DepartmentTicketTable } from './DepartmentTicketTable';
 import { PageHeader } from './PageHeader';
 import { TicketStatsCards } from './TicketStatsCards';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { PremiumEmptyState } from './PremiumEmptyState';
 
 const getAuthHeaders = async () => {
@@ -46,6 +47,10 @@ export const DepartmentTicketsView = ({
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load tickets');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'department-tickets')) {
+        return;
       }
 
       if (requestId !== requestIdRef.current) {

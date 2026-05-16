@@ -5,6 +5,7 @@ import { Check, Loader2, Plus, Power, Search, Trash2 } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const SUGGESTED_CATEGORIES = [
   'desayuno',
@@ -84,6 +85,10 @@ export const KnowledgeBaseEditor = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load knowledge base');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'knowledge-base')) {
+        return;
       }
 
       setHotel(body.hotel);

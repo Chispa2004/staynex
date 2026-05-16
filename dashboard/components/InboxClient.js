@@ -10,6 +10,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const formatDate = (value) => {
   if (!value) {
@@ -401,6 +402,10 @@ export const InboxClient = ({ conversations }) => {
         throw new Error(body.error || 'Could not refresh inbox');
       }
 
+      if (!shouldAcceptTenantPayload(body, 'inbox')) {
+        return null;
+      }
+
       if (!mountedRef.current || requestId !== loadRequestIdRef.current) {
         return null;
       }
@@ -455,6 +460,27 @@ export const InboxClient = ({ conversations }) => {
   useEffect(() => {
     loadInbox({ silent: true });
   }, [loadInbox]);
+
+  useEffect(() => {
+    const handleTenantChanged = (event) => {
+      const nextHotelId = event.detail?.hotelId || null;
+      if (!nextHotelId || nextHotelId === currentHotel?.id) {
+        return;
+      }
+
+      debugInbox('tenant changed, resetting state', { surface: 'inbox', hotelId: nextHotelId });
+      setItems([]);
+      setSelectedId(null);
+      setMessage('');
+      setReadState({});
+      setReadStateLoaded(false);
+      setCopilotOpen(false);
+    };
+
+    window.addEventListener('staynex:tenant-changed', handleTenantChanged);
+
+    return () => window.removeEventListener('staynex:tenant-changed', handleTenantChanged);
+  }, [currentHotel?.id]);
 
   const markConversationAsRead = useCallback((conversationId) => {
     if (!conversationId) {

@@ -8,6 +8,7 @@ import { ExperienceForm } from './ExperienceForm';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { canAccess } from '@/lib/permissions';
 import { cn, ui } from '@/lib/ui/styles';
 
@@ -86,6 +87,10 @@ export const ExperiencesClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load experiences');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'experiences')) {
+        return;
       }
 
       if (requestId !== requestRef.current) {
@@ -245,7 +250,7 @@ export const ExperiencesClient = () => {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className={`text-sm font-semibold ${isLight ? 'text-slate-950' : 'text-white'}`}>{hotel?.name || 'Current hotel'}</p>
-            <p className={ui.text.body(isLight)}>Manage the local experiences Staynex can recommend for this hotel only.</p>
+            <p className={ui.text.body(isLight)}>Activities, excursions and hotel experiences that the AI can recommend to guests from this workspace only.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={loadExperiences} className={ui.button(isLight, 'secondary')}>

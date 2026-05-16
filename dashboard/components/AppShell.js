@@ -111,6 +111,7 @@ const INBOX_UNREAD_TOTAL_KEY = 'staynex_inbox_unread_total';
 const INBOX_UNREAD_EVENT = 'staynex:inbox-unread-updated';
 const INBOX_HUMAN_TOTAL_KEY = 'staynex_inbox_human_total';
 const INBOX_HUMAN_EVENT = 'staynex:inbox-human-updated';
+const TENANT_CHANGED_EVENT = 'staynex:tenant-changed';
 const scopedKey = (key, hotelId) => `${key}:${hotelId || 'none'}`;
 const WORKSPACE_RESOLUTION_TIMEOUT_MS = 7000;
 
@@ -560,6 +561,28 @@ const AppShellContent = ({ children }) => {
   }, [currentHotel?.id, pathname]);
 
   useEffect(() => {
+    if (!hotelContextLoaded || !currentHotel?.id || typeof window === 'undefined') {
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent(TENANT_CHANGED_EVENT, {
+      detail: {
+        hotelId: currentHotel.id,
+        userId: hotelContext.hotelUser?.user_id || null,
+        platformRole: hotelContext.platformRole || 'none',
+        supportMode: Boolean(supportSession)
+      }
+    }));
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('tenant gate active', {
+        hotelId: currentHotel.id,
+        pathname
+      });
+    }
+  }, [currentHotel?.id, hotelContext.hotelUser?.user_id, hotelContext.platformRole, hotelContextLoaded, pathname, supportSession]);
+
+  useEffect(() => {
     const loadUrgentCount = async () => {
       if (!hotelContextLoaded || !currentHotel?.id || hotelContext.accessDenied) {
         setUrgentCount(0);
@@ -695,6 +718,16 @@ const AppShellContent = ({ children }) => {
             </button>
           </div>
         </section>
+      </div>
+    );
+  }
+
+  if (!currentHotel?.id) {
+    return (
+      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
+          Preparing workspace...
+        </div>
       </div>
     );
   }
@@ -979,7 +1012,7 @@ const AppShellContent = ({ children }) => {
                 </div>
               </div>
             ) : null}
-            <div key={currentHotel?.id || 'no-workspace'}>
+            <div key={`${currentHotel.id}:${supportSession ? 'support' : 'hotel'}`}>
               {children}
             </div>
           </div>

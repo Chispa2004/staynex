@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { TicketDetail } from './TicketDetail';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -39,6 +40,10 @@ export const TicketDetailPageClient = ({ ticketId }) => {
 
         if (!response.ok) {
           throw new Error(body.error || 'Could not load ticket');
+        }
+
+        if (!shouldAcceptTenantPayload(body, 'ticket-detail')) {
+          return;
         }
 
         if (requestId !== requestIdRef.current) {

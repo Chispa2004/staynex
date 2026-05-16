@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { TicketsTable } from '@/components/TicketsTable';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -38,6 +39,10 @@ export const TicketsPageClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load tickets');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'tickets')) {
+        return;
       }
 
       if (requestId !== requestIdRef.current) {

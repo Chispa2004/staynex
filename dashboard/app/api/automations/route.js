@@ -20,7 +20,7 @@ export async function GET(request) {
     }
 
     if (!hotel?.id) {
-      return NextResponse.json({ hotel, scheduledMessages: [], rules: [] });
+      return NextResponse.json({ hotel, hotelId: null, scheduledMessages: [], rules: [] });
     }
 
     const [{ data: scheduledMessages, error }, { data: rules, error: rulesError }] = await Promise.all([
@@ -39,7 +39,7 @@ export async function GET(request) {
 
     if (error) {
       if (isMissingAutomationTables(error)) {
-        return NextResponse.json({ hotel, scheduledMessages: [], rules: [] });
+        return NextResponse.json({ hotel, hotelId: hotel.id, scheduledMessages: [], rules: [] });
       }
 
       throw error;
@@ -66,6 +66,7 @@ export async function GET(request) {
 
     return NextResponse.json({
       hotel,
+      hotelId: hotel.id,
       rules: rules || [],
       scheduledMessages: (scheduledMessages || []).map((message) => ({
         ...message,

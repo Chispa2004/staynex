@@ -1,5 +1,4 @@
 import { getSupabaseAdmin } from './supabase';
-import { getDefaultHotel } from './current-hotel';
 
 const INBOX_CONVERSATION_LIMIT = 100;
 const INBOX_MESSAGE_LIMIT = 3000;
@@ -197,12 +196,11 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   let resolvedHotelId = hotelId;
 
   if (!resolvedHotelId) {
-    try {
-      const defaultHotel = await getDefaultHotel(supabase);
-      resolvedHotelId = defaultHotel?.id || null;
-    } catch (error) {
-      console.warn('Inbox default hotel fallback unavailable', error.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Inbox tenant gate active: hotelId is required; returning empty conversations.');
     }
+
+    return [];
   }
 
   let conversationsQuery = supabase

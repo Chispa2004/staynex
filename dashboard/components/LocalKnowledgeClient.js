@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Map, Plus, RefreshCw, Sparkles, Star } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { canAccess } from '@/lib/permissions';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { KnowledgeCard } from './KnowledgeCard';
@@ -72,6 +73,10 @@ export const LocalKnowledgeClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load local knowledge');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'local-knowledge')) {
+        return;
       }
 
       if (requestId !== requestRef.current) {

@@ -142,6 +142,7 @@ export const getExperienceEntries = async (request) => {
     if (isMissingExperiencesTable(error)) {
       return {
         hotel,
+        hotelId: hotel.id,
         role,
         fallback,
         experiences: [],
@@ -154,6 +155,7 @@ export const getExperienceEntries = async (request) => {
 
   return {
     hotel,
+    hotelId: hotel.id,
     role,
     fallback,
     experiences: (data || []).map(normalizeExperience)

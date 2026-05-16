@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { BrainCircuit, Check, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
@@ -69,6 +70,10 @@ export const GuestMemoryClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load guest memory');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'guest-memory')) {
+        return;
       }
 
       setMemories((body.memories || []).map((item) => ({

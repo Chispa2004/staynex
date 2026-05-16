@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const rooms = [101, 102, 103, 201, 202, 203, 301, 302];
 
@@ -107,6 +108,9 @@ export const QrRoomsClient = ({ whatsappNumber }) => {
           cache: 'no-store'
         });
         const body = await response.json();
+        if (!shouldAcceptTenantPayload(body, 'qr-rooms')) {
+          return;
+        }
         const normalizedNumber = normalizeWhatsappNumber(body.hotel?.whatsapp_number || '');
 
         if (active && response.ok && normalizedNumber) {

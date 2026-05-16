@@ -326,6 +326,19 @@ export const getCurrentHotelForRequest = async (request) => {
           user: { id: userId, email }
         };
       }
+
+      return {
+        supabase,
+        hotel: null,
+        hotelUser: null,
+        role: 'blocked',
+        permissions: [],
+        availableHotels: [],
+        fallback: false,
+        accessDenied: true,
+        accessDeniedReason: 'no_active_assignment',
+        user: { id: userId, email }
+      };
     }
 
     if (assignments === null) {

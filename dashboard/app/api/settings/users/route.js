@@ -41,7 +41,8 @@ export async function GET(request) {
     return NextResponse.json({
       users: data || [],
       role,
-      hotel
+      hotel,
+      hotelId: hotel.id
     });
   } catch (error) {
     console.error('Hotel users lookup failed', error);

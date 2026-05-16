@@ -6,6 +6,7 @@ import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { PmsConnectionForm } from './PmsConnectionForm';
 import { PmsProviderCard } from './PmsProviderCard';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const getAuthHeaders = async () => {
@@ -66,6 +67,10 @@ export const PmsConnectionsClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load PMS connections');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'pms-connections')) {
+        return;
       }
 
       setHotel(body.hotel || null);

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { canAccess } from '@/lib/permissions';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -92,6 +93,10 @@ export const ExperienceBookingsClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load experience bookings');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'experience-bookings')) {
+        return;
       }
 
       setBookings(body.bookings || []);

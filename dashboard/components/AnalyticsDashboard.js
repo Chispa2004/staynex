@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const periods = [
   { key: 'today', labelKey: 'analytics.filters.today' },
@@ -269,6 +270,10 @@ export const AnalyticsDashboard = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Analytics could not load');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'analytics')) {
+        return;
       }
 
       if (process.env.NODE_ENV !== 'production') {

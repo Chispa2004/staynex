@@ -86,6 +86,8 @@ const rolePermissions = {
     'tickets',
     'reservations_read',
     'guest_memory_limited',
+    'experiences',
+    'experiences_manage',
     'local_knowledge',
     'local_knowledge_manage',
     'experience_bookings',

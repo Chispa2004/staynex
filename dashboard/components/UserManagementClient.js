@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { ROLE_LABELS, ROLES } from '@/lib/permissions';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -73,6 +74,10 @@ export const UserManagementClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load users');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'user-management')) {
+        return;
       }
 
       setUsers(body.users || []);

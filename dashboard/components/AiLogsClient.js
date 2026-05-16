@@ -11,8 +11,10 @@ import {
   X
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const filterOptions = [
   { key: 'all', labelKey: 'aiLogs.filters.all' },
@@ -324,12 +326,17 @@ export const AiLogsClient = () => {
 
     try {
       const response = await fetch('/api/ai-logs', {
+        headers: await getAuthHeaders(),
         cache: 'no-store'
       });
       const payload = await response.json();
 
       if (!response.ok) {
         throw new Error(payload.error || t('aiLogs.errors.loadFailed'));
+      }
+
+      if (!shouldAcceptTenantPayload(payload, 'ai-logs')) {
+        return;
       }
 
       setLogs(payload.logs || []);

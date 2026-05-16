@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bot, CheckCircle2, Clock3, RefreshCw, Search, XCircle } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const statusOptions = ['all', 'scheduled', 'sent', 'failed'];
@@ -110,6 +111,10 @@ export const AutomationsClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not load automations');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'automations')) {
+        return;
       }
 
       setMessages(body.scheduledMessages || []);
