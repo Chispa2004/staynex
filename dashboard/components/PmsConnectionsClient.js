@@ -45,6 +45,7 @@ export const PmsConnectionsClient = () => {
   const [hotel, setHotel] = useState(null);
   const [providers, setProviders] = useState([]);
   const [connections, setConnections] = useState([]);
+  const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [busyAction, setBusyAction] = useState(null);
@@ -70,6 +71,7 @@ export const PmsConnectionsClient = () => {
       setHotel(body.hotel || null);
       setProviders(body.providers || []);
       setConnections(body.connections || []);
+      setCanManage(Boolean(body.canManage));
       setFeedback(null);
     } catch (error) {
       setFeedback({ type: 'error', message: error.message });
@@ -87,12 +89,22 @@ export const PmsConnectionsClient = () => {
   ), [connections]);
 
   const openEditor = (provider, connection = null) => {
+    if (!canManage) {
+      setFeedback({ type: 'error', message: 'You do not have permission to manage PMS connections.' });
+      return;
+    }
+
     setEditing({ provider, connection });
     setForm(defaultForm(provider, connection));
   };
 
   const save = async (event) => {
     event.preventDefault();
+    if (!canManage) {
+      setFeedback({ type: 'error', message: 'You do not have permission to manage PMS connections.' });
+      return;
+    }
+
     setSaving(true);
     setFeedback(null);
 
@@ -123,6 +135,11 @@ export const PmsConnectionsClient = () => {
   };
 
   const testConnection = async (provider) => {
+    if (!canManage) {
+      setFeedback({ type: 'error', message: 'You do not have permission to test PMS connections.' });
+      return;
+    }
+
     setBusyAction('test');
     setFeedback(null);
 
@@ -152,6 +169,11 @@ export const PmsConnectionsClient = () => {
   };
 
   const syncReservations = async (provider) => {
+    if (!canManage) {
+      setFeedback({ type: 'error', message: 'You do not have permission to sync PMS reservations.' });
+      return;
+    }
+
     setBusyAction('sync');
     setFeedback({ type: 'info', message: `Sync started for ${provider.name}. Importing up to 50 reservations.` });
 
@@ -195,6 +217,11 @@ export const PmsConnectionsClient = () => {
   };
 
   const disconnect = async (connection) => {
+    if (!canManage) {
+      setFeedback({ type: 'error', message: 'You do not have permission to disconnect PMS connections.' });
+      return;
+    }
+
     setBusyAction('disconnect');
     setFeedback(null);
 
@@ -277,6 +304,7 @@ export const PmsConnectionsClient = () => {
             onSync={syncReservations}
             onDisconnect={disconnect}
             busyAction={busyAction}
+            canManage={canManage}
           />
         ))}
       </div>

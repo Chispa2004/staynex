@@ -5,10 +5,13 @@ import { canAccess } from '@/lib/permissions';
 
 export async function POST(request) {
   try {
-    const { hotel, role } = await getCurrentHotelForRequest(request);
+    const { hotel, role, platformRole } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections_manage')) {
       return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403 });
+    }
+    if (platformRole === 'support') {
+      return NextResponse.json({ ok: false, error: 'Support sessions are read-only by default' }, { status: 403 });
     }
     const body = await request.json().catch(() => ({}));
     const result = await proxyBackendPmsAction({

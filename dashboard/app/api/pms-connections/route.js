@@ -12,11 +12,12 @@ const jsonError = (message, status = 500, extra = {}) => NextResponse.json({
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, role, platformRole, user } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections')) {
       return jsonError('Access denied', 403);
     }
+    const canManage = canAccess(role, 'pms_connections_manage') && platformRole !== 'support';
     const { data, error } = await supabase
       .from('hotel_pms_connections')
       .select('*')
@@ -30,6 +31,9 @@ export async function GET(request) {
     return NextResponse.json({
       ok: true,
       hotel,
+      role,
+      platformRole: platformRole || 'none',
+      canManage,
       providers: PMS_PROVIDERS.map((provider) => ({
         ...provider,
         webhookUrl: getProviderWebhookUrl(provider.key)
@@ -46,7 +50,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole, user } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections_manage')) {
       return jsonError('Access denied', 403);

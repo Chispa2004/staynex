@@ -78,7 +78,8 @@ const rolePermissions = {
     'analytics',
     'automations',
     'knowledge_base',
-    'qr_rooms'
+    'qr_rooms',
+    'pms_connections'
   ],
   receptionist: [
     'inbox',

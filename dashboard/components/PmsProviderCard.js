@@ -30,7 +30,8 @@ export const PmsProviderCard = ({
   onTest,
   onSync,
   onDisconnect,
-  busyAction
+  busyAction,
+  canManage = true
 }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -138,23 +139,28 @@ export const PmsProviderCard = ({
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <button type="button" onClick={() => onEdit(provider, connection)} disabled={!available} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="button" onClick={() => onEdit(provider, connection)} disabled={!available || !canManage} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
           {connection ? 'Edit connection' : 'Connect'}
         </button>
-        <button type="button" onClick={() => onTest(provider)} disabled={!connection || busyAction === 'test'} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
+        <button type="button" onClick={() => onTest(provider)} disabled={!connection || !canManage || busyAction === 'test'} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
           <CheckCircle2 className={busyAction === 'test' ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} />
           Test Connection
         </button>
-        <button type="button" onClick={() => onSync(provider)} disabled={!connection || busyAction === 'sync'} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
+        <button type="button" onClick={() => onSync(provider)} disabled={!connection || !canManage || busyAction === 'sync'} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
           <Clock3 className={busyAction === 'sync' ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           Sync Now
         </button>
         {connection ? (
-          <button type="button" onClick={() => onDisconnect(connection)} className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100' : 'rounded-lg border border-red-300/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/15'}>
+          <button type="button" onClick={() => onDisconnect(connection)} disabled={!canManage} className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50' : 'rounded-lg border border-red-300/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/15 disabled:opacity-50'}>
             Disconnect
           </button>
         ) : null}
       </div>
+      {!canManage ? (
+        <p className={isLight ? 'mt-3 text-xs text-slate-500' : 'mt-3 text-xs text-slate-500'}>
+          PMS management is available to hotel admins and platform admins.
+        </p>
+      ) : null}
     </ExecutiveCard>
   );
 };
