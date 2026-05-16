@@ -7,27 +7,43 @@ import {
   Download,
   ExternalLink,
   Hotel,
-  QrCode
+  PlugZap,
+  QrCode,
+  RefreshCw
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { getWorkspaceRequestHeaders } from '@/lib/workspace-context';
+import { PremiumEmptyState } from './PremiumEmptyState';
 
-const rooms = [101, 102, 103, 201, 202, 203, 301, 302];
+const buildRoomMessage = ({ hotel, room }) => [
+  `Hello, I am in room ${room}.`,
+  hotel?.name ? `Hotel: ${hotel.name}.` : null,
+  hotel?.id ? `Staynex hotel id: ${hotel.id}.` : null
+].filter(Boolean).join(' ');
 
-const buildRoomMessage = (room) => `Hello, I am in room ${room}`;
-
-const buildWhatsappLink = ({ whatsappNumber, room }) => (
+const buildWhatsappLink = ({ whatsappNumber, hotel, room }) => (
   whatsappNumber
-    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(buildRoomMessage(room))}`
+    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(buildRoomMessage({ hotel, room }))}`
     : ''
 );
 
 const normalizeWhatsappNumber = (value) => (
   value?.replace(/^whatsapp:/i, '').replace(/[^\d]/g, '') || ''
 );
+
+const getAuthHeaders = async () => {
+  const supabase = getSupabaseBrowser();
+  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
+
+  return data?.session?.access_token
+    ? { Authorization: `Bearer ${data.session.access_token}`, ...getWorkspaceRequestHeaders() }
+    : getWorkspaceRequestHeaders();
+};
 
 const Card = ({ children, className = '' }) => {
   const { theme } = useDashboardTheme();
@@ -59,7 +75,7 @@ const ActionButton = ({ icon: Icon, children, onClick, href, disabled = false })
       : 'border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.08] hover:text-white'
   ].join(' ');
 
-  if (href) {
+  if (href && !disabled) {
     return (
       <a className={className} href={href} target="_blank" rel="noreferrer">
         <Icon className="h-4 w-4" aria-hidden="true" />
@@ -76,68 +92,152 @@ const ActionButton = ({ icon: Icon, children, onClick, href, disabled = false })
   );
 };
 
-export const QrRoomsClient = ({ whatsappNumber }) => {
+export const QrRoomsClient = () => {
   const { t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [qrCodes, setQrCodes] = useState({});
   const [copiedRoom, setCopiedRoom] = useState(null);
-  const [hotelWhatsappNumber, setHotelWhatsappNumber] = useState('');
-  const activeWhatsappNumber = hotelWhatsappNumber || whatsappNumber;
-  const whatsappConfigured = Boolean(activeWhatsappNumber);
+  const [hotel, setHotel] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [roomSource, setRoomSource] = useState('none');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const requestIdRef = useRef(0);
+  const activeHotelIdRef = useRef(null);
+
+  const whatsappConfigured = Boolean(whatsappNumber);
 
   const roomLinks = useMemo(() => Object.fromEntries(
     rooms.map((room) => [
-      room,
-      buildWhatsappLink({ whatsappNumber: activeWhatsappNumber, room })
+      room.room_number,
+      buildWhatsappLink({ whatsappNumber, hotel, room: room.room_number })
     ])
-  ), [activeWhatsappNumber]);
+  ), [hotel, rooms, whatsappNumber]);
+
+  const loadRooms = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    setLoading(true);
+    setError(null);
+    setRooms([]);
+    setQrCodes({});
+
+    try {
+      const response = await fetch('/api/qr-rooms', {
+        headers: await getAuthHeaders(),
+        cache: 'no-store'
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not load QR rooms');
+      }
+
+      if (!shouldAcceptTenantPayload(body, 'qr-rooms')) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('stale room payload ignored', {
+            hotelId: body.hotelId || null
+          });
+        }
+        return;
+      }
+
+      if (requestId !== requestIdRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('stale room payload ignored', {
+            hotelId: body.hotelId || null
+          });
+        }
+        return;
+      }
+
+      if (activeHotelIdRef.current && body.hotelId && activeHotelIdRef.current !== body.hotelId) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('tenant room source changed, resetting state', {
+            from: activeHotelIdRef.current,
+            to: body.hotelId
+          });
+        }
+        setRooms([]);
+        setQrCodes({});
+      }
+
+      activeHotelIdRef.current = body.hotelId || null;
+      setHotel(body.hotel || null);
+      setWhatsappNumber(normalizeWhatsappNumber(body.whatsappNumber || body.hotel?.whatsapp_number || ''));
+      setRooms(body.rooms || []);
+      setRoomSource(body.roomSource || 'none');
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('tenant room source', {
+          hotelId: body.hotelId || null,
+          roomSource: body.roomSource || 'none',
+          rooms: body.rooms?.length || 0
+        });
+        if (!body.rooms?.length) {
+          console.info('demo fallback blocked', { surface: 'qr-rooms', hotelId: body.hotelId || null });
+        }
+      }
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
+    loadRooms();
+  }, [loadRooms]);
 
-    const loadHotelWhatsappNumber = async () => {
-      try {
-        const supabase = getSupabaseBrowser();
-        const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-        const headers = data?.session?.access_token
-          ? { Authorization: `Bearer ${data.session.access_token}` }
-          : {};
-        const response = await fetch('/api/current-hotel', {
-          headers,
-          cache: 'no-store'
-        });
-        const body = await response.json();
-        if (!shouldAcceptTenantPayload(body, 'qr-rooms')) {
-          return;
-        }
-        const normalizedNumber = normalizeWhatsappNumber(body.hotel?.whatsapp_number || '');
+  useEffect(() => {
+    const handleTenantChanged = (event) => {
+      const nextHotelId = event.detail?.hotelId || null;
 
-        if (active && response.ok && normalizedNumber) {
-          setHotelWhatsappNumber(normalizedNumber);
-        }
-      } catch (error) {
-        console.error('QR Rooms hotel WhatsApp lookup failed', error);
+      if (!nextHotelId || nextHotelId === activeHotelIdRef.current) {
+        return;
       }
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.info('tenant changed, resetting state', {
+          surface: 'qr-rooms',
+          hotelId: nextHotelId
+        });
+      }
+
+      setRooms([]);
+      setQrCodes({});
+      setHotel(null);
+      setWhatsappNumber('');
+      setRoomSource('none');
+      loadRooms();
     };
 
-    loadHotelWhatsappNumber();
+    window.addEventListener('staynex:tenant-changed', handleTenantChanged);
 
-    return () => {
-      active = false;
-    };
-  }, []);
+    return () => window.removeEventListener('staynex:tenant-changed', handleTenantChanged);
+  }, [loadRooms]);
 
   useEffect(() => {
     let cancelled = false;
 
     const generateQrCodes = async () => {
+      if (!rooms.length || !whatsappConfigured) {
+        setQrCodes({});
+        return;
+      }
+
       const entries = await Promise.all(rooms.map(async (room) => {
-        if (!roomLinks[room]) {
-          return [room, null];
+        const link = roomLinks[room.room_number];
+
+        if (!link) {
+          return [room.room_number, null];
         }
 
-        const dataUrl = await QRCode.toDataURL(roomLinks[room], {
+        const dataUrl = await QRCode.toDataURL(link, {
           margin: 2,
           width: 360,
           color: {
@@ -146,7 +246,7 @@ export const QrRoomsClient = ({ whatsappNumber }) => {
           }
         });
 
-        return [room, dataUrl];
+        return [room.room_number, dataUrl];
       }));
 
       if (!cancelled) {
@@ -154,27 +254,27 @@ export const QrRoomsClient = ({ whatsappNumber }) => {
       }
     };
 
-    generateQrCodes().catch((error) => {
-      console.error('QR generation failed', error);
+    generateQrCodes().catch((caughtError) => {
+      console.error('QR generation failed', caughtError);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [roomLinks]);
+  }, [roomLinks, rooms, whatsappConfigured]);
 
-  const copyLink = async (room) => {
-    if (!roomLinks[room]) {
+  const copyLink = async (roomNumber) => {
+    if (!roomLinks[roomNumber]) {
       return;
     }
 
-    await window.navigator.clipboard.writeText(roomLinks[room]);
-    setCopiedRoom(room);
+    await window.navigator.clipboard.writeText(roomLinks[roomNumber]);
+    setCopiedRoom(roomNumber);
     window.setTimeout(() => setCopiedRoom(null), 1600);
   };
 
-  const downloadQr = (room) => {
-    const dataUrl = qrCodes[room];
+  const downloadQr = (roomNumber) => {
+    const dataUrl = qrCodes[roomNumber];
 
     if (!dataUrl) {
       return;
@@ -182,7 +282,7 @@ export const QrRoomsClient = ({ whatsappNumber }) => {
 
     const link = document.createElement('a');
     link.href = dataUrl;
-    link.download = `staynex-room-${room}.png`;
+    link.download = `staynex-${hotel?.workspace_slug || hotel?.id || 'hotel'}-room-${roomNumber}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -199,7 +299,7 @@ export const QrRoomsClient = ({ whatsappNumber }) => {
             {t('screens.qrRooms')}
           </h1>
           <p className={isLight ? 'mt-3 max-w-2xl text-sm leading-6 text-slate-600' : 'mt-3 max-w-2xl text-sm leading-6 text-slate-400'}>
-            {t('screens.qrRoomsDescription')}
+            Generate room QR codes only from this hotel workspace. Rooms come from active reservation/guest context and operational room signals.
           </p>
         </div>
 
@@ -210,80 +310,126 @@ export const QrRoomsClient = ({ whatsappNumber }) => {
             </span>
             <div>
               <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>
-                {t('qrRooms.whatsappNumber')}
+                {hotel?.name || 'Current hotel'}
               </p>
               <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-950' : 'mt-1 text-sm font-semibold text-white'}>
-                {whatsappConfigured ? `+${activeWhatsappNumber}` : t('qrRooms.missingWhatsappNumber')}
+                {whatsappConfigured ? `+${whatsappNumber}` : t('qrRooms.missingWhatsappNumber')}
+              </p>
+              <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
+                Source: {roomSource === 'none' ? 'No rooms yet' : roomSource.replace(/_/g, ' ')}
               </p>
             </div>
           </div>
         </Card>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {rooms.map((room) => {
-          const dataUrl = qrCodes[room];
-          const copied = copiedRoom === room;
+      {error ? (
+        <div className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'rounded-lg border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
+          {error}
+        </div>
+      ) : null}
 
-          return (
-            <Card key={room} className="overflow-hidden">
-              <div className={isLight ? 'border-b border-slate-200 p-4' : 'border-b border-white/10 p-4'}>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>
-                      {t('qrRooms.room')}
-                    </p>
-                    <h2 className={isLight ? 'mt-1 text-2xl font-semibold text-slate-950' : 'mt-1 text-2xl font-semibold text-white'}>
-                      {room}
-                    </h2>
+      {loading ? (
+        <PremiumEmptyState title="Loading rooms..." description="Staynex is loading rooms from this hotel workspace only." />
+      ) : !rooms.length ? (
+        <PremiumEmptyState
+          icon={PlugZap}
+          title="No rooms available yet"
+          description="Connect PMS or add room assignments to generate tenant-safe QR codes. Demo rooms are blocked for this workspace."
+          action={(
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/dashboard/settings/pms" className={isLight ? 'rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}>
+                Connect PMS
+              </Link>
+              <Link href="/dashboard/onboarding" className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-200">
+                Open onboarding
+              </Link>
+            </div>
+          )}
+        />
+      ) : (
+        <>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={loadRooms}
+              className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
+            >
+              <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+              Refresh rooms
+            </button>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {rooms.map((room) => {
+              const roomNumber = room.room_number;
+              const dataUrl = qrCodes[roomNumber];
+              const copied = copiedRoom === roomNumber;
+
+              return (
+                <Card key={roomNumber} className="overflow-hidden">
+                  <div className={isLight ? 'border-b border-slate-200 p-4' : 'border-b border-white/10 p-4'}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>
+                          {t('qrRooms.room')}
+                        </p>
+                        <h2 className={isLight ? 'mt-1 text-2xl font-semibold text-slate-950' : 'mt-1 text-2xl font-semibold text-white'}>
+                          {roomNumber}
+                        </h2>
+                        <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
+                          {room.source?.replace(/_/g, ' ') || 'hotel room'}
+                        </p>
+                      </div>
+                      <span className={isLight ? 'flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700' : 'flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-300/10 text-emerald-200'}>
+                        <QrCode className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                    </div>
                   </div>
-                  <span className={isLight ? 'flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700' : 'flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-300/10 text-emerald-200'}>
-                    <QrCode className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                </div>
-              </div>
 
-              <div className="p-4">
-                <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white p-3'}>
-                  {dataUrl ? (
-                    <img
-                      src={dataUrl}
-                      alt={t('qrRooms.qrAlt', { room })}
-                      className="aspect-square w-full rounded-md bg-white"
-                    />
-                  ) : (
-                    <div className="aspect-square w-full animate-pulse rounded-md bg-slate-200" />
-                  )}
-                </div>
+                  <div className="p-4">
+                    <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white p-3'}>
+                      {dataUrl ? (
+                        <img
+                          src={dataUrl}
+                          alt={t('qrRooms.qrAlt', { room: roomNumber })}
+                          className="aspect-square w-full rounded-md bg-white"
+                        />
+                      ) : (
+                        <div className="aspect-square w-full animate-pulse rounded-md bg-slate-200" />
+                      )}
+                    </div>
 
-                <div className={isLight ? 'mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600' : 'mt-4 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-400'}>
-                  <p className="truncate">{buildRoomMessage(room)}</p>
-                </div>
+                    <div className={isLight ? 'mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600' : 'mt-4 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-slate-400'}>
+                      <p className="line-clamp-2">{buildRoomMessage({ hotel, room: roomNumber })}</p>
+                    </div>
 
-                <div className="mt-4 grid gap-2">
-                  <ActionButton
-                    icon={Download}
-                    onClick={() => downloadQr(room)}
-                    disabled={!dataUrl}
-                  >
-                    {t('qrRooms.downloadQr')}
-                  </ActionButton>
-                  <ActionButton
-                    icon={copied ? Check : Copy}
-                    onClick={() => copyLink(room)}
-                    disabled={!roomLinks[room]}
-                  >
-                    {copied ? t('qrRooms.copied') : t('qrRooms.copyLink')}
-                  </ActionButton>
-                  <ActionButton icon={ExternalLink} href={roomLinks[room] || null} disabled={!roomLinks[room]}>
-                    {t('qrRooms.openWhatsapp')}
-                  </ActionButton>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+                    <div className="mt-4 grid gap-2">
+                      <ActionButton
+                        icon={Download}
+                        onClick={() => downloadQr(roomNumber)}
+                        disabled={!dataUrl}
+                      >
+                        {t('qrRooms.downloadQr')}
+                      </ActionButton>
+                      <ActionButton
+                        icon={copied ? Check : Copy}
+                        onClick={() => copyLink(roomNumber)}
+                        disabled={!roomLinks[roomNumber]}
+                      >
+                        {copied ? t('qrRooms.copied') : t('qrRooms.copyLink')}
+                      </ActionButton>
+                      <ActionButton icon={ExternalLink} href={roomLinks[roomNumber] || null} disabled={!roomLinks[roomNumber]}>
+                        {t('qrRooms.openWhatsapp')}
+                      </ActionButton>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 };
