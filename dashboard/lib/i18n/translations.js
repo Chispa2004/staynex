@@ -36,6 +36,7 @@ export const translations = {
       users: 'Usuarios',
       settings: 'Ajustes',
       knowledgeBase: 'Knowledge Base',
+      localKnowledge: 'Local Knowledge',
       demo: 'Demo'
     },
     sidebarGroups: {
@@ -90,6 +91,7 @@ export const translations = {
       inboxDescription: 'Conversaciones con huéspedes y respuestas del equipo por WhatsApp.',
       departmentDescription: 'Tickets operativos filtrados para este departamento.',
       knowledgeBase: 'Knowledge Base',
+      localKnowledge: 'Local Knowledge',
       knowledgeDescription: 'Edita la información del hotel que Staynex usa para responder preguntas sin crear tickets.',
       settings: 'Ajustes',
       settingsDescription: 'Configura información del hotel, WhatsApp, IA y reglas operativas.',
@@ -114,7 +116,9 @@ export const translations = {
       users: 'Usuarios del hotel',
       usersDescription: 'Gestiona accesos, roles y asignaciones de usuarios para este hotel.',
       qrRooms: 'QR Rooms',
-      qrRoomsDescription: 'Genera códigos QR por habitación para abrir WhatsApp con el contexto de habitación incluido.'
+      qrRoomsDescription: 'Genera códigos QR por habitación para abrir WhatsApp con el contexto de habitación incluido.',
+      localKnowledge: 'Local Knowledge Studio',
+      localKnowledgeDescription: 'Tarjetas locales simples para que la IA recomiende restaurantes, playas, planes y tips insider.'
     },
     inbox: {
       conversations: 'Conversaciones',
@@ -464,7 +468,9 @@ export const translations = {
       users: 'Hotel users',
       usersDescription: 'Manage user access, roles and hotel assignments.',
       qrRooms: 'QR Rooms',
-      qrRoomsDescription: 'Generate room QR codes that open WhatsApp with room context included.'
+      qrRoomsDescription: 'Generate room QR codes that open WhatsApp with room context included.',
+      localKnowledge: 'Local Knowledge Studio',
+      localKnowledgeDescription: 'Simple local cards so the AI can recommend restaurants, beaches, plans and insider tips.'
     },
     inbox: {
       conversations: 'Conversations',
@@ -735,6 +741,7 @@ export const translations = {
       users: 'Utilisateurs',
       settings: 'Paramètres',
       knowledgeBase: 'Base de connaissances',
+      localKnowledge: 'Local Knowledge',
       demo: 'Démo'
     },
     sidebarGroups: {
@@ -813,7 +820,9 @@ export const translations = {
       users: 'Utilisateurs hotel',
       usersDescription: 'Gerez les acces, roles et affectations des utilisateurs.',
       qrRooms: 'QR Rooms',
-      qrRoomsDescription: 'Generez des QR par chambre pour ouvrir WhatsApp avec le contexte de chambre.'
+      qrRoomsDescription: 'Generez des QR par chambre pour ouvrir WhatsApp avec le contexte de chambre.',
+      localKnowledge: 'Local Knowledge Studio',
+      localKnowledgeDescription: 'Cartes locales simples pour que l IA recommande restaurants, plages, activites et conseils insider.'
     },
     inbox: {
       conversations: 'Conversations',
@@ -1084,6 +1093,7 @@ export const translations = {
       users: 'Benutzer',
       settings: 'Einstellungen',
       knowledgeBase: 'Wissensdatenbank',
+      localKnowledge: 'Local Knowledge',
       demo: 'Demo'
     },
     sidebarGroups: {
@@ -1162,7 +1172,9 @@ export const translations = {
       users: 'Hotelbenutzer',
       usersDescription: 'Zugriff, Rollen und Hotelzuordnungen verwalten.',
       qrRooms: 'QR Rooms',
-      qrRoomsDescription: 'QR-Codes pro Zimmer erstellen, die WhatsApp mit Zimmerkontext oeffnen.'
+      qrRoomsDescription: 'QR-Codes pro Zimmer erstellen, die WhatsApp mit Zimmerkontext oeffnen.',
+      localKnowledge: 'Local Knowledge Studio',
+      localKnowledgeDescription: 'Einfache lokale Karten, damit die KI Restaurants, Strande, Plaene und Insider-Tipps empfiehlt.'
     },
     inbox: {
       conversations: 'Unterhaltungen',

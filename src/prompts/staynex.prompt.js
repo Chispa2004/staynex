@@ -36,6 +36,7 @@ KNOWLEDGE BASE Y RECOMENDACIONES:
 - Para preguntas informativas simples como desayuno, checkout, WiFi, parking, piscina o horarios, responde solo a esa pregunta. No anadas ofertas.
 - Revenue contextual solo debe sonar como ayuda de concierge: early check-in, late checkout, equipaje, transfer, familia, aniversario o VIP. Nunca uses lenguaje de promocion.
 - Experience Intelligence solo debe sonar como recomendacion local premium: actividades, restaurantes, beach clubs, excursiones, cultura, spa o planes de interior. Nunca suenes como marketplace o agencia turistica agresiva.
+- Local Knowledge contiene recomendaciones curadas por el staff del hotel. Priorizalas frente a conocimiento generico del destino y no inventes lugares si el hotel no los ha proporcionado.
 
 CREACION DE TICKETS:
 Crea ticket solo si hay una peticion operativa real, incidencia, reserva de servicio, queja o emergencia.
@@ -91,6 +92,7 @@ export const buildStaynexUserPrompt = ({
   const contextualRevenue = conversationContext.concierge?.contextualRevenue || {};
   const experienceIntelligence = conversationContext.concierge?.experienceIntelligence || {};
   const hotelExperiences = conversationContext.hotelExperiences || [];
+  const localKnowledge = conversationContext.localKnowledge || [];
   const guestMemory = conversationContext.guestMemory || [];
   const language = conversationContext.language || guest?.preferred_language || 'es';
   const hotelProfile = conversationContext.hotelProfile || hotel || {};
@@ -140,6 +142,11 @@ export const buildStaynexUserPrompt = ({
       `- ${experience.title}: ${experience.description}. Categoria: ${experience.category}. Precio: ${experience.price || 'No disponible'} EUR. Tags: ${(experience.tags || []).join(', ') || 'sin tags'}`
     )).join('\n')
     : 'No hay experiencias configuradas para este hotel.';
+  const localKnowledgeText = localKnowledge.length
+    ? localKnowledge.slice(0, 18).map((item) => (
+      `- ${item.title}: ${item.short_description || item.description}. Categoria: ${item.category}. Audiencia: ${(item.audience_tags || []).join(', ') || 'general'}. Contextos: ${(item.recommendation_contexts || []).join(', ') || 'general'}. Clima: ${(item.weather_tags || []).join(', ') || 'cualquiera'}. ${item.featured ? 'Destacado por el hotel.' : ''}`
+    )).join('\n')
+    : 'No hay Local Knowledge configurado para este hotel.';
   const guestMemoryText = formatGuestMemoryForPrompt(guestMemory);
 
   return `
@@ -168,6 +175,9 @@ ${reservationText}
 
 CONOCIMIENTO DEL HOTEL:
 ${knowledgeText}
+
+LOCAL KNOWLEDGE DEL DESTINO:
+${localKnowledgeText}
 
 EXPERIENCIAS DEL HOTEL:
 ${hotelExperiencesText}
@@ -206,8 +216,8 @@ INSTRUCCIONES:
 - Si REVENUE CONTEXTUAL indica timing bloqueado, no menciones esa oferta.
 - Si REVENUE CONTEXTUAL indica timing permitido, mencionalo solo como ayuda opcional y con una frase suave.
 - Si EXPERIENCE INTELLIGENCE indica timing bloqueado, no recomiendes experiencias.
-- Si el huesped pide recomendaciones, actividades, restaurantes, playas o planes locales, puedes sugerir experiencias de forma natural y breve.
-- Usa SOLO experiencias configuradas en EXPERIENCIAS DEL HOTEL o Knowledge Base del hotel actual. No inventes partners, precios ni disponibilidad.
+- Si el huesped pide recomendaciones, actividades, restaurantes, playas o planes locales, usa primero LOCAL KNOWLEDGE DEL DESTINO y despues EXPERIENCIAS DEL HOTEL si encaja.
+- Usa SOLO LOCAL KNOWLEDGE, EXPERIENCIAS DEL HOTEL o Knowledge Base del hotel actual. No inventes partners, precios ni disponibilidad.
 - No uses lenguaje como "compra", "oferta especial", "promocion limitada" o "reserva ya".
 `.trim();
 };

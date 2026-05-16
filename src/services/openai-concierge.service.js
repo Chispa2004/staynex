@@ -141,6 +141,7 @@ const buildPromptPayload = ({
   guest_memory: compactRows(conversationContext.guestMemory || [], ['memory_type', 'memory_key', 'memory_value', 'confidence']),
   open_tickets: compactRows(conversationContext.openTickets || [], ['category', 'priority', 'status', 'title']),
   hotel_knowledge: compactRows(hotelKnowledge, ['key', 'value', 'category', 'title']),
+  local_knowledge: compactRows(conversationContext.localKnowledge || [], ['title', 'short_description', 'description', 'category', 'tags', 'audience_tags', 'recommendation_contexts', 'weather_tags', 'featured', 'priority']),
   hotel_experiences: compactRows(conversationContext.hotelExperiences || [], ['title', 'description', 'category', 'tags', 'target_guest_types', 'price', 'partner_name']),
   conversation_state: {
     current_intent: conversationState.currentIntent || conversationState.current_intent || null,
@@ -164,6 +165,7 @@ If a guest changes topic, follow the latest relevant intent. Do not repeat an ol
 Do not mention romantic stays, spa, upgrades, transfers or other offers unless the current message clearly asks for that service or the response_guidance says the offer is not suppressed.
 If response_guidance.offer_suppressed is true, do not include that offer in suggested_response even if guest memory contains related signals.
 Use contextual_revenue only as a concierge moment: early arrival, late departure, family planning, honeymoon, VIP repeat guest. Suggest softly only if timing.allowed is true.
+Use local_knowledge as staff-curated destination intelligence. Prefer it over generic destination knowledge. Never invent places if the hotel has not provided them.
 Use experience_intelligence as local concierge context only: activities, restaurants, beach clubs, excursions, culture, bad-weather plans or local experiences. Suggest experiences naturally when the guest asks for recommendations or the moment is clearly relevant.
 Never sound like a marketplace or travel agency. Avoid phrases such as "buy", "special deal", "limited offer" or "book now".
 If the guest asks a simple informational question such as breakfast hours, checkout, WiFi, parking or location, answer only that question.

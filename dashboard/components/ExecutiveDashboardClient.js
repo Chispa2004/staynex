@@ -72,6 +72,7 @@ const quickActions = [
   { label: 'Create Reservation', href: '/dashboard/reservations', icon: CalendarPlus, tone: 'sky' },
   { label: 'PMS Connections', href: '/dashboard/settings/pms', icon: PlugZap, tone: 'emerald' },
   { label: 'View Upsells', href: '/dashboard/upsells', icon: Sparkles, tone: 'violet' },
+  { label: 'Local Knowledge', href: '/dashboard/local-knowledge', icon: BookOpen, tone: 'sky' },
   { label: 'Open Knowledge Base', href: '/dashboard/knowledge', icon: BookOpen, tone: 'amber' }
 ];
 
@@ -269,6 +270,7 @@ export const ExecutiveDashboardClient = () => {
           <RevenueUpsellsPanel revenue={data?.revenue || {}} />
           <ContextualRevenuePanel data={data?.contextualRevenue || {}} />
           <ExperienceOpportunitiesPanel data={data?.experienceIntelligence || {}} />
+          <LocalIntelligencePanel data={data?.localIntelligence || {}} />
           <OnboardingHealthCard onboardingHealth={data?.onboardingHealth || {}} />
           <PmsStatusCard pmsStatus={data?.pmsStatus || {}} />
           <QuickActions runScheduler={runScheduler} schedulerRunning={schedulerRunning} />
@@ -281,6 +283,56 @@ export const ExecutiveDashboardClient = () => {
       <VipGuestsPanel guests={data?.guestSignals || []} />
       <InsightsPanel insights={data?.insights || []} />
     </section>
+  );
+};
+
+const LocalIntelligencePanel = ({ data }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const topRecommendations = data.topRecommendations || [];
+
+  return (
+    <ExecutiveCard className="p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Local Intelligence</h2>
+          <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-400'}>Staff-curated local knowledge powering the AI concierge.</p>
+        </div>
+        <ExecutiveBadge tone={data.active > 0 ? 'emerald' : 'slate'}>{data.active || 0} active</ExecutiveBadge>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+          <p className="font-semibold">{data.total || 0}</p>
+          <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>Cards</p>
+        </div>
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+          <p className="font-semibold">{data.featured || 0}</p>
+          <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>Featured</p>
+        </div>
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+          <p className="font-semibold">{data.indoorReady || 0}</p>
+          <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>Rain ready</p>
+        </div>
+      </div>
+      <div className="mt-4 space-y-2">
+        {topRecommendations.length ? topRecommendations.slice(0, 4).map((item) => (
+          <Link
+            key={item.id}
+            href="/dashboard/local-knowledge"
+            className={isLight ? 'block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50' : 'block rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-sm hover:bg-white/[0.06]'}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="truncate font-semibold">{item.title}</span>
+              <span className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>{item.category}</span>
+            </div>
+          </Link>
+        )) : (
+          <Link href="/dashboard/local-knowledge" className={isLight ? 'block rounded-lg border border-dashed border-slate-300 px-3 py-3 text-sm text-slate-600 hover:bg-slate-50' : 'block rounded-lg border border-dashed border-white/15 px-3 py-3 text-sm text-slate-400 hover:bg-white/[0.04]'}>
+            Add local recommendations
+          </Link>
+        )}
+      </div>
+    </ExecutiveCard>
   );
 };
 

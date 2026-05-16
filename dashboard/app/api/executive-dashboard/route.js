@@ -79,14 +79,17 @@ const isMissingOptionalTable = (error) => (
   || error?.message?.includes('ai_offers')
   || error?.message?.includes('conversation_ai_state')
   || error?.message?.includes('hotel_onboarding_state')
+  || error?.message?.includes('local_knowledge_items')
   || error?.details?.includes('guest_ai_profiles')
   || error?.details?.includes('ai_offers')
   || error?.details?.includes('conversation_ai_state')
   || error?.details?.includes('hotel_onboarding_state')
+  || error?.details?.includes('local_knowledge_items')
   || error?.hint?.includes('guest_ai_profiles')
   || error?.hint?.includes('ai_offers')
   || error?.hint?.includes('conversation_ai_state')
   || error?.hint?.includes('hotel_onboarding_state')
+  || error?.hint?.includes('local_knowledge_items')
 );
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
@@ -326,7 +329,8 @@ export async function GET(request) {
       reservationsToday,
       activeGuestsRows,
       pmsConnections,
-      onboardingRows
+      onboardingRows,
+      localKnowledgeRows
     ] = await Promise.all([
       safeCount(withHotel(
         supabase.from('conversations').select('id', { count: 'exact', head: true }),
@@ -409,7 +413,11 @@ export async function GET(request) {
         ? safeRows(
           supabase.from('hotel_onboarding_state').select('*').eq('hotel_id', hotelId).limit(1)
         )
-        : []
+        : [],
+      safeRows(withHotel(
+        supabase.from('local_knowledge_items').select('id, title, category, featured, active, priority, tags, audience_tags, recommendation_contexts, weather_tags, updated_at'),
+        hotelId
+      ).order('featured', { ascending: false }).order('priority', { ascending: false }).limit(30))
     ]);
 
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
@@ -618,6 +626,23 @@ export async function GET(request) {
           fatigueScore: item.metadata?.fatigue_score ?? null,
           createdAt: item.created_at,
           updatedAt: item.updated_at
+        }))
+      },
+      localIntelligence: {
+        total: localKnowledgeRows.length,
+        active: localKnowledgeRows.filter((item) => item.active !== false).length,
+        featured: localKnowledgeRows.filter((item) => item.featured).length,
+        indoorReady: localKnowledgeRows.filter((item) => item.weather_tags?.includes('indoor') || item.weather_tags?.includes('rainy')).length,
+        byCategory: countBy(localKnowledgeRows, 'category'),
+        topRecommendations: localKnowledgeRows.slice(0, 6).map((item) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          featured: item.featured,
+          priority: item.priority,
+          tags: item.tags || [],
+          audienceTags: item.audience_tags || [],
+          contexts: item.recommendation_contexts || []
         }))
       },
       conversationIntelligence: {

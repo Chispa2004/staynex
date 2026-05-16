@@ -66,6 +66,10 @@ import {
   getHotelExperiences
 } from './hotel-experience.service.js';
 import {
+  getLocalKnowledgeForHotel,
+  getLocalKnowledgeForPrompt
+} from './local-knowledge.service.js';
+import {
   createExperienceBookingRequest,
   detectExperienceBookingIntent,
   getExperienceBookingConfirmationReply
@@ -192,8 +196,14 @@ export const processGuestMessage = async ({
     activeOnly: true,
     limit: 80
   });
+  const localKnowledgeItems = await getLocalKnowledgeForHotel({
+    hotelId: activeHotel.id,
+    activeOnly: true,
+    limit: 120
+  });
   const aiHotelKnowledge = [
     ...hotelKnowledge,
+    ...getLocalKnowledgeForPrompt(localKnowledgeItems),
     ...getExperienceKnowledgeForPrompt(hotelExperiences)
   ];
   const upsellOpportunities = detectUpsellOpportunities({
@@ -296,6 +306,7 @@ export const processGuestMessage = async ({
 
   conversationContext.upsellOpportunities = upsellOpportunities;
   conversationContext.hotelExperiences = hotelExperiences;
+  conversationContext.localKnowledge = localKnowledgeItems;
   conversationContext.responseGuidance = responseGuidance;
   conversationContext.concierge = {
     intent: primaryConciergeIntent,

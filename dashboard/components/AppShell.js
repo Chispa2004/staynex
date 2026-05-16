@@ -16,6 +16,7 @@ import {
   Compass,
   Inbox,
   BookOpen,
+  Map,
   LayoutDashboard,
   LogOut,
   PlugZap,
@@ -94,6 +95,7 @@ const navigationGroups = [
       { href: '/dashboard/settings/pms', labelKey: 'sidebar.pmsConnections', icon: PlugZap },
       { href: '/dashboard/settings/users', labelKey: 'sidebar.users', icon: UserCog },
       { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
+      { href: '/dashboard/local-knowledge', labelKey: 'sidebar.localKnowledge', icon: Map },
       { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
       { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }
     ]
