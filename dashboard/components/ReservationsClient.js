@@ -662,7 +662,7 @@ export const ReservationsClient = () => {
   const [currentRole, setCurrentRole] = useState('receptionist');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const loadRequestIdRef = useRef(0);
   const activeHotelIdRef = useRef(null);
 
@@ -969,7 +969,7 @@ export const ReservationsClient = () => {
                               : 'hover:bg-white/[0.035]'
                         ].join(' ')}
                       >
-                        <td className={isLight ? 'sticky left-0 z-10 bg-inherit px-4 py-4 text-sm font-semibold text-slate-900 shadow-[8px_0_16px_-14px_rgba(15,23,42,0.45)]' : 'sticky left-0 z-10 bg-inherit px-4 py-4 text-sm font-semibold text-slate-100 shadow-[8px_0_16px_-14px_rgba(0,0,0,0.9)]'}>
+                        <td className={isLight ? 'sticky left-0 z-10 bg-inherit px-4 py-3 text-sm font-semibold text-slate-900 shadow-[8px_0_16px_-14px_rgba(15,23,42,0.45)]' : 'sticky left-0 z-10 bg-inherit px-4 py-3 text-sm font-semibold text-slate-100 shadow-[8px_0_16px_-14px_rgba(0,0,0,0.9)]'}>
                           {reservation.guest_name || t('reservations.unknownGuest')}
                           <p className={isLight ? 'mt-1 text-xs font-normal text-slate-500' : 'mt-1 text-xs font-normal text-slate-500'}>
                             {reservation.pms_reservation_id}
@@ -980,33 +980,33 @@ export const ReservationsClient = () => {
                             </span>
                           ) : null}
                         </td>
-                        <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.guest_email || '-'}</td>
-                        <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.guest_phone || '-'}</td>
-                        <td className={isLight ? 'whitespace-nowrap px-4 py-4 text-sm text-slate-700' : 'whitespace-nowrap px-4 py-4 text-sm text-slate-300'}>{formatDate(reservation.arrival_date)}</td>
-                        <td className={isLight ? 'whitespace-nowrap px-4 py-4 text-sm text-slate-700' : 'whitespace-nowrap px-4 py-4 text-sm text-slate-300'}>{formatDate(reservation.departure_date)}</td>
-                        <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.room_type || '-'}</td>
-                        <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.rate_plan || '-'}</td>
-                        <td className={isLight ? 'px-4 py-4 text-sm text-slate-600' : 'px-4 py-4 text-sm text-slate-400'}>{reservation.board_basis || '-'}</td>
-                        <td className="px-4 py-4">
+                        <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{reservation.guest_email || '-'}</td>
+                        <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{reservation.guest_phone || '-'}</td>
+                        <td className={isLight ? 'whitespace-nowrap px-4 py-3 text-sm text-slate-700' : 'whitespace-nowrap px-4 py-3 text-sm text-slate-300'}>{formatDate(reservation.arrival_date)}</td>
+                        <td className={isLight ? 'whitespace-nowrap px-4 py-3 text-sm text-slate-700' : 'whitespace-nowrap px-4 py-3 text-sm text-slate-300'}>{formatDate(reservation.departure_date)}</td>
+                        <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{reservation.room_type || '-'}</td>
+                        <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{reservation.rate_plan || '-'}</td>
+                        <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{reservation.board_basis || '-'}</td>
+                        <td className="px-4 py-3">
                           <Badge tone={isPreStayTestReservation(reservation) ? 'amber' : 'slate'}>
                             {reservation.source || reservation.pms_provider || 'pms'}
                           </Badge>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <Badge tone={statusTone(stayStatus)}>{t(`reservations.status.${stayStatus}`)}</Badge>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <Badge tone={statusTone(journeyStatus)}>{t(`reservations.journey.${journeyStatus}`)}</Badge>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <Badge tone={reservation.conversationId ? 'emerald' : 'slate'}>
                             {reservation.conversationId ? t('reservations.linked') : t('reservations.notLinked')}
                           </Badge>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <Badge>{reservation.pms_provider || 'mock'}</Badge>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           {reservation.reservation_access_token ? (
                             <div className="flex items-center gap-2">
                               <Badge tone="amber">{reservation.reservation_access_token}</Badge>
@@ -1053,7 +1053,7 @@ export const ReservationsClient = () => {
                             )
                           )}
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           {reservation.whatsapp_link ? (
                             <div className="flex flex-wrap gap-2">
                               <button
@@ -1128,7 +1128,7 @@ export const ReservationsClient = () => {
                             <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-600'}>-</span>
                           )}
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <Badge tone="sky">{buildAutomationPreview(reservation).length}</Badge>
                         </td>
                       </tr>

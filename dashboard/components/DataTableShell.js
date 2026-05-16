@@ -10,8 +10,8 @@ export const DataTableShell = ({
   minWidth = 1120,
   totalItems = 0,
   page = 1,
-  pageSize = 25,
-  pageSizeOptions = [25, 50, 100],
+  pageSize = 10,
+  pageSizeOptions = [10, 25, 50, 100],
   onPageChange,
   onPageSizeChange,
   className = ''
