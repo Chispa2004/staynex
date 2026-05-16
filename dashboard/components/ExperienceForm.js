@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, Save, X } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { ExperienceCategoryBadge } from './ExperienceCategoryBadge';
 import { EXPERIENCE_CATEGORIES } from './ExperienceFilters';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -43,6 +44,13 @@ export const ExperienceForm = ({
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const inputClass = ui.input(isLight);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const clientRequestIdRef = useRef(
+    experience?.id
+      ? null
+      : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  );
   const form = {
     ...emptyExperience,
     ...(experience || {})
@@ -50,35 +58,52 @@ export const ExperienceForm = ({
 
   const updateAndSubmit = async (event) => {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const imageFile = data.get('image_file');
-    const uploadedImageUrl = imageFile?.size && onUploadImage
-      ? await onUploadImage(imageFile)
-      : null;
-    const payload = {
-      ...form,
-      title: data.get('title'),
-      slug: data.get('slug'),
-      description: data.get('description'),
-      category: data.get('category'),
-      tags: fromCsv(data.get('tags')),
-      target_guest_types: fromCsv(data.get('target_guest_types')),
-      price: data.get('price'),
-      commission_percentage: data.get('commission_percentage'),
-      partner_name: data.get('partner_name'),
-      partner_contact: data.get('partner_contact'),
-      booking_url: data.get('booking_url'),
-      image_url: uploadedImageUrl || data.get('image_url'),
-      priority: data.get('priority'),
-      active: data.get('active') === 'on',
-      vip_only: data.get('vip_only') === 'on',
-      indoor: data.get('indoor') === 'on',
-      weather_dependent: data.get('weather_dependent') === 'on',
-      language: data.get('language') || 'en'
-    };
 
-    onSubmit(payload);
+    if (submittingRef.current || saving) {
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+
+    try {
+      const data = new FormData(event.currentTarget);
+      const imageFile = data.get('image_file');
+      const uploadedImageUrl = imageFile?.size && onUploadImage
+        ? await onUploadImage(imageFile)
+        : null;
+      const payload = {
+        ...form,
+        title: data.get('title'),
+        slug: data.get('slug'),
+        description: data.get('description'),
+        category: data.get('category'),
+        tags: fromCsv(data.get('tags')),
+        target_guest_types: fromCsv(data.get('target_guest_types')),
+        price: data.get('price'),
+        commission_percentage: data.get('commission_percentage'),
+        partner_name: data.get('partner_name'),
+        partner_contact: data.get('partner_contact'),
+        booking_url: data.get('booking_url'),
+        image_url: uploadedImageUrl || data.get('image_url'),
+        priority: data.get('priority'),
+        active: data.get('active') === 'on',
+        vip_only: data.get('vip_only') === 'on',
+        indoor: data.get('indoor') === 'on',
+        weather_dependent: data.get('weather_dependent') === 'on',
+        language: data.get('language') || 'en',
+        client_request_id: clientRequestIdRef.current
+      };
+
+      await onSubmit(payload);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
+
+  const isBusy = saving || submitting;
+  const busyLabel = experience?.id ? 'Saving...' : 'Creating...';
 
   return (
     <form onSubmit={updateAndSubmit} className={`rounded-xl border p-5 ${ui.surface(isLight)}`}>
@@ -151,14 +176,14 @@ export const ExperienceForm = ({
 
       <div className="mt-5 flex flex-wrap justify-end gap-2">
         {onCancel ? (
-          <button type="button" onClick={onCancel} className={ui.button(isLight, 'ghost')}>
+          <button type="button" onClick={onCancel} disabled={isBusy} className={ui.button(isLight, 'ghost')}>
             <X className="h-4 w-4" />
             Cancel
           </button>
         ) : null}
-        <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save experience
+        <button type="submit" disabled={isBusy} className={ui.button(isLight, 'primary')}>
+          {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {isBusy ? busyLabel : 'Save experience'}
         </button>
       </div>
     </form>

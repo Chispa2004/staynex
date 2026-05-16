@@ -67,6 +67,12 @@ export const validateExperiencePayload = (payload = {}) => {
   const title = payload.title?.trim();
   const description = payload.description?.trim();
   const category = payload.category?.trim();
+  const clientRequestId = String(
+    payload.client_request_id
+    || payload.clientRequestId
+    || payload.metadata?.client_request_id
+    || ''
+  ).trim().slice(0, 120);
 
   if (!title || !description || !category) {
     throw new Error('title, description and category are required');
@@ -99,6 +105,7 @@ export const validateExperiencePayload = (payload = {}) => {
     language: payload.language?.trim() || 'en',
     metadata: {
       ...(payload.metadata || {}),
+      ...(clientRequestId ? { client_request_id: clientRequestId } : {}),
       managed_from_dashboard: true,
       future_integrations: ['google_places', 'tripadvisor', 'viator', 'weather_api', 'events_api']
     },
@@ -164,9 +171,26 @@ export const getExperienceEntries = async (request) => {
 
 export const createExperienceEntry = async (request, payload) => {
   const { supabase, hotel, role, user, platformRole } = await getExperienceContext(request, 'experiences_manage');
+  const validatedPayload = validateExperiencePayload(payload);
+  const clientRequestId = validatedPayload.metadata?.client_request_id;
+
+  if (clientRequestId) {
+    const { data: existing, error: existingError } = await supabase
+      .from('hotel_experiences')
+      .select('*')
+      .eq('hotel_id', hotel.id)
+      .eq('metadata->>client_request_id', clientRequestId)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+    if (existing) {
+      return normalizeExperience(existing);
+    }
+  }
+
   const record = {
     hotel_id: hotel.id,
-    ...validateExperiencePayload(payload)
+    ...validatedPayload
   };
   const { data, error } = await supabase
     .from('hotel_experiences')

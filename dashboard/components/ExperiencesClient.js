@@ -61,6 +61,7 @@ export const ExperiencesClient = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const requestRef = useRef(0);
+  const saveInFlightRef = useRef(false);
 
   const canManage = canAccess(role, 'experiences_manage');
 
@@ -140,6 +141,11 @@ export const ExperiencesClient = () => {
   }), [experiences]);
 
   const saveExperience = async (payload, id = null) => {
+    if (saveInFlightRef.current) {
+      return;
+    }
+
+    saveInFlightRef.current = true;
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -162,7 +168,10 @@ export const ExperiencesClient = () => {
       setExperiences((current) => {
         const next = id
           ? current.map((item) => (item.id === id ? body.experience : item))
-          : [body.experience, ...current];
+          : [
+            body.experience,
+            ...current.filter((item) => item.id !== body.experience.id)
+          ];
         return next.sort((a, b) => Number(b.priority || 0) - Number(a.priority || 0));
       });
       setEditing(null);
@@ -171,6 +180,7 @@ export const ExperiencesClient = () => {
     } catch (caughtError) {
       setError(caughtError.message);
     } finally {
+      saveInFlightRef.current = false;
       setSaving(false);
     }
   };
