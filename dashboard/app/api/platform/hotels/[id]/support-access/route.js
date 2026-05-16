@@ -11,7 +11,7 @@ export async function POST(request, { params }) {
       supabase,
       actor: user,
       platformRole,
-      action: 'support_access_started',
+      action: 'support_session_started',
       hotelId: id,
       metadata: {
         readonly: true,

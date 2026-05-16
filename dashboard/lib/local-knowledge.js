@@ -1,4 +1,5 @@
 import { getCurrentHotelForRequest } from './current-hotel';
+import { writeEnterpriseAuditLog } from './enterprise-audit';
 import { canAccess } from './permissions';
 import { LOCAL_KNOWLEDGE_CATEGORIES } from './local-knowledge-constants';
 
@@ -42,7 +43,7 @@ const normalizeItem = (item) => ({
 });
 
 const getLocalKnowledgeContext = async (request, permission = 'local_knowledge') => {
-  const { supabase, hotel, role, fallback } = await getCurrentHotelForRequest(request);
+  const { supabase, hotel, role, fallback, user, platformRole } = await getCurrentHotelForRequest(request);
 
   if (!hotel?.id) {
     const error = new Error('No hotel available for local knowledge');
@@ -56,7 +57,13 @@ const getLocalKnowledgeContext = async (request, permission = 'local_knowledge')
     throw error;
   }
 
-  return { supabase, hotel, role, fallback };
+  if (platformRole === 'support' && permission.endsWith('_manage')) {
+    const error = new Error('Support sessions are read-only by default');
+    error.status = 403;
+    throw error;
+  }
+
+  return { supabase, hotel, role, fallback, user, platformRole };
 };
 
 export const validateLocalKnowledgePayload = (payload = {}) => {
@@ -135,7 +142,7 @@ export const getLocalKnowledgeItems = async (request) => {
 };
 
 export const createLocalKnowledgeItem = async (request, payload) => {
-  const { supabase, hotel } = await getLocalKnowledgeContext(request, 'local_knowledge_manage');
+  const { supabase, hotel, role, user, platformRole } = await getLocalKnowledgeContext(request, 'local_knowledge_manage');
   const record = {
     hotel_id: hotel.id,
     ...validateLocalKnowledgePayload(payload)
@@ -148,11 +155,32 @@ export const createLocalKnowledgeItem = async (request, payload) => {
 
   if (error) throw error;
 
+  await writeEnterpriseAuditLog({
+    supabase,
+    request,
+    actor: user,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId: hotel.id,
+    action: 'local_knowledge_created',
+    entityType: 'local_knowledge_item',
+    entityId: data.id,
+    newValues: data,
+    metadata: { source: 'local_knowledge_studio' }
+  });
+
   return normalizeItem(data);
 };
 
 export const updateLocalKnowledgeItem = async (request, id, payload) => {
-  const { supabase, hotel } = await getLocalKnowledgeContext(request, 'local_knowledge_manage');
+  const { supabase, hotel, role, user, platformRole } = await getLocalKnowledgeContext(request, 'local_knowledge_manage');
+  const { data: existing } = await supabase
+    .from('local_knowledge_items')
+    .select('*')
+    .eq('hotel_id', hotel.id)
+    .eq('id', id)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from('local_knowledge_items')
     .update(validateLocalKnowledgePayload(payload))
@@ -163,11 +191,33 @@ export const updateLocalKnowledgeItem = async (request, id, payload) => {
 
   if (error) throw error;
 
+  await writeEnterpriseAuditLog({
+    supabase,
+    request,
+    actor: user,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId: hotel.id,
+    action: 'local_knowledge_updated',
+    entityType: 'local_knowledge_item',
+    entityId: data.id,
+    oldValues: existing || {},
+    newValues: data,
+    metadata: { source: 'local_knowledge_studio' }
+  });
+
   return normalizeItem(data);
 };
 
 export const deleteLocalKnowledgeItem = async (request, id) => {
-  const { supabase, hotel } = await getLocalKnowledgeContext(request, 'local_knowledge_manage');
+  const { supabase, hotel, role, user, platformRole } = await getLocalKnowledgeContext(request, 'local_knowledge_manage');
+  const { data: existing } = await supabase
+    .from('local_knowledge_items')
+    .select('*')
+    .eq('hotel_id', hotel.id)
+    .eq('id', id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('local_knowledge_items')
     .delete()
@@ -175,6 +225,20 @@ export const deleteLocalKnowledgeItem = async (request, id) => {
     .eq('id', id);
 
   if (error) throw error;
+
+  await writeEnterpriseAuditLog({
+    supabase,
+    request,
+    actor: user,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId: hotel.id,
+    action: 'local_knowledge_deleted',
+    entityType: 'local_knowledge_item',
+    entityId: id,
+    oldValues: existing || {},
+    metadata: { source: 'local_knowledge_studio' }
+  });
 
   return { id };
 };

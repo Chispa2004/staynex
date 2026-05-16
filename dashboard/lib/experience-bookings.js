@@ -1,4 +1,5 @@
 import { getCurrentHotelForRequest } from './current-hotel';
+import { writeEnterpriseAuditLog } from './enterprise-audit';
 import { canAccess } from './permissions';
 
 const isMissingBookingsTable = (error) => (
@@ -17,7 +18,7 @@ const normalizeBooking = (booking) => ({
 });
 
 const getExperienceBookingContext = async (request, permission = 'experience_bookings') => {
-  const { supabase, hotel, role, user } = await getCurrentHotelForRequest(request);
+  const { supabase, hotel, role, user, platformRole } = await getCurrentHotelForRequest(request);
 
   if (!hotel?.id) {
     const error = new Error('No hotel available for experience bookings');
@@ -31,7 +32,13 @@ const getExperienceBookingContext = async (request, permission = 'experience_boo
     throw error;
   }
 
-  return { supabase, hotel, role, user };
+  if (platformRole === 'support' && permission.endsWith('_manage')) {
+    const error = new Error('Support sessions are read-only by default');
+    error.status = 403;
+    throw error;
+  }
+
+  return { supabase, hotel, role, user, platformRole };
 };
 
 export const getExperienceBookings = async (request) => {
@@ -64,7 +71,7 @@ export const getExperienceBookings = async (request) => {
 };
 
 export const updateExperienceBooking = async (request, payload = {}) => {
-  const { supabase, hotel, role, user } = await getExperienceBookingContext(request, 'experience_bookings_manage');
+  const { supabase, hotel, role, user, platformRole } = await getExperienceBookingContext(request, 'experience_bookings_manage');
   const id = payload.id;
 
   if (!id) {
@@ -98,6 +105,13 @@ export const updateExperienceBooking = async (request, payload = {}) => {
     updates.assigned_to_user = payload.assigned_to_user || null;
   }
 
+  const { data: existing } = await supabase
+    .from('experience_booking_requests')
+    .select('*')
+    .eq('hotel_id', hotel.id)
+    .eq('id', id)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from('experience_booking_requests')
     .update(updates)
@@ -112,6 +126,27 @@ export const updateExperienceBooking = async (request, payload = {}) => {
 
   await syncRevenueForBooking({ supabase, booking: data }).catch((syncError) => {
     console.warn('Experience booking revenue sync failed', syncError.message);
+  });
+
+  const statusAction = data.status === 'confirmed'
+    ? 'experience_booking_confirmed'
+    : data.status === 'rejected'
+      ? 'experience_booking_rejected'
+      : 'experience_booking_updated';
+
+  await writeEnterpriseAuditLog({
+    supabase,
+    request,
+    actor: user,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId: hotel.id,
+    action: statusAction,
+    entityType: 'experience_booking_request',
+    entityId: data.id,
+    oldValues: existing || {},
+    newValues: data,
+    metadata: { source: 'dashboard_experience_bookings' }
   });
 
   return normalizeBooking(data);

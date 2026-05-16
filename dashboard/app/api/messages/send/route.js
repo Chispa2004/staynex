@@ -10,10 +10,14 @@ const getBackendUrl = () => (
 
 export async function POST(request) {
   try {
-    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'inbox')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    if (platformRole === 'support') {
+      return NextResponse.json({ error: 'Support sessions are read-only by default' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -43,7 +47,11 @@ export async function POST(request) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify({
+        conversationId,
+        message: body.message,
+        hotelId: hotel.id
+      })
     });
 
     const payload = await response.json();

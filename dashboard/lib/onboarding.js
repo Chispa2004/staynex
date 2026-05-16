@@ -74,7 +74,7 @@ export const getOrCreateOnboardingState = async ({ supabase, hotelId }) => {
 };
 
 export const getOnboardingContext = async (request) => {
-  const { supabase, hotel, role, fallback } = await getCurrentHotelForRequest(request);
+  const { supabase, hotel, role, fallback, user, platformRole } = await getCurrentHotelForRequest(request);
 
   if (!hotel?.id) {
     throw new Error('Hotel is required for onboarding');
@@ -91,6 +91,8 @@ export const getOnboardingContext = async (request) => {
       hotel,
       role,
       fallback,
+      user,
+      platformRole,
       state,
       schemaReady: true
     };
@@ -101,6 +103,8 @@ export const getOnboardingContext = async (request) => {
         hotel,
         role,
         fallback,
+        user,
+        platformRole,
         state: {
           hotel_id: hotel.id,
           current_step: ONBOARDING_STEPS[0],

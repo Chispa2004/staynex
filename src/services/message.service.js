@@ -6,7 +6,7 @@ import {
 import { sendWhatsAppMessage } from './twilio.service.js';
 import { logger } from '../utils/logger.js';
 
-export const sendStaffMessage = async ({ conversationId, message }) => {
+export const sendStaffMessage = async ({ conversationId, message, hotelId = null }) => {
   if (!conversationId) {
     throw new Error('conversationId is required');
   }
@@ -19,6 +19,12 @@ export const sendStaffMessage = async ({ conversationId, message }) => {
 
   if (!conversation) {
     const error = new Error('Conversation not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (hotelId && conversation.hotel_id !== hotelId) {
+    const error = new Error('Conversation not found in active workspace');
     error.statusCode = 404;
     throw error;
   }

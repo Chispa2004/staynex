@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 
 const jsonError = (message, status = 500) => NextResponse.json({
   hotel: null,
@@ -90,6 +91,23 @@ export async function POST(request) {
       path: '/',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 365
+    });
+
+    await writeEnterpriseAuditLog({
+      supabase: context.supabase,
+      request,
+      actor: context.user,
+      actorRole: context.role,
+      actorPlatformRole: context.platformRole,
+      hotelId,
+      action: 'workspace_switch',
+      entityType: 'hotel',
+      entityId: hotelId,
+      newValues: context.hotel || {},
+      metadata: {
+        source: 'current_hotel_api',
+        can_switch_workspaces: Boolean(context.canSwitchWorkspaces)
+      }
     });
 
     return response;

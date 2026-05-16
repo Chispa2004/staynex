@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 import { PMS_PROVIDERS, getProviderWebhookUrl, redactConnection, saveConnection } from '@/lib/pms-connections';
 import { canAccess } from '@/lib/permissions';
 
@@ -11,7 +12,7 @@ const jsonError = (message, status = 500, extra = {}) => NextResponse.json({
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole, user } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections')) {
       return jsonError('Access denied', 403);
@@ -50,11 +51,28 @@ export async function POST(request) {
     if (!canAccess(role, 'pms_connections_manage')) {
       return jsonError('Access denied', 403);
     }
+    if (platformRole === 'support') {
+      return jsonError('Support sessions are read-only by default', 403);
+    }
     const payload = await request.json();
     const connection = await saveConnection({
       supabase,
       hotelId: hotel.id,
       payload
+    });
+
+    await writeEnterpriseAuditLog({
+      supabase,
+      request,
+      actor: user,
+      actorRole: role,
+      actorPlatformRole: platformRole,
+      hotelId: hotel.id,
+      action: 'pms_settings_changed',
+      entityType: 'hotel_pms_connection',
+      entityId: connection.id,
+      newValues: connection,
+      metadata: { provider: connection.provider, source: 'dashboard_pms_connections' }
     });
 
     return NextResponse.json({
@@ -74,10 +92,13 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
-    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole, user } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections_manage')) {
       return jsonError('Access denied', 403);
+    }
+    if (platformRole === 'support') {
+      return jsonError('Support sessions are read-only by default', 403);
     }
     const { searchParams } = new URL(request.url);
     const connectionId = searchParams.get('id');
@@ -85,6 +106,13 @@ export async function DELETE(request) {
     if (!connectionId) {
       return jsonError('Connection id is required', 400);
     }
+
+    const { data: existing } = await supabase
+      .from('hotel_pms_connections')
+      .select('*')
+      .eq('hotel_id', hotel.id)
+      .eq('id', connectionId)
+      .maybeSingle();
 
     const { error } = await supabase
       .from('hotel_pms_connections')
@@ -95,6 +123,20 @@ export async function DELETE(request) {
     if (error) {
       throw error;
     }
+
+    await writeEnterpriseAuditLog({
+      supabase,
+      request,
+      actor: user,
+      actorRole: role,
+      actorPlatformRole: platformRole,
+      hotelId: hotel.id,
+      action: 'pms_settings_changed',
+      entityType: 'hotel_pms_connection',
+      entityId: connectionId,
+      oldValues: existing ? redactConnection(existing) : {},
+      metadata: { source: 'dashboard_pms_connections', operation: 'delete' }
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

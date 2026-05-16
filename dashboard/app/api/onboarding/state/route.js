@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 import { getOnboardingContext, ONBOARDING_STEPS, updateOnboardingState } from '@/lib/onboarding';
 
 const jsonError = (message, status = 500) => NextResponse.json({
@@ -31,10 +32,14 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    const { supabase, hotel, schemaReady } = await getOnboardingContext(request);
+    const { supabase, hotel, role, user, platformRole, schemaReady, state: previousState } = await getOnboardingContext(request);
 
     if (!schemaReady) {
       return jsonError('Run supabase/sql/create_hotel_onboarding.sql before saving onboarding state', 400);
+    }
+
+    if (platformRole === 'support') {
+      return jsonError('Support sessions are read-only by default', 403);
     }
 
     const body = await request.json().catch(() => ({}));
@@ -45,6 +50,23 @@ export async function PATCH(request) {
       completedSteps: body.completed_steps || body.completedSteps || [],
       completed: body.onboarding_completed ?? body.completed ?? false
     });
+
+    if (state.onboarding_completed && !previousState?.onboarding_completed) {
+      await writeEnterpriseAuditLog({
+        supabase,
+        request,
+        actor: user,
+        actorRole: role,
+        actorPlatformRole: platformRole,
+        hotelId: hotel.id,
+        action: 'onboarding_completed',
+        entityType: 'hotel_onboarding_state',
+        entityId: state.id,
+        oldValues: previousState || {},
+        newValues: state,
+        metadata: { source: 'dashboard_onboarding' }
+      });
+    }
 
     return NextResponse.json({
       ok: true,

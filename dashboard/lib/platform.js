@@ -1,4 +1,5 @@
 import { getCurrentHotelForRequest } from './current-hotel';
+import { writeEnterpriseAuditLog } from './enterprise-audit';
 import { canAccessPlatform } from './permissions';
 
 export const PLAN_LABELS = {
@@ -89,6 +90,7 @@ export const writePlatformAuditLog = async ({
   supabase,
   actor,
   platformRole,
+  role = null,
   action,
   hotelId = null,
   targetUserId = null,
@@ -111,6 +113,21 @@ export const writePlatformAuditLog = async ({
       console.warn('Platform audit log write failed', error.message);
     }
   }
+
+  await writeEnterpriseAuditLog({
+    supabase,
+    actor,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId,
+    action,
+    entityType: 'platform_event',
+    metadata: {
+      ...metadata,
+      target_user_id: targetUserId,
+      target_email: targetEmail
+    }
+  });
 };
 
 const byHotel = (rows, key = 'hotel_id') => rows.reduce((acc, row) => {

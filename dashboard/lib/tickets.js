@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from './supabase';
+import { writeEnterpriseAuditLog } from './enterprise-audit';
 
 const TICKET_SELECT = 'id, hotel_id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id, guest_id';
 
@@ -75,12 +76,27 @@ export const getTicketDetail = async (ticketId, { supabase = getSupabaseAdmin(),
   };
 };
 
-export const updateTicketStatus = async ({ ticketId, status, supabase = getSupabaseAdmin(), hotelId = null }) => {
+export const updateTicketStatus = async ({
+  ticketId,
+  status,
+  supabase = getSupabaseAdmin(),
+  hotelId = null,
+  actor = null,
+  role = null,
+  platformRole = 'none',
+  request = null
+}) => {
   if (!hotelId) {
     throw new Error('hotelId is required');
   }
 
   const completedAt = status === 'completed' ? new Date().toISOString() : null;
+  const { data: existing } = await supabase
+    .from('tickets')
+    .select(TICKET_SELECT)
+    .eq('id', ticketId)
+    .eq('hotel_id', hotelId)
+    .maybeSingle();
 
   const { data, error } = await supabase
     .from('tickets')
@@ -96,6 +112,21 @@ export const updateTicketStatus = async ({ ticketId, status, supabase = getSupab
   if (error) {
     throw error;
   }
+
+  await writeEnterpriseAuditLog({
+    supabase,
+    request,
+    actor,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId,
+    action: 'ticket_updated',
+    entityType: 'ticket',
+    entityId: data.id,
+    oldValues: existing || {},
+    newValues: data,
+    metadata: { source: 'dashboard_ticket_status' }
+  });
 
   return data;
 };

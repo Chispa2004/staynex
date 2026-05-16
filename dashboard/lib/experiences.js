@@ -1,4 +1,5 @@
 import { getCurrentHotelForRequest } from './current-hotel';
+import { writeEnterpriseAuditLog } from './enterprise-audit';
 import { canAccess } from './permissions';
 
 const normalizeArray = (value) => {
@@ -106,7 +107,7 @@ export const validateExperiencePayload = (payload = {}) => {
 };
 
 const getExperienceContext = async (request, permission = 'experiences') => {
-  const { supabase, hotel, role, fallback } = await getCurrentHotelForRequest(request);
+  const { supabase, hotel, role, fallback, user, platformRole } = await getCurrentHotelForRequest(request);
 
   if (!hotel?.id) {
     throw new Error('No hotel available for experiences');
@@ -118,7 +119,13 @@ const getExperienceContext = async (request, permission = 'experiences') => {
     throw error;
   }
 
-  return { supabase, hotel, role, fallback };
+  if (platformRole === 'support' && permission.endsWith('_manage')) {
+    const error = new Error('Support sessions are read-only by default');
+    error.status = 403;
+    throw error;
+  }
+
+  return { supabase, hotel, role, fallback, user, platformRole };
 };
 
 export const getExperienceEntries = async (request) => {
@@ -154,7 +161,7 @@ export const getExperienceEntries = async (request) => {
 };
 
 export const createExperienceEntry = async (request, payload) => {
-  const { supabase, hotel } = await getExperienceContext(request, 'experiences_manage');
+  const { supabase, hotel, role, user, platformRole } = await getExperienceContext(request, 'experiences_manage');
   const record = {
     hotel_id: hotel.id,
     ...validateExperiencePayload(payload)
@@ -167,11 +174,32 @@ export const createExperienceEntry = async (request, payload) => {
 
   if (error) throw error;
 
+  await writeEnterpriseAuditLog({
+    supabase,
+    request,
+    actor: user,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId: hotel.id,
+    action: 'experience_created',
+    entityType: 'hotel_experience',
+    entityId: data.id,
+    newValues: data,
+    metadata: { source: 'dashboard_experiences' }
+  });
+
   return normalizeExperience(data);
 };
 
 export const updateExperienceEntry = async (request, id, payload) => {
-  const { supabase, hotel } = await getExperienceContext(request, 'experiences_manage');
+  const { supabase, hotel, role, user, platformRole } = await getExperienceContext(request, 'experiences_manage');
+  const { data: existing } = await supabase
+    .from('hotel_experiences')
+    .select('*')
+    .eq('hotel_id', hotel.id)
+    .eq('id', id)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from('hotel_experiences')
     .update(validateExperiencePayload(payload))
@@ -182,11 +210,33 @@ export const updateExperienceEntry = async (request, id, payload) => {
 
   if (error) throw error;
 
+  await writeEnterpriseAuditLog({
+    supabase,
+    request,
+    actor: user,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId: hotel.id,
+    action: 'experience_updated',
+    entityType: 'hotel_experience',
+    entityId: data.id,
+    oldValues: existing || {},
+    newValues: data,
+    metadata: { source: 'dashboard_experiences' }
+  });
+
   return normalizeExperience(data);
 };
 
 export const deleteExperienceEntry = async (request, id) => {
-  const { supabase, hotel } = await getExperienceContext(request, 'experiences_manage');
+  const { supabase, hotel, role, user, platformRole } = await getExperienceContext(request, 'experiences_manage');
+  const { data: existing } = await supabase
+    .from('hotel_experiences')
+    .select('*')
+    .eq('hotel_id', hotel.id)
+    .eq('id', id)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('hotel_experiences')
     .delete()
@@ -194,6 +244,20 @@ export const deleteExperienceEntry = async (request, id) => {
     .eq('id', id);
 
   if (error) throw error;
+
+  await writeEnterpriseAuditLog({
+    supabase,
+    request,
+    actor: user,
+    actorRole: role,
+    actorPlatformRole: platformRole,
+    hotelId: hotel.id,
+    action: 'experience_deleted',
+    entityType: 'hotel_experience',
+    entityId: id,
+    oldValues: existing || {},
+    metadata: { source: 'dashboard_experiences' }
+  });
 
   return { id };
 };

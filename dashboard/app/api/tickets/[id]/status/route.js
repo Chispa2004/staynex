@@ -9,10 +9,14 @@ export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
     const { status } = await request.json();
-    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole, user } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'tickets') && !canAccess(role, 'housekeeping') && !canAccess(role, 'maintenance')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    if (platformRole === 'support') {
+      return NextResponse.json({ error: 'Support sessions are read-only by default' }, { status: 403 });
     }
 
     if (!ALLOWED_STATUSES.includes(status)) {
@@ -26,7 +30,11 @@ export async function PATCH(request, { params }) {
       ticketId: id,
       status,
       supabase,
-      hotelId: hotel?.id
+      hotelId: hotel?.id,
+      actor: user,
+      role,
+      platformRole,
+      request
     });
 
     return NextResponse.json({ ticket });
