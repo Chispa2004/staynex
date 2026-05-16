@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Bot, CheckCircle2, Clock3, RefreshCw, Search, XCircle } from 'lucide-react';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
@@ -88,15 +88,6 @@ export const AutomationsClient = () => {
   const inputClass = isLight
     ? 'rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500'
     : 'rounded-lg border border-white/10 bg-[#0b1019] px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-300/40';
-
-  const getAuthHeaders = async () => {
-    const supabase = getSupabaseBrowser();
-    const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-    return data?.session?.access_token
-      ? { Authorization: `Bearer ${data.session.access_token}` }
-      : {};
-  };
 
   const loadAutomations = async () => {
     setLoading(true);

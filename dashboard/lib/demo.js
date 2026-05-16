@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from './supabase';
+import { getCurrentHotelForRequest } from './current-hotel';
 
 export const DEMO_SCENARIOS = [
   {
@@ -66,9 +67,23 @@ const startOfTodayIso = () => {
   return date.toISOString();
 };
 
-export const getDemoStats = async () => {
+const getDemoContext = async (request) => {
   const supabase = getSupabaseAdmin();
+  const context = request
+    ? await getCurrentHotelForRequest(request)
+    : { hotel: null, role: null };
+
+  return {
+    supabase,
+    hotel: context.hotel || null,
+    role: context.role || null
+  };
+};
+
+export const getDemoStats = async (request) => {
+  const { supabase, hotel } = await getDemoContext(request);
   const today = startOfTodayIso();
+  const scope = (query) => (hotel?.id ? query.eq('hotel_id', hotel.id) : query);
 
   const [
     openTickets,
@@ -76,24 +91,24 @@ export const getDemoStats = async () => {
     activeConversations,
     completedToday
   ] = await Promise.all([
-    supabase
+    scope(supabase
       .from('tickets')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'open'),
-    supabase
+      .eq('status', 'open')),
+    scope(supabase
       .from('tickets')
       .select('id', { count: 'exact', head: true })
       .eq('priority', 'urgent')
-      .in('status', ['open', 'in_progress']),
-    supabase
+      .in('status', ['open', 'in_progress'])),
+    scope(supabase
       .from('conversations')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'active'),
-    supabase
+      .eq('status', 'active')),
+    scope(supabase
       .from('tickets')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'completed')
-      .gte('completed_at', today)
+      .gte('completed_at', today))
   ]);
 
   const errors = [openTickets.error, urgentTickets.error, activeConversations.error, completedToday.error]
@@ -104,6 +119,7 @@ export const getDemoStats = async () => {
   }
 
   return {
+    hotelId: hotel?.id || null,
     openTickets: openTickets.count || 0,
     urgentTickets: urgentTickets.count || 0,
     activeConversations: activeConversations.count || 0,
@@ -111,13 +127,19 @@ export const getDemoStats = async () => {
   };
 };
 
-export const cleanDemoData = async () => {
-  const supabase = getSupabaseAdmin();
+export const cleanDemoData = async (request) => {
+  const { supabase, hotel } = await getDemoContext(request);
 
-  const { data: guests, error: guestsError } = await supabase
+  let guestsQuery = supabase
     .from('guests')
     .select('id')
     .in('phone_number', DEMO_PHONES);
+
+  if (hotel?.id) {
+    guestsQuery = guestsQuery.eq('hotel_id', hotel.id);
+  }
+
+  const { data: guests, error: guestsError } = await guestsQuery;
 
   if (guestsError) {
     throw guestsError;
@@ -126,7 +148,7 @@ export const cleanDemoData = async () => {
   const guestIds = (guests || []).map((guest) => guest.id);
 
   if (guestIds.length === 0) {
-    return { deletedGuests: 0 };
+    return { deletedGuests: 0, hotelId: hotel?.id || null };
   }
 
   const { error } = await supabase
@@ -138,5 +160,5 @@ export const cleanDemoData = async () => {
     throw error;
   }
 
-  return { deletedGuests: guestIds.length };
+  return { deletedGuests: guestIds.length, hotelId: hotel?.id || null };
 };

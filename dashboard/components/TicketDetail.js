@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Circle, Loader2, PlayCircle } from 'lucide-react';
 import { PriorityBadge, StatusBadge } from './Badge';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const STATUS_ACTIONS = [
@@ -29,15 +30,6 @@ const senderLabel = {
   guest: 'Guest',
   ai: 'Staynex',
   staff: 'Staff'
-};
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
 };
 
 export const TicketDetail = ({ initialTicket, initialMessages }) => {

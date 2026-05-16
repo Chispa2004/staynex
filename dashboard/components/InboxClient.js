@@ -6,6 +6,7 @@ import { AlertTriangle, Bot, Eye, EyeOff, RefreshCw, Send, X } from 'lucide-reac
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -385,15 +386,8 @@ export const InboxClient = ({ conversations }) => {
     }
 
     try {
-      const supabase = getSupabaseBrowser();
-      const { data } = supabase
-        ? await supabase.auth.getSession()
-        : { data: { session: null } };
-      const headers = data?.session?.access_token
-        ? { Authorization: `Bearer ${data.session.access_token}` }
-        : {};
       const response = await fetch('/api/inbox', {
-        headers,
+        headers: await getAuthHeaders(),
         cache: 'no-store'
       });
       const body = await response.json();
@@ -737,17 +731,10 @@ export const InboxClient = ({ conversations }) => {
     setSending(true);
 
     try {
-      const supabase = getSupabaseBrowser();
-      const { data } = supabase
-        ? await supabase.auth.getSession()
-        : { data: { session: null } };
-      const headers = data?.session?.access_token
-        ? { Authorization: `Bearer ${data.session.access_token}` }
-        : {};
       const response = await fetch('/api/messages/send', {
         method: 'POST',
         headers: {
-          ...headers,
+          ...(await getAuthHeaders()),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -779,17 +766,10 @@ export const InboxClient = ({ conversations }) => {
 
   const updateOfferAction = async ({ offerId, action }) => {
     try {
-      const supabase = getSupabaseBrowser();
-      const { data } = supabase
-        ? await supabase.auth.getSession()
-        : { data: { session: null } };
-      const headers = data?.session?.access_token
-        ? { Authorization: `Bearer ${data.session.access_token}` }
-        : {};
       const response = await fetch('/api/ai-offers', {
         method: 'PATCH',
         headers: {
-          ...headers,
+          ...(await getAuthHeaders()),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ offerId, action })

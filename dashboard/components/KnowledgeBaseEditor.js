@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Loader2, Plus, Power, Search, Trash2 } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const SUGGESTED_CATEGORIES = [
@@ -62,15 +62,6 @@ export const KnowledgeBaseEditor = () => {
     : 'w-full rounded-lg border border-white/10 bg-[#0b1019] px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-300/40';
   const mutedTextClass = isLight ? 'text-slate-600' : 'text-slate-500';
   const headingTextClass = isLight ? 'text-slate-950' : 'text-white';
-
-  const getAuthHeaders = async () => {
-    const supabase = getSupabaseBrowser();
-    const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-    return data?.session?.access_token
-      ? { Authorization: `Bearer ${data.session.access_token}` }
-      : {};
-  };
 
   const loadEntries = async () => {
     setLoading(true);

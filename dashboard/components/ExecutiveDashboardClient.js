@@ -14,20 +14,9 @@ import { ConciergeRevenuePanel } from './ConciergeRevenuePanel';
 import { ConversationIntelligencePanel } from './ConversationIntelligencePanel';
 import { ContextualRevenuePanel } from './ContextualRevenuePanel';
 import { ExperienceOpportunitiesPanel } from './ExperienceOpportunitiesPanel';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getActiveTenantId, shouldAcceptTenantPayload } from '@/lib/tenant-client';
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase
-    ? await supabase.auth.getSession()
-    : { data: { session: null } };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
-};
 
 const greetingForHour = (hour) => {
   if (hour < 12) {

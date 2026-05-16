@@ -1,6 +1,7 @@
 'use client';
 
 import { getSupabaseBrowser } from './supabase-browser';
+import { getWorkspaceRequestHeaders } from './workspace-context';
 
 export const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -9,6 +10,6 @@ export const getAuthHeaders = async () => {
     : { data: { session: null } };
 
   return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
+    ? { Authorization: `Bearer ${data.session.access_token}`, ...getWorkspaceRequestHeaders() }
+    : getWorkspaceRequestHeaders();
 };

@@ -5,18 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import { DepartmentTicketTable } from './DepartmentTicketTable';
 import { PageHeader } from './PageHeader';
 import { TicketStatsCards } from './TicketStatsCards';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
-import { PremiumEmptyState } from './PremiumEmptyState';
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
-};
+import { PremiumLoadingState } from './PremiumLoadingState';
 
 export const DepartmentTicketsView = ({
   title,
@@ -95,7 +86,7 @@ export const DepartmentTicketsView = ({
       </div>
 
       {loading ? (
-        <PremiumEmptyState title="Loading tickets..." description="Staynex is loading this hotel workspace only." />
+        <PremiumLoadingState title="Loading tickets" description="Staynex is preparing this department queue." rows={5} cards={3} />
       ) : error ? (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-100">
           <div className="flex items-start gap-3">

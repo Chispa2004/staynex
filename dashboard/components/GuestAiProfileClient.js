@@ -21,17 +21,8 @@ import {
   UserRound
 } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
-};
 
 const formatDate = (value) => {
   if (!value) return '-';

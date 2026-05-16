@@ -3,6 +3,7 @@
 import { MessageCircle, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { ExecutiveBadge, ExecutiveCard } from '@/components/ExecutiveCard';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 export const StepWhatsAppSetup = ({ hotel }) => {
@@ -25,7 +26,7 @@ export const StepWhatsAppSetup = ({ hotel }) => {
     try {
       const response = await fetch('/api/demo/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
         body: JSON.stringify({ scenarioId: 'towels-208' })
       });
       const body = await response.json();

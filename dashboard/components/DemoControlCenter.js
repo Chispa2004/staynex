@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
 import { DemoActionCard } from './DemoActionCard';
 import { DemoStatsPanel } from './DemoStatsPanel';
+import { getAuthHeaders } from '@/lib/auth-headers';
+import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 export const DemoControlCenter = ({ scenarios }) => {
   const [stats, setStats] = useState(null);
@@ -13,11 +15,17 @@ export const DemoControlCenter = ({ scenarios }) => {
   const [error, setError] = useState(null);
 
   const loadStats = async () => {
-    const response = await fetch('/api/demo/stats');
+    const response = await fetch('/api/demo/stats', {
+      headers: await getAuthHeaders(),
+      cache: 'no-store'
+    });
     const body = await response.json();
 
     if (!response.ok) {
       throw new Error(body.error || 'Could not load demo stats');
+    }
+    if (!shouldAcceptTenantPayload(body, 'demo-stats')) {
+      return;
     }
 
     setStats(body.stats);
@@ -35,6 +43,7 @@ export const DemoControlCenter = ({ scenarios }) => {
       const response = await fetch('/api/demo/run', {
         method: 'POST',
         headers: {
+          ...(await getAuthHeaders()),
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ scenarioId })
@@ -43,6 +52,9 @@ export const DemoControlCenter = ({ scenarios }) => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not run demo scenario');
+      }
+      if (!shouldAcceptTenantPayload(body, 'demo-run')) {
+        return;
       }
 
       setLastResult(body);
@@ -60,12 +72,16 @@ export const DemoControlCenter = ({ scenarios }) => {
 
     try {
       const response = await fetch('/api/demo/clean', {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: await getAuthHeaders()
       });
       const body = await response.json();
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not clean demo data');
+      }
+      if (!shouldAcceptTenantPayload(body, 'demo-clean')) {
+        return;
       }
 
       setLastResult({

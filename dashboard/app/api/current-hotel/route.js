@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 
+const jsonOptions = {
+  headers: { 'Cache-Control': 'no-store' }
+};
+
 const jsonError = (message, status = 500) => NextResponse.json({
   hotel: null,
   role: 'admin',
@@ -13,7 +17,7 @@ const jsonError = (message, status = 500) => NextResponse.json({
   canSwitchWorkspaces: false,
   canCreateWorkspaces: false,
   error: message
-}, { status });
+}, { status, ...jsonOptions });
 
 export async function GET(request) {
   try {
@@ -49,7 +53,7 @@ export async function GET(request) {
       user,
       accessDenied: Boolean(accessDenied),
       accessDeniedReason: accessDeniedReason || null
-    });
+    }, jsonOptions);
   } catch (error) {
     console.error('Current hotel API failed', error);
     return jsonError(error.message || 'Current hotel lookup failed');
@@ -85,7 +89,7 @@ export async function POST(request) {
       canCreateWorkspaces: Boolean(context.canCreateWorkspaces),
       availableHotels: context.availableHotels,
       fallback: context.fallback
-    });
+    }, jsonOptions);
 
     response.cookies.set('staynex_active_hotel_id', hotelId, {
       path: '/',

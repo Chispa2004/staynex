@@ -15,10 +15,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
-import { getWorkspaceRequestHeaders } from '@/lib/workspace-context';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import { PremiumLoadingState } from './PremiumLoadingState';
 
 const buildRoomMessage = ({ hotel, room }) => [
   `Hello, I am in room ${room}.`,
@@ -35,15 +35,6 @@ const buildWhatsappLink = ({ whatsappNumber, hotel, room }) => (
 const normalizeWhatsappNumber = (value) => (
   value?.replace(/^whatsapp:/i, '').replace(/[^\d]/g, '') || ''
 );
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}`, ...getWorkspaceRequestHeaders() }
-    : getWorkspaceRequestHeaders();
-};
 
 const Card = ({ children, className = '' }) => {
   const { theme } = useDashboardTheme();
@@ -330,7 +321,7 @@ export const QrRoomsClient = () => {
       ) : null}
 
       {loading ? (
-        <PremiumEmptyState title="Loading rooms..." description="Staynex is loading rooms from this hotel workspace only." />
+        <PremiumLoadingState title="Loading QR rooms" description="Staynex is loading rooms from this hotel workspace only." rows={4} cards={3} />
       ) : !rooms.length ? (
         <PremiumEmptyState
           icon={PlugZap}

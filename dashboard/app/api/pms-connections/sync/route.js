@@ -3,6 +3,10 @@ import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { proxyBackendPmsAction } from '@/lib/pms-connections';
 import { canAccess } from '@/lib/permissions';
 
+const jsonOptions = {
+  headers: { 'Cache-Control': 'no-store' }
+};
+
 const dateOnly = (value) => (typeof value === 'string' && value ? value.slice(0, 10) : null);
 const clampNumber = (value, fallback, min, max) => {
   const number = Number(value);
@@ -19,10 +23,10 @@ export async function POST(request) {
     const { hotel, role, platformRole } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections_manage')) {
-      return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403, ...jsonOptions });
     }
     if (platformRole === 'support') {
-      return NextResponse.json({ ok: false, error: 'Support sessions are read-only by default' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: 'Support sessions are read-only by default' }, { status: 403, ...jsonOptions });
     }
     const body = await request.json().catch(() => ({}));
     const result = await proxyBackendPmsAction({
@@ -35,11 +39,11 @@ export async function POST(request) {
       maxReservations: clampNumber(body.maxReservations, 50, 1, 100)
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, hotelId: hotel.id }, jsonOptions);
   } catch (error) {
     return NextResponse.json({
       ok: false,
       error: error.message || 'PMS reservations sync failed'
-    }, { status: 500 });
+    }, { status: 500, ...jsonOptions });
   }
 }

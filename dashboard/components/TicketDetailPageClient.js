@@ -3,17 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { TicketDetail } from './TicketDetail';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
-};
 
 export const TicketDetailPageClient = ({ ticketId }) => {
   const [ticket, setTicket] = useState(null);

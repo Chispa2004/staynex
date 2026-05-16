@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { canAccess } from '@/lib/permissions';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -162,17 +162,6 @@ const isPreStayTestReservation = (reservation) => (
   reservation.source === 'demo_web_booking'
   || reservation.pms_provider === 'demo_web_booking'
 );
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase
-    ? await supabase.auth.getSession()
-    : { data: { session: null } };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
-};
 
 const generate7DayPreArrivalPreview = (reservation) => {
   const guestName = reservation.guest_name?.split(' ')[0] || 'there';

@@ -6,7 +6,8 @@ import { ExperienceCard } from './ExperienceCard';
 import { ExperienceFilters } from './ExperienceFilters';
 import { ExperienceForm } from './ExperienceForm';
 import { PremiumEmptyState } from './PremiumEmptyState';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { PremiumLoadingState } from './PremiumLoadingState';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { canAccess } from '@/lib/permissions';
@@ -62,15 +63,6 @@ export const ExperiencesClient = () => {
   const requestRef = useRef(0);
 
   const canManage = canAccess(role, 'experiences_manage');
-
-  const getAuthHeaders = async () => {
-    const supabase = getSupabaseBrowser();
-    const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-    return data?.session?.access_token
-      ? { Authorization: `Bearer ${data.session.access_token}` }
-      : {};
-  };
 
   const loadExperiences = async () => {
     const requestId = requestRef.current + 1;
@@ -308,11 +300,7 @@ export const ExperiencesClient = () => {
       />
 
       {loading ? (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {[0, 1, 2, 3].map((item) => (
-            <div key={item} className={`${ui.skeleton(isLight)} h-56`} />
-          ))}
-        </div>
+        <PremiumLoadingState title="Loading experiences" description="Staynex is loading this hotel's concierge catalogue." rows={4} cards={3} />
       ) : filteredExperiences.length ? (
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredExperiences.map((experience) => (

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { BrainCircuit, Check, Loader2, RefreshCw, Search, Trash2 } from 'lucide-react';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -47,15 +47,6 @@ export const GuestMemoryClient = () => {
 
   const cardClass = cn('rounded-xl border transition duration-200', ui.surface(isLight));
   const inputClass = ui.input(isLight);
-
-  const getAuthHeaders = async () => {
-    const supabase = getSupabaseBrowser();
-    const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-    return data?.session?.access_token
-      ? { Authorization: `Bearer ${data.session.access_token}` }
-      : {};
-  };
 
   const loadMemories = async () => {
     setLoading(true);

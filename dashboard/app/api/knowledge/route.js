@@ -20,14 +20,18 @@ const validatePayload = ({ title, key, category, value, is_active }) => {
   };
 };
 
+const jsonOptions = {
+  headers: { 'Cache-Control': 'no-store' }
+};
+
 export async function GET(request) {
   try {
     const data = await getKnowledgeEntries(request);
-    return NextResponse.json(data);
+    return NextResponse.json(data, jsonOptions);
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 500 }
+      { status: 500, ...jsonOptions }
     );
   }
 }
@@ -37,11 +41,11 @@ export async function POST(request) {
     const payload = validatePayload(await request.json());
     const entry = await createKnowledgeEntry(request, payload);
 
-    return NextResponse.json({ entry }, { status: 201 });
+    return NextResponse.json({ entry, hotelId: entry.hotel_id || null }, { status: 201, ...jsonOptions });
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 400 }
+      { status: 400, ...jsonOptions }
     );
   }
 }
@@ -60,11 +64,11 @@ export async function PATCH(request) {
       ...payload
     });
 
-    return NextResponse.json({ entry });
+    return NextResponse.json({ entry, hotelId: entry.hotel_id || null }, jsonOptions);
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 400 }
+      { status: 400, ...jsonOptions }
     );
   }
 }
@@ -83,11 +87,11 @@ export async function DELETE(request) {
 
     await deleteKnowledgeEntry(request, body.id);
 
-    return NextResponse.json({ id: body.id });
+    return NextResponse.json({ id: body.id }, jsonOptions);
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 400 }
+      { status: 400, ...jsonOptions }
     );
   }
 }

@@ -7,7 +7,7 @@ import { PriorityBadge, StatusBadge } from './Badge';
 import { TicketAgeLabel } from './TicketAgeLabel';
 import { TicketCategoryIcon } from './TicketCategoryIcon';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 
 const STATUS_ACTIONS = [
   { value: 'open', labelKey: 'buttons.open', icon: Circle },
@@ -53,15 +53,6 @@ const mergeTicket = (items, ticket) => {
     : [ticket, ...items];
 
   return sortByNewest(nextItems);
-};
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
 };
 
 export const TicketsTable = ({ tickets }) => {

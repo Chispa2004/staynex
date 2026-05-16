@@ -4,11 +4,15 @@ import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 import { PMS_PROVIDERS, getProviderWebhookUrl, redactConnection, saveConnection } from '@/lib/pms-connections';
 import { canAccess } from '@/lib/permissions';
 
+const jsonOptions = {
+  headers: { 'Cache-Control': 'no-store' }
+};
+
 const jsonError = (message, status = 500, extra = {}) => NextResponse.json({
   ok: false,
   error: message,
   ...extra
-}, { status });
+}, { status, ...jsonOptions });
 
 export async function GET(request) {
   try {
@@ -31,6 +35,7 @@ export async function GET(request) {
     return NextResponse.json({
       ok: true,
       hotel,
+      hotelId: hotel.id,
       role,
       platformRole: platformRole || 'none',
       canManage,
@@ -42,7 +47,7 @@ export async function GET(request) {
         ...redactConnection(connection),
         webhook_url: connection.webhook_url || getProviderWebhookUrl(connection.provider)
       }))
-    });
+    }, jsonOptions);
   } catch (error) {
     return jsonError(error.message || 'Could not load PMS connections');
   }
@@ -81,8 +86,9 @@ export async function POST(request) {
 
     return NextResponse.json({
       ok: true,
+      hotelId: hotel.id,
       connection
-    });
+    }, jsonOptions);
   } catch (error) {
     const missingEncryptionKey = error.message?.includes('PMS_SECRET_ENCRYPTION_KEY');
 
@@ -142,7 +148,7 @@ export async function DELETE(request) {
       metadata: { source: 'dashboard_pms_connections', operation: 'delete' }
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, hotelId: hotel.id }, jsonOptions);
   } catch (error) {
     return jsonError(error.message || 'Could not delete PMS connection');
   }

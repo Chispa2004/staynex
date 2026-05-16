@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Clock3, Euro, RefreshCw, Send, Search, Sparkles, XCircle } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { canAccess } from '@/lib/permissions';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -93,15 +93,6 @@ export const UpsellsClient = () => {
   const activeHotelIdRef = useRef(null);
 
   const inputClass = ui.input(isLight);
-
-  const getAuthHeaders = async () => {
-    const supabase = getSupabaseBrowser();
-    const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-    return data?.session?.access_token
-      ? { Authorization: `Bearer ${data.session.access_token}` }
-      : {};
-  };
 
   const loadUpsells = async () => {
     const requestId = loadRequestIdRef.current + 1;

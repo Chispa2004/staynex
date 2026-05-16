@@ -1,24 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, DatabaseZap, RefreshCw } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { PmsConnectionForm } from './PmsConnectionForm';
 import { PmsProviderCard } from './PmsProviderCard';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { PremiumLoadingState } from './PremiumLoadingState';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase
-    ? await supabase.auth.getSession()
-    : { data: { session: null } };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
-};
 
 const defaultForm = (provider, connection) => ({
   provider: provider?.key || 'apaleo',
@@ -53,8 +43,11 @@ export const PmsConnectionsClient = () => {
   const [feedback, setFeedback] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(defaultForm());
+  const requestIdRef = useRef(0);
 
   const loadConnections = useCallback(async () => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setLoading(true);
 
     try {
@@ -73,6 +66,13 @@ export const PmsConnectionsClient = () => {
         return;
       }
 
+      if (requestId !== requestIdRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('stale response ignored', { surface: 'pms-connections', hotelId: body.hotelId || body.hotel?.id || null });
+        }
+        return;
+      }
+
       setHotel(body.hotel || null);
       setProviders(body.providers || []);
       setConnections(body.connections || []);
@@ -81,7 +81,9 @@ export const PmsConnectionsClient = () => {
     } catch (error) {
       setFeedback({ type: 'error', message: error.message });
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -128,6 +130,9 @@ export const PmsConnectionsClient = () => {
       if (!response.ok) {
         throw new Error(body.error || 'Could not save PMS connection');
       }
+      if (!shouldAcceptTenantPayload(body, 'pms-connections-save')) {
+        return;
+      }
 
       setEditing(null);
       setFeedback({ type: 'success', message: 'PMS connection saved.' });
@@ -162,6 +167,9 @@ export const PmsConnectionsClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Connection test failed');
+      }
+      if (!shouldAcceptTenantPayload(body, 'pms-connections-test')) {
+        return;
       }
 
       setFeedback({ type: 'success', message: `${provider.name} connection works.` });
@@ -203,6 +211,9 @@ export const PmsConnectionsClient = () => {
       if (!response.ok) {
         throw new Error(body.error || 'Reservation sync failed');
       }
+      if (!shouldAcceptTenantPayload(body, 'pms-connections-sync')) {
+        return;
+      }
 
       setFeedback({
         type: 'success',
@@ -240,6 +251,9 @@ export const PmsConnectionsClient = () => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not disconnect PMS');
+      }
+      if (!shouldAcceptTenantPayload(body, 'pms-connections-delete')) {
+        return;
       }
 
       setFeedback({ type: 'success', message: 'PMS connection removed.' });
@@ -298,6 +312,9 @@ export const PmsConnectionsClient = () => {
         </div>
       </ExecutiveCard>
 
+      {loading && !providers.length ? (
+        <PremiumLoadingState title="Loading PMS connections" description="Staynex is checking this hotel's PMS configuration." rows={3} cards={2} />
+      ) : (
       <div className="grid gap-4 xl:grid-cols-2">
         {(providers.length ? providers : [{ key: 'apaleo', name: 'Apaleo', status: 'available', defaultBaseUrl: 'https://api.apaleo.com' }]).map((provider) => (
           <PmsProviderCard
@@ -313,6 +330,7 @@ export const PmsConnectionsClient = () => {
           />
         ))}
       </div>
+      )}
 
       {editing ? (
         <PmsConnectionForm

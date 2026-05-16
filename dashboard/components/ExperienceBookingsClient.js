@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarCheck,
   CheckCircle2,
@@ -11,7 +11,7 @@ import {
   UserCheck,
   XCircle
 } from 'lucide-react';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { canAccess } from '@/lib/permissions';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -19,15 +19,6 @@ import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
 
 const statuses = ['all', 'pending', 'reviewing', 'confirmed', 'completed', 'rejected', 'cancelled'];
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
-};
 
 const formatCurrency = (value) => new Intl.NumberFormat('en', {
   style: 'currency',
@@ -76,11 +67,14 @@ export const ExperienceBookingsClient = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [draftNotes, setDraftNotes] = useState({});
+  const requestIdRef = useRef(0);
 
   const canManage = canAccess(role, 'experience_bookings_manage');
   const canViewAnalytics = canAccess(role, 'analytics') || canAccess(role, 'revenue');
 
   const loadBookings = async ({ silent = false } = {}) => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     if (!silent) setLoading(true);
     setError(null);
 
@@ -99,6 +93,13 @@ export const ExperienceBookingsClient = () => {
         return;
       }
 
+      if (requestId !== requestIdRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('stale response ignored', { surface: 'experience-bookings', hotelId: body.hotelId });
+        }
+        return;
+      }
+
       setBookings(body.bookings || []);
       setRole(body.role || 'receptionist');
 
@@ -108,7 +109,9 @@ export const ExperienceBookingsClient = () => {
     } catch (caughtError) {
       setError(caughtError.message);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 

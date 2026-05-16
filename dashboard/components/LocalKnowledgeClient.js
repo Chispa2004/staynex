@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Map, Plus, RefreshCw, Sparkles, Star } from 'lucide-react';
-import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { getAuthHeaders } from '@/lib/auth-headers';
 import { canAccess } from '@/lib/permissions';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -12,15 +12,6 @@ import { KnowledgeFilters } from './KnowledgeFilters';
 import { KnowledgeForm } from './KnowledgeForm';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { QuickAddKnowledge } from './QuickAddKnowledge';
-
-const getAuthHeaders = async () => {
-  const supabase = getSupabaseBrowser();
-  const { data } = supabase ? await supabase.auth.getSession() : { data: {} };
-
-  return data?.session?.access_token
-    ? { Authorization: `Bearer ${data.session.access_token}` }
-    : {};
-};
 
 const StatCard = ({ icon: Icon, label, value, tone = 'slate', isLight }) => (
   <article className={cn('rounded-xl border p-4', ui.surface(isLight))}>
