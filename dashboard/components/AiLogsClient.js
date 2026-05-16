@@ -15,6 +15,7 @@ import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { DataTableShell } from './DataTableShell';
 
 const filterOptions = [
   { key: 'all', labelKey: 'aiLogs.filters.all' },
@@ -319,6 +320,8 @@ export const AiLogsClient = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selectedLog, setSelectedLog] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   const loadLogs = async () => {
     setLoading(true);
@@ -362,6 +365,15 @@ export const AiLogsClient = () => {
   const filteredLogs = useMemo(() => (
     logs.filter((log) => matchesFilter(log, activeFilter) && matchesSearch(log, search))
   ), [logs, activeFilter, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeFilter, search, pageSize, logs.length]);
+
+  const paginatedLogs = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredLogs.slice(start, start + pageSize);
+  }, [filteredLogs, page, pageSize]);
 
   const stats = useMemo(() => {
     const confidenceValues = logs
@@ -479,11 +491,18 @@ export const AiLogsClient = () => {
               {logs.length === 0 ? t('aiLogs.empty') : t('aiLogs.noMatches')}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-[1120px] w-full text-left">
-                <thead className={isLight ? 'bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500' : 'bg-white/[0.025] text-xs uppercase tracking-[0.12em] text-slate-500'}>
+            <DataTableShell
+              minWidth={1120}
+              totalItems={filteredLogs.length}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            >
+              <table className="w-full text-left">
+                <thead className={isLight ? 'sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500 shadow-sm shadow-slate-200/60' : 'sticky top-0 z-10 bg-[#0f1622] text-xs uppercase tracking-[0.12em] text-slate-500 shadow-sm shadow-black/20'}>
                   <tr>
-                    <th className="px-4 py-3 font-semibold">{t('aiLogs.columns.date')}</th>
+                    <th className={isLight ? 'sticky left-0 z-20 bg-slate-50 px-4 py-3 font-semibold shadow-[8px_0_16px_-14px_rgba(15,23,42,0.45)]' : 'sticky left-0 z-20 bg-[#0f1622] px-4 py-3 font-semibold shadow-[8px_0_16px_-14px_rgba(0,0,0,0.9)]'}>{t('aiLogs.columns.date')}</th>
                     <th className="px-4 py-3 font-semibold">{t('aiLogs.columns.language')}</th>
                     <th className="px-4 py-3 font-semibold">{t('aiLogs.columns.intent')}</th>
                     <th className="px-4 py-3 font-semibold">{t('aiLogs.columns.room')}</th>
@@ -495,7 +514,7 @@ export const AiLogsClient = () => {
                   </tr>
                 </thead>
                 <tbody className={isLight ? 'divide-y divide-slate-200' : 'divide-y divide-white/10'}>
-                  {filteredLogs.map((log) => {
+                  {paginatedLogs.map((log) => {
                     const selected = selectedLog?.id === log.id;
 
                     return (
@@ -513,7 +532,7 @@ export const AiLogsClient = () => {
                               : 'hover:bg-white/[0.035]'
                         ].join(' ')}
                       >
-                        <td className={isLight ? 'whitespace-nowrap px-4 py-4 text-sm text-slate-600' : 'whitespace-nowrap px-4 py-4 text-sm text-slate-400'}>{formatDate(log.created_at)}</td>
+                        <td className={isLight ? 'sticky left-0 z-10 whitespace-nowrap bg-inherit px-4 py-4 text-sm text-slate-600 shadow-[8px_0_16px_-14px_rgba(15,23,42,0.45)]' : 'sticky left-0 z-10 whitespace-nowrap bg-inherit px-4 py-4 text-sm text-slate-400 shadow-[8px_0_16px_-14px_rgba(0,0,0,0.9)]'}>{formatDate(log.created_at)}</td>
                         <td className="px-4 py-4">
                           <Badge tone="purple">{(log.detected_language || '-').toUpperCase()}</Badge>
                         </td>
@@ -539,7 +558,7 @@ export const AiLogsClient = () => {
                   })}
                 </tbody>
               </table>
-            </div>
+            </DataTableShell>
           )}
         </Card>
 

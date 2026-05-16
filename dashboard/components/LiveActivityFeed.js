@@ -42,7 +42,7 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
     : activity;
 
   return (
-    <ExecutiveCard className="flex max-h-[min(720px,calc(100vh-220px))] min-h-[420px] flex-col overflow-hidden">
+    <ExecutiveCard className="flex h-fit max-h-[clamp(520px,72vh,860px)] min-h-[480px] flex-col overflow-hidden">
       <div className={isLight ? 'border-b border-slate-200 px-5 py-4' : 'border-b border-white/10 px-5 py-4'}>
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -53,7 +53,7 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
         </div>
       </div>
 
-      <div className="executive-scroll min-h-0 flex-1 overflow-y-auto p-3 pb-4">
+      <div className="executive-scroll min-h-0 flex-1 space-y-3 overflow-y-auto scroll-pb-8 p-3 pb-8 pr-2">
         {items.length === 0 ? (
           <div className={isLight ? 'rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500' : 'rounded-lg border border-dashed border-white/10 bg-white/[0.025] p-8 text-center text-sm text-slate-500'}>
             No live activity yet.
@@ -82,11 +82,11 @@ export const LiveActivityFeed = ({ activity = [], loading = false }) => {
           );
 
           return item.href ? (
-            <Link key={`${item.type}-${item.createdAt}-${index}`} href={item.href} className="mb-3 block last:mb-0">
+            <Link key={`${item.type}-${item.createdAt}-${index}`} href={item.href} className="block">
               {content}
             </Link>
           ) : (
-            <div key={`${item.type}-${item.createdAt}-${index}`} className="mb-3 last:mb-0">
+            <div key={`${item.type}-${item.createdAt}-${index}`} className="block">
               {content}
             </div>
           );

@@ -25,6 +25,7 @@ import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { canAccess } from '@/lib/permissions';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import { DataTableShell } from './DataTableShell';
 import { cn, ui } from '@/lib/ui/styles';
 
 const filterOptions = [
@@ -660,6 +661,8 @@ export const ReservationsClient = () => {
   const [currentHotel, setCurrentHotel] = useState(null);
   const [currentRole, setCurrentRole] = useState('receptionist');
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const loadRequestIdRef = useRef(0);
   const activeHotelIdRef = useRef(null);
 
@@ -752,6 +755,16 @@ export const ReservationsClient = () => {
       && matchesSearch(reservation, search)
     ))
   ), [reservations, activeFilter, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeFilter, search, pageSize, reservations.length]);
+
+  const paginatedReservations = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredReservations.slice(start, start + pageSize);
+  }, [filteredReservations, page, pageSize]);
+
   const canManageReservations = canAccess(currentRole, 'reservations_manage');
 
   const copyValue = async ({ key, value }) => {
@@ -906,11 +919,18 @@ export const ReservationsClient = () => {
               className="m-4"
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-[1600px] w-full text-left">
-                <thead className={isLight ? 'bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500' : 'bg-white/[0.025] text-xs uppercase tracking-[0.12em] text-slate-500'}>
+            <DataTableShell
+              minWidth={1600}
+              totalItems={filteredReservations.length}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            >
+              <table className="w-full text-left">
+                <thead className={isLight ? 'sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500 shadow-sm shadow-slate-200/60' : 'sticky top-0 z-10 bg-[#0f1622] text-xs uppercase tracking-[0.12em] text-slate-500 shadow-sm shadow-black/20'}>
                   <tr>
-                    <th className="px-4 py-3 font-semibold">{t('reservations.columns.guest')}</th>
+                    <th className={isLight ? 'sticky left-0 z-20 bg-slate-50 px-4 py-3 font-semibold shadow-[8px_0_16px_-14px_rgba(15,23,42,0.45)]' : 'sticky left-0 z-20 bg-[#0f1622] px-4 py-3 font-semibold shadow-[8px_0_16px_-14px_rgba(0,0,0,0.9)]'}>{t('reservations.columns.guest')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.email')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.phone')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.arrival')}</th>
@@ -929,7 +949,7 @@ export const ReservationsClient = () => {
                   </tr>
                 </thead>
                 <tbody className={isLight ? 'divide-y divide-slate-200' : 'divide-y divide-white/10'}>
-                  {filteredReservations.map((reservation) => {
+                  {paginatedReservations.map((reservation) => {
                     const stayStatus = getStayStatus(reservation);
                     const journeyStatus = getJourneyStatus(reservation);
                     const selected = selectedReservation?.id === reservation.id;
@@ -949,7 +969,7 @@ export const ReservationsClient = () => {
                               : 'hover:bg-white/[0.035]'
                         ].join(' ')}
                       >
-                        <td className={isLight ? 'px-4 py-4 text-sm font-semibold text-slate-900' : 'px-4 py-4 text-sm font-semibold text-slate-100'}>
+                        <td className={isLight ? 'sticky left-0 z-10 bg-inherit px-4 py-4 text-sm font-semibold text-slate-900 shadow-[8px_0_16px_-14px_rgba(15,23,42,0.45)]' : 'sticky left-0 z-10 bg-inherit px-4 py-4 text-sm font-semibold text-slate-100 shadow-[8px_0_16px_-14px_rgba(0,0,0,0.9)]'}>
                           {reservation.guest_name || t('reservations.unknownGuest')}
                           <p className={isLight ? 'mt-1 text-xs font-normal text-slate-500' : 'mt-1 text-xs font-normal text-slate-500'}>
                             {reservation.pms_reservation_id}
@@ -1116,7 +1136,7 @@ export const ReservationsClient = () => {
                   })}
                 </tbody>
               </table>
-            </div>
+            </DataTableShell>
           )}
         </Card>
 

@@ -260,7 +260,7 @@ export const ExecutiveDashboardClient = () => {
 
       <KPIGrid kpis={data?.kpis || {}} loading={loading} />
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)] 2xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,0.55fr)]">
+      <div className="grid min-h-0 items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)] 2xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,0.55fr)]">
         <LiveActivityFeed activity={data?.activity || []} loading={loading} />
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-1">
           <RevenueUpsellsPanel revenue={data?.revenue || {}} />
