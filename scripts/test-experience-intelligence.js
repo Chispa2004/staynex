@@ -3,6 +3,12 @@ import {
   detectExperienceOpportunities,
   evaluateExperienceTiming
 } from '../src/services/experience-intelligence.service.js';
+import {
+  buildProviderExperienceRecommendationReply,
+  classifyProviderExperienceConversation,
+  detectExperienceBookingIntent,
+  PROVIDER_EXPERIENCE_INTENTS
+} from '../src/services/experience-booking.service.js';
 
 const base = {
   hotel: {
@@ -77,6 +83,80 @@ const rejected = evaluateExperienceTiming({
 });
 assert.equal(rejected.allowed, false);
 
+const providerCatalog = [
+  {
+    id: 'provider-agafay',
+    provider_experience_id: 'provider-agafay',
+    provider_id: 'luxotour',
+    provider_source: 'Luxotour Morocco',
+    title: 'Excursion al desierto de Agafay',
+    slug: 'agafay-desert',
+    category: 'adventure',
+    short_description: 'Sunset desert experience near Marrakech.',
+    price: 95,
+    currency: 'EUR',
+    duration: 'Half day',
+    active: true,
+    tags: ['agafay', 'desert', 'marrakech'],
+    target_guest_types: ['couples', 'family'],
+    metadata: { experience_provider: true }
+  },
+  {
+    id: 'provider-atlas',
+    provider_experience_id: 'provider-atlas',
+    provider_id: 'luxotour',
+    provider_source: 'Luxotour Morocco',
+    title: 'Atlas Mountains Day Trip',
+    slug: 'atlas-mountains',
+    category: 'culture',
+    short_description: 'A full-day Atlas Mountains excursion.',
+    price: 70,
+    currency: 'EUR',
+    duration: 'Full day',
+    active: true,
+    tags: ['atlas', 'mountains', 'marrakech'],
+    target_guest_types: ['culture'],
+    metadata: { experience_provider: true }
+  }
+];
+
+const providerInquiry = await classifyProviderExperienceConversation({
+  message: 'Que excursiones o actividades teneis?',
+  hotelExperiences: providerCatalog
+});
+assert.equal(providerInquiry.intentType, PROVIDER_EXPERIENCE_INTENTS.INQUIRY);
+assert.equal(providerInquiry.bookingReady, false);
+
+const providerReply = buildProviderExperienceRecommendationReply({
+  intent: providerInquiry,
+  hotelExperiences: providerCatalog,
+  language: 'es'
+});
+assert.equal(providerReply.includes('Luxotour Morocco'), true);
+assert.equal(providerReply.includes('Excursion al desierto de Agafay'), true);
+assert.equal(providerReply.includes('He avisado'), false);
+
+const providerInterest = await classifyProviderExperienceConversation({
+  message: 'Cuentame mas de Agafay',
+  hotelExperiences: providerCatalog
+});
+assert.equal(providerInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
+assert.equal(providerInterest.bookingReady, false);
+
+const prematureBooking = await detectExperienceBookingIntent({
+  message: 'Me interesa Agafay',
+  hotelExperiences: providerCatalog
+});
+assert.equal(prematureBooking.detected, false);
+assert.equal(prematureBooking.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
+
+const realBooking = await detectExperienceBookingIntent({
+  message: 'Queremos reservar Agafay para manana',
+  hotelExperiences: providerCatalog
+});
+assert.equal(realBooking.detected, true);
+assert.equal(realBooking.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
+
 console.log(JSON.stringify({
   ok: true,
   cases: [
@@ -86,6 +166,9 @@ console.log(JSON.stringify({
     'rainy weather future-ready',
     'beach recommendation',
     'complaint blocks experiences',
-    'rejected experience block'
+    'rejected experience block',
+    'provider excursion inquiry does not create booking',
+    'provider excursion interest stays conversational',
+    'provider excursion booking requires explicit action'
   ]
 }, null, 2));

@@ -136,6 +136,10 @@ export const getActiveExperienceProviderCatalogForHotel = async ({
     }), {});
 
     return (experiences || [])
+      .filter((experience) => {
+        const scopeId = experience.metadata?.hotel_scope_id || experience.metadata?.created_for_hotel_id || null;
+        return !scopeId || scopeId === hotelId;
+      })
       .map((experience) => {
         const assignment = assignmentsByProvider[experience.provider_id];
         return assignment

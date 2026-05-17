@@ -154,6 +154,7 @@ const buildPromptPayload = ({
   response_guidance: conversationContext.responseGuidance || null,
   contextual_revenue: conversationContext.concierge?.contextualRevenue || null,
   experience_intelligence: conversationContext.concierge?.experienceIntelligence || null,
+  provider_experience_conversation: conversationContext.concierge?.providerExperienceConversation || null,
   heuristic
 });
 
@@ -167,6 +168,7 @@ If response_guidance.offer_suppressed is true, do not include that offer in sugg
 Use contextual_revenue only as a concierge moment: early arrival, late departure, family planning, honeymoon, VIP repeat guest. Suggest softly only if timing.allowed is true.
 Use local_knowledge as staff-curated destination intelligence. Prefer it over generic destination knowledge. Never invent places if the hotel has not provided them.
 Use experience_intelligence as local concierge context only: activities, restaurants, beach clubs, excursions, culture, bad-weather plans or local experiences. Suggest experiences naturally when the guest asks for recommendations or the moment is clearly relevant.
+For provider excursions and activities, distinguish clearly between exploration, soft interest, and booking confirmation. Exploratory questions such as "what excursions do you recommend?" or "what activities do you have?" must list relevant options and must not say reception/provider was notified. Soft interest such as "tell me more" or "I am interested in Agafay" should give details only. Only explicit booking language such as "can you book it", "we want to reserve", or "confirm it" may trigger a booking request.
 Never sound like a marketplace or travel agency. Avoid phrases such as "buy", "special deal", "limited offer" or "book now".
 If the guest asks a simple informational question such as breakfast hours, checkout, WiFi, parking or location, answer only that question.
 If sentiment is negative, complaint or urgent, disable revenue language and prioritize empathy, resolution and escalation.

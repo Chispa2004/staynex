@@ -74,6 +74,9 @@ import {
   getLocalKnowledgeForPrompt
 } from './local-knowledge.service.js';
 import {
+  buildProviderExperienceInterestMemories,
+  buildProviderExperienceRecommendationReply,
+  classifyProviderExperienceConversation,
   createExperienceBookingRequest,
   detectExperienceBookingIntent,
   getExperienceBookingConfirmationReply
@@ -275,6 +278,11 @@ export const processGuestMessage = async ({
     sentiment: preliminaryConversationState.sentiment,
     language: conversationContext.language
   });
+  const providerExperienceConversation = await classifyProviderExperienceConversation({
+    message,
+    conversationId: conversation.id,
+    hotelExperiences: experienceCatalog
+  });
   const conciergeRevenueOpportunities = [
     ...contextualRevenue.opportunities,
     ...experienceIntelligence.opportunities,
@@ -330,6 +338,7 @@ export const processGuestMessage = async ({
     revenueOpportunities: conciergeRevenueOpportunities,
     contextualRevenue,
     experienceIntelligence,
+    providerExperienceConversation,
     risk: conciergeRisk,
     departmentAction: conciergeDepartmentAction,
     state: conversationState
@@ -386,7 +395,11 @@ export const processGuestMessage = async ({
         contexts: experienceIntelligence.contexts,
         destination: experienceIntelligence.destination,
         primary_offer_type: experienceIntelligence.primaryOpportunity?.offerType || null,
-        timing: experienceIntelligence.primaryOpportunity?.timing || null
+        timing: experienceIntelligence.primaryOpportunity?.timing || null,
+        conversational_intent: providerExperienceConversation.intentType || null,
+        booking_ready: Boolean(providerExperienceConversation.bookingReady),
+        provider_used: providerExperienceConversation.matchedExperience?.provider_source || null,
+        provider_experience_used: providerExperienceConversation.matchedExperience?.title || null
       }
     }
   });
@@ -490,19 +503,28 @@ export const processGuestMessage = async ({
     },
     responses: [naturalPrimaryReply, ...secondaryConciergeResponses]
   });
+  const providerRecommendationReply = providerExperienceConversation.intentType && !enhancedRisk.hasRisk && !providerExperienceConversation.bookingReady
+    ? buildProviderExperienceRecommendationReply({
+      intent: providerExperienceConversation,
+      hotelExperiences: experienceCatalog,
+      language: conversationContext.language
+    })
+    : null;
   const aiResponseWithConcierge = contextualConciergeReply && !aiResponse.emergency
     ? {
       ...aiResponse,
-      reply: contextualConciergeReply,
-      intent: enhancedPrimaryIntent.intent || aiResponse.intent,
+      reply: providerRecommendationReply || contextualConciergeReply,
+      intent: providerExperienceConversation.intentType || enhancedPrimaryIntent.intent || aiResponse.intent,
       confidence: Math.max(Number(aiResponse.confidence || 0), Number(enhancedPrimaryIntent.confidence || 0.75)),
-      concierge_intent: enhancedPrimaryIntent.intent,
+      concierge_intent: providerExperienceConversation.intentType || enhancedPrimaryIntent.intent,
       upsell_opportunity: Boolean(offerAllowedInReply && enhancedRevenueOpportunity) || aiResponse.upsell_opportunity,
       escalate_to_human: aiResponse.escalate_to_human || enhancedRisk.hasRisk
     }
     : {
       ...aiResponse,
-      concierge_intent: enhancedPrimaryIntent.intent
+      reply: providerRecommendationReply || aiResponse.reply,
+      intent: providerExperienceConversation.intentType || aiResponse.intent,
+      concierge_intent: providerExperienceConversation.intentType || enhancedPrimaryIntent.intent
     };
   let aiResponseWithUpsell = upsellOpportunities.length > 0
     ? {
@@ -581,7 +603,8 @@ export const processGuestMessage = async ({
     aiResponseWithUpsell = {
       ...aiResponseWithUpsell,
       reply: getExperienceBookingConfirmationReply({
-        language: conversationContext.language
+        language: conversationContext.language,
+        providerName: experienceBookingRequest.provider_source || providerExperienceConversation.matchedExperience?.provider_source || null
       }),
       concierge_intent: aiResponseWithUpsell.concierge_intent || 'experience_booking_request',
       intent: aiResponseWithUpsell.intent || 'experience_booking_request',
@@ -662,7 +685,15 @@ export const processGuestMessage = async ({
         openai_risk_flags: openAiResult?.risk_flags || [],
         openai_department_actions: openAiResult?.department_actions || [],
         natural_response_guidance: responseGuidance,
-        final_offer_suppression: finalOfferSuppression
+        final_offer_suppression: finalOfferSuppression,
+        provider_experience_conversation: {
+          intent: providerExperienceConversation.intentType || null,
+          confidence: providerExperienceConversation.confidence || 0,
+          reason: providerExperienceConversation.reason || null,
+          booking_created: Boolean(experienceBookingRequest),
+          provider_used: providerExperienceConversation.matchedExperience?.provider_source || null,
+          provider_experience_used: providerExperienceConversation.matchedExperience?.title || null
+        }
       }
     },
     offerType: conciergeOffer?.status === 'sent' ? conciergeOffer.offer_type : null,
@@ -690,7 +721,10 @@ export const processGuestMessage = async ({
         memoryValue: item.memory_value,
         confidence: item.confidence || 0.75,
         metadata: { openai_concierge: true }
-      }))
+      })),
+      ...buildProviderExperienceInterestMemories({
+        intent: providerExperienceConversation
+      })
     ]
   });
   const memoryKeysUsed = (conversationContext.guestMemory || []).map((item) => item.memory_key);
@@ -700,7 +734,7 @@ export const processGuestMessage = async ({
     guestId: guest.id,
     conversationId: conversation.id,
     detectedLanguage: conversationContext.language,
-    detectedIntent: conversationState.currentIntent || aiResponseWithUpsell.intent,
+    detectedIntent: providerExperienceConversation.intentType || conversationState.currentIntent || aiResponseWithUpsell.intent,
     detectedRoom: guest.current_room || conversationContext.knownRoom || ticket?.room_number || null,
     confidenceScore: aiResponseWithUpsell.confidence,
     knowledgeUsed: Boolean(knowledgeResult),
@@ -721,17 +755,26 @@ export const processGuestMessage = async ({
     upsellConfidence: primaryUpsell?.confidence || (offerAllowedInReply ? enhancedRevenueOpportunity?.confidence : null) || null,
     memoryUsed: memoryKeysUsed.length > 0,
     memoryKeysUsed: memoryKeysUsed,
-    conciergeIntent: enhancedPrimaryIntent.intent || conversationState.currentIntent || null,
+    conciergeIntent: providerExperienceConversation.intentType || enhancedPrimaryIntent.intent || conversationState.currentIntent || null,
     offerCreated: conciergeOffers.length > 0,
     offerType: conciergeOffer?.offer_type || (offerAllowedInReply ? enhancedRevenueOpportunity?.offerType : null) || null,
     offerStatus: conciergeOffer?.status || null,
     experienceBookingRequestCreated: Boolean(experienceBookingRequest),
     experienceBookingRequestId: experienceBookingRequest?.id || null,
+    providerExperienceIntent: providerExperienceConversation.intentType || null,
+    providerBookingCreated: Boolean(experienceBookingRequest),
+    providerUsed: providerExperienceConversation.matchedExperience?.provider_source || experienceBookingRequest?.provider_source || null,
+    providerExperienceUsed: providerExperienceConversation.matchedExperience?.title || experienceBookingRequest?.experience_title || null,
     openAiConciergeUsed: Boolean(openAiResult),
     openAiConciergeModel: openAiConcierge.model || null,
     openAiConciergeFallback: Boolean(openAiConcierge.fallback),
     aiSummary: openAiResult?.summary || null,
-    aiReasoning: openAiResult?.reasoning || openAiConcierge.reason || null,
+    aiReasoning: [
+      openAiResult?.reasoning || openAiConcierge.reason || null,
+      providerExperienceConversation.intentType
+        ? `provider_experience_intent=${providerExperienceConversation.intentType}; booking_created=${Boolean(experienceBookingRequest)}; provider_used=${providerExperienceConversation.matchedExperience?.provider_source || 'none'}; provider_experience_used=${providerExperienceConversation.matchedExperience?.title || 'none'}`
+        : null
+    ].filter(Boolean).join('\n'),
     aiSatisfactionEstimate: openAiResult?.satisfaction_estimate || null,
     aiResolutionEstimate: openAiResult?.resolution_estimate || false
   });
@@ -755,7 +798,7 @@ export const processGuestMessage = async ({
     ticketId: ticket?.id || null,
     upsellsDetected: upsellOpportunities.length,
     memoriesDetected: detectedMemories.length + conciergeMemories.length,
-    conciergeIntent: enhancedPrimaryIntent.intent || conversationState.currentIntent || null,
+    conciergeIntent: providerExperienceConversation.intentType || enhancedPrimaryIntent.intent || conversationState.currentIntent || null,
     conciergeOfferId: conciergeOffer?.id || null,
     experienceBookingRequestId: experienceBookingRequest?.id || null,
     conversationStateId: savedConversationState?.id || null,

@@ -303,6 +303,11 @@ const LogDetail = ({ log, onClose }) => {
         <DetailRow label="AI_PROVIDER" value={displayProvider(log)} />
         <DetailRow label="AI_MODEL" value={displayModel(log)} />
         <DetailRow label="FALLBACK_USED" value={displayFallback(log)} />
+        <DetailRow label="provider_experience_intent" value={log.provider_experience_intent} />
+        <DetailRow label="provider_booking_created" value={log.provider_booking_created} />
+        <DetailRow label="provider_used" value={log.provider_used} />
+        <DetailRow label="provider_experience_used" value={log.provider_experience_used} />
+        <DetailRow label="ai_reasoning" value={log.ai_reasoning} />
         <DetailRow label="confidence_score" value={log.confidence_score} />
         <DetailRow label="created_at" value={log.created_at} />
       </dl>

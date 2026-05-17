@@ -47,6 +47,10 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('ai_reasoning')
   || error?.message?.includes('ai_satisfaction_estimate')
   || error?.message?.includes('ai_resolution_estimate')
+  || error?.message?.includes('provider_experience_intent')
+  || error?.message?.includes('provider_booking_created')
+  || error?.message?.includes('provider_used')
+  || error?.message?.includes('provider_experience_used')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
@@ -71,6 +75,10 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('ai_reasoning')
   || error?.details?.includes('ai_satisfaction_estimate')
   || error?.details?.includes('ai_resolution_estimate')
+  || error?.details?.includes('provider_experience_intent')
+  || error?.details?.includes('provider_booking_created')
+  || error?.details?.includes('provider_used')
+  || error?.details?.includes('provider_experience_used')
 );
 
 export const createAiLog = async ({
@@ -114,6 +122,10 @@ export const createAiLog = async ({
   aiReasoning = null,
   aiSatisfactionEstimate = null,
   aiResolutionEstimate = false,
+  providerExperienceIntent = null,
+  providerBookingCreated = false,
+  providerUsed = null,
+  providerExperienceUsed = null,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -160,7 +172,11 @@ export const createAiLog = async ({
       ai_summary: toNullableText(aiSummary),
       ai_reasoning: toNullableText(aiReasoning),
       ai_satisfaction_estimate: toNullableNumber(aiSatisfactionEstimate),
-      ai_resolution_estimate: Boolean(aiResolutionEstimate)
+      ai_resolution_estimate: Boolean(aiResolutionEstimate),
+      provider_experience_intent: toNullableText(providerExperienceIntent),
+      provider_booking_created: Boolean(providerBookingCreated),
+      provider_used: toNullableText(providerUsed),
+      provider_experience_used: toNullableText(providerExperienceUsed)
     };
 
     let { data, error } = await supabase
@@ -201,6 +217,10 @@ export const createAiLog = async ({
         ai_reasoning,
         ai_satisfaction_estimate,
         ai_resolution_estimate,
+        provider_experience_intent,
+        provider_booking_created,
+        provider_used,
+        provider_experience_used,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase
