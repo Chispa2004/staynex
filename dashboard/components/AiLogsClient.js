@@ -312,6 +312,8 @@ const LogDetail = ({ log, onClose }) => {
         <DetailRow label="provider_experience_used" value={log.provider_experience_used} />
         <DetailRow label="provider_experiences_count" value={log.provider_experiences_count} />
         <DetailRow label="hotel_experiences_count" value={log.hotel_experiences_count} />
+        <DetailRow label="provider_names_loaded" value={log.provider_names_loaded} />
+        <DetailRow label="final_experience_source_used" value={log.final_experience_source_used} />
         <DetailRow label="source_priority" value={log.source_priority} />
         <DetailRow label="blocked_cross_tenant_experiences" value={log.blocked_cross_tenant_experiences} />
         <DetailRow label="ai_reasoning" value={log.ai_reasoning} />

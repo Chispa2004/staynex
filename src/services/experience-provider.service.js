@@ -31,6 +31,9 @@ export const normalizeProviderExperience = ({ experience, provider, hotelProvide
 
   return {
     id: experience.id,
+    hotel_id: hotelProvider.hotel_id,
+    provider_assignment_hotel_id: hotelProvider.hotel_id,
+    provider_assignment_id: hotelProvider.id,
     provider_experience_id: experience.id,
     provider_id: provider.id,
     provider_source: provider.name,
@@ -68,6 +71,8 @@ export const normalizeProviderExperience = ({ experience, provider, hotelProvide
       ...(experience.metadata || {}),
       experience_provider: true,
       provider_id: provider.id,
+      provider_assignment_id: hotelProvider.id,
+      provider_assignment_hotel_id: hotelProvider.hotel_id,
       provider_slug: provider.slug,
       provider_name: provider.name,
       provider_experience_id: experience.id,
@@ -112,7 +117,7 @@ export const getActiveExperienceProviderCatalogForHotel = async ({
       return [];
     }
 
-    const providerIds = activeAssignments.map((assignment) => assignment.provider_id);
+    const providerIds = [...new Set(activeAssignments.map((assignment) => assignment.provider_id).filter(Boolean))];
     let experiencesQuery = supabase
       .from('provider_experiences')
       .select('*')
@@ -137,8 +142,14 @@ export const getActiveExperienceProviderCatalogForHotel = async ({
 
     return (experiences || [])
       .filter((experience) => {
-        const scopeId = experience.metadata?.hotel_scope_id || experience.metadata?.created_for_hotel_id || null;
-        return !scopeId || scopeId === hotelId;
+        const scopeId = experience.metadata?.hotel_scope_id
+          || experience.metadata?.created_for_hotel_id
+          || experience.metadata?.hotel_id
+          || experience.metadata?.hotelId
+          || null;
+        const assigned = assignmentsByProvider[experience.provider_id];
+
+        return Boolean(assigned) && (!scopeId || scopeId === hotelId);
       })
       .map((experience) => {
         const assignment = assignmentsByProvider[experience.provider_id];

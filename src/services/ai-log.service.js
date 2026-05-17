@@ -58,6 +58,8 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('response_language')
   || error?.message?.includes('source_priority')
   || error?.message?.includes('blocked_cross_tenant_experiences')
+  || error?.message?.includes('provider_names_loaded')
+  || error?.message?.includes('final_experience_source_used')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
@@ -93,6 +95,8 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('response_language')
   || error?.details?.includes('source_priority')
   || error?.details?.includes('blocked_cross_tenant_experiences')
+  || error?.details?.includes('provider_names_loaded')
+  || error?.details?.includes('final_experience_source_used')
 );
 
 export const createAiLog = async ({
@@ -147,6 +151,8 @@ export const createAiLog = async ({
   responseLanguage = null,
   sourcePriority = null,
   blockedCrossTenantExperiences = false,
+  providerNamesLoaded = null,
+  finalExperienceSourceUsed = null,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -204,7 +210,9 @@ export const createAiLog = async ({
       hotel_experiences_count: toNullableNumber(hotelExperiencesCount),
       response_language: toNullableText(responseLanguage),
       source_priority: toNullableText(sourcePriority),
-      blocked_cross_tenant_experiences: Boolean(blockedCrossTenantExperiences)
+      blocked_cross_tenant_experiences: Boolean(blockedCrossTenantExperiences),
+      provider_names_loaded: toNullableText(providerNamesLoaded),
+      final_experience_source_used: toNullableText(finalExperienceSourceUsed)
     };
 
     let { data, error } = await supabase
@@ -256,6 +264,8 @@ export const createAiLog = async ({
         response_language,
         source_priority,
         blocked_cross_tenant_experiences,
+        provider_names_loaded,
+        final_experience_source_used,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase

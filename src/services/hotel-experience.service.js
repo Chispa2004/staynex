@@ -68,7 +68,18 @@ export const getHotelExperiences = async ({
       throw error;
     }
 
-    return (data || []).map(normalizeHotelExperience);
+    return (data || [])
+      .filter((experience) => experience.hotel_id === hotelId)
+      .filter((experience) => {
+        const scopeId = experience.metadata?.hotel_scope_id
+          || experience.metadata?.created_for_hotel_id
+          || experience.metadata?.hotel_id
+          || experience.metadata?.hotelId
+          || null;
+
+        return !scopeId || scopeId === hotelId;
+      })
+      .map(normalizeHotelExperience);
   } catch (error) {
     logger.warn('Hotel experiences lookup failed', {
       hotelId,

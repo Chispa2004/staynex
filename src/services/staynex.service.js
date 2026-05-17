@@ -81,6 +81,7 @@ import {
   detectExperienceBookingIntent,
   getExperienceBookingConfirmationReply
 } from './experience-booking.service.js';
+import { buildStrictHotelExperienceCatalog } from './experience-catalog-isolation.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -131,33 +132,6 @@ const extractHotelIdFromMessage = (message = '') => {
   }
 
   return null;
-};
-
-const normalizeCatalogTitle = (value = '') => String(value)
-  .toLowerCase()
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-z0-9]+/g, ' ')
-  .trim();
-
-const dedupeExperienceCatalog = (experiences = []) => {
-  const seen = new Set();
-
-  return (experiences || []).filter((experience) => {
-    const titleKey = normalizeCatalogTitle(experience?.title || '');
-    const key = experience?.id || titleKey;
-
-    if (!key || seen.has(key) || (titleKey && seen.has(`title:${titleKey}`))) {
-      return false;
-    }
-
-    seen.add(key);
-    if (titleKey) {
-      seen.add(`title:${titleKey}`);
-    }
-
-    return true;
-  });
 };
 
 const resolveMessageHotelContext = async ({ initialHotel, message }) => {
@@ -284,20 +258,41 @@ export const processGuestMessage = async ({
       value: knowledgeResult.metadata.knowledgeValue
     }]
     : await getKnowledgeForHotel(activeHotel.id);
-  const hotelExperiences = await getHotelExperiences({
+  const rawHotelExperiences = await getHotelExperiences({
     hotelId: activeHotel.id,
     activeOnly: true,
     limit: 80
   });
-  const providerExperiences = await getActiveExperienceProviderCatalogForHotel({
+  const rawProviderExperiences = await getActiveExperienceProviderCatalogForHotel({
     hotelId: activeHotel.id,
     activeOnly: true,
     limit: 80
   });
-  const experienceCatalog = dedupeExperienceCatalog([
-    ...providerExperiences,
-    ...hotelExperiences
-  ]);
+  const strictCatalog = buildStrictHotelExperienceCatalog({
+    hotel: activeHotel,
+    providerExperiences: rawProviderExperiences,
+    hotelExperiences: rawHotelExperiences
+  });
+  const providerExperiences = strictCatalog.providerExperiences;
+  const hotelExperiences = strictCatalog.hotelExperiences;
+  const experienceCatalog = strictCatalog.experienceCatalog;
+
+  if (strictCatalog.blockedCrossTenantExperiences) {
+    logger.warn('cross tenant experiences blocked from AI catalog', {
+      hotelId: activeHotel.id,
+      hotelName: activeHotel.name,
+      blocked: strictCatalog.blockedExperiences.slice(0, 8)
+    });
+  }
+
+  logger.info('strict experience catalog loaded', {
+    hotelId: activeHotel.id,
+    providerExperiences: providerExperiences.length,
+    hotelExperiences: hotelExperiences.length,
+    providerNames: strictCatalog.providerNames,
+    finalExperienceSource: strictCatalog.finalExperienceSource,
+    blockedCrossTenantExperiences: strictCatalog.blockedCrossTenantExperiences
+  });
   const localKnowledgeItems = await getLocalKnowledgeForHotel({
     hotelId: activeHotel.id,
     activeOnly: true,
@@ -857,14 +852,16 @@ export const processGuestMessage = async ({
     hotelExperiencesCount: hotelExperiences.length,
     responseLanguage: conversationContext.language,
     sourcePriority: providerExperiences.length ? 'provider_experiences>hotel_experiences>local_knowledge' : hotelExperiences.length ? 'hotel_experiences>local_knowledge' : 'local_knowledge_or_empty',
-    blockedCrossTenantExperiences: false,
+    blockedCrossTenantExperiences: strictCatalog.blockedCrossTenantExperiences,
+    providerNamesLoaded: strictCatalog.providerNames.join(', '),
+    finalExperienceSourceUsed: strictCatalog.finalExperienceSource,
     openAiConciergeUsed: Boolean(openAiResult),
     openAiConciergeModel: openAiConcierge.model || null,
     openAiConciergeFallback: Boolean(openAiConcierge.fallback),
     aiSummary: openAiResult?.summary || null,
     aiReasoning: [
       openAiResult?.reasoning || openAiConcierge.reason || null,
-      `hotel_context_source=${hotelContextSource}; hotel_id=${activeHotel.id}; provider_experiences=${providerExperiences.length}; hotel_experiences=${hotelExperiences.length}; response_language=${conversationContext.language}`,
+      `hotel_context_source=${hotelContextSource}; hotel_id=${activeHotel.id}; provider_experiences=${providerExperiences.length}; hotel_experiences=${hotelExperiences.length}; providers=${strictCatalog.providerNames.join(', ') || 'none'}; final_experience_source=${strictCatalog.finalExperienceSource}; blocked_cross_tenant=${strictCatalog.blockedCrossTenantExperiences}; response_language=${conversationContext.language}`,
       providerExperienceConversation.intentType
         ? `provider_experience_intent=${providerExperienceConversation.intentType}; booking_created=${Boolean(experienceBookingRequest)}; provider_used=${providerExperienceConversation.matchedExperience?.provider_source || 'none'}; provider_experience_used=${providerExperienceConversation.matchedExperience?.title || 'none'}`
         : null

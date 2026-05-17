@@ -9,6 +9,7 @@ import {
   detectExperienceBookingIntent,
   PROVIDER_EXPERIENCE_INTENTS
 } from '../src/services/experience-booking.service.js';
+import { buildStrictHotelExperienceCatalog } from '../src/services/experience-catalog-isolation.service.js';
 
 const base = {
   hotel: {
@@ -86,6 +87,8 @@ assert.equal(rejected.allowed, false);
 const providerCatalog = [
   {
     id: 'provider-agafay',
+    hotel_id: 'hotel-morocco',
+    provider_assignment_hotel_id: 'hotel-morocco',
     provider_experience_id: 'provider-agafay',
     provider_id: 'luxotour',
     provider_source: 'Luxotour Morocco',
@@ -103,6 +106,8 @@ const providerCatalog = [
   },
   {
     id: 'provider-atlas',
+    hotel_id: 'hotel-morocco',
+    provider_assignment_hotel_id: 'hotel-morocco',
     provider_experience_id: 'provider-atlas',
     provider_id: 'luxotour',
     provider_source: 'Luxotour Morocco',
@@ -119,6 +124,32 @@ const providerCatalog = [
     metadata: { experience_provider: true }
   }
 ];
+const strictMoroccoCatalog = buildStrictHotelExperienceCatalog({
+  hotel: {
+    id: 'hotel-morocco',
+    name: 'Hotel Marruecos',
+    slug: 'hotel-marruecos'
+  },
+  providerExperiences: providerCatalog,
+  hotelExperiences: [
+    {
+      id: 'mallorca-demo-leak',
+      hotel_id: 'hotel-morocco',
+      title: 'Catamaran Sunset',
+      partner_name: 'Mallorca Sea Concierge',
+      active: true,
+      metadata: {
+        demo_seed: true,
+        tenant_demo: 'Riu Mallorca'
+      }
+    }
+  ]
+});
+assert.equal(strictMoroccoCatalog.providerExperiences.length, 2);
+assert.equal(strictMoroccoCatalog.hotelExperiences.length, 0);
+assert.equal(strictMoroccoCatalog.blockedCrossTenantExperiences, true);
+assert.equal(strictMoroccoCatalog.providerNames.includes('Luxotour Morocco'), true);
+
 const duplicateProviderCatalog = [
   ...providerCatalog,
   {
@@ -217,6 +248,7 @@ console.log(JSON.stringify({
     'provider excursion booking requires explicit action',
     'provider replies follow guest language',
     'provider recommendations are deduplicated',
-    'empty hotel experience catalog does not invent fallback'
+    'empty hotel experience catalog does not invent fallback',
+    'strict hotel catalog blocks demo cross-tenant experiences'
   ]
 }, null, 2));

@@ -109,6 +109,11 @@ const compactRows = (rows = [], fields = []) => rows.slice(-8).map((row) => fiel
   return acc;
 }, {}));
 
+const compactTopRows = (rows = [], fields = []) => rows.slice(0, 8).map((row) => fields.reduce((acc, field) => {
+  acc[field] = row?.[field] ?? null;
+  return acc;
+}, {}));
+
 const buildPromptPayload = ({
   hotel,
   guest,
@@ -142,7 +147,7 @@ const buildPromptPayload = ({
   open_tickets: compactRows(conversationContext.openTickets || [], ['category', 'priority', 'status', 'title']),
   hotel_knowledge: compactRows(hotelKnowledge, ['key', 'value', 'category', 'title']),
   local_knowledge: compactRows(conversationContext.localKnowledge || [], ['title', 'short_description', 'description', 'category', 'tags', 'audience_tags', 'recommendation_contexts', 'weather_tags', 'featured', 'priority']),
-  hotel_experiences: compactRows(conversationContext.hotelExperiences || [], ['title', 'description', 'category', 'tags', 'target_guest_types', 'price', 'partner_name']),
+  hotel_experiences: compactTopRows(conversationContext.hotelExperiences || [], ['title', 'description', 'category', 'tags', 'target_guest_types', 'price', 'currency', 'partner_name', 'provider_source', 'provider_slug']),
   conversation_state: {
     current_intent: conversationState.currentIntent || conversationState.current_intent || null,
     previous_intent: conversationState.previousIntent || conversationState.previous_intent || null,
@@ -168,7 +173,7 @@ Do not mention romantic stays, spa, upgrades, transfers or other offers unless t
 If response_guidance.offer_suppressed is true, do not include that offer in suggested_response even if guest memory contains related signals.
 Use contextual_revenue only as a concierge moment: early arrival, late departure, family planning, honeymoon, VIP repeat guest. Suggest softly only if timing.allowed is true.
 Use local_knowledge as staff-curated destination intelligence. Prefer it over generic destination knowledge. Never invent places if the hotel has not provided them.
-Use experience_intelligence as local concierge context only: activities, restaurants, beach clubs, excursions, culture, bad-weather plans or local experiences. Suggest experiences naturally when the guest asks for recommendations or the moment is clearly relevant.
+Use experience_intelligence and hotel_experiences as the only allowed experience catalog for this hotel: activities, restaurants, beach clubs, excursions, culture, bad-weather plans or local experiences. Provider experiences in hotel_experiences have priority over normal hotel experiences. Never mention a provider, partner or experience that is not present in hotel_experiences or local_knowledge.
 For provider excursions and activities, distinguish clearly between exploration, soft interest, and booking confirmation. Exploratory questions such as "what excursions do you recommend?" or "what activities do you have?" must list relevant options and must not say reception/provider was notified. Soft interest such as "tell me more" or "I am interested in Agafay" should give details only. Only explicit booking language such as "can you book it", "we want to reserve", or "confirm it" may trigger a booking request.
 Never sound like a marketplace or travel agency. Avoid phrases such as "buy", "special deal", "limited offer" or "book now".
 If the guest asks a simple informational question such as breakfast hours, checkout, WiFi, parking or location, answer only that question.
