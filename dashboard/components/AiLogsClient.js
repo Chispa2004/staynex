@@ -290,7 +290,10 @@ const LogDetail = ({ log, onClose }) => {
       <dl className="p-5">
         <DetailRow label={t('aiLogs.columns.guestMessage')} value={log.raw_guest_message} />
         <DetailRow label={t('aiLogs.columns.aiResponse')} value={log.generated_response} />
+        <DetailRow label="hotel_id" value={log.hotel_id || log.knowledge_hotel_id} />
+        <DetailRow label="hotel_name" value={log.hotel_name} />
         <DetailRow label="detected_language" value={log.detected_language} />
+        <DetailRow label="response_language" value={log.response_language} />
         <DetailRow label="detected_intent" value={log.detected_intent} />
         <DetailRow label="detected_room" value={log.detected_room} />
         <DetailRow label="knowledge_used" value={log.knowledge_used} />
@@ -307,6 +310,10 @@ const LogDetail = ({ log, onClose }) => {
         <DetailRow label="provider_booking_created" value={log.provider_booking_created} />
         <DetailRow label="provider_used" value={log.provider_used} />
         <DetailRow label="provider_experience_used" value={log.provider_experience_used} />
+        <DetailRow label="provider_experiences_count" value={log.provider_experiences_count} />
+        <DetailRow label="hotel_experiences_count" value={log.hotel_experiences_count} />
+        <DetailRow label="source_priority" value={log.source_priority} />
+        <DetailRow label="blocked_cross_tenant_experiences" value={log.blocked_cross_tenant_experiences} />
         <DetailRow label="ai_reasoning" value={log.ai_reasoning} />
         <DetailRow label="confidence_score" value={log.confidence_score} />
         <DetailRow label="created_at" value={log.created_at} />

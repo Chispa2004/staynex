@@ -30,7 +30,7 @@ import {
   linkReservationToGuest
 } from './reservation.service.js';
 import { logger } from '../utils/logger.js';
-import { getDefaultHotel } from './hotel.service.js';
+import { getDefaultHotel, getHotelById } from './hotel.service.js';
 import {
   createUpsellInterestTicket,
   detectUpsellInterest,
@@ -112,6 +112,74 @@ const withAiMetadata = (aiResponse, {
   fallback_used: aiResponse.fallback_used ?? aiResponse.fallbackUsed ?? fallbackUsed
 });
 
+const extractHotelIdFromMessage = (message = '') => {
+  if (!message || typeof message !== 'string') {
+    return null;
+  }
+
+  const patterns = [
+    /Staynex hotel id:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+    /\bhotel[_\s-]?id[:=]\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i,
+    /\bstx-hotel[:=]\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = message.match(pattern);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+};
+
+const normalizeCatalogTitle = (value = '') => String(value)
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
+const dedupeExperienceCatalog = (experiences = []) => {
+  const seen = new Set();
+
+  return (experiences || []).filter((experience) => {
+    const titleKey = normalizeCatalogTitle(experience?.title || '');
+    const key = experience?.id || titleKey;
+
+    if (!key || seen.has(key) || (titleKey && seen.has(`title:${titleKey}`))) {
+      return false;
+    }
+
+    seen.add(key);
+    if (titleKey) {
+      seen.add(`title:${titleKey}`);
+    }
+
+    return true;
+  });
+};
+
+const resolveMessageHotelContext = async ({ initialHotel, message }) => {
+  let activeHotel = initialHotel || await getDefaultHotel();
+  let source = initialHotel?.id ? 'whatsapp_number' : 'default_hotel';
+  const embeddedHotelId = extractHotelIdFromMessage(message);
+
+  if (embeddedHotelId && embeddedHotelId !== activeHotel?.id) {
+    const embeddedHotel = await getHotelById(embeddedHotelId);
+
+    if (embeddedHotel) {
+      activeHotel = embeddedHotel;
+      source = 'message_hotel_id';
+    }
+  }
+
+  return {
+    hotel: activeHotel,
+    source
+  };
+};
+
 export const normalizeWhatsappNumber = (phoneNumber) => (
   phoneNumber?.replace(/^whatsapp:/, '') || null
 );
@@ -132,12 +200,16 @@ export const processGuestMessage = async ({
     throw new Error('phone is required');
   }
 
-  const activeHotel = hotel || await getDefaultHotel();
+  let { hotel: activeHotel, source: hotelContextSource } = await resolveMessageHotelContext({
+    initialHotel: hotel,
+    message
+  });
   const cleanPhone = normalizeWhatsappNumber(phone);
 
   logger.info('Processing guest message', {
     channel,
     hotelId: activeHotel.id,
+    hotelContextSource,
     phone: cleanPhone
   });
 
@@ -152,6 +224,20 @@ export const processGuestMessage = async ({
     });
 
     reservation = await findReservationByAccessToken(reservationAccessToken);
+
+    if (reservation?.hotel_id && reservation.hotel_id !== activeHotel?.id) {
+      const reservationHotel = await getHotelById(reservation.hotel_id);
+
+      if (reservationHotel) {
+        activeHotel = reservationHotel;
+        hotelContextSource = 'reservation_access_token';
+        logger.info('hotel context switched from reservation token', {
+          hotelId: activeHotel.id,
+          reservationId: reservation.id,
+          reservationAccessToken
+        });
+      }
+    }
   }
 
   const guest = await findOrCreateGuest({
@@ -208,10 +294,10 @@ export const processGuestMessage = async ({
     activeOnly: true,
     limit: 80
   });
-  const experienceCatalog = [
+  const experienceCatalog = dedupeExperienceCatalog([
     ...providerExperiences,
     ...hotelExperiences
-  ];
+  ]);
   const localKnowledgeItems = await getLocalKnowledgeForHotel({
     hotelId: activeHotel.id,
     activeOnly: true,
@@ -731,6 +817,8 @@ export const processGuestMessage = async ({
 
   await createAiLog({
     messageId: guestMessage.id,
+    hotelId: activeHotel.id,
+    hotelName: activeHotel.name || activeHotel.brand_name || null,
     guestId: guest.id,
     conversationId: conversation.id,
     detectedLanguage: conversationContext.language,
@@ -765,12 +853,18 @@ export const processGuestMessage = async ({
     providerBookingCreated: Boolean(experienceBookingRequest),
     providerUsed: providerExperienceConversation.matchedExperience?.provider_source || experienceBookingRequest?.provider_source || null,
     providerExperienceUsed: providerExperienceConversation.matchedExperience?.title || experienceBookingRequest?.experience_title || null,
+    providerExperiencesCount: providerExperiences.length,
+    hotelExperiencesCount: hotelExperiences.length,
+    responseLanguage: conversationContext.language,
+    sourcePriority: providerExperiences.length ? 'provider_experiences>hotel_experiences>local_knowledge' : hotelExperiences.length ? 'hotel_experiences>local_knowledge' : 'local_knowledge_or_empty',
+    blockedCrossTenantExperiences: false,
     openAiConciergeUsed: Boolean(openAiResult),
     openAiConciergeModel: openAiConcierge.model || null,
     openAiConciergeFallback: Boolean(openAiConcierge.fallback),
     aiSummary: openAiResult?.summary || null,
     aiReasoning: [
       openAiResult?.reasoning || openAiConcierge.reason || null,
+      `hotel_context_source=${hotelContextSource}; hotel_id=${activeHotel.id}; provider_experiences=${providerExperiences.length}; hotel_experiences=${hotelExperiences.length}; response_language=${conversationContext.language}`,
       providerExperienceConversation.intentType
         ? `provider_experience_intent=${providerExperienceConversation.intentType}; booking_created=${Boolean(experienceBookingRequest)}; provider_used=${providerExperienceConversation.matchedExperience?.provider_source || 'none'}; provider_experience_used=${providerExperienceConversation.matchedExperience?.title || 'none'}`
         : null

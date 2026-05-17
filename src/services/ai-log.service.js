@@ -51,6 +51,13 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('provider_booking_created')
   || error?.message?.includes('provider_used')
   || error?.message?.includes('provider_experience_used')
+  || error?.message?.includes('hotel_id')
+  || error?.message?.includes('hotel_name')
+  || error?.message?.includes('provider_experiences_count')
+  || error?.message?.includes('hotel_experiences_count')
+  || error?.message?.includes('response_language')
+  || error?.message?.includes('source_priority')
+  || error?.message?.includes('blocked_cross_tenant_experiences')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
@@ -79,10 +86,19 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('provider_booking_created')
   || error?.details?.includes('provider_used')
   || error?.details?.includes('provider_experience_used')
+  || error?.details?.includes('hotel_id')
+  || error?.details?.includes('hotel_name')
+  || error?.details?.includes('provider_experiences_count')
+  || error?.details?.includes('hotel_experiences_count')
+  || error?.details?.includes('response_language')
+  || error?.details?.includes('source_priority')
+  || error?.details?.includes('blocked_cross_tenant_experiences')
 );
 
 export const createAiLog = async ({
   messageId = null,
+  hotelId = null,
+  hotelName = null,
   guestId = null,
   conversationId = null,
   detectedLanguage = null,
@@ -126,6 +142,11 @@ export const createAiLog = async ({
   providerBookingCreated = false,
   providerUsed = null,
   providerExperienceUsed = null,
+  providerExperiencesCount = null,
+  hotelExperiencesCount = null,
+  responseLanguage = null,
+  sourcePriority = null,
+  blockedCrossTenantExperiences = false,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -134,6 +155,8 @@ export const createAiLog = async ({
     const supabase = getSupabase();
     const logRecord = {
       message_id: messageId,
+      hotel_id: hotelId,
+      hotel_name: toNullableText(hotelName),
       guest_id: guestId,
       conversation_id: conversationId,
       detected_language: toNullableText(detectedLanguage),
@@ -176,7 +199,12 @@ export const createAiLog = async ({
       provider_experience_intent: toNullableText(providerExperienceIntent),
       provider_booking_created: Boolean(providerBookingCreated),
       provider_used: toNullableText(providerUsed),
-      provider_experience_used: toNullableText(providerExperienceUsed)
+      provider_experience_used: toNullableText(providerExperienceUsed),
+      provider_experiences_count: toNullableNumber(providerExperiencesCount),
+      hotel_experiences_count: toNullableNumber(hotelExperiencesCount),
+      response_language: toNullableText(responseLanguage),
+      source_priority: toNullableText(sourcePriority),
+      blocked_cross_tenant_experiences: Boolean(blockedCrossTenantExperiences)
     };
 
     let { data, error } = await supabase
@@ -221,6 +249,13 @@ export const createAiLog = async ({
         provider_booking_created,
         provider_used,
         provider_experience_used,
+        hotel_id,
+        hotel_name,
+        provider_experiences_count,
+        hotel_experiences_count,
+        response_language,
+        source_priority,
+        blocked_cross_tenant_experiences,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase

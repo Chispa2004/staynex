@@ -5,6 +5,10 @@ const normalize = (value = '') => value
 
 const LANGUAGE_SIGNALS = {
   de: [
+    'was',
+    'welche',
+    'ausfluge',
+    'empfehlen',
     'ich brauche',
     'handtucher',
     'zimmer',
@@ -17,6 +21,10 @@ const LANGUAGE_SIGNALS = {
     'flughafen'
   ],
   fr: [
+    'quelles',
+    'excursions',
+    'recommandez',
+    'activites',
     'j ai besoin',
     'jai besoin',
     'serviettes',
@@ -29,6 +37,12 @@ const LANGUAGE_SIGNALS = {
     'aeroport'
   ],
   en: [
+    'what tours',
+    'what excursions',
+    'what activities',
+    'recommend',
+    'activities',
+    'excursions',
     'can you',
     'could you',
     'please',
@@ -41,6 +55,11 @@ const LANGUAGE_SIGNALS = {
     'airport'
   ],
   es: [
+    'que excursiones',
+    'excursiones',
+    'actividades',
+    'recomendais',
+    'recomiendas',
     'necesito',
     'habitacion',
     'hab ',

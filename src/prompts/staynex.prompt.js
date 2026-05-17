@@ -139,7 +139,7 @@ export const buildStaynexUserPrompt = ({
     : 'No hay oportunidades de experiencia detectadas.';
   const hotelExperiencesText = hotelExperiences.length
     ? hotelExperiences.slice(0, 12).map((experience) => (
-      `- ${experience.title}: ${experience.description}. Categoria: ${experience.category}. Precio: ${experience.price || 'No disponible'} EUR. Tags: ${(experience.tags || []).join(', ') || 'sin tags'}`
+      `- ${experience.title}: ${experience.description}. Provider: ${experience.provider_source || 'Hotel'}. Categoria: ${experience.category}. Precio: ${experience.price || 'No disponible'} ${experience.currency || 'EUR'}. Tags: ${(experience.tags || []).join(', ') || 'sin tags'}`
     )).join('\n')
     : 'No hay experiencias configuradas para este hotel.';
   const localKnowledgeText = localKnowledge.length
@@ -216,7 +216,8 @@ INSTRUCCIONES:
 - Si REVENUE CONTEXTUAL indica timing bloqueado, no menciones esa oferta.
 - Si REVENUE CONTEXTUAL indica timing permitido, mencionalo solo como ayuda opcional y con una frase suave.
 - Si EXPERIENCE INTELLIGENCE indica timing bloqueado, no recomiendes experiencias.
-- Si el huesped pide recomendaciones, actividades, restaurantes, playas o planes locales, usa primero LOCAL KNOWLEDGE DEL DESTINO y despues EXPERIENCIAS DEL HOTEL si encaja.
+- Si el huesped pide excursiones, tours, actividades o experiencias, usa primero EXPERIENCIAS DEL HOTEL, especialmente provider experiences activos como Luxotour. Despues usa LOCAL KNOWLEDGE DEL DESTINO si aporta contexto.
+- Si no hay EXPERIENCIAS DEL HOTEL ni LOCAL KNOWLEDGE para el hotel actual, dilo claramente y no inventes catalogos, partners ni lugares de otro hotel.
 - Usa SOLO LOCAL KNOWLEDGE, EXPERIENCIAS DEL HOTEL o Knowledge Base del hotel actual. No inventes partners, precios ni disponibilidad.
 - No uses lenguaje como "compra", "oferta especial", "promocion limitada" o "reserva ya".
 `.trim();

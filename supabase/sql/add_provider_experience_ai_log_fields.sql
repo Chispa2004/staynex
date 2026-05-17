@@ -1,8 +1,18 @@
 alter table public.ai_logs
+  add column if not exists hotel_id uuid references public.hotels(id) on delete set null,
+  add column if not exists hotel_name text null,
   add column if not exists provider_experience_intent text null,
   add column if not exists provider_booking_created boolean default false,
   add column if not exists provider_used text null,
-  add column if not exists provider_experience_used text null;
+  add column if not exists provider_experience_used text null,
+  add column if not exists provider_experiences_count integer default 0,
+  add column if not exists hotel_experiences_count integer default 0,
+  add column if not exists response_language text null,
+  add column if not exists source_priority text null,
+  add column if not exists blocked_cross_tenant_experiences boolean default false;
+
+create index if not exists ai_logs_hotel_created_at_idx
+  on public.ai_logs (hotel_id, created_at desc);
 
 create index if not exists ai_logs_provider_experience_intent_idx
   on public.ai_logs (provider_experience_intent, created_at desc);

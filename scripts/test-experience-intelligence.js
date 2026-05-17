@@ -119,6 +119,16 @@ const providerCatalog = [
     metadata: { experience_provider: true }
   }
 ];
+const duplicateProviderCatalog = [
+  ...providerCatalog,
+  {
+    ...providerCatalog[0],
+    id: 'duplicate-agafay-hotel-experience',
+    provider_experience_id: null,
+    provider_source: null,
+    metadata: {}
+  }
+];
 
 const providerInquiry = await classifyProviderExperienceConversation({
   message: 'Que excursiones o actividades teneis?',
@@ -135,6 +145,41 @@ const providerReply = buildProviderExperienceRecommendationReply({
 assert.equal(providerReply.includes('Luxotour Morocco'), true);
 assert.equal(providerReply.includes('Excursion al desierto de Agafay'), true);
 assert.equal(providerReply.includes('He avisado'), false);
+assert.equal((providerReply.match(/Excursion al desierto de Agafay/g) || []).length, 1);
+
+const providerReplyDeduped = buildProviderExperienceRecommendationReply({
+  intent: providerInquiry,
+  hotelExperiences: duplicateProviderCatalog,
+  language: 'es'
+});
+assert.equal((providerReplyDeduped.match(/Excursion al desierto de Agafay/g) || []).length, 1);
+
+const providerReplyEnglish = buildProviderExperienceRecommendationReply({
+  intent: await classifyProviderExperienceConversation({
+    message: 'What tours do you recommend?',
+    hotelExperiences: providerCatalog
+  }),
+  hotelExperiences: providerCatalog,
+  language: 'en'
+});
+assert.equal(providerReplyEnglish.startsWith('Of course.'), true);
+
+const providerReplyFrench = buildProviderExperienceRecommendationReply({
+  intent: await classifyProviderExperienceConversation({
+    message: 'Quelles excursions recommandez-vous ?',
+    hotelExperiences: providerCatalog
+  }),
+  hotelExperiences: providerCatalog,
+  language: 'fr'
+});
+assert.equal(providerReplyFrench.startsWith('Bien sur.'), true);
+
+const emptyReply = buildProviderExperienceRecommendationReply({
+  intent: providerInquiry,
+  hotelExperiences: [],
+  language: 'es'
+});
+assert.equal(emptyReply.includes('no tengo experiencias configuradas'), true);
 
 const providerInterest = await classifyProviderExperienceConversation({
   message: 'Cuentame mas de Agafay',
@@ -169,6 +214,9 @@ console.log(JSON.stringify({
     'rejected experience block',
     'provider excursion inquiry does not create booking',
     'provider excursion interest stays conversational',
-    'provider excursion booking requires explicit action'
+    'provider excursion booking requires explicit action',
+    'provider replies follow guest language',
+    'provider recommendations are deduplicated',
+    'empty hotel experience catalog does not invent fallback'
   ]
 }, null, 2));

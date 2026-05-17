@@ -20,6 +20,26 @@ const isMissingBookingTable = (error) => (
 
 const includesAny = (text, words) => words.some((word) => text.includes(normalize(word)));
 
+const uniqueExperiences = (experiences = []) => {
+  const seen = new Set();
+
+  return (experiences || []).filter((experience) => {
+    const titleKey = normalize(experience?.title || '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const key = experience?.id || titleKey;
+
+    if (!key || seen.has(key) || (titleKey && seen.has(`title:${titleKey}`))) {
+      return false;
+    }
+
+    seen.add(key);
+    if (titleKey) {
+      seen.add(`title:${titleKey}`);
+    }
+
+    return true;
+  });
+};
+
 export const PROVIDER_EXPERIENCE_INTENTS = {
   INQUIRY: 'excursion_inquiry',
   INTEREST: 'excursion_interest',
@@ -37,6 +57,11 @@ const inquiryWords = [
   'things to do',
   'plans for',
   'weekend plans',
+  'which tours',
+  'quelles excursions',
+  'quelles activites',
+  'recommandez-vous',
+  'welche ausfluge',
   'que excursiones',
   'que actividades',
   'que recomendais',
@@ -364,8 +389,15 @@ export const detectExperienceBookingIntent = async ({
 };
 
 const formatExperienceLine = ({ experience, language = 'en' }) => {
+  const locale = language === 'es' ? 'es-ES' : language === 'fr' ? 'fr-FR' : language === 'de' ? 'de-DE' : 'en-US';
+  const fromWord = {
+    es: 'desde',
+    fr: 'a partir de',
+    de: 'ab',
+    en: 'from'
+  }[language] || 'from';
   const price = experience.price
-    ? ` - ${language === 'es' ? 'desde' : 'from'} ${Number(experience.price).toLocaleString(language === 'es' ? 'es-ES' : 'en-US')} ${experience.currency || 'EUR'}`
+    ? ` - ${fromWord} ${Number(experience.price).toLocaleString(locale)} ${experience.currency || 'EUR'}`
     : '';
   const duration = experience.duration ? ` (${experience.duration})` : '';
 
@@ -378,15 +410,25 @@ export const buildProviderExperienceRecommendationReply = ({
   language = 'en',
   limit = 4
 } = {}) => {
-  const providerExperiences = (hotelExperiences || [])
+  const dedupedExperiences = uniqueExperiences(hotelExperiences);
+  const providerExperiences = dedupedExperiences
     .filter((experience) => experience?.metadata?.experience_provider || experience.provider_source || experience.provider_id)
     .filter((experience) => experience.active !== false);
   const catalog = providerExperiences.length
     ? providerExperiences
-    : (hotelExperiences || []).filter((experience) => experience.active !== false);
+    : dedupedExperiences.filter((experience) => experience.active !== false);
 
   if (!catalog.length) {
-    return null;
+    if (!intent?.intentType) {
+      return null;
+    }
+
+    return {
+      es: 'Ahora mismo no tengo experiencias configuradas todavia para este hotel. Si quieres, recepcion puede ayudarte con recomendaciones locales.',
+      fr: 'Pour le moment, aucune experience n est encore configuree pour cet hotel. Si vous le souhaitez, la reception peut vous aider avec des recommandations locales.',
+      de: 'Aktuell sind fuer dieses Hotel noch keine Erlebnisse konfiguriert. Wenn Sie moechten, kann die Rezeption Ihnen mit lokalen Empfehlungen helfen.',
+      en: 'There are no experiences configured for this hotel yet. If you like, reception can still help with local recommendations.'
+    }[language] || 'There are no experiences configured for this hotel yet. If you like, reception can still help with local recommendations.';
   }
 
   const matched = intent?.matchedExperience;
@@ -397,24 +439,35 @@ export const buildProviderExperienceRecommendationReply = ({
   const list = selected.map((experience) => formatExperienceLine({ experience, language })).join('\n');
 
   if (intent?.intentType === PROVIDER_EXPERIENCE_INTENTS.INTEREST && matched) {
-    const description = matched.short_description || matched.description || (language === 'es'
-      ? 'Es una de las experiencias que podemos ayudar a organizar durante la estancia.'
-      : 'It is one of the experiences we can help arrange during the stay.');
-    const price = matched.price ? `${language === 'es' ? 'desde' : 'from'} ${Number(matched.price).toLocaleString(language === 'es' ? 'es-ES' : 'en-US')} ${matched.currency || 'EUR'}` : null;
+    const description = matched.short_description || matched.description || ({
+      es: 'Es una de las experiencias que podemos ayudar a organizar durante la estancia.',
+      fr: 'C est l une des experiences que nous pouvons aider a organiser pendant votre sejour.',
+      de: 'Das ist eines der Erlebnisse, die wir waehrend Ihres Aufenthalts organisieren koennen.',
+      en: 'It is one of the experiences we can help arrange during the stay.'
+    }[language] || 'It is one of the experiences we can help arrange during the stay.');
+    const locale = language === 'es' ? 'es-ES' : language === 'fr' ? 'fr-FR' : language === 'de' ? 'de-DE' : 'en-US';
+    const fromWord = { es: 'desde', fr: 'a partir de', de: 'ab', en: 'from' }[language] || 'from';
+    const price = matched.price ? `${fromWord} ${Number(matched.price).toLocaleString(locale)} ${matched.currency || 'EUR'}` : null;
     const details = [
       description,
-      matched.duration ? `${language === 'es' ? 'Duracion' : 'Duration'}: ${matched.duration}.` : null,
-      price ? `${language === 'es' ? 'Precio' : 'Price'}: ${price}.` : null
+      matched.duration ? `${{ es: 'Duracion', fr: 'Duree', de: 'Dauer', en: 'Duration' }[language] || 'Duration'}: ${matched.duration}.` : null,
+      price ? `${{ es: 'Precio', fr: 'Prix', de: 'Preis', en: 'Price' }[language] || 'Price'}: ${price}.` : null
     ].filter(Boolean).join('\n');
 
-    return language === 'es'
-      ? `Claro.\n\n${details}\n\nSi os encaja, puedo ayudaros a enviar la solicitud para confirmar disponibilidad.`
-      : `Of course.\n\n${details}\n\nIf it suits you, I can help send the request to confirm availability.`;
+    return {
+      es: `Claro.\n\n${details}\n\nSi os encaja, puedo ayudaros a enviar la solicitud para confirmar disponibilidad.`,
+      fr: `Bien sur.\n\n${details}\n\nSi cela vous convient, je peux vous aider a envoyer la demande pour confirmer la disponibilite.`,
+      de: `Gerne.\n\n${details}\n\nWenn es fuer Sie passt, kann ich die Anfrage zur Bestaetigung der Verfuegbarkeit weiterleiten.`,
+      en: `Of course.\n\n${details}\n\nIf it suits you, I can help send the request to confirm availability.`
+    }[language] || `Of course.\n\n${details}\n\nIf it suits you, I can help send the request to confirm availability.`;
   }
 
-  return language === 'es'
-    ? `Claro.\n\n${providerName ? `A traves de ${providerName} podemos organizar varias experiencias:\n\n` : 'Podemos ayudaros con varias experiencias durante vuestra estancia:\n\n'}${list}\n\nSi alguna os interesa, puedo daros mas detalles o ayudaros con la reserva.`
-    : `Of course.\n\n${providerName ? `Through ${providerName}, we can arrange several experiences:\n\n` : 'We can help with several experiences during your stay:\n\n'}${list}\n\nIf any of these interest you, I can share more details or help with the booking.`;
+  return {
+    es: `Claro.\n\n${providerName ? `A traves de ${providerName} podemos organizar varias experiencias:\n\n` : 'Podemos ayudaros con varias experiencias durante vuestra estancia:\n\n'}${list}\n\nSi alguna os interesa, puedo daros mas detalles o ayudaros con la reserva.`,
+    fr: `Bien sur.\n\n${providerName ? `Avec ${providerName}, nous pouvons organiser plusieurs experiences:\n\n` : 'Nous pouvons vous aider avec plusieurs experiences pendant votre sejour:\n\n'}${list}\n\nSi l une d elles vous interesse, je peux vous donner plus de details ou vous aider avec la demande de reservation.`,
+    de: `Gerne.\n\n${providerName ? `Ueber ${providerName} koennen wir mehrere Erlebnisse organisieren:\n\n` : 'Wir koennen Ihnen waehrend Ihres Aufenthalts mit mehreren Erlebnissen helfen:\n\n'}${list}\n\nWenn Sie eine davon interessiert, gebe ich Ihnen gern weitere Details oder helfe mit der Anfrage.`,
+    en: `Of course.\n\n${providerName ? `Through ${providerName}, we can arrange several experiences:\n\n` : 'We can help with several experiences during your stay:\n\n'}${list}\n\nIf any of these interest you, I can share more details or help with the booking.`
+  }[language] || `Of course.\n\n${providerName ? `Through ${providerName}, we can arrange several experiences:\n\n` : 'We can help with several experiences during your stay:\n\n'}${list}\n\nIf any of these interest you, I can share more details or help with the booking.`;
 };
 
 export const buildProviderExperienceInterestMemories = ({ intent } = {}) => {
@@ -670,10 +723,18 @@ export const createExperienceBookingRequest = async ({
 
 export const getExperienceBookingConfirmationReply = ({ language = 'en', providerName = null } = {}) => {
   const destination = providerName
-    ? (language === 'es' ? ` a ${providerName}` : ` to ${providerName}`)
+    ? ({
+      es: ` a ${providerName}`,
+      fr: ` a ${providerName}`,
+      de: ` an ${providerName}`,
+      en: ` to ${providerName}`
+    }[language] || ` to ${providerName}`)
     : '';
 
-  return language === 'es'
-    ? `Perfecto.\n\nHe enviado vuestra solicitud${destination} para confirmar disponibilidad y detalles de la experiencia. Os contactaran lo antes posible para finalizar la reserva.`
-    : `Perfect.\n\nI have sent your request${destination} to confirm availability and the experience details. You will be contacted as soon as possible to finalize the booking.`;
+  return {
+    es: `Perfecto.\n\nHe enviado vuestra solicitud${destination} para confirmar disponibilidad y detalles de la experiencia. Os contactaran lo antes posible para finalizar la reserva.`,
+    fr: `Parfait.\n\nJ ai envoye votre demande${destination} afin de confirmer la disponibilite et les details de l experience. Vous serez contactes des que possible pour finaliser la reservation.`,
+    de: `Perfekt.\n\nIch habe Ihre Anfrage${destination} gesendet, um Verfuegbarkeit und Details des Erlebnisses zu bestaetigen. Sie werden so bald wie moeglich kontaktiert, um die Buchung abzuschliessen.`,
+    en: `Perfect.\n\nI have sent your request${destination} to confirm availability and the experience details. You will be contacted as soon as possible to finalize the booking.`
+  }[language] || `Perfect.\n\nI have sent your request${destination} to confirm availability and the experience details. You will be contacted as soon as possible to finalize the booking.`;
 };
