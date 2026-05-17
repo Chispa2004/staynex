@@ -8,8 +8,11 @@ import {
   ExternalLink,
   Hotel,
   PlugZap,
+  Plus,
   QrCode,
-  RefreshCw
+  RefreshCw,
+  Save,
+  Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -91,21 +94,35 @@ export const QrRoomsClient = () => {
   const [copiedRoom, setCopiedRoom] = useState(null);
   const [hotel, setHotel] = useState(null);
   const [rooms, setRooms] = useState([]);
+  const [detectedRooms, setDetectedRooms] = useState([]);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [roomSource, setRoomSource] = useState('none');
+  const [canManageRooms, setCanManageRooms] = useState(false);
+  const [missingHotelRoomsTable, setMissingHotelRoomsTable] = useState(false);
+  const [roomForm, setRoomForm] = useState({
+    room_number: '',
+    floor: '',
+    room_type: '',
+    active: true,
+    qr_enabled: true
+  });
+  const [busyAction, setBusyAction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const requestIdRef = useRef(0);
   const activeHotelIdRef = useRef(null);
 
   const whatsappConfigured = Boolean(whatsappNumber);
+  const qrEnabledRooms = useMemo(() => rooms.filter((room) => (
+    room.active !== false && room.qr_enabled !== false
+  )), [rooms]);
 
   const roomLinks = useMemo(() => Object.fromEntries(
-    rooms.map((room) => [
+    qrEnabledRooms.map((room) => [
       room.room_number,
       buildWhatsappLink({ whatsappNumber, hotel, room: room.room_number })
     ])
-  ), [hotel, rooms, whatsappNumber]);
+  ), [hotel, qrEnabledRooms, whatsappNumber]);
 
   const loadRooms = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
@@ -116,7 +133,7 @@ export const QrRoomsClient = () => {
     setQrCodes({});
 
     try {
-      const response = await fetch('/api/qr-rooms', {
+      const response = await fetch('/api/qr-rooms?includeInactive=true', {
         headers: await getAuthHeaders(),
         cache: 'no-store'
       });
@@ -159,7 +176,10 @@ export const QrRoomsClient = () => {
       setHotel(body.hotel || null);
       setWhatsappNumber(normalizeWhatsappNumber(body.whatsappNumber || body.hotel?.whatsapp_number || ''));
       setRooms(body.rooms || []);
+      setDetectedRooms(body.detectedRooms || []);
       setRoomSource(body.roomSource || 'none');
+      setCanManageRooms(Boolean(body.canManageRooms));
+      setMissingHotelRoomsTable(Boolean(body.missingHotelRoomsTable));
 
       if (process.env.NODE_ENV !== 'production') {
         console.info('tenant room source', {
@@ -200,10 +220,12 @@ export const QrRoomsClient = () => {
       }
 
       setRooms([]);
+      setDetectedRooms([]);
       setQrCodes({});
       setHotel(null);
       setWhatsappNumber('');
       setRoomSource('none');
+      setCanManageRooms(false);
       loadRooms();
     };
 
@@ -216,12 +238,12 @@ export const QrRoomsClient = () => {
     let cancelled = false;
 
     const generateQrCodes = async () => {
-      if (!rooms.length || !whatsappConfigured) {
+      if (!qrEnabledRooms.length || !whatsappConfigured) {
         setQrCodes({});
         return;
       }
 
-      const entries = await Promise.all(rooms.map(async (room) => {
+      const entries = await Promise.all(qrEnabledRooms.map(async (room) => {
         const link = roomLinks[room.room_number];
 
         if (!link) {
@@ -252,7 +274,136 @@ export const QrRoomsClient = () => {
     return () => {
       cancelled = true;
     };
-  }, [roomLinks, rooms, whatsappConfigured]);
+  }, [qrEnabledRooms, roomLinks, whatsappConfigured]);
+
+  const saveRoom = async (event) => {
+    event.preventDefault();
+    setBusyAction('save-room');
+    setError(null);
+
+    try {
+      const response = await fetch('/api/qr-rooms', {
+        method: 'POST',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store',
+        body: JSON.stringify(roomForm)
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not save room');
+      }
+
+      setRoomForm({
+        room_number: '',
+        floor: '',
+        room_type: '',
+        active: true,
+        qr_enabled: true
+      });
+      await loadRooms();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const importDetectedRooms = async () => {
+    setBusyAction('import-detected');
+    setError(null);
+
+    try {
+      const response = await fetch('/api/qr-rooms', {
+        method: 'POST',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store',
+        body: JSON.stringify({ action: 'import_detected_rooms' })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not import detected rooms');
+      }
+
+      await loadRooms();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const updateRoom = async (room, updates) => {
+    setBusyAction(`room-${room.id}`);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/qr-rooms', {
+        method: 'PATCH',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store',
+        body: JSON.stringify({
+          id: room.id,
+          room_number: room.room_number,
+          floor: room.floor || '',
+          room_type: room.room_type || '',
+          active: room.active !== false,
+          qr_enabled: room.qr_enabled !== false,
+          metadata: room.metadata || {},
+          ...updates
+        })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not update room');
+      }
+
+      await loadRooms();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const deleteRoom = async (room) => {
+    setBusyAction(`room-${room.id}`);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/qr-rooms', {
+        method: 'DELETE',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store',
+        body: JSON.stringify({ id: room.id })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not delete room');
+      }
+
+      await loadRooms();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setBusyAction(null);
+    }
+  };
 
   const copyLink = async (roomNumber) => {
     if (!roomLinks[roomNumber]) {
@@ -320,13 +471,87 @@ export const QrRoomsClient = () => {
         </div>
       ) : null}
 
+      {!loading && canManageRooms ? (
+        <Card className="p-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div>
+              <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>
+                Official room source
+              </p>
+              <h2 className={isLight ? 'mt-2 text-lg font-semibold text-slate-950' : 'mt-2 text-lg font-semibold text-white'}>
+                Hotel rooms
+              </h2>
+              <p className={isLight ? 'mt-1 max-w-2xl text-sm leading-6 text-slate-600' : 'mt-1 max-w-2xl text-sm leading-6 text-slate-400'}>
+                QR codes are generated from <code>hotel_rooms</code>. PMS-detected rooms can be imported, but demo/global rooms are never used.
+              </p>
+              {missingHotelRoomsTable ? (
+                <p className="mt-2 text-sm font-semibold text-amber-400">
+                  Run supabase/sql/create_hotel_rooms.sql to enable manual room management.
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={importDetectedRooms}
+              disabled={busyAction === 'import-detected' || detectedRooms.length === 0 || missingHotelRoomsTable}
+              className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50'}
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              {busyAction === 'import-detected' ? 'Importing...' : `Import detected rooms (${detectedRooms.length})`}
+            </button>
+          </div>
+
+          <form onSubmit={saveRoom} className="mt-5 grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto] md:items-end">
+            <label className="space-y-1.5">
+              <span className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>Room number</span>
+              <input
+                value={roomForm.room_number}
+                onChange={(event) => setRoomForm((current) => ({ ...current, room_number: event.target.value }))}
+                className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300/30'}
+                placeholder="101"
+                required
+                disabled={missingHotelRoomsTable}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>Floor</span>
+              <input
+                value={roomForm.floor}
+                onChange={(event) => setRoomForm((current) => ({ ...current, floor: event.target.value }))}
+                className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300/30'}
+                placeholder="1"
+                disabled={missingHotelRoomsTable}
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>Room type</span>
+              <input
+                value={roomForm.room_type}
+                onChange={(event) => setRoomForm((current) => ({ ...current, room_type: event.target.value }))}
+                className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-white outline-none focus:border-emerald-300/30'}
+                placeholder="Deluxe"
+                disabled={missingHotelRoomsTable}
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busyAction === 'save-room' || missingHotelRoomsTable}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/60 bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {busyAction === 'save-room' ? 'Saving...' : 'Add room'}
+            </button>
+          </form>
+        </Card>
+      ) : null}
+
       {loading ? (
         <PremiumLoadingState title="Loading QR rooms" description="Staynex is loading rooms from this hotel workspace only." rows={4} cards={3} />
       ) : !rooms.length ? (
         <PremiumEmptyState
           icon={PlugZap}
           title="No rooms available yet"
-          description="Connect PMS or add room assignments to generate tenant-safe QR codes. Demo rooms are blocked for this workspace."
+          description="Add rooms to the official hotel room catalog or import detected PMS rooms. Demo rooms are blocked for this workspace."
           action={(
             <div className="flex flex-wrap justify-center gap-2">
               <Link href="/dashboard/settings/pms" className={isLight ? 'rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}>
@@ -356,6 +581,7 @@ export const QrRoomsClient = () => {
               const roomNumber = room.room_number;
               const dataUrl = qrCodes[roomNumber];
               const copied = copiedRoom === roomNumber;
+              const roomEnabled = room.active !== false && room.qr_enabled !== false;
 
               return (
                 <Card key={roomNumber} className="overflow-hidden">
@@ -369,7 +595,7 @@ export const QrRoomsClient = () => {
                           {roomNumber}
                         </h2>
                         <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
-                          {room.source?.replace(/_/g, ' ') || 'hotel room'}
+                          {[room.source?.replace(/_/g, ' ') || 'hotel room', room.floor ? `Floor ${room.floor}` : null, room.room_type].filter(Boolean).join(' / ')}
                         </p>
                       </div>
                       <span className={isLight ? 'flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700' : 'flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-300/10 text-emerald-200'}>
@@ -380,7 +606,11 @@ export const QrRoomsClient = () => {
 
                   <div className="p-4">
                     <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white p-3'}>
-                      {dataUrl ? (
+                      {!roomEnabled ? (
+                        <div className={isLight ? 'flex aspect-square w-full items-center justify-center rounded-md bg-slate-100 text-center text-sm font-semibold text-slate-500' : 'flex aspect-square w-full items-center justify-center rounded-md bg-slate-900 text-center text-sm font-semibold text-slate-500'}>
+                          QR disabled
+                        </div>
+                      ) : dataUrl ? (
                         <img
                           src={dataUrl}
                           alt={t('qrRooms.qrAlt', { room: roomNumber })}
@@ -399,20 +629,42 @@ export const QrRoomsClient = () => {
                       <ActionButton
                         icon={Download}
                         onClick={() => downloadQr(roomNumber)}
-                        disabled={!dataUrl}
+                        disabled={!dataUrl || !roomEnabled}
                       >
                         {t('qrRooms.downloadQr')}
                       </ActionButton>
                       <ActionButton
                         icon={copied ? Check : Copy}
                         onClick={() => copyLink(roomNumber)}
-                        disabled={!roomLinks[roomNumber]}
+                        disabled={!roomLinks[roomNumber] || !roomEnabled}
                       >
                         {copied ? t('qrRooms.copied') : t('qrRooms.copyLink')}
                       </ActionButton>
                       <ActionButton icon={ExternalLink} href={roomLinks[roomNumber] || null} disabled={!roomLinks[roomNumber]}>
                         {t('qrRooms.openWhatsapp')}
                       </ActionButton>
+                      {canManageRooms && room.id ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateRoom(room, { qr_enabled: room.qr_enabled === false })}
+                            disabled={busyAction === `room-${room.id}`}
+                            className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}
+                          >
+                            <Save className="h-4 w-4" aria-hidden="true" />
+                            {room.qr_enabled === false ? 'Enable QR' : 'Disable QR'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteRoom(room)}
+                            disabled={busyAction === `room-${room.id}`}
+                            className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-red-300/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/15 disabled:opacity-50'}
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Delete
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </Card>
