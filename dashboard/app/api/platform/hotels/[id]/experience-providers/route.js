@@ -33,16 +33,19 @@ const normalizeArray = (value) => {
   return [];
 };
 
-const buildExperiencePayload = (body = {}) => {
+const buildExperiencePayload = (body = {}, { hotelId = null } = {}) => {
   const title = normalizeOptional(body.title);
 
   if (!title) {
     throw new Error('Experience title is required');
   }
 
+  const baseSlug = slugify(body.slug || title);
+  const scopedSlug = hotelId ? `${baseSlug}-${String(hotelId).slice(0, 8)}` : baseSlug;
+
   return {
     title,
-    slug: slugify(body.slug || title),
+    slug: scopedSlug,
     category: normalizeOptional(body.category) || 'tour',
     description: normalizeOptional(body.description),
     short_description: normalizeOptional(body.short_description || body.shortDescription),
@@ -60,6 +63,7 @@ const buildExperiencePayload = (body = {}) => {
     metadata: {
       ...(body.metadata && typeof body.metadata === 'object' ? body.metadata : {}),
       managed_from: 'platform_hotel_detail',
+      hotel_scope_id: hotelId || body.metadata?.hotel_scope_id || null,
       future_api_ready: true
     },
     updated_at: new Date().toISOString()
@@ -67,7 +71,7 @@ const buildExperiencePayload = (body = {}) => {
 };
 
 const loadProviderState = async ({ supabase, hotelId }) => {
-  const [providers, assignments, experiences] = await Promise.all([
+  const [providers, assignments, experiences, bookingRequests] = await Promise.all([
     safeRows(
       supabase.from('experience_providers').select('*').order('name', { ascending: true }),
       'experience_providers'
@@ -87,16 +91,87 @@ const loadProviderState = async ({ supabase, hotelId }) => {
         .order('updated_at', { ascending: false })
         .limit(200),
       'provider_experiences'
+    ),
+    safeRows(
+      supabase
+        .from('experience_booking_requests')
+        .select('id, provider_id, provider_experience_id, estimated_revenue, commission_estimate, lead_status, status, created_at')
+        .eq('hotel_id', hotelId)
+        .not('provider_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(500),
+      'experience_booking_requests'
     )
   ]);
 
   const assignedProviderIds = new Set(assignments.map((assignment) => assignment.provider_id));
+  const metricsByProvider = bookingRequests.reduce((acc, request) => {
+    if (!request.provider_id) return acc;
+    const current = acc[request.provider_id] || {
+      leadsGenerated: 0,
+      estimatedRevenue: 0,
+      commissionEstimate: 0
+    };
+
+    current.leadsGenerated += 1;
+    current.estimatedRevenue += Number(request.estimated_revenue || 0);
+    current.commissionEstimate += Number(request.commission_estimate || 0);
+    acc[request.provider_id] = current;
+    return acc;
+  }, {});
+  const metricsByExperience = bookingRequests.reduce((acc, request) => {
+    if (!request.provider_experience_id) return acc;
+    const current = acc[request.provider_experience_id] || {
+      leadsGenerated: 0,
+      estimatedRevenue: 0,
+      commissionEstimate: 0
+    };
+
+    current.leadsGenerated += 1;
+    current.estimatedRevenue += Number(request.estimated_revenue || 0);
+    current.commissionEstimate += Number(request.commission_estimate || 0);
+    acc[request.provider_experience_id] = current;
+    return acc;
+  }, {});
+  const scopedExperiences = experiences.filter((experience) => {
+    if (!assignedProviderIds.has(experience.provider_id)) {
+      return false;
+    }
+
+    const scopeId = experience.metadata?.hotel_scope_id || experience.metadata?.created_for_hotel_id || null;
+    return !scopeId || scopeId === hotelId;
+  });
+  const experienceCountsByProvider = scopedExperiences.reduce((acc, experience) => ({
+    ...acc,
+    [experience.provider_id]: (acc[experience.provider_id] || 0) + 1
+  }), {});
+  const connectedProviders = assignments.map((assignment) => ({
+    ...assignment,
+    experience_count: experienceCountsByProvider[assignment.provider_id] || 0,
+    metrics: metricsByProvider[assignment.provider_id] || {
+      leadsGenerated: 0,
+      estimatedRevenue: 0,
+      commissionEstimate: 0
+    }
+  }));
+  const providerExperiences = scopedExperiences.map((experience) => ({
+    ...experience,
+    provider: providers.find((provider) => provider.id === experience.provider_id) || null,
+    hotel_scoped: Boolean(experience.metadata?.hotel_scope_id || experience.metadata?.created_for_hotel_id),
+    metrics: metricsByExperience[experience.id] || {
+      leadsGenerated: 0,
+      estimatedRevenue: 0,
+      commissionEstimate: 0
+    }
+  }));
 
   return {
     hotelId,
     providers,
-    assignments,
-    experiences: experiences.filter((experience) => assignedProviderIds.has(experience.provider_id)),
+    assignments: connectedProviders,
+    experiences: providerExperiences,
+    connectedProviders,
+    providerExperiences,
     missingTable: false
   };
 };
@@ -117,6 +192,8 @@ export async function GET(request, { params }) {
         providers: [],
         assignments: [],
         experiences: [],
+        connectedProviders: [],
+        providerExperiences: [],
         missingTable: true,
         error: 'Run supabase/sql/create_experience_providers.sql to enable Experience Providers.'
       }, {
@@ -174,7 +251,8 @@ export async function POST(request, { params }) {
         }
       });
 
-      return NextResponse.json({ ok: true, assignment });
+      const state = await loadProviderState({ supabase, hotelId: id });
+      return NextResponse.json({ ok: true, assignment, ...state });
     }
 
     if (action === 'create_experience') {
@@ -182,13 +260,28 @@ export async function POST(request, { params }) {
         return NextResponse.json({ error: 'Provider id is required' }, { status: 400 });
       }
 
-      const payload = buildExperiencePayload(body);
+      const assignment = await supabase
+        .from('hotel_experience_providers')
+        .select('id, provider_id')
+        .eq('hotel_id', id)
+        .eq('provider_id', body.providerId)
+        .maybeSingle();
+
+      if (assignment.error) {
+        throw assignment.error;
+      }
+
+      if (!assignment.data) {
+        return NextResponse.json({ error: 'Provider must be connected to this hotel before adding excursions' }, { status: 400 });
+      }
+
+      const payload = buildExperiencePayload(body, { hotelId: id });
       const { data: experience, error } = await supabase
         .from('provider_experiences')
-        .insert({
+        .upsert({
           ...payload,
           provider_id: body.providerId
-        })
+        }, { onConflict: 'provider_id,slug' })
         .select('*')
         .single();
 
@@ -209,7 +302,8 @@ export async function POST(request, { params }) {
         }
       });
 
-      return NextResponse.json({ ok: true, experience }, { status: 201 });
+      const state = await loadProviderState({ supabase, hotelId: id });
+      return NextResponse.json({ ok: true, experience, ...state }, { status: 201 });
     }
 
     return NextResponse.json({ error: 'Unsupported provider action' }, { status: 400 });
@@ -264,7 +358,8 @@ export async function PATCH(request, { params }) {
         }
       });
 
-      return NextResponse.json({ ok: true, assignment });
+      const state = await loadProviderState({ supabase, hotelId: id });
+      return NextResponse.json({ ok: true, assignment, ...state });
     }
 
     if (action === 'update_experience') {
@@ -272,7 +367,43 @@ export async function PATCH(request, { params }) {
         return NextResponse.json({ error: 'Experience id is required' }, { status: 400 });
       }
 
-      const payload = buildExperiencePayload(body);
+      const existing = await supabase
+        .from('provider_experiences')
+        .select('*')
+        .eq('id', body.experienceId)
+        .single();
+
+      if (existing.error) {
+        throw existing.error;
+      }
+
+      const assigned = await supabase
+        .from('hotel_experience_providers')
+        .select('id')
+        .eq('hotel_id', id)
+        .eq('provider_id', existing.data.provider_id)
+        .maybeSingle();
+
+      if (assigned.error) {
+        throw assigned.error;
+      }
+
+      if (!assigned.data) {
+        return NextResponse.json({ error: 'Provider experience is not connected to this hotel' }, { status: 403 });
+      }
+
+      const scopeId = existing.data.metadata?.hotel_scope_id || existing.data.metadata?.created_for_hotel_id || null;
+      if (!scopeId) {
+        return NextResponse.json({
+          error: 'Shared provider catalog experiences cannot be edited from a single hotel. Create a hotel-specific excursion instead.'
+        }, { status: 403 });
+      }
+
+      if (scopeId && scopeId !== id) {
+        return NextResponse.json({ error: 'Provider experience belongs to another hotel scope' }, { status: 403 });
+      }
+
+      const payload = buildExperiencePayload(body, { hotelId: scopeId });
       const { data: experience, error } = await supabase
         .from('provider_experiences')
         .update(payload)
@@ -297,13 +428,137 @@ export async function PATCH(request, { params }) {
         }
       });
 
-      return NextResponse.json({ ok: true, experience });
+      const state = await loadProviderState({ supabase, hotelId: id });
+      return NextResponse.json({ ok: true, experience, ...state });
     }
 
     return NextResponse.json({ error: 'Unsupported provider action' }, { status: 400 });
   } catch (error) {
     return NextResponse.json({
       error: error.message || 'Could not update provider state'
+    }, { status: error.status || 500 });
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const { id } = await params;
+    const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
+    const body = await request.json();
+    const action = body.action;
+
+    if (action === 'disconnect_provider') {
+      if (!body.assignmentId) {
+        return NextResponse.json({ error: 'Assignment id is required' }, { status: 400 });
+      }
+
+      const { data: assignment, error: lookupError } = await supabase
+        .from('hotel_experience_providers')
+        .select('*')
+        .eq('id', body.assignmentId)
+        .eq('hotel_id', id)
+        .single();
+
+      if (lookupError) {
+        throw lookupError;
+      }
+
+      const { error } = await supabase
+        .from('hotel_experience_providers')
+        .delete()
+        .eq('id', body.assignmentId)
+        .eq('hotel_id', id);
+
+      if (error) {
+        throw error;
+      }
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'experience_provider_disconnected',
+        hotelId: id,
+        metadata: {
+          provider_id: assignment.provider_id
+        }
+      });
+
+      const state = await loadProviderState({ supabase, hotelId: id });
+      return NextResponse.json({ ok: true, ...state });
+    }
+
+    if (action === 'delete_experience') {
+      if (!body.experienceId) {
+        return NextResponse.json({ error: 'Experience id is required' }, { status: 400 });
+      }
+
+      const { data: experience, error: lookupError } = await supabase
+        .from('provider_experiences')
+        .select('*')
+        .eq('id', body.experienceId)
+        .single();
+
+      if (lookupError) {
+        throw lookupError;
+      }
+
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('hotel_experience_providers')
+        .select('id')
+        .eq('hotel_id', id)
+        .eq('provider_id', experience.provider_id)
+        .maybeSingle();
+
+      if (assignmentError) {
+        throw assignmentError;
+      }
+
+      if (!assignment) {
+        return NextResponse.json({ error: 'Provider experience is not connected to this hotel' }, { status: 403 });
+      }
+
+      const scopeId = experience.metadata?.hotel_scope_id || experience.metadata?.created_for_hotel_id || null;
+      if (!scopeId) {
+        return NextResponse.json({
+          error: 'Shared provider catalog experiences cannot be deleted from a single hotel.'
+        }, { status: 403 });
+      }
+
+      if (scopeId && scopeId !== id) {
+        return NextResponse.json({ error: 'Provider experience belongs to another hotel scope' }, { status: 403 });
+      }
+
+      const { error } = await supabase
+        .from('provider_experiences')
+        .delete()
+        .eq('id', body.experienceId);
+
+      if (error) {
+        throw error;
+      }
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'provider_experience_deleted',
+        hotelId: id,
+        metadata: {
+          provider_id: experience.provider_id,
+          provider_experience_id: experience.id,
+          title: experience.title
+        }
+      });
+
+      const state = await loadProviderState({ supabase, hotelId: id });
+      return NextResponse.json({ ok: true, ...state });
+    }
+
+    return NextResponse.json({ error: 'Unsupported provider delete action' }, { status: 400 });
+  } catch (error) {
+    return NextResponse.json({
+      error: error.message || 'Could not delete provider state'
     }, { status: error.status || 500 });
   }
 }
