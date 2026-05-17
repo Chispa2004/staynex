@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, Bot, Eye, EyeOff, RefreshCw, Send, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bot, Eye, EyeOff, RefreshCw, Send, X } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -304,6 +304,7 @@ export const InboxClient = ({ conversations }) => {
   const [realtimeStatus, setRealtimeStatus] = useState('connecting');
   const [refreshing, setRefreshing] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(Boolean(requestedConversationId));
   const itemsRef = useRef(sortedConversations);
   const selectedIdRef = useRef(selectedId);
   const messagesScrollRef = useRef(null);
@@ -357,6 +358,7 @@ export const InboxClient = ({ conversations }) => {
   useEffect(() => {
     if (requestedConversationId && items.some((conversation) => conversation.id === requestedConversationId)) {
       setSelectedId(requestedConversationId);
+      setMobileChatOpen(true);
     }
   }, [items, requestedConversationId]);
 
@@ -418,6 +420,7 @@ export const InboxClient = ({ conversations }) => {
         setReadStateLoaded(false);
         setMessage('');
         setCopilotOpen(false);
+        setMobileChatOpen(false);
       }
 
       setCurrentHotel(body.hotel || null);
@@ -469,6 +472,7 @@ export const InboxClient = ({ conversations }) => {
       setReadState({});
       setReadStateLoaded(false);
       setCopilotOpen(false);
+      setMobileChatOpen(false);
     };
 
     window.addEventListener('staynex:tenant-changed', handleTenantChanged);
@@ -824,7 +828,7 @@ export const InboxClient = ({ conversations }) => {
   return (
     <div
       className={[
-        'relative grid h-[calc(100vh-190px)] min-h-[560px] grid-rows-[260px_minmax(0,1fr)] overflow-hidden rounded-xl border shadow-2xl backdrop-blur lg:grid-rows-none',
+        'relative grid h-[calc(100dvh-92px)] min-h-[520px] overflow-hidden rounded-xl border shadow-2xl backdrop-blur sm:h-[calc(100dvh-118px)] lg:h-[calc(100vh-190px)] lg:min-h-[560px]',
         inboxGridColumns,
         isLight
           ? 'border-slate-200 bg-white shadow-slate-200/80'
@@ -832,7 +836,8 @@ export const InboxClient = ({ conversations }) => {
       ].join(' ')}
     >
       <aside className={[
-        'flex min-h-0 flex-col border-b lg:border-b-0 lg:border-r',
+        mobileChatOpen ? 'hidden lg:flex' : 'flex',
+        'min-h-0 flex-col border-b lg:border-b-0 lg:border-r',
         isLight ? 'border-slate-200 bg-slate-50/80' : 'border-white/10 bg-black/10'
       ].join(' ')}
       >
@@ -947,6 +952,7 @@ export const InboxClient = ({ conversations }) => {
                 onClick={() => {
                   setSelectedId(conversation.id);
                   markConversationAsRead(conversation.id);
+                  setMobileChatOpen(true);
                 }}
                 className={[
                   'relative block w-full rounded-lg border px-4 py-4 text-left transition',
@@ -1050,20 +1056,39 @@ export const InboxClient = ({ conversations }) => {
         </div>
       </aside>
 
-      <section className="flex min-h-0 flex-col overflow-hidden">
+      <section className={[
+        !mobileChatOpen ? 'hidden lg:flex' : 'flex',
+        'min-h-0 flex-col overflow-hidden'
+      ].join(' ')}
+      >
         <header className={[
-          'shrink-0 border-b px-5 py-4',
+          'shrink-0 border-b px-3 py-3 sm:px-5 sm:py-4',
           isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.025]'
         ].join(' ')}
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className={isLight ? 'text-sm font-semibold text-slate-900' : 'text-sm font-semibold text-white'}>
-                {t('table.room')} {selectedConversation?.guest?.current_room || t('status.unknown').toLowerCase()}
-              </p>
-              <p className={isLight ? 'text-xs text-slate-600' : 'text-xs text-slate-500'}>
-                {selectedConversation?.guest?.phone_number || t('inbox.noPhone')}
-              </p>
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMobileChatOpen(false)}
+                className={cn(
+                  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition lg:hidden',
+                  isLight
+                    ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    : 'border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
+                )}
+                aria-label="Back to conversations"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <div className="min-w-0">
+                <p className={isLight ? 'truncate text-sm font-semibold text-slate-900' : 'truncate text-sm font-semibold text-white'}>
+                  {t('table.room')} {selectedConversation?.guest?.current_room || t('status.unknown').toLowerCase()}
+                </p>
+                <p className={isLight ? 'truncate text-xs text-slate-600' : 'truncate text-xs text-slate-500'}>
+                  {selectedConversation?.guest?.phone_number || t('inbox.noPhone')}
+                </p>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className={[
@@ -1121,7 +1146,7 @@ export const InboxClient = ({ conversations }) => {
         </header>
 
         <div className={[
-          'executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-6 sm:px-6',
+          'executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6',
           isLight ? 'bg-slate-50' : 'bg-[#080c14]/45'
         ].join(' ')}
         ref={messagesScrollRef}
@@ -1144,7 +1169,7 @@ export const InboxClient = ({ conversations }) => {
                 ].join(' ')}
               >
                 <article className={[
-                  'max-w-[min(82%,760px)] rounded-lg border px-4 py-3.5',
+                  'max-w-[min(90%,760px)] rounded-lg border px-3 py-3 sm:max-w-[min(82%,760px)] sm:px-4 sm:py-3.5',
                   isStaff ? 'rounded-br-md' : 'rounded-bl-md',
                   senderStyles[theme][item.sender_type] || senderStyles[theme].guest
                 ].join(' ')}
@@ -1225,9 +1250,10 @@ export const InboxClient = ({ conversations }) => {
         <form
           onSubmit={sendMessage}
           className={[
-            'sticky bottom-0 z-10 shrink-0 border-t p-3 sm:p-4',
+            'sticky bottom-0 z-10 shrink-0 border-t p-2 sm:p-4',
             isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-[#0b1019]/95'
           ].join(' ')}
+          style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
         >
           <div className={[
             'flex items-end gap-2 rounded-xl border p-2 shadow-inner',
@@ -1252,10 +1278,10 @@ export const InboxClient = ({ conversations }) => {
             <button
               type="submit"
               disabled={sending || !message.trim()}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
               <Send className="h-4 w-4" aria-hidden="true" />
-              {t('buttons.send')}
+              <span className="hidden sm:inline">{t('buttons.send')}</span>
             </button>
           </div>
         </form>

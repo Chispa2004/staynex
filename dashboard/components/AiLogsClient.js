@@ -498,6 +498,67 @@ export const AiLogsClient = () => {
               pageSize={pageSize}
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
+              mobileCards={paginatedLogs.map((log) => {
+                const selected = selectedLog?.id === log.id;
+
+                return (
+                  <article
+                    key={log.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedLog(log)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedLog(log);
+                      }
+                    }}
+                    className={[
+                      'rounded-xl border p-4 transition',
+                      isLight
+                        ? selected
+                          ? 'border-emerald-200 bg-emerald-50 shadow-sm shadow-emerald-100'
+                          : 'border-slate-200 bg-white shadow-sm shadow-slate-200/70'
+                        : selected
+                          ? 'border-emerald-300/25 bg-emerald-300/[0.08]'
+                          : 'border-white/10 bg-white/[0.035] shadow-lg shadow-black/10'
+                    ].join(' ')}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className={isLight ? 'truncate text-sm font-semibold text-slate-950' : 'truncate text-sm font-semibold text-white'}>
+                          {log.detected_intent || t('aiLogs.unknown')}
+                        </h3>
+                        <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
+                          {formatDate(log.created_at)}
+                        </p>
+                      </div>
+                      <Badge tone={getIntentTone(log.detected_intent)}>{log.detected_intent || '-'}</Badge>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Badge tone="purple">{(log.detected_language || '-').toUpperCase()}</Badge>
+                      <Badge tone={log.ticket_created ? 'emerald' : 'slate'}>
+                        {log.ticket_created ? t('aiLogs.ticketCreated') : t('aiLogs.noTicket')}
+                      </Badge>
+                      <Badge>{formatConfidence(log.confidence_score)}</Badge>
+                    </div>
+                    <div className={isLight ? 'mt-4 space-y-3 text-sm text-slate-700' : 'mt-4 space-y-3 text-sm text-slate-300'}>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-60">{t('aiLogs.columns.room')}</p>
+                        <p className="mt-1 font-medium">{log.detected_room || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-60">{t('aiLogs.columns.guestMessage')}</p>
+                        <p className="mt-1 line-clamp-2 leading-6">{log.raw_guest_message || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-60">{t('aiLogs.columns.aiResponse')}</p>
+                        <p className="mt-1 line-clamp-2 leading-6">{log.generated_response || '-'}</p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             >
               <table className="w-full text-left">
                 <thead className={isLight ? 'sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500 shadow-sm shadow-slate-200/60' : 'sticky top-0 z-10 bg-[#0f1622] text-xs uppercase tracking-[0.12em] text-slate-500 shadow-sm shadow-black/20'}>

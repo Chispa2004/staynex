@@ -133,7 +133,78 @@ export const DepartmentTicketTable = ({ tickets, categories }) => {
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0b1019]/88 shadow-2xl shadow-black/20">
-          <div className="overflow-x-auto">
+          <div className="space-y-3 p-3 md:hidden">
+            {filteredTickets.map((ticket) => {
+              const urgent = isUrgentTicket(ticket);
+              const loading = updatingId === ticket.id;
+
+              return (
+                <article
+                  key={ticket.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/dashboard/tickets/${ticket.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      router.push(`/dashboard/tickets/${ticket.id}`);
+                    }
+                  }}
+                  className={`rounded-xl border border-white/10 p-4 transition focus:outline-none focus:ring-2 focus:ring-emerald-400/40 ${getTicketRowClass(ticket)}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-100">
+                        {ticket.room_number || t('tickets.noRoom')}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2 text-sm capitalize text-slate-300">
+                        <TicketCategoryIcon category={ticket.category} />
+                        <span className="truncate">{formatText(ticket.category, t('tickets.noData'))}</span>
+                      </div>
+                    </div>
+                    <PriorityBadge priority={ticket.priority} />
+                  </div>
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-300">
+                    {ticket.description || ticket.title || t('tickets.noDescription')}
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <StatusBadge status={ticket.status} />
+                    <TicketAgeLabel createdAt={ticket.created_at} urgent={urgent} />
+                    <span className="text-xs text-slate-500">{formatDate(ticket.created_at)}</span>
+                  </div>
+                  <div className="mt-4 flex justify-end gap-1.5">
+                    {STATUS_ACTIONS.map((action) => {
+                      const Icon = action.icon;
+                      const active = ticket.status === action.value;
+
+                      return (
+                        <button
+                          key={action.value}
+                          type="button"
+                          title={t(action.labelKey)}
+                          disabled={active || loading}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            updateStatus({ ticketId: ticket.id, status: action.value });
+                          }}
+                          className={[
+                            'inline-flex h-10 w-10 items-center justify-center rounded-lg border transition',
+                            active
+                              ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100'
+                              : 'border-white/10 bg-white/[0.035] text-slate-400 hover:bg-white/[0.08] hover:text-slate-100',
+                            loading ? 'cursor-wait opacity-70' : ''
+                          ].join(' ')}
+                        >
+                          {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Icon className="h-4 w-4" aria-hidden="true" />}
+                          <span className="sr-only">{t(action.labelKey)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full divide-y divide-white/10">
               <thead className="bg-white/[0.035]">
                 <tr>

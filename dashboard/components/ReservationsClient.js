@@ -926,6 +926,71 @@ export const ReservationsClient = () => {
               pageSize={pageSize}
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
+              mobileCards={paginatedReservations.map((reservation) => {
+                const stayStatus = getStayStatus(reservation);
+                const journeyStatus = getJourneyStatus(reservation);
+                const selected = selectedReservation?.id === reservation.id;
+
+                return (
+                  <article
+                    key={reservation.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedReservation(reservation)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedReservation(reservation);
+                      }
+                    }}
+                    className={cn(
+                      'rounded-xl border p-4 transition',
+                      isLight
+                        ? selected
+                          ? 'border-emerald-200 bg-emerald-50 shadow-sm shadow-emerald-100'
+                          : 'border-slate-200 bg-white shadow-sm shadow-slate-200/70'
+                        : selected
+                          ? 'border-emerald-300/25 bg-emerald-300/[0.08]'
+                          : 'border-white/10 bg-white/[0.035] shadow-lg shadow-black/10'
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className={isLight ? 'truncate text-sm font-semibold text-slate-950' : 'truncate text-sm font-semibold text-white'}>
+                          {reservation.guest_name || t('reservations.unknownGuest')}
+                        </h3>
+                        <p className={isLight ? 'mt-1 truncate text-xs text-slate-500' : 'mt-1 truncate text-xs text-slate-500'}>
+                          {reservation.pms_reservation_id || reservation.source || '-'}
+                        </p>
+                      </div>
+                      <Badge tone={statusTone(stayStatus)}>{t(`reservations.status.${stayStatus}`)}</Badge>
+                    </div>
+                    <div className={isLight ? 'mt-4 grid gap-3 text-sm text-slate-600' : 'mt-4 grid gap-3 text-sm text-slate-400'}>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">{t('reservations.columns.arrival')}</p>
+                          <p className={isLight ? 'mt-1 font-medium text-slate-900' : 'mt-1 font-medium text-slate-100'}>{formatDate(reservation.arrival_date)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">{t('reservations.columns.departure')}</p>
+                          <p className={isLight ? 'mt-1 font-medium text-slate-900' : 'mt-1 font-medium text-slate-100'}>{formatDate(reservation.departure_date)}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge tone={statusTone(journeyStatus)}>{t(`reservations.journey.${journeyStatus}`)}</Badge>
+                        <Badge tone={reservation.conversationId ? 'emerald' : 'slate'}>
+                          {reservation.conversationId ? t('reservations.linked') : t('reservations.notLinked')}
+                        </Badge>
+                        <Badge>{reservation.pms_provider || 'mock'}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <p className="min-w-0 truncate">{reservation.room_type || '-'}</p>
+                        <p className="min-w-0 truncate">{reservation.guest_phone || reservation.guest_email || '-'}</p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             >
               <table className="w-full text-left">
                 <thead className={isLight ? 'sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500 shadow-sm shadow-slate-200/60' : 'sticky top-0 z-10 bg-[#0f1622] text-xs uppercase tracking-[0.12em] text-slate-500 shadow-sm shadow-black/20'}>

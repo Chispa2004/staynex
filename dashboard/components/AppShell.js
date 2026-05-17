@@ -20,6 +20,7 @@ import {
   Map,
   LayoutDashboard,
   LogOut,
+  Menu,
   PlugZap,
   QrCode,
   Rocket,
@@ -29,7 +30,8 @@ import {
   TrendingUp,
   TicketCheck,
   UserCog,
-  Wrench
+  Wrench,
+  X
 } from 'lucide-react';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
@@ -150,6 +152,7 @@ const AppShellContent = ({ children }) => {
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { t } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -161,6 +164,10 @@ const AppShellContent = ({ children }) => {
     [activeRole]
   );
   const canAccessPlatformConsole = hotelContext.platformRole === 'platform_admin';
+
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -802,13 +809,79 @@ const AppShellContent = ({ children }) => {
       }}
     >
       <div className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
+        <header
+          className={[
+            'sticky top-0 z-30 flex shrink-0 items-center justify-between gap-3 border-b px-3 py-3 backdrop-blur-xl lg:hidden',
+            isLight
+              ? 'border-slate-200 bg-white/95 text-slate-950 shadow-sm shadow-slate-200/70'
+              : 'border-white/10 bg-[#070b12]/95 text-white shadow-lg shadow-black/20'
+          ].join(' ')}
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+        >
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className={isLight ? 'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm' : 'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.045] text-slate-100 shadow-lg shadow-black/20'}
+            aria-label="Open navigation"
+          >
+            <Menu className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: workspaceBrandColor }}
+                aria-hidden="true"
+              />
+              <p className="truncate text-sm font-semibold">{sidebarHotelName}</p>
+            </div>
+            <p className={isLight ? 'truncate text-xs text-slate-500' : 'truncate text-xs text-slate-500'}>
+              {ROLE_LABELS[activeRole] || activeRole}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {urgentCount > 0 ? (
+              <span className={isLight ? 'rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700' : 'rounded-full border border-red-300/20 bg-red-500/15 px-2 py-1 text-[11px] font-bold text-red-100'}>
+                {urgentCount}
+              </span>
+            ) : null}
+            {inboxUnreadCount > 0 ? (
+              <span className={isLight ? 'rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-300/15 px-2 py-1 text-[11px] font-bold text-emerald-100'}>
+                {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
+              </span>
+            ) : null}
+          </div>
+        </header>
+
+        {mobileSidebarOpen ? (
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+            aria-label="Close navigation overlay"
+          />
+        ) : null}
+
         <aside className={[
-          'flex max-h-[42dvh] shrink-0 flex-col overflow-y-auto border-b shadow-2xl backdrop-blur-xl lg:h-full lg:max-h-none lg:w-72 lg:border-b-0 lg:border-r',
+          'fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] shrink-0 flex-col overflow-y-auto border-r shadow-2xl backdrop-blur-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-full lg:w-72 lg:translate-x-0',
+          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           isLight
             ? 'border-slate-200 bg-white/95 shadow-slate-200/80'
             : 'border-white/10 bg-[#070b12]/95 shadow-black/30'
         ].join(' ')}
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
+          <div className={isLight ? 'flex items-center justify-between border-b border-slate-200 px-4 py-3 lg:hidden' : 'flex items-center justify-between border-b border-white/10 px-4 py-3 lg:hidden'}>
+            <p className="text-sm font-semibold">Staynex</p>
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              className={isLight ? 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600' : 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-slate-200'}
+              aria-label="Close navigation"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
           <HotelWorkspaceSwitcher
             currentHotel={currentHotel}
             availableHotels={availableHotels}
@@ -1003,9 +1076,9 @@ const AppShellContent = ({ children }) => {
           </div>
         </aside>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-6 sm:px-6 lg:px-10 lg:pb-8 lg:pt-8">
-            <div className="mb-6 flex justify-end gap-2">
+        <main className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+          <div className="mx-auto w-full max-w-7xl px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 lg:px-10 lg:pb-8 lg:pt-8">
+            <div className="mb-6 hidden justify-end gap-2 lg:flex">
               <ThemeToggle />
               <LanguageSelector />
             </div>
