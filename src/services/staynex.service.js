@@ -66,6 +66,10 @@ import {
   getHotelExperiences
 } from './hotel-experience.service.js';
 import {
+  getActiveExperienceProviderCatalogForHotel,
+  getExperienceProviderKnowledgeForPrompt
+} from './experience-provider.service.js';
+import {
   getLocalKnowledgeForHotel,
   getLocalKnowledgeForPrompt
 } from './local-knowledge.service.js';
@@ -196,6 +200,15 @@ export const processGuestMessage = async ({
     activeOnly: true,
     limit: 80
   });
+  const providerExperiences = await getActiveExperienceProviderCatalogForHotel({
+    hotelId: activeHotel.id,
+    activeOnly: true,
+    limit: 80
+  });
+  const experienceCatalog = [
+    ...providerExperiences,
+    ...hotelExperiences
+  ];
   const localKnowledgeItems = await getLocalKnowledgeForHotel({
     hotelId: activeHotel.id,
     activeOnly: true,
@@ -204,6 +217,7 @@ export const processGuestMessage = async ({
   const aiHotelKnowledge = [
     ...hotelKnowledge,
     ...getLocalKnowledgeForPrompt(localKnowledgeItems),
+    ...getExperienceProviderKnowledgeForPrompt(providerExperiences),
     ...getExperienceKnowledgeForPrompt(hotelExperiences)
   ];
   const upsellOpportunities = detectUpsellOpportunities({
@@ -253,7 +267,7 @@ export const processGuestMessage = async ({
     message,
     hotel: activeHotel,
     hotelKnowledge: aiHotelKnowledge,
-    hotelExperiences,
+    hotelExperiences: experienceCatalog,
     reservation: conversationContext.reservation,
     guestMemory: conversationContext.guestMemory,
     conversationState: preliminaryConversationState,
@@ -305,7 +319,8 @@ export const processGuestMessage = async ({
   });
 
   conversationContext.upsellOpportunities = upsellOpportunities;
-  conversationContext.hotelExperiences = hotelExperiences;
+  conversationContext.hotelExperiences = experienceCatalog;
+  conversationContext.providerExperiences = providerExperiences;
   conversationContext.localKnowledge = localKnowledgeItems;
   conversationContext.responseGuidance = responseGuidance;
   conversationContext.concierge = {
@@ -550,7 +565,7 @@ export const processGuestMessage = async ({
   const experienceBookingIntent = await detectExperienceBookingIntent({
     message,
     conversationId: conversation.id,
-    hotelExperiences
+    hotelExperiences: experienceCatalog
   });
   const experienceBookingRequest = await createExperienceBookingRequest({
     hotel: activeHotel,
@@ -558,7 +573,7 @@ export const processGuestMessage = async ({
     conversation,
     reservation: conversationContext.reservation,
     message,
-    hotelExperiences,
+    hotelExperiences: experienceCatalog,
     intent: experienceBookingIntent
   });
 

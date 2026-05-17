@@ -564,7 +564,7 @@ const buildOpportunity = ({
   return {
     offerType: rule.offerType,
     suggestedPrice: rule.hotelExperience?.price || experienceDefaults[rule.offerType] || getDefaultUpsellAmount(rule.offerType),
-    currency: 'EUR',
+    currency: rule.hotelExperience?.currency || 'EUR',
     confidence,
     aiReason: rule.hotelExperience
       ? `${rule.context} matched hotel experience "${rule.hotelExperience.title}". Timing: ${timing.reason}. Destination: ${destination.destination}.`
@@ -582,6 +582,12 @@ const buildOpportunity = ({
       hotel_experience_id: rule.hotelExperience?.id || null,
       hotel_experience_title: rule.hotelExperience?.title || null,
       hotel_experience_category: rule.hotelExperience?.category || null,
+      provider_experience: Boolean(rule.hotelExperience?.metadata?.experience_provider),
+      provider_id: rule.hotelExperience?.provider_id || rule.hotelExperience?.metadata?.provider_id || null,
+      provider_experience_id: rule.hotelExperience?.provider_experience_id || rule.hotelExperience?.metadata?.provider_experience_id || null,
+      provider_source: rule.hotelExperience?.provider_source || rule.hotelExperience?.metadata?.provider_name || null,
+      provider_slug: rule.hotelExperience?.provider_slug || rule.hotelExperience?.metadata?.provider_slug || null,
+      provider_lead_email: rule.hotelExperience?.provider_lead_email || rule.hotelExperience?.metadata?.provider_lead_email || null,
       partner_name: rule.hotelExperience?.partner_name || null,
       commission_percentage: rule.hotelExperience?.commission_percentage || null,
       booking_url: rule.hotelExperience?.booking_url || null,

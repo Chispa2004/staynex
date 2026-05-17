@@ -25,6 +25,7 @@ import { persistWorkspaceSelection } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import { ExperienceProvidersPanel } from './ExperienceProvidersPanel';
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -398,6 +399,8 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
           </section>
         </aside>
       </div>
+
+      <ExperienceProvidersPanel hotelId={hotelId} />
 
       <section className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
         <div className={cn('border-b px-4 py-3', isLight ? 'border-slate-200' : 'border-white/10')}>

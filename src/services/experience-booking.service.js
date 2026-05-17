@@ -1,6 +1,10 @@
 import { getSupabase } from './supabase.service.js';
 import { upsertGuestMemory } from './guest-memory.service.js';
 import { createConversion } from './revenue.service.js';
+import {
+  buildExperienceProviderLeadEmail,
+  sendExperienceProviderLeadEmail
+} from './provider-lead-email.service.js';
 import { logger } from '../utils/logger.js';
 
 const normalize = (value = '') => String(value)
@@ -121,6 +125,7 @@ const wordsForExperience = (experience = {}) => [
   experience.slug,
   experience.category,
   experience.partner_name,
+  experience.provider_source,
   ...(experience.tags || []),
   ...(experience.target_guest_types || [])
 ].filter(Boolean).map(normalize);
@@ -228,6 +233,10 @@ export const createExperienceBookingRequest = async ({
   const commissionEstimate = commissionPercentage > 0
     ? Math.round((estimatedRevenue * commissionPercentage) / 100)
     : 0;
+  const providerId = experience?.provider_id || latestOffer?.metadata?.provider_id || null;
+  const providerExperienceId = experience?.provider_experience_id || latestOffer?.metadata?.provider_experience_id || null;
+  const providerSource = experience?.provider_source || latestOffer?.metadata?.provider_source || null;
+  const providerLeadEmail = experience?.provider_lead_email || latestOffer?.metadata?.provider_lead_email || null;
 
   try {
     const supabase = getSupabase();
@@ -250,12 +259,12 @@ export const createExperienceBookingRequest = async ({
       return existing;
     }
 
-    const record = {
+    const baseRecord = {
       hotel_id: hotel.id,
       reservation_id: reservation?.id || null,
       guest_id: guest?.id || null,
       conversation_id: conversation.id,
-      hotel_experience_id: experience?.id || null,
+      hotel_experience_id: experience?.metadata?.experience_provider ? null : experience?.id || null,
       experience_title: title,
       partner_name: experience?.partner_name || latestOffer?.metadata?.partner_name || null,
       guest_name: reservation?.guest_name || guest?.name || null,
@@ -273,20 +282,95 @@ export const createExperienceBookingRequest = async ({
         confidence: intent.confidence,
         ai_offer_id: latestOffer?.id || null,
         offer_type: latestOffer?.offer_type || null,
+        provider_id: providerId,
+        provider_experience_id: providerExperienceId,
+        provider_source: providerSource,
+        provider_lead_email: providerLeadEmail,
+        provider_lead_required: Boolean(providerLeadEmail),
         reception_confirmation_required: true,
         partner_ready: true,
         future_partner_channels: ['email', 'whatsapp', 'api']
       }
     };
+    const providerRecord = providerSource ? {
+      provider_id: providerId,
+      provider_experience_id: providerExperienceId,
+      provider_source: providerSource,
+      provider_lead_email: providerLeadEmail,
+      lead_status: providerLeadEmail ? 'pending' : 'not_required'
+    } : {};
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('experience_booking_requests')
-      .insert(record)
+      .insert({
+        ...baseRecord,
+        ...providerRecord
+      })
       .select('*')
       .single();
 
+    if (error && (
+      error.message?.includes('provider_')
+      || error.message?.includes('lead_')
+      || error.details?.includes('provider_')
+      || error.details?.includes('lead_')
+    )) {
+      logger.warn('Provider lead columns missing; retrying booking request without provider columns', {
+        message: error.message
+      });
+      const fallback = await supabase
+        .from('experience_booking_requests')
+        .insert(baseRecord)
+        .select('*')
+        .single();
+
+      data = fallback.data;
+      error = fallback.error;
+    }
+
     if (error) {
       throw error;
+    }
+
+    if (providerSource) {
+      const emailPayload = buildExperienceProviderLeadEmail({
+        hotel,
+        guest,
+        reservation,
+        conversation,
+        bookingRequest: data,
+        providerExperience: experience,
+        leadEmail: providerLeadEmail
+      });
+      const emailResult = await sendExperienceProviderLeadEmail(emailPayload);
+
+      try {
+        const { error: leadUpdateError } = await supabase
+          .from('experience_booking_requests')
+          .update({
+            lead_status: emailResult.status,
+            lead_email_payload: emailPayload,
+            lead_email_sent_at: emailResult.status === 'sent' ? new Date().toISOString() : null,
+            lead_error: emailResult.status === 'failed' ? emailResult.reason : null
+          })
+          .eq('id', data.id);
+
+        if (leadUpdateError && !leadUpdateError.message?.includes('lead_')) {
+          logger.warn('Experience provider lead status update failed', { message: leadUpdateError.message });
+        }
+      } catch (leadUpdateError) {
+        if (!leadUpdateError.message?.includes('lead_')) {
+          logger.warn('Experience provider lead status update failed', { message: leadUpdateError.message });
+        }
+      }
+
+      data = {
+        ...data,
+        provider_source: data.provider_source || providerSource,
+        provider_lead_email: data.provider_lead_email || providerLeadEmail,
+        lead_status: emailResult.status,
+        lead_email_payload: emailPayload
+      };
     }
 
     await createConversion({
@@ -320,7 +404,8 @@ export const createExperienceBookingRequest = async ({
         source: 'experience_booking',
         metadata: {
           booking_request_id: data.id,
-          experience_title: title
+          experience_title: title,
+          provider_source: providerSource
         }
       }).catch((error) => {
         logger.warn('Experience booking memory write failed', { message: error.message });
@@ -331,7 +416,8 @@ export const createExperienceBookingRequest = async ({
       hotelId: hotel.id,
       conversationId: conversation.id,
       bookingRequestId: data.id,
-      experienceTitle: title
+      experienceTitle: title,
+      providerSource
     });
 
     return data;
