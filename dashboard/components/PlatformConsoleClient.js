@@ -235,8 +235,8 @@ const ProviderEmailTestPanel = ({ isLight }) => {
         </span>
         <div>
           <p className={ui.text.eyebrow(isLight)}>Provider email</p>
-          <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>Test SMTP delivery</h2>
-          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>Platform-only SMTP test for provider leads.</p>
+          <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>Test Provider Email</h2>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>Platform-only delivery test for provider leads.</p>
         </div>
       </div>
 

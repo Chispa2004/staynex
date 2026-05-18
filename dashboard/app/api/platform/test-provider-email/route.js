@@ -38,13 +38,14 @@ export async function POST(request) {
     });
     const result = {
       success: emailResult.status === 'sent',
-      provider: 'smtp',
+      provider: emailResult.transport?.provider || emailResult.payload?.provider || 'email',
       status: emailResult.status,
       reason: emailResult.reason,
       messageId: emailResult.transport?.messageId || null,
       accepted: emailResult.transport?.accepted || [],
       error: emailResult.error || null,
-      smtp: emailResult.smtp || emailResult.error?.smtpConfig || null
+      smtp: emailResult.smtp || emailResult.error?.smtpConfig || null,
+      resend: emailResult.resend || emailResult.error?.resendConfig || null
     };
 
     await writePlatformAuditLog({
@@ -68,7 +69,7 @@ export async function POST(request) {
   } catch (error) {
     return NextResponse.json({
       success: false,
-      provider: 'smtp',
+      provider: 'email',
       error: error.message || 'Could not send provider test email'
     }, { status: error.status || 500, ...jsonOptions });
   }

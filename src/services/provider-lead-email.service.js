@@ -1,6 +1,7 @@
 import net from 'node:net';
 import tls from 'node:tls';
 import crypto from 'node:crypto';
+import { Resend } from 'resend';
 import { logger } from '../utils/logger.js';
 
 const normalize = (value) => String(value || '').trim();
@@ -9,6 +10,12 @@ const normalizePassword = (value) => normalize(value).replace(/\s+/g, '');
 const getEmailMode = () => {
   const mode = normalize(process.env.EXPERIENCE_PROVIDER_EMAIL_MODE || 'mock').toLowerCase();
   return mode === 'live' || mode === 'send' ? 'live' : 'mock';
+};
+
+const getEmailProvider = () => {
+  const provider = normalize(process.env.EMAIL_PROVIDER || '').toLowerCase();
+  if (provider === 'resend' || provider === 'smtp') return provider;
+  return normalize(process.env.RESEND_API_KEY) ? 'resend' : 'smtp';
 };
 
 const parseBoolean = (value) => {
@@ -72,6 +79,13 @@ export const resolveProviderSmtpConfig = () => {
 
 const getSmtpConfig = () => resolveProviderSmtpConfig();
 
+export const resolveProviderResendConfig = () => ({
+  provider: 'resend',
+  apiKey: normalize(process.env.RESEND_API_KEY),
+  from: normalize(process.env.RESEND_FROM || process.env.EMAIL_FROM || process.env.SMTP_FROM || 'Staynex <no-reply@staynex.ai>'),
+  mode: getEmailMode()
+});
+
 const getSafeSmtpSummary = () => {
   const config = getSmtpConfig();
 
@@ -90,6 +104,17 @@ const getSafeSmtpSummary = () => {
     connectionTimeout: config.connectionTimeout,
     greetingTimeout: config.greetingTimeout,
     socketTimeout: config.socketTimeout
+  };
+};
+
+const getSafeResendSummary = () => {
+  const config = resolveProviderResendConfig();
+
+  return {
+    provider: 'resend',
+    apiKeyConfigured: Boolean(config.apiKey),
+    from: config.from || null,
+    mode: config.mode
   };
 };
 
@@ -114,6 +139,28 @@ const getProviderSmtpTransportHash = () => {
     .slice(0, 16);
 };
 
+const getProviderResendTransportHash = () => {
+  const summary = getSafeResendSummary();
+  const hashInput = {
+    provider: summary.provider,
+    resendFrom: summary.from,
+    apiKeyConfigured: summary.apiKeyConfigured,
+    mode: summary.mode
+  };
+
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify(hashInput))
+    .digest('hex')
+    .slice(0, 16);
+};
+
+const getProviderEmailTransportHash = (provider = getEmailProvider()) => (
+  provider === 'resend'
+    ? getProviderResendTransportHash()
+    : getProviderSmtpTransportHash()
+);
+
 const extractEmailAddress = (value = '') => {
   const match = String(value).match(/<([^>]+)>/);
   return normalize(match?.[1] || value);
@@ -131,6 +178,18 @@ const encodeHeader = (value = '') => {
     ? text
     : `=?UTF-8?B?${base64(text)}?=`;
 };
+
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const textToHtml = (value = '') => escapeHtml(value)
+  .split(/\r?\n\r?\n/g)
+  .map((paragraph) => `<p>${paragraph.replace(/\r?\n/g, '<br>')}</p>`)
+  .join('\n');
 
 const createTimeoutError = ({ message, code = 'ETIMEDOUT', stage = null, command = null }) => {
   const error = new Error(message);
@@ -416,6 +475,50 @@ const sendSmtpMail = async (payload) => {
   throw new Error('smtp_send_failed');
 };
 
+let resendClient = null;
+let resendClientApiKey = null;
+
+const getResendClient = (apiKey) => {
+  if (!resendClient || resendClientApiKey !== apiKey) {
+    resendClient = new Resend(apiKey);
+    resendClientApiKey = apiKey;
+  }
+
+  return resendClient;
+};
+
+const sendResendMail = async ({ to, subject, text, html }) => {
+  const config = resolveProviderResendConfig();
+
+  if (!config.apiKey || !config.from) {
+    const error = new Error('resend_not_configured');
+    error.code = 'RESEND_NOT_CONFIGURED';
+    throw error;
+  }
+
+  const resend = getResendClient(config.apiKey);
+  const result = await resend.emails.send({
+    from: config.from,
+    to,
+    subject,
+    html: html || textToHtml(text),
+    text
+  });
+
+  if (result?.error) {
+    const error = new Error(result.error.message || 'resend_send_failed');
+    error.code = result.error.name || result.error.code || 'RESEND_SEND_FAILED';
+    error.response = result.error;
+    throw error;
+  }
+
+  return {
+    accepted: [to],
+    messageId: result?.data?.id || null,
+    provider: 'resend'
+  };
+};
+
 const buildSmtpErrorPayload = ({ error }) => ({
   type: 'smtp_send_failed',
   message: error?.message || null,
@@ -430,6 +533,18 @@ const buildSmtpErrorPayload = ({ error }) => ({
   smtpPort: process.env.SMTP_PORT,
   smtpSecure: getSmtpSecure(),
   smtpUser: process.env.SMTP_USER,
+  mode: process.env.EXPERIENCE_PROVIDER_EMAIL_MODE
+});
+
+const buildResendErrorPayload = ({ error }) => ({
+  type: 'resend_send_failed',
+  message: error?.message || null,
+  code: error?.code || null,
+  response: error?.response || null,
+  stack: error?.stack || null,
+  provider: 'resend',
+  resendFrom: process.env.RESEND_FROM || process.env.EMAIL_FROM || null,
+  apiKeyConfigured: Boolean(process.env.RESEND_API_KEY),
   mode: process.env.EXPERIENCE_PROVIDER_EMAIL_MODE
 });
 
@@ -451,11 +566,13 @@ const buildProviderEmailLogContext = ({
   bookingRequestId = null,
   providerId = null,
   providerExperienceId = null,
-  emailContext = 'provider_booking'
+  emailContext = 'provider_booking',
+  emailProvider = getEmailProvider()
 } = {}) => {
   const smtp = getSafeSmtpSummary();
 
   return {
+    provider: emailProvider,
     emailContext,
     hotelId,
     bookingRequestId,
@@ -467,13 +584,48 @@ const buildProviderEmailLogContext = ({
     smtpPort: smtp.port,
     secure: smtp.secure,
     mode: smtp.mode,
-    transportHash: getProviderSmtpTransportHash()
+    transportHash: getProviderEmailTransportHash(emailProvider)
   };
 };
 
-const logProviderEmailRuntimeConfig = ({ emailContext, logContext }) => {
+const logProviderEmailRuntimeConfig = ({ emailContext, logContext, emailProvider }) => {
+  logger.info('provider_email_provider_selected', {
+    provider: emailProvider,
+    emailContext,
+    mode: getEmailMode(),
+    transportHash: getProviderEmailTransportHash(emailProvider)
+  });
+
+  if (emailProvider === 'resend') {
+    const resend = getSafeResendSummary();
+    const payload = {
+      provider: 'resend',
+      resendFrom: resend.from,
+      apiKeyConfigured: resend.apiKeyConfigured,
+      mode: resend.mode,
+      transportHash: getProviderResendTransportHash()
+    };
+
+    if (emailContext === 'platform_test') {
+      logger.info('platform_test_email_runtime_config', payload);
+      logger.info('platform_test_email_transport_hash', {
+        ...logContext,
+        transportHash: payload.transportHash
+      });
+      return;
+    }
+
+    logger.info('provider_booking_email_runtime_config', payload);
+    logger.info('provider_booking_email_transport_hash', {
+      ...logContext,
+      transportHash: payload.transportHash
+    });
+    return;
+  }
+
   const smtp = getSafeSmtpSummary();
   const payload = {
+    provider: 'smtp',
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
@@ -560,6 +712,7 @@ export const sendProviderEmail = async ({
   subject,
   message,
   text,
+  html,
   hotelId = null,
   bookingRequestId = null,
   providerId = null,
@@ -568,14 +721,17 @@ export const sendProviderEmail = async ({
   context = null
 } = {}) => {
   const emailContext = context || (bookingRequestId ? 'provider_booking' : 'platform_test');
+  const emailProvider = getEmailProvider();
   const emailPayload = {
     to: normalize(to),
     subject: normalize(subject) || 'New Staynex experience lead',
     text: normalize(message ?? text) || 'A new Staynex provider email was created.',
+    html: normalize(html),
     reference: reference || (bookingRequestId
       ? `STAYNEX-${String(bookingRequestId).slice(0, 8).toUpperCase()}`
       : `SMTP-TEST-${Date.now()}`),
-    mode: getEmailMode()
+    mode: getEmailMode(),
+    provider: emailProvider
   };
   const logContext = buildProviderEmailLogContext({
     to: emailPayload.to,
@@ -584,10 +740,11 @@ export const sendProviderEmail = async ({
     bookingRequestId,
     providerId,
     providerExperienceId,
-    emailContext
+    emailContext,
+    emailProvider
   });
 
-  logProviderEmailRuntimeConfig({ emailContext, logContext });
+  logProviderEmailRuntimeConfig({ emailContext, logContext, emailProvider });
   logger.info('provider_booking_email_attempt', logContext);
 
   if (!emailPayload.to) {
@@ -615,34 +772,39 @@ export const sendProviderEmail = async ({
   }
 
   try {
-    const smtpResult = await sendSmtpMail(emailPayload);
+    const transportResult = emailProvider === 'resend'
+      ? await sendResendMail(emailPayload)
+      : await sendSmtpMail(emailPayload);
 
     logger.info('provider_booking_email_success', {
       ...logContext,
       reference: emailPayload.reference,
-      messageId: smtpResult.messageId,
-      accepted: smtpResult.accepted,
-      attempts: smtpResult.attempts
+      messageId: transportResult.messageId,
+      accepted: transportResult.accepted,
+      attempts: transportResult.attempts || 1
     });
 
     return {
       status: 'sent',
-      reason: 'live_smtp_sent',
+      reason: emailProvider === 'resend' ? 'live_resend_sent' : 'live_smtp_sent',
       payload: {
         ...emailPayload,
         mode
       },
       smtp: getSafeSmtpSummary(),
+      resend: getSafeResendSummary(),
       transport: {
-        provider: 'smtp',
-        accepted: smtpResult.accepted,
-        envelopeFrom: smtpResult.envelopeFrom,
-        messageId: smtpResult.messageId,
-        attempts: smtpResult.attempts
+        provider: emailProvider,
+        accepted: transportResult.accepted,
+        envelopeFrom: transportResult.envelopeFrom || null,
+        messageId: transportResult.messageId,
+        attempts: transportResult.attempts || 1
       }
     };
   } catch (error) {
-    const rawErrorPayload = buildSmtpErrorPayload({ error });
+    const rawErrorPayload = emailProvider === 'resend'
+      ? buildResendErrorPayload({ error })
+      : buildSmtpErrorPayload({ error });
     const readableMessage = getReadableSmtpErrorMessage(rawErrorPayload);
     const errorPayload = {
       ...rawErrorPayload,
@@ -650,7 +812,8 @@ export const sendProviderEmail = async ({
       rawMessage: rawErrorPayload.message,
       to: emailPayload.to,
       subject: emailPayload.subject,
-      smtpConfig: getSafeSmtpSummary()
+      smtpConfig: getSafeSmtpSummary(),
+      resendConfig: getSafeResendSummary()
     };
 
     logger.error('provider_booking_email_failed', {
@@ -671,6 +834,7 @@ export const sendProviderEmail = async ({
       reason: readableMessage,
       error: errorPayload,
       smtp: getSafeSmtpSummary(),
+      resend: getSafeResendSummary(),
       payload: {
         ...emailPayload,
         mode
@@ -683,6 +847,7 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => sendProvi
   to: emailPayload?.to,
   subject: emailPayload?.subject,
   message: emailPayload?.text || emailPayload?.message,
+  html: emailPayload?.html,
   reference: emailPayload?.reference,
   hotelId: emailPayload?.hotelId || null,
   bookingRequestId: emailPayload?.bookingRequestId || null,
@@ -702,12 +867,13 @@ export const sendProviderEmailTest = async ({ to, subject, message }) => {
 
   return {
     success: result.status === 'sent',
-    provider: 'smtp',
+    provider: result.transport?.provider || result.payload?.provider || getEmailProvider(),
     status: result.status,
     reason: result.reason,
     messageId: result.transport?.messageId || null,
     accepted: result.transport?.accepted || [],
     error: result.error || null,
-    smtp: getSafeSmtpSummary()
+    smtp: getSafeSmtpSummary(),
+    resend: getSafeResendSummary()
   };
 };
