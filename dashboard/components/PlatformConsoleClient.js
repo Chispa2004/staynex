@@ -530,6 +530,38 @@ export const PlatformConsoleClient = () => {
           </section>
 
           <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+            <p className={ui.text.eyebrow(isLight)}>Partner Marketplace Revenue</p>
+            <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{formatCurrency(metrics.totalPartnerCommission)}</h2>
+            <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+              Staynex commission from partner leads. Top provider: {metrics.topPartnerProvider || 'No partner data'}.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div><span className={ui.text.muted(isLight)}>Partner leads</span><p className="font-semibold">{metrics.totalPartnerLeads || 0}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Bookings</span><p className="font-semibold">{metrics.totalPartnerBookings || 0}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Revenue</span><p className="font-semibold">{formatCurrency(metrics.totalPartnerRevenue)}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Provider payout</span><p className="font-semibold">{formatCurrency(metrics.totalProviderPayout)}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Conversion</span><p className="font-semibold">{metrics.partnerConversionRate || 0}%</p></div>
+              <div><span className={ui.text.muted(isLight)}>Email issues</span><p className="font-semibold">{metrics.failedProviderEmails || 0}</p></div>
+            </div>
+            <div className="mt-4 space-y-2">
+              {(revenue.partnerMarketplace || []).slice(0, 5).map((row) => (
+                <div key={row.key} className={cn('rounded-lg border p-3 text-xs', ui.surface(isLight, 'subtle'))}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate font-semibold">{row.provider}</span>
+                    <strong>{formatCurrency(row.staynexCommission)}</strong>
+                  </div>
+                  <p className={cn('mt-1', ui.text.muted(isLight))}>
+                    {row.leads} leads / {row.bookings} bookings / {formatCurrency(row.revenue)} gross
+                  </p>
+                </div>
+              ))}
+              {!(revenue.partnerMarketplace || []).length ? (
+                <p className={cn('text-sm', ui.text.muted(isLight))}>No partner marketplace leads yet.</p>
+              ) : null}
+            </div>
+          </section>
+
+          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
             <p className={ui.text.eyebrow(isLight)}>Top hotels by revenue</p>
             <div className="mt-4 space-y-3">
               {(revenue.topHotels || []).filter((item) => item.revenue > 0).map((item) => (

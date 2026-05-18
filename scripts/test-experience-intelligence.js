@@ -10,6 +10,7 @@ import {
   detectExperienceBookingIntent,
   isProviderBookingConfirmation,
   resolveCurrentProviderExperienceForBooking,
+  calculatePartnerRevenue,
   PROVIDER_EXPERIENCE_INTENTS
 } from '../src/services/experience-booking.service.js';
 import { buildStrictHotelExperienceCatalog } from '../src/services/experience-catalog-isolation.service.js';
@@ -105,6 +106,10 @@ const providerCatalog = [
     active: true,
     tags: ['agafay', 'desert dinner', 'marrakech'],
     target_guest_types: ['couples', 'romantic'],
+    revenue_owner: 'staynex',
+    revenue_type: 'partner_marketplace',
+    platform_commission_percent: 12,
+    hotel_visible_revenue: false,
     metadata: { experience_provider: true }
   },
   {
@@ -493,6 +498,51 @@ const dessertTypo = resolveCurrentProviderExperienceForBooking({
 });
 assert.equal(dessertTypo.resolvedExperience.title, 'Agafay Desert Dinner');
 
+const luxotourRevenue = calculatePartnerRevenue({
+  experience: providerCatalog[0],
+  estimatedRevenue: 110,
+  commissionEstimate: 13,
+  providerId: 'luxotour',
+  source: 'ai_concierge'
+});
+assert.equal(luxotourRevenue.revenueOwner, 'staynex');
+assert.equal(luxotourRevenue.revenueType, 'partner_marketplace');
+assert.equal(luxotourRevenue.hotelVisibleRevenue, false);
+assert.equal(luxotourRevenue.platformCommissionAmount, 13);
+assert.equal(luxotourRevenue.hotelRevenueAmount, 0);
+
+const hotelServiceRevenue = calculatePartnerRevenue({
+  experience: {
+    id: 'hotel-spa',
+    title: 'Hotel Spa',
+    price: 80,
+    commission_percentage: 0
+  },
+  estimatedRevenue: 80,
+  commissionEstimate: 0
+});
+assert.equal(hotelServiceRevenue.revenueOwner, 'hotel');
+assert.equal(hotelServiceRevenue.revenueType, 'hotel_service');
+assert.equal(hotelServiceRevenue.hotelVisibleRevenue, true);
+assert.equal(hotelServiceRevenue.hotelRevenueAmount, 80);
+
+const sharedRevenue = calculatePartnerRevenue({
+  experience: {
+    provider_id: 'transfer-partner',
+    title: 'Shared Transfer',
+    revenue_owner: 'shared',
+    revenue_type: 'external_provider',
+    platform_commission_percent: 10,
+    hotel_commission_percent: 5
+  },
+  estimatedRevenue: 100,
+  providerId: 'transfer-partner'
+});
+assert.equal(sharedRevenue.revenueOwner, 'shared');
+assert.equal(sharedRevenue.platformCommissionAmount, 10);
+assert.equal(sharedRevenue.hotelCommissionAmount, 5);
+assert.equal(sharedRevenue.hotelRevenueAmount, 5);
+
 console.log(JSON.stringify({
   ok: true,
   cases: [
@@ -520,6 +570,9 @@ console.log(JSON.stringify({
     'provider replies follow guest language',
     'provider recommendations are deduplicated',
     'empty hotel experience catalog does not invent fallback',
-    'strict hotel catalog blocks demo cross-tenant experiences'
+    'strict hotel catalog blocks demo cross-tenant experiences',
+    'partner marketplace revenue belongs to Staynex',
+    'hotel service revenue remains hotel owned',
+    'shared revenue exposes only hotel share'
   ]
 }, null, 2));

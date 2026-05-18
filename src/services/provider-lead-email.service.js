@@ -689,7 +689,7 @@ export const buildExperienceProviderLeadEmail = ({
     `Number of guests: ${normalize(bookingRequest?.guests_count) || 'Not provided'}`,
     `Language: ${normalize(guest?.preferred_language || hotel?.default_language) || 'Not provided'}`,
     `Estimated revenue: ${bookingRequest?.estimated_revenue || 0}`,
-    `Commission estimate: ${bookingRequest?.commission_estimate || 0}`,
+    `Origin: Staynex Partner Network`,
     '',
     'Original guest message / notes:',
     normalize(bookingRequest?.notes) || 'No notes',

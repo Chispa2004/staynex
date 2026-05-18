@@ -166,7 +166,9 @@ export const InboxAiCopilotPanel = ({
                     <Pill tone={booking.status === 'confirmed' ? 'emerald' : 'amber'}>{booking.status}</Pill>
                   </div>
                   <p className="mt-1 text-xs opacity-75">
-                    {booking.partner_name || 'Internal concierge'} / potential {formatCurrency(booking.estimated_revenue)}
+                    {booking.metadata?.revenue_owner === 'staynex' || booking.metadata?.revenue_type === 'partner_marketplace'
+                      ? `${booking.partner_name || 'Partner provider'} / partner experience`
+                      : `${booking.partner_name || 'Internal concierge'} / potential ${formatCurrency(booking.estimated_revenue)}`}
                   </p>
                 </div>
               ))}

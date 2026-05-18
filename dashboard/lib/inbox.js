@@ -152,7 +152,7 @@ const getExperienceBookingsByConversation = async ({ supabase, conversationIds }
   try {
     const { data, error } = await supabase
       .from('experience_booking_requests')
-      .select('id, conversation_id, experience_title, partner_name, status, estimated_revenue, commission_estimate, requested_date, requested_time, created_at, updated_at')
+      .select('id, conversation_id, experience_title, partner_name, status, estimated_revenue, commission_estimate, requested_date, requested_time, created_at, updated_at, metadata')
       .in('conversation_id', conversationIds)
       .in('status', ['pending', 'reviewing', 'confirmed'])
       .order('created_at', { ascending: false })

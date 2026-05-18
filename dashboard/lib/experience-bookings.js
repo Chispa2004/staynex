@@ -10,12 +10,34 @@ const isMissingBookingsTable = (error) => (
 
 export const BOOKING_STATUSES = ['pending', 'reviewing', 'confirmed', 'rejected', 'completed', 'cancelled'];
 
-const normalizeBooking = (booking) => ({
-  ...booking,
-  estimated_revenue: Number(booking.estimated_revenue || 0),
-  commission_estimate: Number(booking.commission_estimate || 0),
-  metadata: booking.metadata || {}
-});
+const normalizeBooking = (booking) => {
+  const metadata = booking.metadata || {};
+  const revenueOwner = booking.revenue_owner || metadata.revenue_owner || (booking.provider_id ? 'staynex' : 'hotel');
+  const revenueType = booking.revenue_type || metadata.revenue_type || (booking.provider_id ? 'partner_marketplace' : 'hotel_service');
+  const hotelVisibleRevenue = booking.hotel_visible_revenue ?? metadata.hotel_visible_revenue ?? revenueOwner !== 'staynex';
+  const hotelRevenueAmount = revenueOwner === 'hotel'
+    ? Number(booking.estimated_revenue || 0)
+    : revenueOwner === 'shared'
+      ? Number(booking.hotel_commission_amount || metadata.hotel_commission_amount || 0)
+      : 0;
+
+  return {
+    ...booking,
+    revenue_owner: revenueOwner,
+    revenue_type: revenueType,
+    hotel_visible_revenue: Boolean(hotelVisibleRevenue),
+    estimated_revenue: Number(booking.estimated_revenue || 0),
+    commission_estimate: Number(booking.commission_estimate || 0),
+    hotel_revenue_amount: hotelRevenueAmount,
+    hotel_visible_estimated_revenue: hotelVisibleRevenue ? hotelRevenueAmount : 0,
+    hotel_visible_commission: revenueOwner === 'shared'
+      ? Number(booking.hotel_commission_amount || metadata.hotel_commission_amount || 0)
+      : hotelVisibleRevenue
+        ? Number(booking.commission_estimate || 0)
+        : 0,
+    metadata
+  };
+};
 
 const getExperienceBookingContext = async (request, permission = 'experience_bookings') => {
   const { supabase, hotel, role, user, platformRole } = await getCurrentHotelForRequest(request);
@@ -158,6 +180,18 @@ const syncRevenueForBooking = async ({ supabase, booking }) => {
   if (!['confirmed', 'completed', 'rejected', 'cancelled'].includes(booking.status)) {
     return null;
   }
+  const metadata = booking.metadata || {};
+  const revenueOwner = booking.revenue_owner || metadata.revenue_owner || (booking.provider_id ? 'staynex' : 'hotel');
+  const hotelVisibleRevenue = booking.hotel_visible_revenue ?? metadata.hotel_visible_revenue ?? revenueOwner !== 'staynex';
+  const hotelAmount = revenueOwner === 'hotel'
+    ? Number(booking.estimated_revenue || 0)
+    : revenueOwner === 'shared'
+      ? Number(booking.hotel_commission_amount || metadata.hotel_commission_amount || 0)
+      : 0;
+
+  if (!hotelVisibleRevenue || hotelAmount <= 0) {
+    return null;
+  }
 
   const conversionStatus = ['confirmed', 'completed'].includes(booking.status)
     ? 'accepted'
@@ -186,7 +220,7 @@ const syncRevenueForBooking = async ({ supabase, booking }) => {
     upsell_type: booking.metadata?.offer_type || 'experience_booking',
     source: 'experience_booking_request',
     status: conversionStatus,
-    estimated_amount: booking.estimated_revenue || 0,
+    estimated_amount: hotelAmount,
     currency: 'EUR',
     notes: `Experience booking ${booking.id}: ${booking.experience_title}`,
     updated_at: now

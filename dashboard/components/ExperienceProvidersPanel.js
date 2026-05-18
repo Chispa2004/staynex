@@ -21,7 +21,13 @@ const initialExperienceForm = {
   destination_city: '',
   duration: '',
   tags: '',
-  audience_tags: 'couples,culture'
+  audience_tags: 'couples,culture',
+  revenue_owner: 'staynex',
+  revenue_type: 'partner_marketplace',
+  platform_commission_percent: '',
+  platform_commission_fixed: '',
+  hotel_commission_percent: '0',
+  hotel_visible_revenue: false
 };
 
 const getAuthHeaders = async () => {
@@ -66,7 +72,16 @@ const ProviderAssignmentCard = ({
   const [draft, setDraft] = useState({
     leadEmail: assignment.lead_email || assignment.provider?.contact_email || '',
     priority: assignment.priority ?? 0,
-    notes: assignment.notes || ''
+    notes: assignment.notes || '',
+    revenue_owner: assignment.revenue_owner || 'staynex',
+    revenue_type: assignment.revenue_type || 'partner_marketplace',
+    commission_model: assignment.commission_model || 'percent',
+    staynex_commission_percent: assignment.staynex_commission_percent ?? 10,
+    staynex_commission_fixed: assignment.staynex_commission_fixed ?? '',
+    hotel_commission_percent: assignment.hotel_commission_percent ?? 0,
+    visible_to_hotel: assignment.visible_to_hotel !== false,
+    hotel_can_manage: Boolean(assignment.hotel_can_manage),
+    reception_action_required: Boolean(assignment.reception_action_required)
   });
   const provider = assignment.provider || {};
   const metrics = assignment.metrics || {};
@@ -89,7 +104,16 @@ const ProviderAssignmentCard = ({
           active: updates.active ?? assignment.active,
           priority: updates.priority ?? draft.priority,
           leadEmail: updates.leadEmail ?? draft.leadEmail,
-          notes: updates.notes ?? draft.notes
+          notes: updates.notes ?? draft.notes,
+          revenue_owner: updates.revenue_owner ?? draft.revenue_owner,
+          revenue_type: updates.revenue_type ?? draft.revenue_type,
+          commission_model: updates.commission_model ?? draft.commission_model,
+          staynex_commission_percent: updates.staynex_commission_percent ?? draft.staynex_commission_percent,
+          staynex_commission_fixed: updates.staynex_commission_fixed ?? draft.staynex_commission_fixed,
+          hotel_commission_percent: updates.hotel_commission_percent ?? draft.hotel_commission_percent,
+          visible_to_hotel: updates.visible_to_hotel ?? draft.visible_to_hotel,
+          hotel_can_manage: updates.hotel_can_manage ?? draft.hotel_can_manage,
+          reception_action_required: updates.reception_action_required ?? draft.reception_action_required
         })
       });
       const body = await response.json();
@@ -150,6 +174,9 @@ const ProviderAssignmentCard = ({
             <ProviderBadge isLight={isLight} tone={assignment.active ? 'emerald' : 'slate'}>
               {assignment.active ? 'Active' : 'Inactive'}
             </ProviderBadge>
+            <ProviderBadge isLight={isLight} tone="violet">
+              {assignment.revenue_owner || 'staynex'} revenue
+            </ProviderBadge>
           </div>
           <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
             Connected {formatDate(assignment.created_at)} / {provider.destination_country || 'Destination not set'}
@@ -169,6 +196,55 @@ const ProviderAssignmentCard = ({
             onChange={(event) => setDraft((current) => ({ ...current, leadEmail: event.target.value }))}
             placeholder={provider.contact_email || 'provider@example.com'}
           />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Revenue owner</span>
+          <select
+            className={cn('w-full', ui.input(isLight))}
+            value={draft.revenue_owner}
+            onChange={(event) => setDraft((current) => ({ ...current, revenue_owner: event.target.value }))}
+          >
+            <option value="staynex">Staynex</option>
+            <option value="hotel">Hotel</option>
+            <option value="shared">Shared</option>
+          </select>
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Revenue type</span>
+          <select
+            className={cn('w-full', ui.input(isLight))}
+            value={draft.revenue_type}
+            onChange={(event) => setDraft((current) => ({ ...current, revenue_type: event.target.value }))}
+          >
+            <option value="partner_marketplace">Partner marketplace</option>
+            <option value="affiliate">Affiliate</option>
+            <option value="external_provider">External provider</option>
+            <option value="hotel_service">Hotel service</option>
+          </select>
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Staynex %</span>
+          <input
+            className={cn('w-full', ui.input(isLight))}
+            value={draft.staynex_commission_percent}
+            onChange={(event) => setDraft((current) => ({ ...current, staynex_commission_percent: event.target.value }))}
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Hotel %</span>
+          <input
+            className={cn('w-full', ui.input(isLight))}
+            value={draft.hotel_commission_percent}
+            onChange={(event) => setDraft((current) => ({ ...current, hotel_commission_percent: event.target.value }))}
+          />
+        </label>
+        <label className={cn('inline-flex items-center gap-2 text-sm', ui.text.body(isLight))}>
+          <input type="checkbox" checked={draft.visible_to_hotel} onChange={(event) => setDraft((current) => ({ ...current, visible_to_hotel: event.target.checked }))} />
+          Visible to hotel
+        </label>
+        <label className={cn('inline-flex items-center gap-2 text-sm', ui.text.body(isLight))}>
+          <input type="checkbox" checked={draft.reception_action_required} onChange={(event) => setDraft((current) => ({ ...current, reception_action_required: event.target.checked }))} />
+          Reception action required
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>Priority</span>
@@ -330,13 +406,14 @@ const ProviderExperienceCard = ({
               {experience.active ? 'Active' : 'Inactive'}
             </ProviderBadge>
             {experience.hotel_scoped ? <ProviderBadge isLight={isLight} tone="sky">Hotel scoped</ProviderBadge> : <ProviderBadge isLight={isLight} tone="slate">Provider global</ProviderBadge>}
+            <ProviderBadge isLight={isLight} tone="violet">{experience.revenue_owner || 'staynex'} revenue</ProviderBadge>
           </div>
           <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
             {provider.name || 'Provider'} / {experience.destination_city || 'Any city'} / {formatCurrency(experience.price, experience.currency)}
           </p>
         </div>
         <ProviderBadge isLight={isLight} tone="amber">
-          {experience.commission_percent || 0}% commission
+          {experience.platform_commission_percent ?? experience.commission_percent ?? 0}% Staynex commission
         </ProviderBadge>
       </div>
 
@@ -424,7 +501,18 @@ export const ExperienceProvidersPanel = ({ hotelId }) => {
   const [savingKey, setSavingKey] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
-  const [assignmentForm, setAssignmentForm] = useState({ providerId: '', leadEmail: '', priority: 100, active: true });
+  const [assignmentForm, setAssignmentForm] = useState({
+    providerId: '',
+    leadEmail: '',
+    priority: 100,
+    active: true,
+    revenue_owner: 'staynex',
+    revenue_type: 'partner_marketplace',
+    staynex_commission_percent: 10,
+    hotel_commission_percent: 0,
+    visible_to_hotel: true,
+    reception_action_required: false
+  });
   const [experienceForm, setExperienceForm] = useState(initialExperienceForm);
   const submitLocks = useRef(new Set());
 
@@ -507,7 +595,13 @@ export const ExperienceProvidersPanel = ({ hotelId }) => {
           providerId: assignmentForm.providerId,
           leadEmail: assignmentForm.leadEmail,
           priority: assignmentForm.priority,
-          active: assignmentForm.active
+          active: assignmentForm.active,
+          revenue_owner: assignmentForm.revenue_owner,
+          revenue_type: assignmentForm.revenue_type,
+          staynex_commission_percent: assignmentForm.staynex_commission_percent,
+          hotel_commission_percent: assignmentForm.hotel_commission_percent,
+          visible_to_hotel: assignmentForm.visible_to_hotel,
+          reception_action_required: assignmentForm.reception_action_required
         })
       });
       const body = await response.json();
@@ -517,7 +611,19 @@ export const ExperienceProvidersPanel = ({ hotelId }) => {
       }
 
       setNotice('Provider connected to this hotel.');
-      setAssignmentForm((current) => ({ ...current, leadEmail: '', priority: 100, active: true, providerId: '' }));
+      setAssignmentForm((current) => ({
+        ...current,
+        leadEmail: '',
+        priority: 100,
+        active: true,
+        providerId: '',
+        revenue_owner: 'staynex',
+        revenue_type: 'partner_marketplace',
+        staynex_commission_percent: 10,
+        hotel_commission_percent: 0,
+        visible_to_hotel: true,
+        reception_action_required: false
+      }));
       await loadProviders({ silent: true });
     } catch (caughtError) {
       setError(caughtError.message);
@@ -635,9 +741,28 @@ export const ExperienceProvidersPanel = ({ hotelId }) => {
                   value={assignmentForm.priority}
                   onChange={(event) => setAssignmentForm((current) => ({ ...current, priority: event.target.value }))}
                 />
+                <select
+                  className={cn('w-full', ui.input(isLight))}
+                  value={assignmentForm.revenue_owner}
+                  onChange={(event) => setAssignmentForm((current) => ({ ...current, revenue_owner: event.target.value }))}
+                >
+                  <option value="staynex">Revenue owner: Staynex</option>
+                  <option value="hotel">Revenue owner: Hotel</option>
+                  <option value="shared">Revenue owner: Shared</option>
+                </select>
+                <input
+                  className={cn('w-full', ui.input(isLight))}
+                  placeholder="Staynex commission %"
+                  value={assignmentForm.staynex_commission_percent}
+                  onChange={(event) => setAssignmentForm((current) => ({ ...current, staynex_commission_percent: event.target.value }))}
+                />
                 <label className={cn('inline-flex items-center gap-2 text-sm', ui.text.body(isLight))}>
                   <input type="checkbox" checked={assignmentForm.active} onChange={(event) => setAssignmentForm((current) => ({ ...current, active: event.target.checked }))} />
                   Active
+                </label>
+                <label className={cn('inline-flex items-center gap-2 text-sm', ui.text.body(isLight))}>
+                  <input type="checkbox" checked={assignmentForm.visible_to_hotel} onChange={(event) => setAssignmentForm((current) => ({ ...current, visible_to_hotel: event.target.checked }))} />
+                  Visible to hotel
                 </label>
                 <button type="submit" disabled={savingKey === 'assign-provider' || !assignmentForm.providerId} className={ui.button(isLight, 'primary')}>
                   <Sparkles className="h-4 w-4" aria-hidden="true" />

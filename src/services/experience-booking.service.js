@@ -68,6 +68,45 @@ const isMissingLeadColumns = (error) => (
   || error?.details?.includes('provider_email_')
 );
 
+const isMissingProviderRevenueColumns = (error) => (
+  error?.message?.includes('revenue_owner')
+  || error?.message?.includes('revenue_type')
+  || error?.message?.includes('hotel_visible_revenue')
+  || error?.message?.includes('platform_commission_')
+  || error?.message?.includes('provider_payout_')
+  || error?.message?.includes('hotel_commission_')
+  || error?.message?.includes('partner_')
+  || error?.message?.includes('attribution_source')
+  || error?.details?.includes('revenue_owner')
+  || error?.details?.includes('revenue_type')
+  || error?.details?.includes('hotel_visible_revenue')
+  || error?.details?.includes('platform_commission_')
+  || error?.details?.includes('provider_payout_')
+  || error?.details?.includes('hotel_commission_')
+  || error?.details?.includes('partner_')
+  || error?.details?.includes('attribution_source')
+);
+
+const stripPartnerRevenueColumns = (record = {}) => {
+  const {
+    revenue_owner,
+    revenue_type,
+    hotel_visible_revenue,
+    platform_commission_amount,
+    platform_commission_percent,
+    provider_payout_amount,
+    hotel_commission_amount,
+    hotel_commission_percent,
+    partner_id,
+    partner_name,
+    partner_lead_email,
+    attribution_source,
+    ...safeRecord
+  } = record;
+
+  return safeRecord;
+};
+
 const verifyProviderConnectedToHotel = async ({
   supabase,
   hotelId,
@@ -79,7 +118,7 @@ const verifyProviderConnectedToHotel = async ({
 
   const { data, error } = await supabase
     .from('hotel_experience_providers')
-    .select('id, lead_email, active, provider:experience_providers(id, name, active, contact_email)')
+    .select('*, provider:experience_providers(id, name, slug, active, contact_email)')
     .eq('hotel_id', hotelId)
     .eq('provider_id', providerId)
     .eq('active', true)
@@ -95,6 +134,70 @@ const verifyProviderConnectedToHotel = async ({
   }
 
   return data && data.provider?.active !== false ? data : false;
+};
+
+export const calculatePartnerRevenue = ({
+  experience = {},
+  assignment = null,
+  estimatedRevenue = 0,
+  commissionEstimate = 0,
+  providerId = null,
+  source = 'ai_concierge'
+} = {}) => {
+  const isProviderExperience = Boolean(
+    providerId
+    || experience.provider_id
+    || experience.metadata?.experience_provider
+    || experience.metadata?.provider_id
+  );
+  const revenueOwner = isProviderExperience
+    ? experience.revenue_owner || assignment?.revenue_owner || experience.metadata?.revenue_owner || 'staynex'
+    : experience.revenue_owner || experience.metadata?.revenue_owner || 'hotel';
+  const revenueType = isProviderExperience
+    ? experience.revenue_type || assignment?.revenue_type || experience.metadata?.revenue_type || 'partner_marketplace'
+    : experience.revenue_type || experience.metadata?.revenue_type || 'hotel_service';
+  const platformCommissionPercent = revenueOwner === 'hotel'
+    ? null
+    : Number(experience.platform_commission_percent
+      ?? experience.metadata?.platform_commission_percent
+      ?? assignment?.staynex_commission_percent
+      ?? experience.commission_percentage
+      ?? 0);
+  const platformCommissionFixed = Number(experience.platform_commission_fixed
+    ?? experience.metadata?.platform_commission_fixed
+    ?? assignment?.staynex_commission_fixed
+    ?? 0);
+  const hotelCommissionPercent = revenueOwner === 'shared'
+    ? Number(experience.hotel_commission_percent ?? experience.metadata?.hotel_commission_percent ?? assignment?.hotel_commission_percent ?? 0)
+    : 0;
+  const platformCommissionAmount = revenueOwner === 'hotel'
+    ? 0
+    : Math.round((Number(estimatedRevenue || 0) * Number(platformCommissionPercent || 0)) / 100) + platformCommissionFixed;
+  const hotelCommissionAmount = revenueOwner === 'shared'
+    ? Math.round((Number(estimatedRevenue || 0) * hotelCommissionPercent) / 100)
+    : 0;
+  const providerPayoutAmount = isProviderExperience
+    ? Math.max(Number(estimatedRevenue || 0) - platformCommissionAmount - hotelCommissionAmount, 0)
+    : 0;
+  const hotelVisibleRevenue = revenueOwner === 'hotel'
+    || revenueOwner === 'shared'
+    || experience.hotel_visible_revenue === true
+    || experience.metadata?.hotel_visible_revenue === true;
+
+  return {
+    isProviderExperience,
+    revenueOwner,
+    revenueType,
+    hotelVisibleRevenue,
+    platformCommissionPercent: revenueOwner === 'hotel' ? null : platformCommissionPercent,
+    platformCommissionAmount,
+    providerPayoutAmount,
+    hotelCommissionPercent: revenueOwner === 'shared' ? hotelCommissionPercent : 0,
+    hotelCommissionAmount,
+    hotelRevenueAmount: revenueOwner === 'hotel' ? Number(estimatedRevenue || 0) : hotelCommissionAmount,
+    visibleCommissionEstimate: hotelVisibleRevenue ? (revenueOwner === 'shared' ? hotelCommissionAmount : commissionEstimate) : 0,
+    attributionSource: source || 'ai_concierge'
+  };
 };
 
 const buildProviderEmailMetadata = ({
@@ -1557,6 +1660,13 @@ export const createExperienceBookingRequest = async ({
   const providerExperienceId = experience?.provider_experience_id || latestOffer?.metadata?.provider_experience_id || null;
   const providerSource = experience?.provider_source || latestOffer?.metadata?.provider_source || null;
   const providerLeadEmail = experience?.provider_lead_email || latestOffer?.metadata?.provider_lead_email || null;
+  const partnerRevenue = calculatePartnerRevenue({
+    experience,
+    estimatedRevenue,
+    commissionEstimate,
+    providerId,
+    source: 'ai_concierge'
+  });
   const confirmationOverride = intent.reason === 'provider_booking_confirmation_override'
     || intent.conversationIntent?.reason === 'provider_booking_confirmation_override';
 
@@ -1649,8 +1759,17 @@ export const createExperienceBookingRequest = async ({
       notes: message,
       status: 'pending',
       estimated_revenue: estimatedRevenue,
-      commission_estimate: commissionEstimate,
+      commission_estimate: partnerRevenue.visibleCommissionEstimate,
       source: 'ai_concierge',
+      revenue_owner: partnerRevenue.revenueOwner,
+      revenue_type: partnerRevenue.revenueType,
+      hotel_visible_revenue: partnerRevenue.hotelVisibleRevenue,
+      platform_commission_amount: partnerRevenue.platformCommissionAmount,
+      platform_commission_percent: partnerRevenue.platformCommissionPercent,
+      provider_payout_amount: partnerRevenue.providerPayoutAmount,
+      hotel_commission_amount: partnerRevenue.hotelCommissionAmount,
+      hotel_commission_percent: partnerRevenue.hotelCommissionPercent,
+      attribution_source: partnerRevenue.attributionSource,
       metadata: {
         intent_reason: intent.reason,
         confidence: intent.confidence,
@@ -1663,6 +1782,18 @@ export const createExperienceBookingRequest = async ({
         provider_lead_required: Boolean(providerLeadEmail),
         provider_name: providerSource,
         provider_experience_title: experience?.title || title,
+        revenue_owner: partnerRevenue.revenueOwner,
+        revenue_type: partnerRevenue.revenueType,
+        hotel_visible_revenue: partnerRevenue.hotelVisibleRevenue,
+        platform_commission_amount: partnerRevenue.platformCommissionAmount,
+        platform_commission_percent: partnerRevenue.platformCommissionPercent,
+        provider_payout_amount: partnerRevenue.providerPayoutAmount,
+        hotel_commission_amount: partnerRevenue.hotelCommissionAmount,
+        hotel_commission_percent: partnerRevenue.hotelCommissionPercent,
+        hotel_revenue_amount: partnerRevenue.hotelRevenueAmount,
+        attribution_source: partnerRevenue.attributionSource,
+        partner_network: partnerRevenue.isProviderExperience,
+        partner_network_name: partnerRevenue.isProviderExperience ? 'Staynex Partner Network' : null,
         guest_phone: guest?.phone_number || reservation?.guest_phone || null,
         original_message: message,
         provider_booking_confirmation_override: confirmationOverride,
@@ -1683,7 +1814,19 @@ export const createExperienceBookingRequest = async ({
       provider_experience_id: providerExperienceId,
       provider_source: providerSource,
       provider_lead_email: providerLeadEmail,
-      lead_status: providerLeadEmail ? 'pending' : 'not_required'
+      lead_status: providerLeadEmail ? 'pending' : 'not_required',
+      revenue_owner: partnerRevenue.revenueOwner,
+      revenue_type: partnerRevenue.revenueType,
+      hotel_visible_revenue: partnerRevenue.hotelVisibleRevenue,
+      platform_commission_amount: partnerRevenue.platformCommissionAmount,
+      platform_commission_percent: partnerRevenue.platformCommissionPercent,
+      provider_payout_amount: partnerRevenue.providerPayoutAmount,
+      hotel_commission_amount: partnerRevenue.hotelCommissionAmount,
+      hotel_commission_percent: partnerRevenue.hotelCommissionPercent,
+      partner_id: providerId,
+      partner_name: providerSource,
+      partner_lead_email: providerLeadEmail,
+      attribution_source: partnerRevenue.attributionSource
     } : {};
 
     let { data, error } = await supabase
@@ -1698,15 +1841,16 @@ export const createExperienceBookingRequest = async ({
     if (error && (
       error.message?.includes('provider_')
       || error.message?.includes('lead_')
+      || isMissingProviderRevenueColumns(error)
       || error.details?.includes('provider_')
       || error.details?.includes('lead_')
     )) {
-      logger.warn('Provider lead columns missing; retrying booking request without provider columns', {
+      logger.warn('Provider lead or partner revenue columns missing; retrying booking request without newer columns', {
         message: error.message
       });
       const fallback = await supabase
         .from('experience_booking_requests')
-        .insert(baseRecord)
+        .insert(stripPartnerRevenueColumns(baseRecord))
         .select('*')
         .single();
 
@@ -1733,20 +1877,22 @@ export const createExperienceBookingRequest = async ({
       });
     }
 
-    await createConversion({
-      hotelId: hotel.id,
-      guestId: guest?.id || null,
-      reservationId: reservation?.id || null,
-      conversationId: conversation.id,
-      upsellType: latestOffer?.offer_type || experience?.category || 'experience_booking',
-      source: 'experience_booking_request',
-      status: 'pending',
-      estimatedAmount: estimatedRevenue,
-      currency: latestOffer?.currency || 'EUR',
-      notes: `Experience booking request ${data.id}: ${title}`
-    }).catch((error) => {
-      logger.warn('Experience booking revenue conversion failed', { message: error.message });
-    });
+    if (partnerRevenue.hotelRevenueAmount > 0) {
+      await createConversion({
+        hotelId: hotel.id,
+        guestId: guest?.id || null,
+        reservationId: reservation?.id || null,
+        conversationId: conversation.id,
+        upsellType: latestOffer?.offer_type || experience?.category || 'experience_booking',
+        source: 'experience_booking_request',
+        status: 'pending',
+        estimatedAmount: partnerRevenue.hotelRevenueAmount,
+        currency: latestOffer?.currency || 'EUR',
+        notes: `Experience booking request ${data.id}: ${title}`
+      }).catch((error) => {
+        logger.warn('Experience booking revenue conversion failed', { message: error.message });
+      });
+    }
 
     if (guest?.id) {
       const memoryKey = experience?.category

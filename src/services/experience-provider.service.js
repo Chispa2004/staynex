@@ -28,6 +28,10 @@ const normalizeArray = (value) => {
 export const normalizeProviderExperience = ({ experience, provider, hotelProvider }) => {
   const tags = normalizeArray(experience.tags);
   const audienceTags = normalizeArray(experience.audience_tags);
+  const revenueOwner = experience.revenue_owner || hotelProvider.revenue_owner || 'staynex';
+  const revenueType = experience.revenue_type || hotelProvider.revenue_type || 'partner_marketplace';
+  const staynexCommissionPercent = experience.platform_commission_percent ?? hotelProvider.staynex_commission_percent ?? experience.commission_percent ?? null;
+  const hotelCommissionPercent = experience.hotel_commission_percent ?? hotelProvider.hotel_commission_percent ?? 0;
 
   return {
     id: experience.id,
@@ -40,6 +44,19 @@ export const normalizeProviderExperience = ({ experience, provider, hotelProvide
     provider_slug: provider.slug,
     provider_type: provider.provider_type,
     provider_lead_email: hotelProvider.lead_email || provider.contact_email || null,
+    revenue_owner: revenueOwner,
+    revenue_type: revenueType,
+    hotel_visible_revenue: experience.hotel_visible_revenue ?? (revenueOwner !== 'staynex'),
+    platform_commission_percent: staynexCommissionPercent === null || staynexCommissionPercent === undefined
+      ? null
+      : Number(staynexCommissionPercent),
+    platform_commission_fixed: experience.platform_commission_fixed ?? hotelProvider.staynex_commission_fixed ?? null,
+    hotel_commission_percent: hotelCommissionPercent === null || hotelCommissionPercent === undefined
+      ? null
+      : Number(hotelCommissionPercent),
+    visible_to_hotel: hotelProvider.visible_to_hotel !== false,
+    hotel_can_manage: Boolean(hotelProvider.hotel_can_manage),
+    reception_action_required: Boolean(hotelProvider.reception_action_required),
     title: experience.title,
     slug: experience.slug,
     category: experience.category || 'local_experiences',
@@ -77,6 +94,15 @@ export const normalizeProviderExperience = ({ experience, provider, hotelProvide
       provider_name: provider.name,
       provider_experience_id: experience.id,
       provider_lead_email: hotelProvider.lead_email || provider.contact_email || null,
+      revenue_owner: revenueOwner,
+      revenue_type: revenueType,
+      hotel_visible_revenue: experience.hotel_visible_revenue ?? (revenueOwner !== 'staynex'),
+      platform_commission_percent: staynexCommissionPercent,
+      platform_commission_fixed: experience.platform_commission_fixed ?? hotelProvider.staynex_commission_fixed ?? null,
+      hotel_commission_percent: hotelCommissionPercent,
+      visible_to_hotel: hotelProvider.visible_to_hotel !== false,
+      hotel_can_manage: Boolean(hotelProvider.hotel_can_manage),
+      reception_action_required: Boolean(hotelProvider.reception_action_required),
       provider_destination_country: provider.destination_country,
       provider_destination_city: experience.destination_city || provider.destination_city || null
     }

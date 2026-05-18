@@ -64,6 +64,20 @@ const providerEmailLabel = {
   not_required: 'No provider email'
 };
 
+const isPartnerMarketplaceBooking = (booking) => (
+  booking.revenue_type === 'partner_marketplace'
+  || booking.metadata?.revenue_type === 'partner_marketplace'
+  || booking.revenue_owner === 'staynex'
+  || booking.metadata?.partner_network
+);
+
+const getHotelVisibleRevenue = (booking) => Number(
+  booking.hotel_visible_estimated_revenue
+  ?? booking.hotel_revenue_amount
+  ?? (booking.hotel_visible_revenue ? booking.estimated_revenue : 0)
+  ?? 0
+);
+
 const StatCard = ({ icon: Icon, label, value, helper, isLight }) => (
   <article className={cn('rounded-xl border p-4', ui.surface(isLight))}>
     <div className="flex items-start justify-between gap-4">
@@ -154,7 +168,7 @@ export const ExperienceBookingsClient = () => {
     });
     const confirmedRevenue = bookings
       .filter((item) => ['confirmed', 'completed'].includes(item.status))
-      .reduce((total, item) => total + Number(item.estimated_revenue || 0), 0);
+      .reduce((total, item) => total + getHotelVisibleRevenue(item), 0);
     const topExperience = Object.entries(bookings.reduce((acc, item) => {
       acc[item.experience_title] = (acc[item.experience_title] || 0) + 1;
       return acc;
@@ -162,7 +176,7 @@ export const ExperienceBookingsClient = () => {
 
     return {
       pending: pending.length,
-      potentialRevenue: pending.reduce((total, item) => total + Number(item.estimated_revenue || 0), 0),
+      potentialRevenue: pending.reduce((total, item) => total + getHotelVisibleRevenue(item), 0),
       confirmedToday: confirmedToday.length,
       confirmedRevenue,
       topExperience: topExperience?.[0] || 'No data'
@@ -286,6 +300,9 @@ export const ExperienceBookingsClient = () => {
                         {providerEmailLabel[providerEmailStatus(booking)] || providerEmailStatus(booking)}
                       </span>
                     ) : null}
+                    {isPartnerMarketplaceBooking(booking) ? (
+                      <span className={ui.badge(isLight, 'violet')}>Partner experience</span>
+                    ) : null}
                   </div>
                   <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>
                     {booking.guest_name || 'Guest'} / Room {booking.room_number || '-'} / {booking.provider_source || booking.metadata?.provider_source || booking.partner_name || 'Internal concierge'}
@@ -299,6 +316,11 @@ export const ExperienceBookingsClient = () => {
                   <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
                     Lead status {booking.lead_status || booking.metadata?.provider_email_status || 'pending'}
                   </p>
+                  {isPartnerMarketplaceBooking(booking) ? (
+                    <p className={cn('mt-2 rounded-lg border px-3 py-2 text-xs', isLight ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-violet-300/20 bg-violet-300/10 text-violet-100')}>
+                      Managed by external provider. Reception action: {booking.metadata?.reception_confirmation_required === false || booking.reception_action_required === false ? 'none' : 'follow-up optional'}.
+                    </p>
+                  ) : null}
                   {booking.metadata?.provider_email_error || booking.lead_error ? (
                     <p className={cn('mt-2 text-xs font-medium', isLight ? 'text-red-700' : 'text-red-200')}>
                       Provider email error: {booking.metadata?.provider_email_error || booking.lead_error}
@@ -318,8 +340,17 @@ export const ExperienceBookingsClient = () => {
 
                 <div className={cn('rounded-lg border p-3', ui.surface(isLight, 'subtle'))}>
                   <p className={ui.text.eyebrow(isLight)}>Revenue</p>
-                  <p className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{formatCurrency(booking.estimated_revenue)}</p>
-                  <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Commission est. {formatCurrency(booking.commission_estimate)}</p>
+                  {isPartnerMarketplaceBooking(booking) && !booking.hotel_visible_revenue ? (
+                    <>
+                      <p className={cn('mt-2 text-sm font-semibold', ui.text.title(isLight))}>Partner marketplace</p>
+                      <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Revenue managed by Staynex Partner Network</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{formatCurrency(getHotelVisibleRevenue(booking))}</p>
+                      <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Visible hotel benefit {formatCurrency(booking.hotel_visible_commission ?? booking.commission_estimate)}</p>
+                    </>
+                  )}
                   <button
                     type="button"
                     disabled={busy || !canManage}

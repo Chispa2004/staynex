@@ -261,6 +261,20 @@ export const getPlatformOverview = async (supabase) => {
   const acceptedOffers = offers.filter((row) => row.status === 'accepted');
   const acceptedOffersByHotel = byHotel(acceptedOffers);
   const experienceBookingsByHotel = byHotel(experienceBookings);
+  const partnerBookings = experienceBookings.filter((row) => (
+    row.revenue_owner === 'staynex'
+    || row.revenue_type === 'partner_marketplace'
+    || row.metadata?.revenue_owner === 'staynex'
+    || row.metadata?.revenue_type === 'partner_marketplace'
+    || row.provider_id
+  ));
+  const partnerBookingsByHotel = byHotel(partnerBookings);
+  const partnerRevenueByHotel = sumByHotel(partnerBookings, 'estimated_revenue');
+  const partnerCommissionByHotel = partnerBookings.reduce((acc, row) => {
+    if (!row.hotel_id) return acc;
+    acc[row.hotel_id] = (acc[row.hotel_id] || 0) + Number(row.platform_commission_amount || row.metadata?.platform_commission_amount || row.commission_estimate || 0);
+    return acc;
+  }, {});
   const localKnowledgeByHotel = byHotel(localKnowledge);
   const knowledgeEntriesByHotel = byHotel(knowledgeEntries);
   const pmsByHotel = pmsConnections.reduce((acc, connection) => {
@@ -314,6 +328,9 @@ export const getPlatformOverview = async (supabase) => {
       acceptedOffers: acceptedOffersByHotel[hotel.id] || 0,
       offerConversionRate: offersByHotel[hotel.id] ? Math.round(((acceptedOffersByHotel[hotel.id] || 0) / offersByHotel[hotel.id]) * 100) : 0,
       experienceBookings: experienceBookingsByHotel[hotel.id] || 0,
+      partnerBookings: partnerBookingsByHotel[hotel.id] || 0,
+      partnerRevenue: partnerRevenueByHotel[hotel.id] || 0,
+      partnerCommission: partnerCommissionByHotel[hotel.id] || 0,
       experiences: experiences.filter((item) => item.hotel_id === hotel.id).length,
       localKnowledge: localKnowledgeByHotel[hotel.id] || 0,
       knowledgeBase: knowledgeEntriesByHotel[hotel.id] || 0,
@@ -364,6 +381,46 @@ export const getPlatformOverview = async (supabase) => {
   const totalExperienceBookingRevenue = experienceBookings
     .filter((row) => ['confirmed', 'completed'].includes(row.status))
     .reduce((total, row) => total + Number(row.estimated_revenue || 0), 0);
+  const totalPartnerLeads = partnerBookings.length;
+  const totalPartnerBookings = partnerBookings.filter((row) => ['confirmed', 'completed'].includes(row.status)).length;
+  const totalPartnerRevenue = partnerBookings.reduce((total, row) => total + Number(row.estimated_revenue || 0), 0);
+  const totalPartnerCommission = partnerBookings.reduce((total, row) => total + Number(row.platform_commission_amount || row.metadata?.platform_commission_amount || row.commission_estimate || 0), 0);
+  const totalProviderPayout = partnerBookings.reduce((total, row) => total + Number(row.provider_payout_amount || row.metadata?.provider_payout_amount || 0), 0);
+  const pendingProviderEmails = partnerBookings.filter((row) => ['pending', 'draft'].includes(row.lead_status || row.metadata?.provider_email_status)).length;
+  const failedProviderEmails = partnerBookings.filter((row) => (row.lead_status || row.metadata?.provider_email_status) === 'failed').length;
+  const partnerProviderRows = Object.values(partnerBookings.reduce((acc, row) => {
+    const key = row.provider_id || row.partner_id || row.provider_source || row.metadata?.provider_source || 'unknown';
+    const current = acc[key] || {
+      key,
+      provider: row.provider_source || row.partner_name || row.metadata?.provider_source || 'Unknown provider',
+      hotelSource: null,
+      bookings: 0,
+      leads: 0,
+      revenue: 0,
+      staynexCommission: 0,
+      providerPayout: 0,
+      pendingEmails: 0,
+      failedEmails: 0
+    };
+    current.leads += 1;
+    if (['confirmed', 'completed'].includes(row.status)) current.bookings += 1;
+    current.revenue += Number(row.estimated_revenue || 0);
+    current.staynexCommission += Number(row.platform_commission_amount || row.metadata?.platform_commission_amount || row.commission_estimate || 0);
+    current.providerPayout += Number(row.provider_payout_amount || row.metadata?.provider_payout_amount || 0);
+    if (['pending', 'draft'].includes(row.lead_status || row.metadata?.provider_email_status)) current.pendingEmails += 1;
+    if ((row.lead_status || row.metadata?.provider_email_status) === 'failed') current.failedEmails += 1;
+    acc[key] = current;
+    return acc;
+  }, {})).sort((a, b) => b.staynexCommission - a.staynexCommission);
+  const topPartnerProvider = partnerProviderRows[0]?.provider || 'No partner data';
+  const topPartnerHotel = hotelRows
+    .map((hotel) => ({
+      id: hotel.id,
+      name: hotel.name,
+      revenue: hotel.stats.partnerRevenue || 0,
+      commission: hotel.stats.partnerCommission || 0
+    }))
+    .sort((a, b) => b.commission - a.commission)[0] || null;
   const totalOffers = offers.length;
   const aiHandled = aiLogs.filter((row) => row.ai_resolution_estimate || row.openai_concierge_used).length;
 
@@ -383,6 +440,16 @@ export const getPlatformOverview = async (supabase) => {
       totalOfferRevenue,
       totalExperienceRevenue,
       totalExperienceBookingRevenue,
+      totalPartnerLeads,
+      totalPartnerBookings,
+      totalPartnerRevenue,
+      totalPartnerCommission,
+      totalProviderPayout,
+      pendingProviderEmails,
+      failedProviderEmails,
+      topPartnerProvider,
+      topPartnerHotel: topPartnerHotel?.name || 'No hotel source',
+      partnerConversionRate: totalPartnerLeads ? Math.round((totalPartnerBookings / totalPartnerLeads) * 100) : 0,
       totalActiveUsers: users.filter((row) => row.status === 'active').length,
       pmsConnectedHotels: hotelRows.filter((hotel) => hotel.pms?.enabled).length,
       whatsappConfiguredHotels: hotelRows.filter((hotel) => hotel.stats.whatsappConfigured).length,
@@ -411,7 +478,8 @@ export const getPlatformOverview = async (supabase) => {
           const key = row.metadata?.hotel_experience_title || row.offer_type || 'experience';
           acc[key] = (acc[key] || 0) + Number(row.suggested_price || 0);
           return acc;
-        }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6)
+        }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6),
+      partnerMarketplace: partnerProviderRows.slice(0, 10)
     },
     raw: {
       users,

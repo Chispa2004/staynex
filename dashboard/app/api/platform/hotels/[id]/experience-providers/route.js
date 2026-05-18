@@ -33,6 +33,14 @@ const normalizeArray = (value) => {
   return [];
 };
 
+const normalizeBoolean = (value, fallback = false) => (
+  value === undefined || value === null ? fallback : Boolean(value)
+);
+
+const normalizeNumber = (value, fallback = null) => (
+  value === '' || value === null || value === undefined ? fallback : Number(value)
+);
+
 const buildExperiencePayload = (body = {}, { hotelId = null } = {}) => {
   const title = normalizeOptional(body.title);
 
@@ -60,10 +68,19 @@ const buildExperiencePayload = (body = {}, { hotelId = null } = {}) => {
     image_url: normalizeOptional(body.image_url || body.imageUrl),
     duration: normalizeOptional(body.duration),
     active: body.active === undefined ? true : Boolean(body.active),
+    revenue_owner: normalizeOptional(body.revenue_owner) || 'staynex',
+    revenue_type: normalizeOptional(body.revenue_type) || 'partner_marketplace',
+    platform_commission_percent: normalizeNumber(body.platform_commission_percent ?? body.commission_percent),
+    platform_commission_fixed: normalizeNumber(body.platform_commission_fixed),
+    hotel_commission_percent: normalizeNumber(body.hotel_commission_percent, 0),
+    hotel_visible_revenue: normalizeBoolean(body.hotel_visible_revenue, false),
     metadata: {
       ...(body.metadata && typeof body.metadata === 'object' ? body.metadata : {}),
       managed_from: 'platform_hotel_detail',
       hotel_scope_id: hotelId || body.metadata?.hotel_scope_id || null,
+      revenue_owner: normalizeOptional(body.revenue_owner) || 'staynex',
+      revenue_type: normalizeOptional(body.revenue_type) || 'partner_marketplace',
+      hotel_visible_revenue: normalizeBoolean(body.hotel_visible_revenue, false),
       future_api_ready: true
     },
     updated_at: new Date().toISOString()
@@ -95,7 +112,7 @@ const loadProviderState = async ({ supabase, hotelId }) => {
     safeRows(
       supabase
         .from('experience_booking_requests')
-        .select('id, provider_id, provider_experience_id, estimated_revenue, commission_estimate, lead_status, status, created_at')
+        .select('*')
         .eq('hotel_id', hotelId)
         .not('provider_id', 'is', null)
         .order('created_at', { ascending: false })
@@ -115,7 +132,7 @@ const loadProviderState = async ({ supabase, hotelId }) => {
 
     current.leadsGenerated += 1;
     current.estimatedRevenue += Number(request.estimated_revenue || 0);
-    current.commissionEstimate += Number(request.commission_estimate || 0);
+    current.commissionEstimate += Number(request.platform_commission_amount || request.metadata?.platform_commission_amount || request.commission_estimate || 0);
     acc[request.provider_id] = current;
     return acc;
   }, {});
@@ -129,7 +146,7 @@ const loadProviderState = async ({ supabase, hotelId }) => {
 
     current.leadsGenerated += 1;
     current.estimatedRevenue += Number(request.estimated_revenue || 0);
-    current.commissionEstimate += Number(request.commission_estimate || 0);
+    current.commissionEstimate += Number(request.platform_commission_amount || request.metadata?.platform_commission_amount || request.commission_estimate || 0);
     acc[request.provider_experience_id] = current;
     return acc;
   }, {});
@@ -229,6 +246,15 @@ export async function POST(request, { params }) {
           active: body.active === undefined ? true : Boolean(body.active),
           lead_email: normalizeOptional(body.leadEmail || body.lead_email),
           notes: normalizeOptional(body.notes),
+          revenue_owner: normalizeOptional(body.revenue_owner) || 'staynex',
+          revenue_type: normalizeOptional(body.revenue_type) || 'partner_marketplace',
+          commission_model: normalizeOptional(body.commission_model) || 'percent',
+          staynex_commission_percent: normalizeNumber(body.staynex_commission_percent, 10),
+          staynex_commission_fixed: normalizeNumber(body.staynex_commission_fixed),
+          hotel_commission_percent: normalizeNumber(body.hotel_commission_percent, 0),
+          visible_to_hotel: normalizeBoolean(body.visible_to_hotel, true),
+          hotel_can_manage: normalizeBoolean(body.hotel_can_manage, false),
+          reception_action_required: normalizeBoolean(body.reception_action_required, false),
           updated_at: now
         }, { onConflict: 'hotel_id,provider_id' })
         .select('*, provider:experience_providers(*)')
@@ -247,7 +273,9 @@ export async function POST(request, { params }) {
         metadata: {
           provider_id: body.providerId,
           active: assignment.active,
-          priority: assignment.priority
+          priority: assignment.priority,
+          revenue_owner: assignment.revenue_owner,
+          revenue_type: assignment.revenue_type
         }
       });
 
@@ -331,6 +359,15 @@ export async function PATCH(request, { params }) {
         active: body.active === undefined ? true : Boolean(body.active),
         lead_email: normalizeOptional(body.leadEmail || body.lead_email),
         notes: normalizeOptional(body.notes),
+        revenue_owner: normalizeOptional(body.revenue_owner) || 'staynex',
+        revenue_type: normalizeOptional(body.revenue_type) || 'partner_marketplace',
+        commission_model: normalizeOptional(body.commission_model) || 'percent',
+        staynex_commission_percent: normalizeNumber(body.staynex_commission_percent, 10),
+        staynex_commission_fixed: normalizeNumber(body.staynex_commission_fixed),
+        hotel_commission_percent: normalizeNumber(body.hotel_commission_percent, 0),
+        visible_to_hotel: normalizeBoolean(body.visible_to_hotel, true),
+        hotel_can_manage: normalizeBoolean(body.hotel_can_manage, false),
+        reception_action_required: normalizeBoolean(body.reception_action_required, false),
         updated_at: new Date().toISOString()
       };
       const { data: assignment, error } = await supabase
@@ -354,7 +391,9 @@ export async function PATCH(request, { params }) {
         metadata: {
           provider_id: assignment.provider_id,
           active: assignment.active,
-          priority: assignment.priority
+          priority: assignment.priority,
+          revenue_owner: assignment.revenue_owner,
+          revenue_type: assignment.revenue_type
         }
       });
 

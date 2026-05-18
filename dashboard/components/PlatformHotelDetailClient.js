@@ -103,6 +103,12 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
     offers: offers.filter((item) => item.status === 'accepted').reduce((total, item) => total + Number(item.suggested_price || 0), 0),
     experienceBookings: experienceBookings
       .filter((item) => ['confirmed', 'completed'].includes(item.status))
+      .reduce((total, item) => total + Number(item.estimated_revenue || 0), 0),
+    partnerMarketplace: experienceBookings
+      .filter((item) => item.revenue_owner === 'staynex' || item.revenue_type === 'partner_marketplace' || item.provider_id)
+      .reduce((total, item) => total + Number(item.platform_commission_amount || item.metadata?.platform_commission_amount || item.commission_estimate || 0), 0),
+    partnerGross: experienceBookings
+      .filter((item) => item.revenue_owner === 'staynex' || item.revenue_type === 'partner_marketplace' || item.provider_id)
       .reduce((total, item) => total + Number(item.estimated_revenue || 0), 0)
   }), [conversions, experienceBookings, offers]);
 
@@ -481,6 +487,8 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Upsell conversions</span><strong>{formatCurrency(revenue.accepted)}</strong></div>
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Accepted AI offers</span><strong>{formatCurrency(revenue.offers)}</strong></div>
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Experience bookings</span><strong>{formatCurrency(revenue.experienceBookings)}</strong></div>
+            <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Partner marketplace gross</span><strong>{formatCurrency(revenue.partnerGross)}</strong></div>
+            <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Staynex partner commission</span><strong>{formatCurrency(revenue.partnerMarketplace)}</strong></div>
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Accepted offers</span><strong>{offers.filter((item) => item.status === 'accepted').length}</strong></div>
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Conversion rate</span><strong>{hotel?.stats?.offerConversionRate || 0}%</strong></div>
             <div className="flex justify-between"><span className={ui.text.muted(isLight)}>Open tickets</span><strong>{detail?.tickets?.filter((item) => item.status !== 'closed').length || 0}</strong></div>
