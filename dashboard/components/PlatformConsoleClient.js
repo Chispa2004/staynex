@@ -105,6 +105,20 @@ const HealthBar = ({ value = 0, isLight }) => {
 
 const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }) => {
   const rows = revenue.partnerMarketplace || [];
+  const partnerMarketplaceMetrics = {
+    totalPartnerLeads: Number(metrics.totalPartnerLeads || 0),
+    totalPartnerBookings: Number(metrics.totalPartnerBookings || 0),
+    grossPartnerRevenue: Number(metrics.totalPartnerRevenue || 0),
+    staynexCommission: Number(metrics.totalPartnerCommission || 0),
+    providerPayout: Number(metrics.totalProviderPayout || 0),
+    topProvider: metrics.topPartnerProvider || 'No data',
+    topHotelSource: metrics.topPartnerHotel || 'No data',
+    conversionRate: Number(metrics.partnerConversionRate || 0),
+    failedProviderEmails: Number(metrics.failedProviderEmails || 0),
+    pendingProviderEmails: Number(metrics.pendingProviderEmails || 0),
+    partnerMarketplaceSqlReady: metrics.partnerMarketplaceSqlReady !== false,
+    rows: rows.length
+  };
   const statusTone = {
     converted: 'emerald',
     lead_sent: 'sky',
@@ -120,8 +134,10 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
     active: 'Active'
   };
 
+  console.log('partnerMarketplaceMetrics', partnerMarketplaceMetrics);
+
   return (
-    <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+    <section id="partner-marketplace-revenue" className={cn('rounded-xl border p-5', ui.surface(isLight))}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className={ui.text.eyebrow(isLight)}>Staynex Partner Network</p>
@@ -135,6 +151,13 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
         </span>
       </div>
 
+      <details open className={cn('mt-4 rounded-xl border p-3 text-xs', isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-white/[0.035] text-slate-300')}>
+        <summary className="cursor-pointer font-semibold">Debug: partnerMarketplaceMetrics</summary>
+        <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words">
+          {JSON.stringify(partnerMarketplaceMetrics, null, 2)}
+        </pre>
+      </details>
+
       {metrics.partnerMarketplaceSqlReady === false ? (
         <div className={cn('mt-4 rounded-xl border px-4 py-3 text-sm', isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-300/10 text-amber-100')}>
           Partner marketplace SQL migration required.
@@ -142,15 +165,15 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
       ) : null}
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard icon={Sparkles} isLight={isLight} label="Total Partner Leads" value={loading ? '...' : metrics.totalPartnerLeads || 0} helper="Provider leads created" tone="violet" />
-        <StatCard icon={CalendarCheck} isLight={isLight} label="Total Partner Bookings" value={loading ? '...' : metrics.totalPartnerBookings || 0} helper="Confirmed or completed" />
-        <StatCard icon={CircleDollarSign} isLight={isLight} label="Gross Partner Revenue" value={loading ? '...' : formatCurrency(metrics.totalPartnerRevenue)} helper="Total provider booking value" tone="sky" />
-        <StatCard icon={CircleDollarSign} isLight={isLight} label="Staynex Commission" value={loading ? '...' : formatCurrency(metrics.totalPartnerCommission)} helper="Platform revenue" />
-        <StatCard icon={CircleDollarSign} isLight={isLight} label="Provider Payout" value={loading ? '...' : formatCurrency(metrics.totalProviderPayout)} helper="Estimated provider share" tone="sky" />
-        <StatCard icon={Sparkles} isLight={isLight} label="Top Provider" value={loading ? '...' : metrics.topPartnerProvider || 'No data'} helper="Best marketplace source" tone="violet" />
-        <StatCard icon={Building2} isLight={isLight} label="Top Hotel Source" value={loading ? '...' : metrics.topPartnerHotel || 'No data'} helper="Best origin hotel" />
-        <StatCard icon={BarChart3} isLight={isLight} label="Conversion Rate" value={loading ? '...' : `${metrics.partnerConversionRate || 0}%`} helper="Bookings / leads" tone="sky" />
-        <StatCard icon={AlertTriangle} isLight={isLight} label="Failed Provider Emails" value={loading ? '...' : metrics.failedProviderEmails || 0} helper={`${metrics.pendingProviderEmails || 0} pending emails`} tone="sky" />
+        <StatCard icon={Sparkles} isLight={isLight} label="Total Partner Leads" value={partnerMarketplaceMetrics.totalPartnerLeads} helper={loading ? 'Loading provider leads...' : 'Provider leads created'} tone="violet" />
+        <StatCard icon={CalendarCheck} isLight={isLight} label="Total Partner Bookings" value={partnerMarketplaceMetrics.totalPartnerBookings} helper="Confirmed or completed" />
+        <StatCard icon={CircleDollarSign} isLight={isLight} label="Gross Partner Revenue" value={formatCurrency(partnerMarketplaceMetrics.grossPartnerRevenue)} helper="Total provider booking value" tone="sky" />
+        <StatCard icon={CircleDollarSign} isLight={isLight} label="Staynex Commission" value={formatCurrency(partnerMarketplaceMetrics.staynexCommission)} helper="Platform revenue" />
+        <StatCard icon={CircleDollarSign} isLight={isLight} label="Provider Payout" value={formatCurrency(partnerMarketplaceMetrics.providerPayout)} helper="Estimated provider share" tone="sky" />
+        <StatCard icon={Sparkles} isLight={isLight} label="Top Provider" value={partnerMarketplaceMetrics.topProvider} helper="Best marketplace source" tone="violet" />
+        <StatCard icon={Building2} isLight={isLight} label="Top Hotel Source" value={partnerMarketplaceMetrics.topHotelSource} helper="Best origin hotel" />
+        <StatCard icon={BarChart3} isLight={isLight} label="Conversion Rate" value={`${partnerMarketplaceMetrics.conversionRate}%`} helper="Bookings / leads" tone="sky" />
+        <StatCard icon={AlertTriangle} isLight={isLight} label="Failed Provider Emails" value={partnerMarketplaceMetrics.failedProviderEmails} helper={`${partnerMarketplaceMetrics.pendingProviderEmails} pending emails`} tone="sky" />
       </div>
 
       <div className={cn('mt-5 overflow-hidden rounded-xl border', isLight ? 'border-slate-200' : 'border-white/10')}>
@@ -178,7 +201,7 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
         </div>
       </div>
 
-      {!loading && rows.length === 0 ? (
+      {rows.length === 0 ? (
         <PremiumEmptyState
           icon={Sparkles}
           title="No partner marketplace revenue yet."
