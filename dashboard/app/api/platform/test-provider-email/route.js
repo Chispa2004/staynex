@@ -3,13 +3,18 @@ import {
   getPlatformContext,
   writePlatformAuditLog
 } from '@/lib/platform';
-import { sendProviderEmail } from '../../../../../src/services/provider-lead-email.service.js';
 
 export const dynamic = 'force-dynamic';
 
 const jsonOptions = {
   headers: { 'Cache-Control': 'no-store' }
 };
+
+const getBackendUrl = () => (
+  process.env.BACKEND_URL
+  || process.env.NEXT_PUBLIC_BACKEND_URL
+  || 'http://localhost:3000'
+);
 
 const normalize = (value) => String(value || '').trim();
 
@@ -30,23 +35,26 @@ export async function POST(request) {
       }, { status: 400, ...jsonOptions });
     }
 
-    const emailResult = await sendProviderEmail({
-      to,
-      subject,
-      message,
-      context: 'platform_test'
+    const backendResponse = await fetch(`${getBackendUrl()}/api/platform/test-provider-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(request.headers.get('authorization')
+          ? { Authorization: request.headers.get('authorization') }
+          : {})
+      },
+      cache: 'no-store',
+      body: JSON.stringify({
+        to,
+        subject,
+        message
+      })
     });
-    const result = {
-      success: emailResult.status === 'sent',
-      provider: emailResult.transport?.provider || emailResult.payload?.provider || 'email',
-      status: emailResult.status,
-      reason: emailResult.reason,
-      messageId: emailResult.transport?.messageId || null,
-      accepted: emailResult.transport?.accepted || [],
-      error: emailResult.error || null,
-      smtp: emailResult.smtp || emailResult.error?.smtpConfig || null,
-      resend: emailResult.resend || emailResult.error?.resendConfig || null
-    };
+    const result = await backendResponse.json().catch(() => ({
+      success: false,
+      provider: 'email',
+      error: 'Backend provider email test returned an invalid response'
+    }));
 
     await writePlatformAuditLog({
       supabase,
@@ -63,7 +71,7 @@ export async function POST(request) {
     });
 
     return NextResponse.json(result, {
-      status: result.success ? 200 : 502,
+      status: backendResponse.status,
       ...jsonOptions
     });
   } catch (error) {
