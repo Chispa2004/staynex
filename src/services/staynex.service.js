@@ -808,7 +808,7 @@ export const processGuestMessage = async ({
       providerExperience: providerExperienceConversation.matchedExperience || null,
       reason: lastProviderWriteReason || 'recommendation_list',
       message,
-      previousLastExperience,
+      previousLastExperience: previousLastProviderExperience,
       callsite: 'staynex.processGuestMessage.providerExperienceConversation'
     })
     : {

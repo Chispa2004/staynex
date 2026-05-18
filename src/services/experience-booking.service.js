@@ -20,6 +20,21 @@ const isMissingBookingTable = (error) => (
 
 const includesAny = (text, words) => words.some((word) => text.includes(normalize(word)));
 
+const safeProviderLog = (level, event, payload = {}) => {
+  try {
+    logger[level]?.(event, payload);
+  } catch (error) {
+    try {
+      console.warn('provider_debug_log_failed', {
+        event,
+        message: error?.message || 'unknown_log_error'
+      });
+    } catch {
+      // Debug logging must never break WhatsApp or booking flows.
+    }
+  }
+};
+
 const providerEmailAlreadySent = (bookingRequest = {}) => Boolean(
   bookingRequest?.metadata?.provider_email_sent_at
   || bookingRequest?.metadata?.provider_email_status === 'sent'
@@ -869,7 +884,7 @@ const matchHotelExperience = ({
   latestOffer = null,
   latestProviderContext = null
 }) => {
-  logger.info('provider_experience_match_attempt', {
+  safeProviderLog('info', 'provider_experience_match_attempt', {
     message,
     catalogSize: hotelExperiences.length,
     previousLastExperience: latestProviderContext?.title || latestProviderContext?.provider_experience_id || null
@@ -884,7 +899,7 @@ const matchHotelExperience = ({
   const direct = scored[0];
 
   if (direct?.score >= 0.76) {
-    logger.info('provider_experience_match_result', {
+    safeProviderLog('info', 'provider_experience_match_result', {
       message,
       matchedTitle: direct.experience.title,
       matchedId: direct.experience.provider_experience_id || direct.experience.id || null,
@@ -896,7 +911,7 @@ const matchHotelExperience = ({
   }
 
   if (direct?.score > 0) {
-    logger.info('provider_experience_match_rejected', {
+    safeProviderLog('info', 'provider_experience_match_rejected', {
       message,
       matchedTitle: direct.experience.title,
       matchedId: direct.experience.provider_experience_id || direct.experience.id || null,
@@ -919,7 +934,7 @@ const matchHotelExperience = ({
       || experience.metadata?.provider_experience_id === offeredExperienceId
     ));
     if (offered) {
-      logger.info('provider_experience_match_result', {
+      safeProviderLog('info', 'provider_experience_match_result', {
         message,
         matchedTitle: offered.title,
         matchedId: offered.provider_experience_id || offered.id || null,
@@ -931,7 +946,7 @@ const matchHotelExperience = ({
     }
   }
 
-  logger.info('provider_experience_match_result', {
+  safeProviderLog('info', 'provider_experience_match_result', {
     message,
     matchedTitle: null,
     matchedId: null,
