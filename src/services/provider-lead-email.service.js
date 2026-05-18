@@ -1,5 +1,6 @@
 import net from 'node:net';
 import tls from 'node:tls';
+import crypto from 'node:crypto';
 import { logger } from '../utils/logger.js';
 
 const normalize = (value) => String(value || '').trim();
@@ -25,9 +26,13 @@ const getSmtpPort = () => {
 
 const getSmtpSecure = (port = getSmtpPort()) => {
   if (Number(port) === 465) return true;
+
+  const explicitSecure = parseBoolean(process.env.SMTP_SECURE);
+  if (explicitSecure !== null) return explicitSecure;
+
   if (Number(port) === 587) return false;
 
-  return parseBoolean(process.env.SMTP_SECURE) || false;
+  return false;
 };
 
 const getTimeoutMs = (name, fallback) => {
@@ -35,22 +40,37 @@ const getTimeoutMs = (name, fallback) => {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };
 
-const getSmtpConfig = () => {
+export const resolveProviderSmtpConfig = () => {
   const port = getSmtpPort();
+  const secure = getSmtpSecure(port);
+  const user = normalize(process.env.SMTP_USER);
+  const pass = normalizePassword(process.env.SMTP_PASS);
 
   return {
     host: normalize(process.env.SMTP_HOST),
     port,
-    secure: getSmtpSecure(port),
-    user: normalize(process.env.SMTP_USER),
-    pass: normalizePassword(process.env.SMTP_PASS),
+    secure,
+    auth: user || pass ? {
+      user,
+      pass
+    } : null,
+    user,
+    pass,
     from: normalize(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'Staynex <no-reply@staynex.ai>'),
     connectionTimeout: getTimeoutMs('SMTP_CONNECTION_TIMEOUT_MS', 30000),
     greetingTimeout: getTimeoutMs('SMTP_GREETING_TIMEOUT_MS', 30000),
     socketTimeout: getTimeoutMs('SMTP_SOCKET_TIMEOUT_MS', 30000),
-    retryDelayMs: getTimeoutMs('SMTP_RETRY_DELAY_MS', 2000)
+    retryDelayMs: getTimeoutMs('SMTP_RETRY_DELAY_MS', 2000),
+    timeouts: {
+      connectionTimeout: getTimeoutMs('SMTP_CONNECTION_TIMEOUT_MS', 30000),
+      greetingTimeout: getTimeoutMs('SMTP_GREETING_TIMEOUT_MS', 30000),
+      socketTimeout: getTimeoutMs('SMTP_SOCKET_TIMEOUT_MS', 30000)
+    },
+    startTls: !secure
   };
 };
+
+const getSmtpConfig = () => resolveProviderSmtpConfig();
 
 const getSafeSmtpSummary = () => {
   const config = getSmtpConfig();
@@ -64,12 +84,34 @@ const getSafeSmtpSummary = () => {
     from: config.from || null,
     mode: getEmailMode(),
     startTls: !config.secure,
+    legacyStartTlsFlagsIgnored: Boolean(process.env.SMTP_STARTTLS || process.env.SMTP_TLS || process.env.SMTP_USE_STARTTLS),
     authConfigured: Boolean(config.user && config.pass),
     passwordConfigured: Boolean(config.pass),
     connectionTimeout: config.connectionTimeout,
     greetingTimeout: config.greetingTimeout,
     socketTimeout: config.socketTimeout
   };
+};
+
+const getProviderSmtpTransportHash = () => {
+  const summary = getSafeSmtpSummary();
+  const hashInput = {
+    host: summary.host,
+    port: summary.port,
+    secure: summary.secure,
+    smtpUser: summary.user,
+    smtpFrom: summary.from,
+    connectionTimeout: summary.connectionTimeout,
+    greetingTimeout: summary.greetingTimeout,
+    socketTimeout: summary.socketTimeout,
+    mode: summary.mode
+  };
+
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify(hashInput))
+    .digest('hex')
+    .slice(0, 16);
 };
 
 const extractEmailAddress = (value = '') => {
@@ -408,11 +450,13 @@ const buildProviderEmailLogContext = ({
   hotelId = null,
   bookingRequestId = null,
   providerId = null,
-  providerExperienceId = null
+  providerExperienceId = null,
+  emailContext = 'provider_booking'
 } = {}) => {
   const smtp = getSafeSmtpSummary();
 
   return {
+    emailContext,
     hotelId,
     bookingRequestId,
     providerId,
@@ -422,8 +466,42 @@ const buildProviderEmailLogContext = ({
     smtpHost: smtp.host,
     smtpPort: smtp.port,
     secure: smtp.secure,
-    mode: smtp.mode
+    mode: smtp.mode,
+    transportHash: getProviderSmtpTransportHash()
   };
+};
+
+const logProviderEmailRuntimeConfig = ({ emailContext, logContext }) => {
+  const smtp = getSafeSmtpSummary();
+  const payload = {
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.secure,
+    authConfigured: smtp.authConfigured,
+    smtpUser: smtp.user,
+    smtpFrom: smtp.from,
+    connectionTimeout: smtp.connectionTimeout,
+    greetingTimeout: smtp.greetingTimeout,
+    socketTimeout: smtp.socketTimeout,
+    mode: smtp.mode,
+    legacyStartTlsFlagsIgnored: smtp.legacyStartTlsFlagsIgnored,
+    transportHash: getProviderSmtpTransportHash()
+  };
+
+  if (emailContext === 'platform_test') {
+    logger.info('platform_test_email_runtime_config', payload);
+    logger.info('platform_test_email_transport_hash', {
+      ...logContext,
+      transportHash: payload.transportHash
+    });
+    return;
+  }
+
+  logger.info('provider_booking_email_runtime_config', payload);
+  logger.info('provider_booking_email_transport_hash', {
+    ...logContext,
+    transportHash: payload.transportHash
+  });
 };
 
 export const buildExperienceProviderLeadEmail = ({
@@ -486,8 +564,10 @@ export const sendProviderEmail = async ({
   bookingRequestId = null,
   providerId = null,
   providerExperienceId = null,
-  reference = null
+  reference = null,
+  context = null
 } = {}) => {
+  const emailContext = context || (bookingRequestId ? 'provider_booking' : 'platform_test');
   const emailPayload = {
     to: normalize(to),
     subject: normalize(subject) || 'New Staynex experience lead',
@@ -503,9 +583,11 @@ export const sendProviderEmail = async ({
     hotelId,
     bookingRequestId,
     providerId,
-    providerExperienceId
+    providerExperienceId,
+    emailContext
   });
 
+  logProviderEmailRuntimeConfig({ emailContext, logContext });
   logger.info('provider_booking_email_attempt', logContext);
 
   if (!emailPayload.to) {
@@ -605,7 +687,8 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => sendProvi
   hotelId: emailPayload?.hotelId || null,
   bookingRequestId: emailPayload?.bookingRequestId || null,
   providerId: emailPayload?.providerId || null,
-  providerExperienceId: emailPayload?.providerExperienceId || null
+  providerExperienceId: emailPayload?.providerExperienceId || null,
+  context: emailPayload?.context || (emailPayload?.bookingRequestId ? 'provider_booking' : 'platform_test')
 });
 
 export const sendProviderEmailTest = async ({ to, subject, message }) => {
@@ -613,7 +696,8 @@ export const sendProviderEmailTest = async ({ to, subject, message }) => {
     to,
     subject: normalize(subject) || 'Staynex provider email test',
     message: normalize(message) || 'This is a Staynex provider email delivery test.',
-    reference: `SMTP-TEST-${Date.now()}`
+    reference: `SMTP-TEST-${Date.now()}`,
+    context: 'platform_test'
   });
 
   return {

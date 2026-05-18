@@ -272,7 +272,8 @@ const deliverProviderLeadEmailForBookingRequest = async ({
     hotelId: hotel.id,
     bookingRequestId: bookingRequest.id,
     providerId: resolvedProviderId,
-    providerExperienceId: resolvedProviderExperienceId
+    providerExperienceId: resolvedProviderExperienceId,
+    context: 'provider_booking'
   });
 
   const emailLogEvent = emailResult.status === 'failed'

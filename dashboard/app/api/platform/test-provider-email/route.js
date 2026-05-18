@@ -33,7 +33,8 @@ export async function POST(request) {
     const emailResult = await sendProviderEmail({
       to,
       subject,
-      message
+      message,
+      context: 'platform_test'
     });
     const result = {
       success: emailResult.status === 'sent',
