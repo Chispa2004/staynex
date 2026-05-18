@@ -60,6 +60,13 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('blocked_cross_tenant_experiences')
   || error?.message?.includes('provider_names_loaded')
   || error?.message?.includes('final_experience_source_used')
+  || error?.message?.includes('provider_booking_detected')
+  || error?.message?.includes('booking_ready')
+  || error?.message?.includes('booking_block_reason')
+  || error?.message?.includes('matched_provider_experience_id')
+  || error?.message?.includes('last_provider_experience_id')
+  || error?.message?.includes('provider_lead_status')
+  || error?.message?.includes('provider_email_status')
   || error?.details?.includes('ai_provider')
   || error?.details?.includes('ai_model')
   || error?.details?.includes('fallback_used')
@@ -97,6 +104,13 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('blocked_cross_tenant_experiences')
   || error?.details?.includes('provider_names_loaded')
   || error?.details?.includes('final_experience_source_used')
+  || error?.details?.includes('provider_booking_detected')
+  || error?.details?.includes('booking_ready')
+  || error?.details?.includes('booking_block_reason')
+  || error?.details?.includes('matched_provider_experience_id')
+  || error?.details?.includes('last_provider_experience_id')
+  || error?.details?.includes('provider_lead_status')
+  || error?.details?.includes('provider_email_status')
 );
 
 export const createAiLog = async ({
@@ -153,6 +167,13 @@ export const createAiLog = async ({
   blockedCrossTenantExperiences = false,
   providerNamesLoaded = null,
   finalExperienceSourceUsed = null,
+  providerBookingDetected = false,
+  bookingReady = false,
+  bookingBlockReason = null,
+  matchedProviderExperienceId = null,
+  lastProviderExperienceId = null,
+  providerLeadStatus = null,
+  providerEmailStatus = null,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -212,7 +233,14 @@ export const createAiLog = async ({
       source_priority: toNullableText(sourcePriority),
       blocked_cross_tenant_experiences: Boolean(blockedCrossTenantExperiences),
       provider_names_loaded: toNullableText(providerNamesLoaded),
-      final_experience_source_used: toNullableText(finalExperienceSourceUsed)
+      final_experience_source_used: toNullableText(finalExperienceSourceUsed),
+      provider_booking_detected: Boolean(providerBookingDetected),
+      booking_ready: Boolean(bookingReady),
+      booking_block_reason: toNullableText(bookingBlockReason),
+      matched_provider_experience_id: toNullableText(matchedProviderExperienceId),
+      last_provider_experience_id: toNullableText(lastProviderExperienceId),
+      provider_lead_status: toNullableText(providerLeadStatus),
+      provider_email_status: toNullableText(providerEmailStatus)
     };
 
     let { data, error } = await supabase
@@ -266,6 +294,13 @@ export const createAiLog = async ({
         blocked_cross_tenant_experiences,
         provider_names_loaded,
         final_experience_source_used,
+        provider_booking_detected,
+        booking_ready,
+        booking_block_reason,
+        matched_provider_experience_id,
+        last_provider_experience_id,
+        provider_lead_status,
+        provider_email_status,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase

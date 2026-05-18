@@ -288,14 +288,22 @@ export const ExperienceBookingsClient = () => {
                     ) : null}
                   </div>
                   <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>
-                    {booking.guest_name || 'Guest'} / Room {booking.room_number || '-'} / {booking.partner_name || 'Internal concierge'}
+                    {booking.guest_name || 'Guest'} / Room {booking.room_number || '-'} / {booking.provider_source || booking.metadata?.provider_source || booking.partner_name || 'Internal concierge'}
                   </p>
+                  {booking.metadata?.guest_phone ? (
+                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>WhatsApp {booking.metadata.guest_phone}</p>
+                  ) : null}
                   <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
                     Created {formatDate(booking.created_at)} / Source {booking.source || 'ai_concierge'}
                   </p>
                   {booking.metadata?.provider_email_error || booking.lead_error ? (
                     <p className={cn('mt-2 text-xs font-medium', isLight ? 'text-red-700' : 'text-red-200')}>
                       Provider email error: {booking.metadata?.provider_email_error || booking.lead_error}
+                    </p>
+                  ) : null}
+                  {booking.metadata?.original_message ? (
+                    <p className={cn('mt-2 line-clamp-2 text-xs', ui.text.muted(isLight))}>
+                      Original message: {booking.metadata.original_message}
                     </p>
                   ) : null}
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">

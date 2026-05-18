@@ -154,6 +154,27 @@ const resolveMessageHotelContext = async ({ initialHotel, message }) => {
   };
 };
 
+const getProviderExperienceContextForState = (intent = {}) => {
+  const experience = intent?.matchedExperience || null;
+
+  if (!experience) {
+    return null;
+  }
+
+  return {
+    id: experience.id || null,
+    experience_id: experience.id || null,
+    provider_experience_id: experience.provider_experience_id || experience.metadata?.provider_experience_id || experience.id || null,
+    title: experience.title || null,
+    provider_id: experience.provider_id || experience.metadata?.provider_id || null,
+    provider_name: experience.provider_source || experience.metadata?.provider_name || null,
+    provider_source: experience.provider_source || experience.metadata?.provider_name || null,
+    provider_lead_email: experience.provider_lead_email || experience.metadata?.provider_lead_email || null,
+    last_guest_interest_message: null,
+    updated_at: new Date().toISOString()
+  };
+};
+
 export const normalizeWhatsappNumber = (phoneNumber) => (
   phoneNumber?.replace(/^whatsapp:/, '') || null
 );
@@ -685,7 +706,9 @@ export const processGuestMessage = async ({
       ...aiResponseWithUpsell,
       reply: getExperienceBookingConfirmationReply({
         language: conversationContext.language,
-        providerName: experienceBookingRequest.provider_source || providerExperienceConversation.matchedExperience?.provider_source || null
+        providerName: experienceBookingRequest.provider_source || providerExperienceConversation.matchedExperience?.provider_source || null,
+        experienceTitle: experienceBookingRequest.experience_title || providerExperienceConversation.matchedExperience?.title || null,
+        leadStatus: experienceBookingRequest.lead_status || experienceBookingRequest.metadata?.provider_email_status || null
       }),
       concierge_intent: aiResponseWithUpsell.concierge_intent || 'experience_booking_request',
       intent: aiResponseWithUpsell.intent || 'experience_booking_request',
@@ -772,9 +795,21 @@ export const processGuestMessage = async ({
           confidence: providerExperienceConversation.confidence || 0,
           reason: providerExperienceConversation.reason || null,
           booking_created: Boolean(experienceBookingRequest),
+          booking_ready: Boolean(providerExperienceConversation.bookingReady),
+          booking_block_reason: experienceBookingRequest ? null : providerExperienceConversation.reason || null,
+          matched_provider_experience_id: providerExperienceConversation.matchedExperience?.provider_experience_id || providerExperienceConversation.matchedExperience?.id || null,
+          last_provider_experience_id: conversationState.previousState?.state_metadata?.last_provider_experience?.provider_experience_id || null,
           provider_used: providerExperienceConversation.matchedExperience?.provider_source || null,
-          provider_experience_used: providerExperienceConversation.matchedExperience?.title || null
-        }
+          provider_experience_used: providerExperienceConversation.matchedExperience?.title || null,
+          provider_lead_status: experienceBookingRequest?.lead_status || null,
+          provider_email_status: experienceBookingRequest?.metadata?.provider_email_status || experienceBookingRequest?.lead_status || null
+        },
+        last_provider_experience: providerExperienceConversation.matchedExperience
+          ? {
+            ...getProviderExperienceContextForState(providerExperienceConversation),
+            last_guest_interest_message: message
+          }
+          : conversationState.previousState?.state_metadata?.last_provider_experience || null
       }
     },
     offerType: conciergeOffer?.status === 'sent' ? conciergeOffer.offer_type : null,
@@ -855,6 +890,13 @@ export const processGuestMessage = async ({
     blockedCrossTenantExperiences: strictCatalog.blockedCrossTenantExperiences,
     providerNamesLoaded: strictCatalog.providerNames.join(', '),
     finalExperienceSourceUsed: strictCatalog.finalExperienceSource,
+    providerBookingDetected: Boolean(experienceBookingIntent.detected || providerExperienceConversation.intentType),
+    bookingReady: Boolean(experienceBookingIntent.detected || providerExperienceConversation.bookingReady),
+    bookingBlockReason: experienceBookingRequest ? null : experienceBookingIntent.reason || providerExperienceConversation.reason || null,
+    matchedProviderExperienceId: providerExperienceConversation.matchedExperience?.provider_experience_id || providerExperienceConversation.matchedExperience?.id || null,
+    lastProviderExperienceId: conversationState.previousState?.state_metadata?.last_provider_experience?.provider_experience_id || null,
+    providerLeadStatus: experienceBookingRequest?.lead_status || null,
+    providerEmailStatus: experienceBookingRequest?.metadata?.provider_email_status || experienceBookingRequest?.lead_status || null,
     openAiConciergeUsed: Boolean(openAiResult),
     openAiConciergeModel: openAiConcierge.model || null,
     openAiConciergeFallback: Boolean(openAiConcierge.fallback),
@@ -863,7 +905,7 @@ export const processGuestMessage = async ({
       openAiResult?.reasoning || openAiConcierge.reason || null,
       `hotel_context_source=${hotelContextSource}; hotel_id=${activeHotel.id}; provider_experiences=${providerExperiences.length}; hotel_experiences=${hotelExperiences.length}; providers=${strictCatalog.providerNames.join(', ') || 'none'}; final_experience_source=${strictCatalog.finalExperienceSource}; blocked_cross_tenant=${strictCatalog.blockedCrossTenantExperiences}; response_language=${conversationContext.language}`,
       providerExperienceConversation.intentType
-        ? `provider_experience_intent=${providerExperienceConversation.intentType}; booking_created=${Boolean(experienceBookingRequest)}; provider_used=${providerExperienceConversation.matchedExperience?.provider_source || 'none'}; provider_experience_used=${providerExperienceConversation.matchedExperience?.title || 'none'}`
+        ? `provider_experience_intent=${providerExperienceConversation.intentType}; booking_ready=${Boolean(providerExperienceConversation.bookingReady)}; booking_created=${Boolean(experienceBookingRequest)}; booking_request_id=${experienceBookingRequest?.id || 'none'}; booking_block_reason=${experienceBookingRequest ? 'none' : experienceBookingIntent.reason || providerExperienceConversation.reason || 'none'}; provider_used=${providerExperienceConversation.matchedExperience?.provider_source || experienceBookingRequest?.provider_source || 'none'}; provider_experience_used=${providerExperienceConversation.matchedExperience?.title || experienceBookingRequest?.experience_title || 'none'}; provider_lead_status=${experienceBookingRequest?.lead_status || 'none'}; provider_email_status=${experienceBookingRequest?.metadata?.provider_email_status || experienceBookingRequest?.lead_status || 'none'}; matched_provider_experience_id=${providerExperienceConversation.matchedExperience?.provider_experience_id || providerExperienceConversation.matchedExperience?.id || 'none'}; last_provider_experience_id=${conversationState.previousState?.state_metadata?.last_provider_experience?.provider_experience_id || 'none'}`
         : null
     ].filter(Boolean).join('\n'),
     aiSatisfactionEstimate: openAiResult?.satisfaction_estimate || null,

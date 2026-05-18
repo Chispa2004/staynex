@@ -296,6 +296,7 @@ const softInterestWords = [
 ];
 
 const bookingIntentWords = [
+  'i want to book',
   'can we book',
   'can you book',
   'book it',
@@ -312,19 +313,44 @@ const bookingIntentWords = [
   'book it for',
   'confirm it',
   'confirm the booking',
+  'send the request',
+  'go ahead',
   'queremos reservar',
+  'quiero reservar',
   'queremos reservarlo',
   'queremos confirmar',
+  'quiero confirmar',
+  'nos interesa reservar',
   'nos gustaria reservar',
   'nos gustaría reservar',
   'nos gustaria hacer',
   'nos gustaría hacer',
   'puedes reservar',
   'puedes reservarlo',
+  'envia la solicitud',
+  'envía la solicitud',
+  'mandar la solicitud',
+  'adelante',
+  'lo queremos',
   'reservalo',
   'resérvalo',
   'reservarlo',
+  'reservadme',
   'confirmar reserva',
+  'confirma la reserva',
+  'je veux reserver',
+  'je veux réserver',
+  'nous voulons reserver',
+  'nous voulons réserver',
+  'confirmez',
+  'envoyez la demande',
+  'ich mochte buchen',
+  'ich möchte buchen',
+  'wir mochten buchen',
+  'wir möchten buchen',
+  'bitte bestatigen',
+  'bitte bestätigen',
+  'anfrage senden',
   'si queremos confirmar',
   'sí queremos confirmar'
 ];
@@ -363,7 +389,9 @@ const experienceWords = [
   'agafay',
   'atlas',
   'essaouira',
-  'hammam'
+  'hammam',
+  'tanger',
+  'tangier'
 ];
 
 const dateFromMessage = (message = '') => {
@@ -448,12 +476,56 @@ const getLatestExperienceOffer = async ({ conversationId }) => {
   }
 };
 
-const matchHotelExperience = ({ message, hotelExperiences = [], latestOffer = null }) => {
+const getLatestProviderExperienceContext = async ({ conversationId }) => {
+  if (!conversationId) {
+    return null;
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('conversation_ai_state')
+      .select('state_metadata')
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+
+    if (error) {
+      if (error.message?.includes('conversation_ai_state') || error.details?.includes('conversation_ai_state')) {
+        return null;
+      }
+
+      throw error;
+    }
+
+    return data?.state_metadata?.last_provider_experience || null;
+  } catch (error) {
+    logger.warn('Latest provider experience context lookup failed', {
+      conversationId,
+      message: error.message
+    });
+    return null;
+  }
+};
+
+const matchHotelExperience = ({
+  message,
+  hotelExperiences = [],
+  latestOffer = null,
+  latestProviderContext = null
+}) => {
   const text = normalize(message);
-  const offeredExperienceId = latestOffer?.metadata?.hotel_experience_id;
+  const offeredExperienceId = latestOffer?.metadata?.hotel_experience_id
+    || latestOffer?.metadata?.provider_experience_id
+    || latestProviderContext?.provider_experience_id
+    || latestProviderContext?.experience_id
+    || latestProviderContext?.id;
 
   if (offeredExperienceId) {
-    const offered = hotelExperiences.find((experience) => experience.id === offeredExperienceId);
+    const offered = hotelExperiences.find((experience) => (
+      experience.id === offeredExperienceId
+      || experience.provider_experience_id === offeredExperienceId
+      || experience.metadata?.provider_experience_id === offeredExperienceId
+    ));
     if (offered) return offered;
   }
 
@@ -480,8 +552,16 @@ export const classifyProviderExperienceConversation = async ({
     };
   }
 
-  const latestOffer = await getLatestExperienceOffer({ conversationId });
-  const matchedExperience = matchHotelExperience({ message, hotelExperiences, latestOffer });
+  const [latestOffer, latestProviderContext] = await Promise.all([
+    getLatestExperienceOffer({ conversationId }),
+    getLatestProviderExperienceContext({ conversationId })
+  ]);
+  const matchedExperience = matchHotelExperience({
+    message,
+    hotelExperiences,
+    latestOffer,
+    latestProviderContext
+  });
   const mentionsExperience = includesAny(text, experienceWords) || Boolean(matchedExperience);
   const asksForRecommendations = includesAny(text, inquiryWords) || (
     hasQuestionShape(message) && mentionsExperience && includesAny(text, ['recommend', 'recomiendas', 'recomendais', 'tenéis', 'teneis', 'activities', 'actividades', 'excursions', 'excursiones', 'tours'])
@@ -491,15 +571,28 @@ export const classifyProviderExperienceConversation = async ({
   );
   const hasBookingLanguage = includesAny(text, bookingIntentWords);
   const hasBareConfirmation = includesAny(text, ['yes confirm', 'yes please book', 'yes book', 'si confirmar', 'sí confirmar', 'si reservar', 'sí reservar']);
-  const followsExperienceOfferWithAction = Boolean(latestOffer && mentionsExperience && (hasBookingLanguage || hasBareConfirmation));
+  const followsExperienceOfferWithAction = Boolean((latestOffer || latestProviderContext) && (hasBookingLanguage || hasBareConfirmation));
 
-  if (hasBookingLanguage && (mentionsExperience || latestOffer)) {
+  if (hasBookingLanguage && (mentionsExperience || latestOffer || latestProviderContext)) {
+    if (!matchedExperience) {
+      return {
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT,
+        confidence: 0.72,
+        reason: 'booking_missing_experience',
+        bookingReady: false,
+        latestOffer,
+        latestProviderContext,
+        matchedExperience: null
+      };
+    }
+
     return {
       intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT,
       confidence: 0.9,
       reason: 'explicit_booking_action',
       bookingReady: true,
       latestOffer,
+      latestProviderContext,
       matchedExperience,
       requestedDate: dateFromMessage(message),
       requestedTime: timeFromMessage(message),
@@ -508,16 +601,41 @@ export const classifyProviderExperienceConversation = async ({
   }
 
   if (followsExperienceOfferWithAction) {
+    if (!matchedExperience) {
+      return {
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+        confidence: 0.72,
+        reason: 'booking_missing_experience',
+        bookingReady: false,
+        latestOffer,
+        latestProviderContext,
+        matchedExperience: null
+      };
+    }
+
     return {
       intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
       confidence: 0.88,
       reason: 'confirmed_recent_experience_offer',
       bookingReady: true,
       latestOffer,
+      latestProviderContext,
       matchedExperience,
       requestedDate: dateFromMessage(message),
       requestedTime: timeFromMessage(message),
       guestsCount: guestsCountFromMessage(message)
+    };
+  }
+
+  if (hasBookingLanguage) {
+    return {
+      intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT,
+      confidence: 0.68,
+      reason: 'booking_missing_experience',
+      bookingReady: false,
+      latestOffer,
+      latestProviderContext,
+      matchedExperience: null
     };
   }
 
@@ -528,6 +646,7 @@ export const classifyProviderExperienceConversation = async ({
       reason: 'exploratory_recommendation_request',
       bookingReady: false,
       latestOffer,
+      latestProviderContext,
       matchedExperience
     };
   }
@@ -539,6 +658,7 @@ export const classifyProviderExperienceConversation = async ({
       reason: 'soft_interest_or_detail_request',
       bookingReady: false,
       latestOffer,
+      latestProviderContext,
       matchedExperience
     };
   }
@@ -549,6 +669,7 @@ export const classifyProviderExperienceConversation = async ({
     reason: 'no_provider_experience_intent',
     bookingReady: false,
     latestOffer,
+    latestProviderContext,
     matchedExperience
   };
 };
@@ -578,6 +699,7 @@ export const detectExperienceBookingIntent = async ({
     confidence: classified.confidence,
     reason: classified.reason,
     latestOffer: classified.latestOffer,
+    latestProviderContext: classified.latestProviderContext,
     matchedExperience: classified.matchedExperience,
     requestedDate: classified.requestedDate,
     requestedTime: classified.requestedTime,
@@ -615,6 +737,20 @@ export const buildProviderExperienceRecommendationReply = ({
   const catalog = providerExperiences.length
     ? providerExperiences
     : dedupedExperiences.filter((experience) => experience.active !== false);
+  const missingExperienceBooking = (
+    [PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT, PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION].includes(intent?.intentType)
+    && !intent?.bookingReady
+    && intent?.reason === 'booking_missing_experience'
+  );
+
+  if (missingExperienceBooking) {
+    return {
+      es: 'Claro, ¿qué experiencia quieres reservar exactamente?',
+      fr: 'Bien sur, quelle experience souhaitez-vous reserver exactement ?',
+      de: 'Gerne, welches Erlebnis moechten Sie genau buchen?',
+      en: 'Of course, which experience would you like to book exactly?'
+    }[language] || 'Of course, which experience would you like to book exactly?';
+  }
 
   if (!catalog.length) {
     if (!intent?.intentType) {
@@ -691,12 +827,29 @@ export const buildProviderExperienceInterestMemories = ({ intent } = {}) => {
 };
 
 const getExperienceFromOffer = ({ intent, hotelExperiences = [] }) => {
-  if (intent.matchedExperience) {
-    return intent.matchedExperience;
+  const matchedExperience = intent.matchedExperience
+    || intent.conversationIntent?.matchedExperience
+    || null;
+
+  if (matchedExperience) {
+    return matchedExperience;
   }
 
-  const id = intent.latestOffer?.metadata?.hotel_experience_id;
-  return id ? hotelExperiences.find((experience) => experience.id === id) || null : null;
+  const latestOffer = intent.latestOffer || intent.conversationIntent?.latestOffer || null;
+  const latestProviderContext = intent.latestProviderContext || intent.conversationIntent?.latestProviderContext || null;
+  const id = latestOffer?.metadata?.hotel_experience_id
+    || latestOffer?.metadata?.provider_experience_id
+    || latestProviderContext?.provider_experience_id
+    || latestProviderContext?.experience_id
+    || latestProviderContext?.id;
+
+  return id
+    ? hotelExperiences.find((experience) => (
+      experience.id === id
+      || experience.provider_experience_id === id
+      || experience.metadata?.provider_experience_id === id
+    )) || null
+    : null;
 };
 
 export const createExperienceBookingRequest = async ({
@@ -713,7 +866,17 @@ export const createExperienceBookingRequest = async ({
   }
 
   const experience = getExperienceFromOffer({ intent, hotelExperiences });
-  const latestOffer = intent.latestOffer || null;
+  const latestOffer = intent.latestOffer || intent.conversationIntent?.latestOffer || null;
+
+  if (!experience) {
+    logger.info('experience_booking_request_blocked_missing_experience', {
+      hotelId: hotel.id,
+      conversationId: conversation.id,
+      reason: intent.reason || intent.conversationIntent?.reason || 'missing_provider_experience'
+    });
+    return null;
+  }
+
   const title = experience?.title || latestOffer?.metadata?.hotel_experience_title || latestOffer?.offer_type || 'Local experience';
   const estimatedRevenue = Number(experience?.price ?? latestOffer?.suggested_price ?? 0);
   const commissionPercentage = Number(experience?.commission_percentage || 0);
@@ -785,6 +948,13 @@ export const createExperienceBookingRequest = async ({
         provider_source: providerSource,
         provider_lead_email: providerLeadEmail,
         provider_lead_required: Boolean(providerLeadEmail),
+        provider_name: providerSource,
+        provider_experience_title: experience?.title || title,
+        guest_phone: guest?.phone_number || reservation?.guest_phone || null,
+        original_message: message,
+        desired_date: intent.requestedDate,
+        desired_time: intent.requestedTime,
+        guests_count: intent.guestsCount || reservation?.adults || null,
         reception_confirmation_required: true,
         partner_ready: true,
         future_partner_channels: ['email', 'whatsapp', 'api']
@@ -904,7 +1074,12 @@ export const createExperienceBookingRequest = async ({
   }
 };
 
-export const getExperienceBookingConfirmationReply = ({ language = 'en', providerName = null } = {}) => {
+export const getExperienceBookingConfirmationReply = ({
+  language = 'en',
+  providerName = null,
+  experienceTitle = null,
+  leadStatus = null
+} = {}) => {
   const destination = providerName
     ? ({
       es: ` a ${providerName}`,
@@ -913,11 +1088,22 @@ export const getExperienceBookingConfirmationReply = ({ language = 'en', provide
       en: ` to ${providerName}`
     }[language] || ` to ${providerName}`)
     : '';
+  const experienceText = experienceTitle ? ` ${experienceTitle}` : '';
+  const sent = leadStatus === 'sent';
+
+  if (!sent) {
+    return {
+      es: `Perfecto.\n\nHe registrado la solicitud${experienceText}. El equipo la revisara para confirmar disponibilidad y os avisaremos cuando tengamos confirmacion.`,
+      fr: `Parfait.\n\nJ ai enregistre la demande${experienceText}. L equipe la verifiera pour confirmer la disponibilite et vous tiendra informes.`,
+      de: `Perfekt.\n\nIch habe die Anfrage${experienceText} registriert. Das Team prueft die Verfuegbarkeit und informiert Sie, sobald eine Bestaetigung vorliegt.`,
+      en: `Perfect.\n\nI have registered the request${experienceText}. The team will review it to confirm availability and will update you once there is confirmation.`
+    }[language] || `Perfect.\n\nI have registered the request${experienceText}. The team will review it to confirm availability and will update you once there is confirmation.`;
+  }
 
   return {
-    es: `Perfecto.\n\nHe enviado vuestra solicitud${destination} para confirmar disponibilidad y detalles de la experiencia. Os contactaran lo antes posible para finalizar la reserva.`,
-    fr: `Parfait.\n\nJ ai envoye votre demande${destination} afin de confirmer la disponibilite et les details de l experience. Vous serez contactes des que possible pour finaliser la reservation.`,
-    de: `Perfekt.\n\nIch habe Ihre Anfrage${destination} gesendet, um Verfuegbarkeit und Details des Erlebnisses zu bestaetigen. Sie werden so bald wie moeglich kontaktiert, um die Buchung abzuschliessen.`,
-    en: `Perfect.\n\nI have sent your request${destination} to confirm availability and the experience details. You will be contacted as soon as possible to finalize the booking.`
+    es: `Perfecto.\n\nHe enviado la solicitud${experienceText}${destination} para confirmar disponibilidad. Os avisaremos cuando tengamos confirmacion.`,
+    fr: `Parfait.\n\nJ ai envoye la demande${experienceText}${destination} afin de confirmer la disponibilite. Nous vous tiendrons informes des que nous aurons une confirmation.`,
+    de: `Perfekt.\n\nIch habe die Anfrage${experienceText}${destination} gesendet, um die Verfuegbarkeit zu bestaetigen. Wir informieren Sie, sobald eine Bestaetigung vorliegt.`,
+    en: `Perfect.\n\nI have sent the request${experienceText}${destination} to confirm availability. We will update you once there is confirmation.`
   }[language] || `Perfect.\n\nI have sent your request${destination} to confirm availability and the experience details. You will be contacted as soon as possible to finalize the booking.`;
 };

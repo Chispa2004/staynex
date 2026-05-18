@@ -11,7 +11,14 @@ alter table public.ai_logs
   add column if not exists source_priority text null,
   add column if not exists blocked_cross_tenant_experiences boolean default false,
   add column if not exists provider_names_loaded text null,
-  add column if not exists final_experience_source_used text null;
+  add column if not exists final_experience_source_used text null,
+  add column if not exists provider_booking_detected boolean default false,
+  add column if not exists booking_ready boolean default false,
+  add column if not exists booking_block_reason text null,
+  add column if not exists matched_provider_experience_id text null,
+  add column if not exists last_provider_experience_id text null,
+  add column if not exists provider_lead_status text null,
+  add column if not exists provider_email_status text null;
 
 create index if not exists ai_logs_hotel_created_at_idx
   on public.ai_logs (hotel_id, created_at desc);

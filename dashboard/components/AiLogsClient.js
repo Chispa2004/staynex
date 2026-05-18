@@ -308,8 +308,15 @@ const LogDetail = ({ log, onClose }) => {
         <DetailRow label="FALLBACK_USED" value={displayFallback(log)} />
         <DetailRow label="provider_experience_intent" value={log.provider_experience_intent} />
         <DetailRow label="provider_booking_created" value={log.provider_booking_created} />
+        <DetailRow label="provider_booking_detected" value={log.provider_booking_detected} />
+        <DetailRow label="booking_ready" value={log.booking_ready} />
+        <DetailRow label="booking_block_reason" value={log.booking_block_reason} />
         <DetailRow label="provider_used" value={log.provider_used} />
         <DetailRow label="provider_experience_used" value={log.provider_experience_used} />
+        <DetailRow label="matched_provider_experience_id" value={log.matched_provider_experience_id} />
+        <DetailRow label="last_provider_experience_id" value={log.last_provider_experience_id} />
+        <DetailRow label="provider_lead_status" value={log.provider_lead_status} />
+        <DetailRow label="provider_email_status" value={log.provider_email_status} />
         <DetailRow label="provider_experiences_count" value={log.provider_experiences_count} />
         <DetailRow label="hotel_experiences_count" value={log.hotel_experiences_count} />
         <DetailRow label="provider_names_loaded" value={log.provider_names_loaded} />

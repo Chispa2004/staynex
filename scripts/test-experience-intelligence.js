@@ -232,6 +232,31 @@ const realBooking = await detectExperienceBookingIntent({
 });
 assert.equal(realBooking.detected, true);
 assert.equal(realBooking.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
+assert.equal(realBooking.matchedExperience.title, 'Excursion al desierto de Agafay');
+
+const directProviderBooking = await detectExperienceBookingIntent({
+  message: 'Quiero reservar Atlas Mountains para manana para 2 personas',
+  hotelExperiences: providerCatalog
+});
+assert.equal(directProviderBooking.detected, true);
+assert.equal(directProviderBooking.conversationIntent.bookingReady, true);
+assert.equal(directProviderBooking.guestsCount, 2);
+assert.equal(directProviderBooking.matchedExperience.title, 'Atlas Mountains Day Trip');
+
+const missingExperienceBooking = await classifyProviderExperienceConversation({
+  message: 'Quiero reservar',
+  hotelExperiences: providerCatalog
+});
+assert.equal(missingExperienceBooking.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
+assert.equal(missingExperienceBooking.bookingReady, false);
+assert.equal(missingExperienceBooking.reason, 'booking_missing_experience');
+
+const missingExperienceReply = buildProviderExperienceRecommendationReply({
+  intent: missingExperienceBooking,
+  hotelExperiences: providerCatalog,
+  language: 'es'
+});
+assert.equal(missingExperienceReply.includes('experiencia quieres reservar'), true);
 
 console.log(JSON.stringify({
   ok: true,
@@ -246,6 +271,8 @@ console.log(JSON.stringify({
     'provider excursion inquiry does not create booking',
     'provider excursion interest stays conversational',
     'provider excursion booking requires explicit action',
+    'direct provider booking creates booking-ready intent',
+    'booking without exact experience asks follow-up',
     'provider replies follow guest language',
     'provider recommendations are deduplicated',
     'empty hotel experience catalog does not invent fallback',
