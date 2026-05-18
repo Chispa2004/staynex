@@ -7,6 +7,7 @@ import {
   buildProviderExperienceRecommendationReply,
   classifyProviderExperienceConversation,
   detectExperienceBookingIntent,
+  isProviderBookingConfirmation,
   PROVIDER_EXPERIENCE_INTENTS
 } from '../src/services/experience-booking.service.js';
 import { buildStrictHotelExperienceCatalog } from '../src/services/experience-catalog-isolation.service.js';
@@ -122,6 +123,44 @@ const providerCatalog = [
     tags: ['atlas', 'mountains', 'marrakech'],
     target_guest_types: ['culture'],
     metadata: { experience_provider: true }
+  },
+  {
+    id: 'provider-hammam',
+    hotel_id: 'hotel-morocco',
+    provider_assignment_hotel_id: 'hotel-morocco',
+    provider_experience_id: 'provider-hammam',
+    provider_id: 'luxotour',
+    provider_source: 'Luxotour Morocco',
+    title: 'Marrakech Hammam Experience',
+    slug: 'marrakech-hammam',
+    category: 'wellness',
+    short_description: 'Traditional hammam and spa experience in Marrakech.',
+    price: 45,
+    currency: 'EUR',
+    duration: '2 hours',
+    active: true,
+    tags: ['hammam', 'spa', 'marrakech'],
+    target_guest_types: ['couples', 'wellness'],
+    metadata: { experience_provider: true }
+  },
+  {
+    id: 'provider-quad',
+    hotel_id: 'hotel-morocco',
+    provider_assignment_hotel_id: 'hotel-morocco',
+    provider_experience_id: 'provider-quad',
+    provider_id: 'luxotour',
+    provider_source: 'Luxotour Morocco',
+    title: 'Marrakech Quad Adventure',
+    slug: 'marrakech-quad-adventure',
+    category: 'adventure',
+    short_description: 'Quad experience around Marrakech landscapes.',
+    price: 80,
+    currency: 'EUR',
+    duration: 'Half day',
+    active: true,
+    tags: ['quad', 'adventure', 'marrakech'],
+    target_guest_types: ['adventure'],
+    metadata: { experience_provider: true }
   }
 ];
 const strictMoroccoCatalog = buildStrictHotelExperienceCatalog({
@@ -145,7 +184,7 @@ const strictMoroccoCatalog = buildStrictHotelExperienceCatalog({
     }
   ]
 });
-assert.equal(strictMoroccoCatalog.providerExperiences.length, 2);
+assert.equal(strictMoroccoCatalog.providerExperiences.length, 4);
 assert.equal(strictMoroccoCatalog.hotelExperiences.length, 0);
 assert.equal(strictMoroccoCatalog.blockedCrossTenantExperiences, true);
 assert.equal(strictMoroccoCatalog.providerNames.includes('Luxotour Morocco'), true);
@@ -258,6 +297,45 @@ const missingExperienceReply = buildProviderExperienceRecommendationReply({
 });
 assert.equal(missingExperienceReply.includes('experiencia quieres reservar'), true);
 
+assert.equal(isProviderBookingConfirmation('Vale, envia la solicitud'), true);
+assert.equal(isProviderBookingConfirmation('adelante'), true);
+assert.equal(isProviderBookingConfirmation('send request'), true);
+
+const hammamContext = {
+  provider_experience_id: 'provider-hammam',
+  provider_id: 'luxotour',
+  provider_name: 'Luxotour Morocco',
+  title: 'Marrakech Hammam Experience'
+};
+const contextBooking = await detectExperienceBookingIntent({
+  message: 'Vale, envia la solicitud',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: hammamContext
+});
+assert.equal(contextBooking.detected, true);
+assert.equal(contextBooking.reason, 'provider_booking_confirmation_override');
+assert.equal(contextBooking.matchedExperience.title, 'Marrakech Hammam Experience');
+
+const quadContextBooking = await detectExperienceBookingIntent({
+  message: 'adelante',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: {
+    provider_experience_id: 'provider-quad',
+    provider_id: 'luxotour',
+    provider_name: 'Luxotour Morocco',
+    title: 'Marrakech Quad Adventure'
+  }
+});
+assert.equal(quadContextBooking.detected, true);
+assert.equal(quadContextBooking.matchedExperience.title, 'Marrakech Quad Adventure');
+
+const confirmationWithoutContext = await detectExperienceBookingIntent({
+  message: 'envia la solicitud',
+  hotelExperiences: providerCatalog
+});
+assert.equal(confirmationWithoutContext.detected, false);
+assert.equal(confirmationWithoutContext.conversationIntent.reason, 'booking_missing_experience');
+
 console.log(JSON.stringify({
   ok: true,
   cases: [
@@ -273,6 +351,8 @@ console.log(JSON.stringify({
     'provider excursion booking requires explicit action',
     'direct provider booking creates booking-ready intent',
     'booking without exact experience asks follow-up',
+    'provider confirmation override creates booking-ready intent from last context',
+    'provider confirmation without context stays blocked',
     'provider replies follow guest language',
     'provider recommendations are deduplicated',
     'empty hotel experience catalog does not invent fallback',

@@ -79,7 +79,8 @@ import {
   classifyProviderExperienceConversation,
   createExperienceBookingRequest,
   detectExperienceBookingIntent,
-  getExperienceBookingConfirmationReply
+  getExperienceBookingConfirmationReply,
+  isProviderBookingConfirmation
 } from './experience-booking.service.js';
 import { buildStrictHotelExperienceCatalog } from './experience-catalog-isolation.service.js';
 
@@ -154,8 +155,8 @@ const resolveMessageHotelContext = async ({ initialHotel, message }) => {
   };
 };
 
-const getProviderExperienceContextForState = (intent = {}) => {
-  const experience = intent?.matchedExperience || null;
+const getProviderExperienceContextForState = (intent = {}, explicitExperience = null) => {
+  const experience = explicitExperience || intent?.matchedExperience || null;
 
   if (!experience) {
     return null;
@@ -170,6 +171,9 @@ const getProviderExperienceContextForState = (intent = {}) => {
     provider_name: experience.provider_source || experience.metadata?.provider_name || null,
     provider_source: experience.provider_source || experience.metadata?.provider_name || null,
     provider_lead_email: experience.provider_lead_email || experience.metadata?.provider_lead_email || null,
+    price: experience.price ?? null,
+    currency: experience.currency || null,
+    commission_percentage: experience.commission_percentage ?? null,
     last_guest_interest_message: null,
     updated_at: new Date().toISOString()
   };
@@ -385,6 +389,22 @@ export const processGuestMessage = async ({
     conversationId: conversation.id,
     hotelExperiences: experienceCatalog
   });
+  const providerBookingConfirmationOverride = (
+    providerExperienceConversation.reason === 'provider_booking_confirmation_override'
+    && providerExperienceConversation.bookingReady
+    && isProviderBookingConfirmation(message)
+  );
+
+  if (providerBookingConfirmationOverride) {
+    logger.info('provider_booking_confirmation_override_detected', {
+      hotelId: activeHotel.id,
+      conversationId: conversation.id,
+      providerId: providerExperienceConversation.matchedExperience?.provider_id || providerExperienceConversation.latestProviderContext?.provider_id || null,
+      providerExperienceId: providerExperienceConversation.matchedExperience?.provider_experience_id || providerExperienceConversation.latestProviderContext?.provider_experience_id || null,
+      message,
+      reason: providerExperienceConversation.reason
+    });
+  }
   const conciergeRevenueOpportunities = [
     ...contextualRevenue.opportunities,
     ...experienceIntelligence.opportunities,
@@ -689,7 +709,8 @@ export const processGuestMessage = async ({
   const experienceBookingIntent = await detectExperienceBookingIntent({
     message,
     conversationId: conversation.id,
-    hotelExperiences: experienceCatalog
+    hotelExperiences: experienceCatalog,
+    latestProviderContext: providerExperienceConversation.latestProviderContext || null
   });
   const experienceBookingRequest = await createExperienceBookingRequest({
     hotel: activeHotel,
@@ -770,6 +791,18 @@ export const processGuestMessage = async ({
     senderType: 'ai',
     content: aiResponseWithUpsell.reply
   });
+  const providerExperienceForState = providerExperienceConversation.matchedExperience
+    || (providerRecommendationReply && providerExperienceConversation.intentType === 'excursion_inquiry'
+      ? providerExperiences[0] || experienceCatalog.find((experience) => experience?.provider_source || experience?.provider_id) || null
+      : null);
+  const previousLastProviderExperience = conversationState.previousState?.state_metadata?.last_provider_experience || null;
+  const nextLastProviderExperience = providerExperienceForState
+    ? {
+      ...getProviderExperienceContextForState(providerExperienceConversation, providerExperienceForState),
+      last_guest_interest_message: message,
+      last_provider_interest_at: new Date().toISOString()
+    }
+    : previousLastProviderExperience;
   const savedConversationState = await upsertConversationAiState({
     hotelId: activeHotel.id,
     conversationId: conversation.id,
@@ -798,18 +831,13 @@ export const processGuestMessage = async ({
           booking_ready: Boolean(providerExperienceConversation.bookingReady),
           booking_block_reason: experienceBookingRequest ? null : providerExperienceConversation.reason || null,
           matched_provider_experience_id: providerExperienceConversation.matchedExperience?.provider_experience_id || providerExperienceConversation.matchedExperience?.id || null,
-          last_provider_experience_id: conversationState.previousState?.state_metadata?.last_provider_experience?.provider_experience_id || null,
+          last_provider_experience_id: previousLastProviderExperience?.provider_experience_id || null,
           provider_used: providerExperienceConversation.matchedExperience?.provider_source || null,
           provider_experience_used: providerExperienceConversation.matchedExperience?.title || null,
           provider_lead_status: experienceBookingRequest?.lead_status || null,
           provider_email_status: experienceBookingRequest?.metadata?.provider_email_status || experienceBookingRequest?.lead_status || null
         },
-        last_provider_experience: providerExperienceConversation.matchedExperience
-          ? {
-            ...getProviderExperienceContextForState(providerExperienceConversation),
-            last_guest_interest_message: message
-          }
-          : conversationState.previousState?.state_metadata?.last_provider_experience || null
+        last_provider_experience: nextLastProviderExperience
       }
     },
     offerType: conciergeOffer?.status === 'sent' ? conciergeOffer.offer_type : null,

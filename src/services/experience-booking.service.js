@@ -208,7 +208,33 @@ const deliverProviderLeadEmailForBookingRequest = async ({
     providerExperience,
     leadEmail: resolvedLeadEmail
   });
+  logger.info('provider_lead_email_attempt', {
+    hotelId: hotel.id,
+    conversationId: conversation?.id || bookingRequest.conversation_id || null,
+    providerId: providerId || bookingRequest.provider_id || bookingRequest.metadata?.provider_id || null,
+    providerExperienceId: providerExperience?.provider_experience_id || bookingRequest.provider_experience_id || bookingRequest.metadata?.provider_experience_id || null,
+    bookingRequestId: bookingRequest.id,
+    message: bookingRequest.notes || bookingRequest.metadata?.original_message || null,
+    reason: 'experience_booking_request_created',
+    to: emailPayload.to
+  });
   const emailResult = await sendExperienceProviderLeadEmail(emailPayload);
+
+  const emailLogEvent = emailResult.status === 'failed'
+    ? 'provider_lead_email_failed'
+    : emailResult.status === 'sent'
+      ? 'provider_lead_email_sent'
+      : 'provider_lead_email_prepared';
+  logger[emailResult.status === 'failed' ? 'warn' : 'info'](emailLogEvent, {
+    hotelId: hotel.id,
+    conversationId: conversation?.id || bookingRequest.conversation_id || null,
+    providerId: providerId || bookingRequest.provider_id || bookingRequest.metadata?.provider_id || null,
+    providerExperienceId: providerExperience?.provider_experience_id || bookingRequest.provider_experience_id || bookingRequest.metadata?.provider_experience_id || null,
+    bookingRequestId: bookingRequest.id,
+    message: bookingRequest.notes || bookingRequest.metadata?.original_message || null,
+    reason: emailResult.reason,
+    status: emailResult.status
+  });
 
   return updateBookingRequestProviderEmailState({
     supabase,
@@ -353,6 +379,46 @@ const bookingIntentWords = [
   'anfrage senden',
   'si queremos confirmar',
   'sí queremos confirmar'
+];
+
+const providerBookingConfirmationWords = [
+  'envia la solicitud',
+  'envia solicitud',
+  'enviar solicitud',
+  'manda la solicitud',
+  'mandar la solicitud',
+  'mandalo',
+  'confirma',
+  'confirmar',
+  'si confirma',
+  'adelante',
+  'ok adelante',
+  'vale',
+  'vale perfecto',
+  'quiero reservar',
+  'queremos reservar',
+  'reservar',
+  'reserva',
+  'reservad',
+  'reservadme',
+  'lo queremos',
+  'send request',
+  'send the request',
+  'book it',
+  'confirm',
+  'confirm it',
+  'go ahead',
+  'yes please',
+  'reserve it',
+  'we want to book',
+  'je veux reserver',
+  'nous voulons reserver',
+  'confirmez',
+  'envoyez la demande',
+  'ich mochte buchen',
+  'wir mochten buchen',
+  'bitte bestatigen',
+  'anfrage senden'
 ];
 
 const negativeWords = [
@@ -536,10 +602,20 @@ const matchHotelExperience = ({
 
 const hasQuestionShape = (message = '') => /[?¿]/.test(message);
 
+export const isProviderBookingConfirmation = (message = '') => {
+  const text = normalize(message)
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return includesAny(text, providerBookingConfirmationWords);
+};
+
 export const classifyProviderExperienceConversation = async ({
   message = '',
   conversationId = null,
-  hotelExperiences = []
+  hotelExperiences = [],
+  latestProviderContext: providedLatestProviderContext = null
 } = {}) => {
   const text = normalize(message);
 
@@ -552,16 +628,20 @@ export const classifyProviderExperienceConversation = async ({
     };
   }
 
-  const [latestOffer, latestProviderContext] = await Promise.all([
+  const [latestOffer, loadedLatestProviderContext] = await Promise.all([
     getLatestExperienceOffer({ conversationId }),
-    getLatestProviderExperienceContext({ conversationId })
+    providedLatestProviderContext
+      ? Promise.resolve(providedLatestProviderContext)
+      : getLatestProviderExperienceContext({ conversationId })
   ]);
+  const latestProviderContext = providedLatestProviderContext || loadedLatestProviderContext;
   const matchedExperience = matchHotelExperience({
     message,
     hotelExperiences,
     latestOffer,
     latestProviderContext
   });
+  const confirmationOverride = isProviderBookingConfirmation(message);
   const mentionsExperience = includesAny(text, experienceWords) || Boolean(matchedExperience);
   const asksForRecommendations = includesAny(text, inquiryWords) || (
     hasQuestionShape(message) && mentionsExperience && includesAny(text, ['recommend', 'recomiendas', 'recomendais', 'tenéis', 'teneis', 'activities', 'actividades', 'excursions', 'excursiones', 'tours'])
@@ -571,7 +651,34 @@ export const classifyProviderExperienceConversation = async ({
   );
   const hasBookingLanguage = includesAny(text, bookingIntentWords);
   const hasBareConfirmation = includesAny(text, ['yes confirm', 'yes please book', 'yes book', 'si confirmar', 'sí confirmar', 'si reservar', 'sí reservar']);
-  const followsExperienceOfferWithAction = Boolean((latestOffer || latestProviderContext) && (hasBookingLanguage || hasBareConfirmation));
+  const followsExperienceOfferWithAction = Boolean((latestOffer || latestProviderContext) && (hasBookingLanguage || hasBareConfirmation || confirmationOverride));
+
+  if (latestProviderContext && confirmationOverride) {
+    if (!matchedExperience) {
+      return {
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+        confidence: 0.86,
+        reason: 'provider_booking_confirmation_override_missing_catalog_match',
+        bookingReady: false,
+        latestOffer,
+        latestProviderContext,
+        matchedExperience: null
+      };
+    }
+
+    return {
+      intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+      confidence: 0.96,
+      reason: 'provider_booking_confirmation_override',
+      bookingReady: true,
+      latestOffer,
+      latestProviderContext,
+      matchedExperience,
+      requestedDate: dateFromMessage(message),
+      requestedTime: timeFromMessage(message),
+      guestsCount: guestsCountFromMessage(message)
+    };
+  }
 
   if (hasBookingLanguage && (mentionsExperience || latestOffer || latestProviderContext)) {
     if (!matchedExperience) {
@@ -677,12 +784,14 @@ export const classifyProviderExperienceConversation = async ({
 export const detectExperienceBookingIntent = async ({
   message = '',
   conversationId = null,
-  hotelExperiences = []
+  hotelExperiences = [],
+  latestProviderContext = null
 } = {}) => {
   const classified = await classifyProviderExperienceConversation({
     message,
     conversationId,
-    hotelExperiences
+    hotelExperiences,
+    latestProviderContext
   });
 
   if (!classified.bookingReady) {
@@ -740,7 +849,7 @@ export const buildProviderExperienceRecommendationReply = ({
   const missingExperienceBooking = (
     [PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT, PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION].includes(intent?.intentType)
     && !intent?.bookingReady
-    && intent?.reason === 'booking_missing_experience'
+    && (intent?.reason === 'booking_missing_experience' || intent?.reason === 'provider_booking_confirmation_override_missing_catalog_match')
   );
 
   if (missingExperienceBooking) {
@@ -887,9 +996,19 @@ export const createExperienceBookingRequest = async ({
   const providerExperienceId = experience?.provider_experience_id || latestOffer?.metadata?.provider_experience_id || null;
   const providerSource = experience?.provider_source || latestOffer?.metadata?.provider_source || null;
   const providerLeadEmail = experience?.provider_lead_email || latestOffer?.metadata?.provider_lead_email || null;
+  const confirmationOverride = intent.reason === 'provider_booking_confirmation_override'
+    || intent.conversationIntent?.reason === 'provider_booking_confirmation_override';
 
   try {
     const supabase = getSupabase();
+    logger.info('provider_booking_request_creation_attempt', {
+      hotelId: hotel.id,
+      conversationId: conversation.id,
+      providerId,
+      providerExperienceId,
+      message,
+      reason: intent.reason || intent.conversationIntent?.reason || null
+    });
     const { data: existing, error: existingError } = await supabase
       .from('experience_booking_requests')
       .select('*')
@@ -906,6 +1025,15 @@ export const createExperienceBookingRequest = async ({
     }
 
     if (existing) {
+      logger.info('provider_booking_request_duplicate_skipped', {
+        hotelId: hotel.id,
+        conversationId: conversation.id,
+        providerId: providerId || existing.provider_id || existing.metadata?.provider_id || null,
+        providerExperienceId: providerExperienceId || existing.provider_experience_id || existing.metadata?.provider_experience_id || null,
+        bookingRequestId: existing.id,
+        message,
+        reason: 'active_booking_request_already_exists'
+      });
       return deliverProviderLeadEmailForBookingRequest({
         supabase,
         hotel,
@@ -952,6 +1080,7 @@ export const createExperienceBookingRequest = async ({
         provider_experience_title: experience?.title || title,
         guest_phone: guest?.phone_number || reservation?.guest_phone || null,
         original_message: message,
+        provider_booking_confirmation_override: confirmationOverride,
         desired_date: intent.requestedDate,
         desired_time: intent.requestedTime,
         guests_count: intent.guestsCount || reservation?.adults || null,
@@ -1054,10 +1183,13 @@ export const createExperienceBookingRequest = async ({
       });
     }
 
-    logger.info('experience_booking_request_created', {
+    logger.info('provider_booking_request_created', {
       hotelId: hotel.id,
       conversationId: conversation.id,
       bookingRequestId: data.id,
+      providerId,
+      providerExperienceId,
+      message,
       experienceTitle: title,
       providerSource
     });
@@ -1069,7 +1201,16 @@ export const createExperienceBookingRequest = async ({
       return null;
     }
 
-    logger.warn('Experience booking request failed', { message: error.message });
+    logger.error('provider_booking_request_creation_failed', {
+      hotelId: hotel?.id || null,
+      conversationId: conversation?.id || null,
+      providerId,
+      providerExperienceId,
+      message,
+      reason: intent.reason || intent.conversationIntent?.reason || null,
+      errorMessage: error.message,
+      stack: error.stack
+    });
     return null;
   }
 };

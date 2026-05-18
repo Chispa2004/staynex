@@ -296,6 +296,9 @@ export const ExperienceBookingsClient = () => {
                   <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
                     Created {formatDate(booking.created_at)} / Source {booking.source || 'ai_concierge'}
                   </p>
+                  <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                    Lead status {booking.lead_status || booking.metadata?.provider_email_status || 'pending'}
+                  </p>
                   {booking.metadata?.provider_email_error || booking.lead_error ? (
                     <p className={cn('mt-2 text-xs font-medium', isLight ? 'text-red-700' : 'text-red-200')}>
                       Provider email error: {booking.metadata?.provider_email_error || booking.lead_error}
