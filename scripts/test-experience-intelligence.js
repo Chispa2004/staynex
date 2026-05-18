@@ -5,6 +5,7 @@ import {
 } from '../src/services/experience-intelligence.service.js';
 import {
   buildProviderExperienceRecommendationReply,
+  buildLastProviderExperienceState,
   classifyProviderExperienceConversation,
   detectExperienceBookingIntent,
   isProviderBookingConfirmation,
@@ -289,6 +290,14 @@ const exactAgafayInterest = await classifyProviderExperienceConversation({
 });
 assert.equal(exactAgafayInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
 assert.equal(exactAgafayInterest.matchedExperience.title, 'Agafay Desert Dinner');
+const lastAgafay = buildLastProviderExperienceState({
+  providerExperience: exactAgafayInterest.matchedExperience,
+  reason: 'explicit_guest_detail_request',
+  message: 'Me interesa Agafay Desert Dinner',
+  callsite: 'test'
+});
+assert.equal(lastAgafay.last_provider_experience_title, 'Agafay Desert Dinner');
+assert.equal(lastAgafay.last_provider_experience_id, 'provider-agafay-dinner');
 
 const exactQuadInterest = await classifyProviderExperienceConversation({
   message: 'Me interesa Marrakech Quad Adventure',
@@ -302,12 +311,27 @@ const exactQuadInterest = await classifyProviderExperienceConversation({
 });
 assert.equal(exactQuadInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
 assert.equal(exactQuadInterest.matchedExperience.title, 'Marrakech Quad Adventure');
+const lastQuad = buildLastProviderExperienceState({
+  providerExperience: exactQuadInterest.matchedExperience,
+  reason: 'explicit_guest_detail_request',
+  message: 'Me interesa Marrakech Quad Adventure',
+  callsite: 'test'
+});
+assert.equal(lastQuad.last_provider_experience_title, 'Marrakech Quad Adventure');
 
 const hammamInterest = await classifyProviderExperienceConversation({
   message: 'Me interesa Hammam',
   hotelExperiences: providerCatalog
 });
 assert.equal(hammamInterest.matchedExperience.title, 'Marrakech Hammam Experience');
+
+const recommendationListWrite = buildLastProviderExperienceState({
+  providerExperience: providerCatalog[0],
+  reason: 'recommendation_list',
+  message: 'Que excursiones recomendais?',
+  callsite: 'test'
+});
+assert.equal(recommendationListWrite, null);
 
 const prematureBooking = await detectExperienceBookingIntent({
   message: 'Me interesa Agafay',
@@ -414,6 +438,8 @@ console.log(JSON.stringify({
     'provider excursion interest stays conversational',
     'provider excursion booking requires explicit action',
     'exact provider experience mention overrides previous last context',
+    'last provider experience persists only on explicit experience interest',
+    'generic recommendation list does not overwrite last provider experience',
     'direct provider booking creates booking-ready intent',
     'booking without exact experience asks follow-up',
     'provider confirmation override creates booking-ready intent from last context',

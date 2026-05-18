@@ -690,6 +690,179 @@ const getLatestProviderExperienceContext = async ({ conversationId }) => {
   }
 };
 
+const allowedLastProviderExperienceReasons = new Set([
+  'explicit_guest_interest',
+  'explicit_guest_detail_request',
+  'explicit_guest_booking_intent'
+]);
+
+const isMissingStateTable = (error) => (
+  error?.message?.includes('conversation_ai_state')
+  || error?.details?.includes('conversation_ai_state')
+  || error?.hint?.includes('conversation_ai_state')
+);
+
+export const buildLastProviderExperienceState = ({
+  providerExperience,
+  reason,
+  message,
+  callsite
+} = {}) => {
+  if (!providerExperience || !allowedLastProviderExperienceReasons.has(reason)) {
+    return null;
+  }
+
+  const providerExperienceId = providerExperience.provider_experience_id
+    || providerExperience.metadata?.provider_experience_id
+    || providerExperience.id
+    || null;
+  const providerId = providerExperience.provider_id || providerExperience.metadata?.provider_id || null;
+  const providerName = providerExperience.provider_source || providerExperience.metadata?.provider_name || null;
+  const title = providerExperience.title || null;
+  const now = new Date().toISOString();
+
+  return {
+    id: providerExperience.id || null,
+    experience_id: providerExperience.id || null,
+    provider_experience_id: providerExperienceId,
+    provider_id: providerId,
+    provider_name: providerName,
+    provider_source: providerName,
+    provider_lead_email: providerExperience.provider_lead_email || providerExperience.metadata?.provider_lead_email || null,
+    title,
+    price: providerExperience.price ?? null,
+    currency: providerExperience.currency || null,
+    commission_percentage: providerExperience.commission_percentage ?? null,
+    last_provider_experience_id: providerExperienceId,
+    last_provider_experience_title: title,
+    last_provider_id: providerId,
+    last_provider_name: providerName,
+    last_guest_interest_message: message || null,
+    last_provider_interest_at: now,
+    last_provider_set_reason: reason,
+    last_provider_set_at: now,
+    set_reason: reason,
+    set_at: now,
+    callsite: callsite || null,
+    updated_at: now
+  };
+};
+
+export const setLastProviderExperience = async ({
+  hotelId,
+  conversationId,
+  guestId = null,
+  providerExperience = null,
+  reason,
+  message = '',
+  previousLastExperience = null,
+  callsite = 'unknown'
+} = {}) => {
+  const nextLastExperience = buildLastProviderExperienceState({
+    providerExperience,
+    reason,
+    message,
+    callsite
+  });
+
+  logger.info('provider_last_experience_write_attempt', {
+    hotelId,
+    conversationId,
+    guestId,
+    previousLastTitle: previousLastExperience?.title || previousLastExperience?.last_provider_experience_title || null,
+    newLastTitle: providerExperience?.title || null,
+    reason,
+    message,
+    callsite
+  });
+
+  if (!nextLastExperience) {
+    logger.info('provider_last_experience_write_skipped', {
+      hotelId,
+      conversationId,
+      guestId,
+      previousLastTitle: previousLastExperience?.title || previousLastExperience?.last_provider_experience_title || null,
+      newLastTitle: providerExperience?.title || null,
+      reason,
+      message,
+      callsite,
+      skippedReason: !providerExperience ? 'missing_provider_experience' : 'reason_not_allowed'
+    });
+
+    return {
+      written: false,
+      lastProviderExperience: previousLastExperience || null,
+      skippedReason: !providerExperience ? 'missing_provider_experience' : 'reason_not_allowed'
+    };
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data: existing, error: existingError } = await supabase
+      .from('conversation_ai_state')
+      .select('state_metadata')
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+
+    if (existingError && !isMissingStateTable(existingError)) {
+      throw existingError;
+    }
+
+    const metadata = {
+      ...(existing?.state_metadata || {}),
+      last_provider_experience: nextLastExperience
+    };
+    const { error } = await supabase
+      .from('conversation_ai_state')
+      .upsert({
+        hotel_id: hotelId,
+        conversation_id: conversationId,
+        state_metadata: metadata,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'conversation_id'
+      });
+
+    if (error && !isMissingStateTable(error)) {
+      throw error;
+    }
+
+    logger.info('provider_last_experience_written', {
+      hotelId,
+      conversationId,
+      guestId,
+      previousLastTitle: previousLastExperience?.title || previousLastExperience?.last_provider_experience_title || null,
+      newLastTitle: nextLastExperience.title,
+      reason,
+      message,
+      callsite
+    });
+
+    return {
+      written: true,
+      lastProviderExperience: nextLastExperience
+    };
+  } catch (error) {
+    logger.warn('provider_last_experience_write_skipped', {
+      hotelId,
+      conversationId,
+      guestId,
+      previousLastTitle: previousLastExperience?.title || previousLastExperience?.last_provider_experience_title || null,
+      newLastTitle: nextLastExperience.title,
+      reason,
+      message,
+      callsite,
+      skippedReason: error.message
+    });
+
+    return {
+      written: false,
+      lastProviderExperience: nextLastExperience,
+      skippedReason: error.message
+    };
+  }
+};
+
 const matchHotelExperience = ({
   message,
   hotelExperiences = [],
