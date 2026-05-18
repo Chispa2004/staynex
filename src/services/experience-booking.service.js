@@ -105,7 +105,14 @@ const buildProviderEmailMetadata = ({
   ...(bookingRequest?.metadata || {}),
   provider_email_to: emailPayload?.to || null,
   provider_email_status: emailResult.status,
-  provider_email_error: emailResult.status === 'failed' ? emailResult.reason : null,
+  provider_email_error: emailResult.status === 'failed'
+    ? emailResult.error?.message || emailResult.reason
+    : null,
+  provider_email_error_code: emailResult.status === 'failed' ? emailResult.error?.code || null : null,
+  provider_email_error_command: emailResult.status === 'failed' ? emailResult.error?.command || null : null,
+  provider_email_error_response: emailResult.status === 'failed' ? emailResult.error?.response || null : null,
+  provider_email_attempts: emailResult.transport?.attempts || null,
+  provider_email_message_id: emailResult.transport?.messageId || null,
   provider_email_sent_at: emailResult.status === 'sent' ? new Date().toISOString() : bookingRequest?.metadata?.provider_email_sent_at || null,
   provider_email_prepared_at: emailResult.status === 'draft' ? new Date().toISOString() : bookingRequest?.metadata?.provider_email_prepared_at || null,
   provider_email_reference: emailPayload?.reference || null,

@@ -3,19 +3,54 @@ import tls from 'node:tls';
 import { logger } from '../utils/logger.js';
 
 const normalize = (value) => String(value || '').trim();
+const normalizePassword = (value) => normalize(value).replace(/\s+/g, '');
 
 const getEmailMode = () => {
   const mode = normalize(process.env.EXPERIENCE_PROVIDER_EMAIL_MODE || 'mock').toLowerCase();
   return mode === 'live' || mode === 'send' ? 'live' : 'mock';
 };
 
-const getSmtpConfig = () => ({
-  host: normalize(process.env.SMTP_HOST),
-  port: Number(process.env.SMTP_PORT || 587),
-  user: normalize(process.env.SMTP_USER),
-  pass: normalize(process.env.SMTP_PASS),
-  from: normalize(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'Staynex <no-reply@staynex.ai>')
-});
+const parseBoolean = (value) => {
+  const normalized = normalize(value).toLowerCase();
+
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return null;
+};
+
+const getSmtpPort = () => {
+  const port = Number(process.env.SMTP_PORT || 587);
+  return Number.isFinite(port) && port > 0 ? port : 587;
+};
+
+const getSmtpSecure = (port = getSmtpPort()) => {
+  if (Number(port) === 465) return true;
+  if (Number(port) === 587) return false;
+
+  return parseBoolean(process.env.SMTP_SECURE) || false;
+};
+
+const getTimeoutMs = (name, fallback) => {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+};
+
+const getSmtpConfig = () => {
+  const port = getSmtpPort();
+
+  return {
+    host: normalize(process.env.SMTP_HOST),
+    port,
+    secure: getSmtpSecure(port),
+    user: normalize(process.env.SMTP_USER),
+    pass: normalizePassword(process.env.SMTP_PASS),
+    from: normalize(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'Staynex <no-reply@staynex.ai>'),
+    connectionTimeout: getTimeoutMs('SMTP_CONNECTION_TIMEOUT_MS', 30000),
+    greetingTimeout: getTimeoutMs('SMTP_GREETING_TIMEOUT_MS', 30000),
+    socketTimeout: getTimeoutMs('SMTP_SOCKET_TIMEOUT_MS', 30000),
+    retryDelayMs: getTimeoutMs('SMTP_RETRY_DELAY_MS', 2000)
+  };
+};
 
 const getSafeSmtpSummary = () => {
   const config = getSmtpConfig();
@@ -24,13 +59,16 @@ const getSafeSmtpSummary = () => {
     provider: 'smtp',
     host: config.host || null,
     port: config.port || null,
+    secure: Boolean(config.secure),
     user: config.user || null,
     from: config.from || null,
     mode: getEmailMode(),
-    secure: Number(config.port) === 465,
-    startTls: Number(config.port) !== 465,
+    startTls: !config.secure,
     authConfigured: Boolean(config.user && config.pass),
-    passwordConfigured: Boolean(config.pass)
+    passwordConfigured: Boolean(config.pass),
+    connectionTimeout: config.connectionTimeout,
+    greetingTimeout: config.greetingTimeout,
+    socketTimeout: config.socketTimeout
   };
 };
 
@@ -52,23 +90,42 @@ const encodeHeader = (value = '') => {
     : `=?UTF-8?B?${base64(text)}?=`;
 };
 
-const createSmtpSession = ({ host, port }) => new Promise((resolve, reject) => {
+const createTimeoutError = ({ message, code = 'ETIMEDOUT', stage = null, command = null }) => {
+  const error = new Error(message);
+  error.code = code;
+  error.stage = stage;
+  error.command = command || undefined;
+  return error;
+};
+
+const createSmtpSession = ({ host, port, secure, connectionTimeout, socketTimeout }) => new Promise((resolve, reject) => {
   let settled = false;
   const finish = (socket) => {
     if (!settled) {
       settled = true;
       clearTimeout(timeout);
+      socket.setTimeout(socketTimeout, () => {
+        const error = createTimeoutError({
+          message: 'smtp_socket_timeout',
+          stage: 'socket'
+        });
+        socket.destroy(error);
+      });
       resolve(socket);
     }
   };
-  const socket = Number(port) === 465
+  const socket = secure
     ? tls.connect({ host, port, servername: host }, () => finish(socket))
     : net.connect({ host, port });
   const timeout = setTimeout(() => {
     settled = true;
-    socket.destroy();
-    reject(new Error('smtp_connection_timeout'));
-  }, 20000);
+    const error = createTimeoutError({
+      message: 'smtp_connection_timeout',
+      stage: 'connect'
+    });
+    socket.destroy(error);
+    reject(error);
+  }, connectionTimeout);
 
   socket.once('error', (error) => {
     if (!settled) {
@@ -78,7 +135,7 @@ const createSmtpSession = ({ host, port }) => new Promise((resolve, reject) => {
     }
   });
 
-  if (Number(port) !== 465) {
+  if (!secure) {
     socket.once('connect', () => finish(socket));
   }
 });
@@ -86,23 +143,34 @@ const createSmtpSession = ({ host, port }) => new Promise((resolve, reject) => {
 const createSmtpReader = (socket) => {
   let buffer = '';
 
-  return () => new Promise((resolve, reject) => {
+  return ({ timeoutMs = 30000, stage = 'read', command = null } = {}) => new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(createTimeoutError({
+        message: 'smtp_read_timeout',
+        stage,
+        command
+      }));
+    }, timeoutMs);
+    const cleanup = () => {
+      clearTimeout(timeout);
+      socket.off('data', onData);
+      socket.off('error', onError);
+    };
     const onData = (chunk) => {
       buffer += chunk.toString('utf8');
       const lines = buffer.split(/\r?\n/).filter(Boolean);
       const lastLine = lines[lines.length - 1] || '';
 
       if (/^\d{3}\s/.test(lastLine)) {
-        socket.off('data', onData);
-        socket.off('error', onError);
+        cleanup();
         const response = buffer;
         buffer = '';
         resolve(response);
       }
     };
     const onError = (error) => {
-      socket.off('data', onData);
-      socket.off('error', onError);
+      cleanup();
       reject(error);
     };
 
@@ -125,11 +193,12 @@ const assertSmtpOk = (response, accepted = ['2', '3']) => {
 const sendCommand = async ({ socket, read, command, accepted }) => {
   try {
     socket.write(`${command}\r\n`);
-    const response = await read();
+    const response = await read({ stage: 'command', command });
     assertSmtpOk(response, accepted);
     return response;
   } catch (error) {
     error.command = command;
+    error.smtpMaybeSent = error.smtpMaybeSent || command === 'DATA';
     throw error;
   }
 };
@@ -143,22 +212,30 @@ const upgradeToTls = async ({ socket, host }) => new Promise((resolve, reject) =
   secureSocket.once('error', reject);
 });
 
-const sendSmtpMail = async ({ to, subject, text }) => {
-  const config = getSmtpConfig();
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  if (!config.host || !config.port || !config.from) {
-    throw new Error('smtp_not_configured');
-  }
+const isTimeoutError = (error) => (
+  error?.code === 'ETIMEDOUT'
+  || /timeout/i.test(error?.message || '')
+);
 
+const connectAndAuthenticateSmtp = async (config) => {
   let socket = await createSmtpSession(config);
   let read = createSmtpReader(socket);
-  assertSmtpOk(await read());
+  assertSmtpOk(await read({ timeoutMs: config.greetingTimeout, stage: 'greeting' }));
 
   await sendCommand({ socket, read, command: 'EHLO staynex.local' });
 
-  if (Number(config.port) !== 465) {
+  if (!config.secure) {
     await sendCommand({ socket, read, command: 'STARTTLS', accepted: ['2'] });
     socket = await upgradeToTls({ socket, host: config.host });
+    socket.setTimeout(config.socketTimeout, () => {
+      const error = createTimeoutError({
+        message: 'smtp_socket_timeout',
+        stage: 'socket_tls'
+      });
+      socket.destroy(error);
+    });
     read = createSmtpReader(socket);
     await sendCommand({ socket, read, command: 'EHLO staynex.local' });
   }
@@ -173,6 +250,62 @@ const sendSmtpMail = async ({ to, subject, text }) => {
     await sendCommand({ socket, read, command: base64(config.pass), accepted: ['2'] });
   }
 
+  return { socket, read };
+};
+
+export const verifySmtpTransport = async ({ force = false } = {}) => {
+  const config = getSmtpConfig();
+
+  if (!config.host || !config.port || !config.from) {
+    throw new Error('smtp_not_configured');
+  }
+
+  if (!force && verifySmtpTransport.verified) {
+    return {
+      ok: true,
+      cached: true,
+      provider: 'smtp',
+      config: getSafeSmtpSummary()
+    };
+  }
+
+  let socket = null;
+  let read = null;
+
+  try {
+    ({ socket, read } = await connectAndAuthenticateSmtp(config));
+    await sendCommand({ socket, read, command: 'QUIT', accepted: ['2'] }).catch(() => null);
+    socket.end();
+    verifySmtpTransport.verified = true;
+    logger.info('smtp_verified', getSafeSmtpSummary());
+    return {
+      ok: true,
+      cached: false,
+      provider: 'smtp',
+      config: getSafeSmtpSummary()
+    };
+  } catch (error) {
+    logger.error('smtp_verify_failed', {
+      ...buildSmtpErrorPayload({ error }),
+      smtpConfig: getSafeSmtpSummary()
+    });
+    throw error;
+  } finally {
+    if (socket && !socket.destroyed) {
+      socket.end();
+    }
+  }
+};
+verifySmtpTransport.verified = false;
+
+const sendSmtpMailOnce = async ({ to, subject, text }) => {
+  const config = getSmtpConfig();
+
+  if (!config.host || !config.port || !config.from) {
+    throw new Error('smtp_not_configured');
+  }
+
+  const { socket, read } = await connectAndAuthenticateSmtp(config);
   const envelopeFrom = extractEmailAddress(config.from);
   const envelopeTo = extractEmailAddress(to);
   const message = [
@@ -189,16 +322,74 @@ const sendSmtpMail = async ({ to, subject, text }) => {
   await sendCommand({ socket, read, command: `MAIL FROM:<${envelopeFrom}>` });
   await sendCommand({ socket, read, command: `RCPT TO:<${envelopeTo}>` });
   await sendCommand({ socket, read, command: 'DATA', accepted: ['3'] });
-  socket.write(`${escapeSmtpData(message)}\r\n.\r\n`);
-  assertSmtpOk(await read());
+  try {
+    socket.write(`${escapeSmtpData(message)}\r\n.\r\n`);
+    assertSmtpOk(await read({ stage: 'message_body', command: 'DATA' }));
+  } catch (error) {
+    error.smtpMaybeSent = true;
+    throw error;
+  }
   await sendCommand({ socket, read, command: 'QUIT', accepted: ['2'] }).catch(() => null);
   socket.end();
 
   return {
     accepted: [envelopeTo],
-    envelopeFrom
+    envelopeFrom,
+    messageId: `${Date.now()}-${Math.random().toString(16).slice(2)}@staynex`
   };
 };
+
+const sendSmtpMail = async (payload) => {
+  const config = getSmtpConfig();
+  let attempt = 0;
+
+  while (attempt < 2) {
+    attempt += 1;
+
+    try {
+      await verifySmtpTransport();
+      const result = await sendSmtpMailOnce(payload);
+      return {
+        ...result,
+        attempts: attempt
+      };
+    } catch (error) {
+      const canRetry = attempt === 1 && isTimeoutError(error) && !error.smtpMaybeSent;
+
+      logger.warn('smtp_send_attempt_failed', {
+        ...buildSmtpErrorPayload({ error }),
+        attempt,
+        canRetry,
+        smtpConfig: getSafeSmtpSummary()
+      });
+
+      if (!canRetry) {
+        throw error;
+      }
+
+      await wait(config.retryDelayMs);
+    }
+  }
+
+  throw new Error('smtp_send_failed');
+};
+
+const buildSmtpErrorPayload = ({ error }) => ({
+  type: 'smtp_send_failed',
+  message: error?.message || null,
+  code: error?.code || null,
+  command: error?.command || null,
+  response: error?.response || null,
+  responseCode: error?.responseCode || null,
+  stack: error?.stack || null,
+  stage: error?.stage || null,
+  smtpMaybeSent: Boolean(error?.smtpMaybeSent),
+  smtpHost: process.env.SMTP_HOST,
+  smtpPort: process.env.SMTP_PORT,
+  smtpSecure: getSmtpSecure(),
+  smtpUser: process.env.SMTP_USER,
+  mode: process.env.EXPERIENCE_PROVIDER_EMAIL_MODE
+});
 
 export const buildExperienceProviderLeadEmail = ({
   hotel,
@@ -297,26 +488,17 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => {
       transport: {
         provider: 'smtp',
         accepted: smtpResult.accepted,
-        envelopeFrom: smtpResult.envelopeFrom
+        envelopeFrom: smtpResult.envelopeFrom,
+        messageId: smtpResult.messageId,
+        attempts: smtpResult.attempts
       }
     };
   } catch (error) {
-    const smtpSummary = getSafeSmtpSummary();
     const errorPayload = {
-      type: 'smtp_send_failed',
+      ...buildSmtpErrorPayload({ error }),
       to: emailPayload.to,
       subject: emailPayload.subject,
-      message: error.message,
-      code: error.code,
-      command: error.command,
-      response: error.response,
-      responseCode: error.responseCode,
-      stack: error.stack,
-      smtpHost: process.env.SMTP_HOST,
-      smtpPort: process.env.SMTP_PORT,
-      smtpUser: process.env.SMTP_USER,
-      mode: process.env.EXPERIENCE_PROVIDER_EMAIL_MODE,
-      smtpConfig: smtpSummary
+      smtpConfig: getSafeSmtpSummary()
     };
 
     logger.error('experience_provider_lead_email_failed', errorPayload);
@@ -325,10 +507,33 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => {
     return {
       status: 'failed',
       reason: error.message || 'smtp_send_failed',
+      error: errorPayload,
       payload: {
         ...emailPayload,
         mode
       }
     };
   }
+};
+
+export const sendProviderEmailTest = async ({ to, subject, message }) => {
+  const payload = {
+    to,
+    subject: normalize(subject) || 'Staynex provider email test',
+    text: normalize(message) || 'This is a Staynex provider email delivery test.',
+    reference: `SMTP-TEST-${Date.now()}`,
+    mode: getEmailMode()
+  };
+  const result = await sendExperienceProviderLeadEmail(payload);
+
+  return {
+    success: result.status === 'sent',
+    provider: 'smtp',
+    status: result.status,
+    reason: result.reason,
+    messageId: result.transport?.messageId || null,
+    accepted: result.transport?.accepted || [],
+    error: result.error || null,
+    smtp: getSafeSmtpSummary()
+  };
 };

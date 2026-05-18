@@ -12,6 +12,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   DoorOpen,
+  Mail,
   MessageSquareText,
   PlugZap,
   Plus,
@@ -178,6 +179,97 @@ const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
         </button>
       </div>
     </form>
+  );
+};
+
+const ProviderEmailTestPanel = ({ isLight }) => {
+  const [form, setForm] = useState({
+    to: '',
+    subject: 'Staynex provider email test',
+    message: 'This is a Staynex provider email delivery test.'
+  });
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  const sendTest = async (event) => {
+    event.preventDefault();
+    setSending(true);
+    setResult(null);
+
+    try {
+      const response = await fetch('/api/platform/test-provider-email', {
+        method: 'POST',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(form)
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error?.message || body.error || body.reason || 'Email test failed');
+      }
+
+      setResult({
+        type: 'success',
+        message: `Sent${body.messageId ? ` / ${body.messageId}` : ''}`
+      });
+    } catch (error) {
+      setResult({
+        type: 'error',
+        message: error.message
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+      <div className="flex items-start gap-3">
+        <span className={cn('flex h-10 w-10 items-center justify-center rounded-lg border', ui.badge(isLight, 'sky'))}>
+          <Mail className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div>
+          <p className={ui.text.eyebrow(isLight)}>Provider email</p>
+          <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>Test SMTP delivery</h2>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>Platform-only SMTP test for provider leads.</p>
+        </div>
+      </div>
+
+      <form onSubmit={sendTest} className="mt-4 space-y-3">
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Recipient</span>
+          <input className={cn('w-full', ui.input(isLight))} type="email" value={form.to} onChange={(event) => update('to', event.target.value)} placeholder="provider@example.com" required />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Subject</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.subject} onChange={(event) => update('subject', event.target.value)} />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>Message</span>
+          <textarea className={cn('min-h-24 w-full', ui.input(isLight))} value={form.message} onChange={(event) => update('message', event.target.value)} />
+        </label>
+        <button type="submit" disabled={sending} className={ui.button(isLight, 'primary')}>
+          <Mail className="h-4 w-4" aria-hidden="true" />
+          {sending ? 'Sending...' : 'Send Test Email'}
+        </button>
+      </form>
+
+      {result ? (
+        <div className={cn(
+          'mt-4 rounded-lg border px-3 py-2 text-sm',
+          result.type === 'success'
+            ? isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+            : isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100'
+        )}>
+          {result.message}
+        </div>
+      ) : null}
+    </section>
   );
 };
 
@@ -423,6 +515,8 @@ export const PlatformConsoleClient = () => {
         </section>
 
         <aside className="space-y-6">
+          <ProviderEmailTestPanel isLight={isLight} />
+
           <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
             <p className={ui.text.eyebrow(isLight)}>Global revenue</p>
             <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{formatCurrency(metrics.totalAiRevenue)}</h2>
