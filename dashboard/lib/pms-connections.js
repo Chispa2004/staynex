@@ -105,8 +105,8 @@ export const proxyBackendPmsAction = async ({
   provider = 'apaleo',
   from,
   to,
-  pageSize = 25,
-  maxReservations = 50
+  pageSize = 50,
+  maxReservations = 1000
 }) => {
   const response = await fetchWithTimeout(`${getBackendUrl()}/integrations/pms-connections/${action}`, {
     method: 'POST',

@@ -9,6 +9,12 @@ import {
 } from '../prompts/staynex.prompt.js';
 import { analyzeGuestMessageWithMockAi } from './mock-ai.service.js';
 import { logger } from '../utils/logger.js';
+import {
+  getAiTimeoutMs,
+  isAiCircuitBreakerOpen,
+  recordAiFailure,
+  recordAiSuccess
+} from './scalability-guard.service.js';
 
 const isMockAiEnabled = () => process.env.USE_MOCK_AI === 'true';
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
@@ -17,7 +23,7 @@ const DEFAULT_OPENAI_TIMEOUT_MS = 15000;
 const getOpenAiModel = () => process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
 
 const getOpenAiTimeoutMs = () => {
-  const timeout = Number(process.env.OPENAI_TIMEOUT_MS || DEFAULT_OPENAI_TIMEOUT_MS);
+  const timeout = Number(process.env.AI_TIMEOUT_MS || process.env.OPENAI_TIMEOUT_MS || DEFAULT_OPENAI_TIMEOUT_MS);
   return Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_OPENAI_TIMEOUT_MS;
 };
 
@@ -101,11 +107,36 @@ export const analyzeGuestMessage = async ({
   }
 
   const model = getOpenAiModel();
+  const circuitContext = {
+    hotelId: hotel?.id || null,
+    guestId: guest?.id || null,
+    model,
+    service: 'openai_primary'
+  };
+
+  if (isAiCircuitBreakerOpen(circuitContext)) {
+    if (fallbackAiResponse) {
+      return withAiMetadata(fallbackAiResponse, {
+        provider: fallbackMetadata?.provider || 'mock',
+        model: fallbackMetadata?.model || 'knowledge-base',
+        fallbackUsed: true
+      });
+    }
+
+    return analyzeWithMockAi({
+      hotel,
+      guest,
+      message,
+      hotelKnowledge,
+      conversationContext,
+      fallbackUsed: true
+    });
+  }
 
   try {
     logger.info('using_openai', {
       model,
-      timeoutMs: getOpenAiTimeoutMs()
+      timeoutMs: getAiTimeoutMs()
     });
 
     const openai = getOpenAiClient();
@@ -144,6 +175,7 @@ export const analyzeGuestMessage = async ({
       intent: aiResponse.intent,
       confidence: aiResponse.confidence
     });
+    recordAiSuccess();
 
     return withAiMetadata(aiResponse, {
       provider: 'openai',
@@ -156,6 +188,7 @@ export const analyzeGuestMessage = async ({
       message: error.message,
       status: error.status || error.code || null
     });
+    recordAiFailure(error, circuitContext);
 
     logger.warn('fallback_to_mock', {
       reason: error.message

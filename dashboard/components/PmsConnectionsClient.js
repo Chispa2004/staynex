@@ -188,7 +188,7 @@ export const PmsConnectionsClient = () => {
     }
 
     setBusyAction('sync');
-    setFeedback({ type: 'info', message: `Sync started for ${provider.name}. Importing up to 50 reservations.` });
+    setFeedback({ type: 'info', message: `Sync started for ${provider.name}. Importing reservations in safe batches.` });
 
     try {
       const headers = await getAuthHeaders();
@@ -201,8 +201,8 @@ export const PmsConnectionsClient = () => {
         },
         body: JSON.stringify({
           provider: provider.key,
-          pageSize: 25,
-          maxReservations: 50,
+          pageSize: 50,
+          maxReservations: 1000,
           ...window
         })
       });
@@ -217,7 +217,7 @@ export const PmsConnectionsClient = () => {
 
       setFeedback({
         type: 'success',
-        message: `Sync complete: fetched ${body.summary?.fetched || 0}, synced ${body.summary?.synced || 0}, skipped ${body.summary?.skipped || 0}.`
+        message: `Sync complete: fetched ${body.summary?.totalFetched || body.summary?.fetched || 0}, processed ${body.summary?.totalProcessed || body.summary?.synced || 0}, skipped ${body.summary?.totalSkipped || body.summary?.skipped || 0}.`
       });
       await loadConnections();
     } catch (error) {

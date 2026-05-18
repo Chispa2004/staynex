@@ -12,6 +12,10 @@ import {
   testPmsConnection,
   updateHotelPmsConnection
 } from '../services/pms-connections.service.js';
+import {
+  getPmsBatchSize,
+  getPmsMaxReservations
+} from '../services/scalability-guard.service.js';
 import { EncryptionConfigurationError } from '../utils/encryption.js';
 
 const router = Router();
@@ -62,8 +66,8 @@ router.post('/apaleo/sync', async (req, res, next) => {
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),
       status: req.body?.status || undefined,
-      pageSize: clampNumber(req.body?.pageSize, 25, 1, 50),
-      maxReservations: clampNumber(req.body?.maxReservations, 50, 1, 100)
+      pageSize: clampNumber(req.body?.pageSize, getPmsBatchSize(), 1, 50),
+      maxReservations: clampNumber(req.body?.maxReservations, getPmsMaxReservations(), 1, 1000)
     });
 
     res.status(200).json({
@@ -214,8 +218,8 @@ router.post('/pms-connections/sync', async (req, res, next) => {
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),
       status: req.body?.status,
-      pageSize: clampNumber(req.body?.pageSize, 25, 1, 50),
-      maxReservations: clampNumber(req.body?.maxReservations, 50, 1, 100)
+      pageSize: clampNumber(req.body?.pageSize, getPmsBatchSize(), 1, 50),
+      maxReservations: clampNumber(req.body?.maxReservations, getPmsMaxReservations(), 1, 1000)
     });
 
     res.status(200).json({

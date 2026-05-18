@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Save,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   TicketCheck,
   Users
@@ -94,6 +95,8 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
   const localKnowledge = detail?.localKnowledge || [];
   const knowledgeEntries = detail?.knowledgeEntries || [];
   const auditLogs = detail?.auditLogs || [];
+  const dataRetentionAuditLogs = detail?.dataRetentionAuditLogs || [];
+  const lastRetentionRun = dataRetentionAuditLogs[0];
 
   const revenue = useMemo(() => ({
     accepted: conversions.filter((item) => item.status === 'accepted').reduce((total, item) => total + Number(item.estimated_amount || 0), 0),
@@ -395,6 +398,28 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
               <div><span className={ui.text.muted(isLight)}>Local knowledge</span><p className="font-semibold">{localKnowledge.length}</p></div>
               <div><span className={ui.text.muted(isLight)}>Knowledge base</span><p className="font-semibold">{knowledgeEntries.length}</p></div>
               <div><span className={ui.text.muted(isLight)}>Active catalog</span><p className="font-semibold">{detail?.experiences?.filter((item) => item.active).length || 0}</p></div>
+            </div>
+          </section>
+
+          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+            <div className="flex items-start gap-3">
+              <span className={cn('flex h-9 w-9 items-center justify-center rounded-lg border', ui.badge(isLight, 'emerald'))}>
+                <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className={ui.text.eyebrow(isLight)}>Data retention</p>
+                <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>
+                  Personal guest data: {hotel?.guest_data_retention_days || 30} days / Messages: {hotel?.delete_message_body_after_days || 90} days.
+                </p>
+                <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                  Last cleanup: {formatDate(hotel?.last_data_retention_cleanup_at || lastRetentionRun?.run_at)}
+                </p>
+                {lastRetentionRun ? (
+                  <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                    Last result: {lastRetentionRun.status} / {lastRetentionRun.records_anonymized || 0} records anonymized.
+                  </p>
+                ) : null}
+              </div>
             </div>
           </section>
         </aside>

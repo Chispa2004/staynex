@@ -8,6 +8,14 @@ const jsonOptions = {
 };
 
 const dateOnly = (value) => (typeof value === 'string' && value ? value.slice(0, 10) : null);
+const pmsBatchSize = () => {
+  const value = Number(process.env.PMS_SYNC_BATCH_SIZE || 50);
+  return Number.isFinite(value) && value > 0 ? value : 50;
+};
+const pmsMaxReservations = () => {
+  const value = Number(process.env.PMS_SYNC_MAX_RESERVATIONS || 1000);
+  return Number.isFinite(value) && value > 0 ? value : 1000;
+};
 const clampNumber = (value, fallback, min, max) => {
   const number = Number(value);
 
@@ -35,8 +43,8 @@ export async function POST(request) {
       provider: body.provider || 'apaleo',
       from: dateOnly(body.from),
       to: dateOnly(body.to),
-      pageSize: clampNumber(body.pageSize, 25, 1, 50),
-      maxReservations: clampNumber(body.maxReservations, 50, 1, 100)
+      pageSize: clampNumber(body.pageSize, pmsBatchSize(), 1, 50),
+      maxReservations: clampNumber(body.maxReservations, pmsMaxReservations(), 1, 1000)
     });
 
     return NextResponse.json({ ...result, hotelId: hotel.id }, jsonOptions);

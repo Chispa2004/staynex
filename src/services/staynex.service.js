@@ -85,6 +85,7 @@ import {
 } from './experience-booking.service.js';
 import { buildStrictHotelExperienceCatalog } from './experience-catalog-isolation.service.js';
 import { translateForStaff } from './translation.service.js';
+import { checkInboundMessageRateLimit } from './scalability-guard.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -101,6 +102,24 @@ const isMockAiEnabled = () => process.env.USE_MOCK_AI === 'true';
 const normalizeOpenAiOfferType = (offerType) => (
   offerType === '' || offerType === undefined ? null : offerType
 );
+
+const getRateLimitFallbackReply = (message = '') => {
+  const normalized = message.toLowerCase();
+
+  if (/[¿áéíóúñ]|\b(hola|vale|gracias|reserva|habitación|habitacion)\b/.test(normalized)) {
+    return 'Estamos recibiendo muchos mensajes ahora mismo. Hemos recibido tu solicitud y recepción te responderá en cuanto sea posible.';
+  }
+
+  if (/\b(bonjour|merci|réserver|reservation)\b/.test(normalized)) {
+    return 'Nous recevons beaucoup de messages en ce moment. Votre demande a bien été reçue et la réception vous répondra dès que possible.';
+  }
+
+  if (/\b(hallo|danke|buchen|zimmer)\b/.test(normalized)) {
+    return 'Wir erhalten gerade viele Nachrichten. Ihre Anfrage ist eingegangen und die Rezeption meldet sich so bald wie möglich.';
+  }
+
+  return 'We are receiving many messages right now. Your request has been received and reception will reply as soon as possible.';
+};
 
 const withAiMetadata = (aiResponse, {
   provider = 'mock',
@@ -182,6 +201,51 @@ export const processGuestMessage = async ({
     message
   });
   const cleanPhone = normalizeWhatsappNumber(phone);
+  const rateLimit = checkInboundMessageRateLimit({
+    hotelId: activeHotel.id,
+    guestKey: cleanPhone,
+    context: {
+      channel,
+      phone: cleanPhone
+    }
+  });
+
+  if (!rateLimit.allowed) {
+    const reply = getRateLimitFallbackReply(message);
+    let twilioMessage = null;
+
+    if (sendReply) {
+      twilioMessage = await sendWhatsAppMessage({
+        to: replyTo || phone,
+        body: reply
+      });
+    }
+
+    return {
+      ai: {
+        intent: 'rate_limited',
+        confidence: 1,
+        reply,
+        fallbackUsed: true,
+        aiProvider: 'system',
+        aiModel: 'rate-limit-guard'
+      },
+      hotel: activeHotel,
+      guest: null,
+      conversation: null,
+      messages: {},
+      ticket: null,
+      upsells: [],
+      memories: [],
+      delivery: {
+        channel,
+        sent_via_twilio: Boolean(twilioMessage),
+        twilio_sid: twilioMessage?.sid || null,
+        rate_limited: true,
+        reason: rateLimit.reason
+      }
+    };
+  }
 
   logger.info('Processing guest message', {
     channel,

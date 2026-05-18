@@ -5,6 +5,10 @@ import { logger } from '../utils/logger.js';
 import { getApaleoAccessToken } from '../integrations/apaleo/apaleo-auth.service.js';
 import { apaleoFetch } from '../integrations/apaleo/apaleo-client.service.js';
 import { syncReservationsFromApaleo } from '../integrations/apaleo/apaleo-sync.service.js';
+import {
+  getPmsBatchSize,
+  getPmsMaxReservations
+} from './scalability-guard.service.js';
 
 const SUPPORTED_PROVIDERS = {
   apaleo: {
@@ -298,8 +302,8 @@ export const syncHotelReservations = async ({
   from,
   to,
   status,
-  pageSize = 25,
-  maxReservations = 50
+  pageSize = getPmsBatchSize(),
+  maxReservations = getPmsMaxReservations()
 } = {}) => {
   const connection = await getHotelPmsConnection({ hotelId, provider });
 
@@ -324,19 +328,27 @@ export const syncHotelReservations = async ({
       to,
       status,
       connection,
-      pageSize,
-      maxReservations
+      pageSize: Number(pageSize) || getPmsBatchSize(),
+      maxReservations: Number(maxReservations) || getPmsMaxReservations()
     });
 
     await client
       .from('hotel_pms_connections')
       .update({
         sync_status: summary.errors.length > 0 ? 'partial_success' : 'success',
-        last_sync_at: new Date().toISOString(),
+        last_sync_at: summary.lastSyncedAt || new Date().toISOString(),
         last_sync_error: summary.errors[0]?.error || null,
         metadata: {
           ...(connection.metadata || {}),
-          last_sync_summary: summary
+          last_sync_summary: summary,
+          last_sync_progress: {
+            totalFetched: summary.totalFetched,
+            totalProcessed: summary.totalProcessed,
+            totalInserted: summary.totalInserted,
+            totalUpdated: summary.totalUpdated,
+            totalSkipped: summary.totalSkipped,
+            lastSyncedAt: summary.lastSyncedAt
+          }
         },
         updated_at: new Date().toISOString()
       })

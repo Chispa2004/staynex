@@ -454,7 +454,8 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
     experienceBookings,
     localKnowledge,
     knowledgeEntries,
-    auditLogs
+    auditLogs,
+    dataRetentionAuditLogs
   ] = await Promise.all([
     safeRows(supabase.from('hotel_users').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }), 'hotel_users'),
     safeRows(supabase.from('hotel_pms_connections').select('*').eq('hotel_id', hotelId).order('updated_at', { ascending: false }), 'hotel_pms_connections'),
@@ -468,7 +469,8 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
     safeRows(supabase.from('experience_booking_requests').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(50), 'experience_booking_requests'),
     safeRows(supabase.from('local_knowledge_items').select('*').eq('hotel_id', hotelId).order('priority', { ascending: false }).limit(50), 'local_knowledge_items'),
     safeRows(supabase.from('hotel_knowledge').select('*').eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(50), 'hotel_knowledge'),
-    safeRows(supabase.from('platform_audit_logs').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(25), 'platform_audit_logs')
+    safeRows(supabase.from('platform_audit_logs').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(25), 'platform_audit_logs'),
+    safeRows(supabase.from('data_retention_audit_logs').select('*').eq('hotel_id', hotelId).order('run_at', { ascending: false }).limit(10), 'data_retention_audit_logs')
   ]);
 
   return {
@@ -486,6 +488,7 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
     localKnowledge,
     knowledgeEntries,
     auditLogs,
+    dataRetentionAuditLogs,
     planLimits: PLAN_LIMITS[hotel.subscription_plan] || PLAN_LIMITS.starter
   };
 };

@@ -1,5 +1,11 @@
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';
+import {
+  getAiTimeoutMs,
+  isAiCircuitBreakerOpen,
+  recordAiFailure,
+  recordAiSuccess
+} from './scalability-guard.service.js';
 
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 const DEFAULT_TIMEOUT_MS = 12000;
@@ -9,7 +15,7 @@ const isEnabled = () => process.env.AI_CONCIERGE_ENABLED === 'true' && Boolean(p
 const isDebug = () => process.env.AI_CONCIERGE_DEBUG === 'true';
 
 const getTimeoutMs = () => {
-  const value = Number(process.env.AI_CONCIERGE_TIMEOUT_MS || process.env.OPENAI_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
+  const value = Number(process.env.AI_CONCIERGE_TIMEOUT_MS || process.env.AI_TIMEOUT_MS || process.env.OPENAI_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_TIMEOUT_MS;
 };
 
@@ -216,6 +222,23 @@ export const enhanceConciergeIntelligence = async ({
   }
 
   const model = getModel();
+  const circuitContext = {
+    hotelId: hotel?.id || null,
+    guestId: guest?.id || null,
+    model,
+    service: 'openai_concierge'
+  };
+
+  if (isAiCircuitBreakerOpen(circuitContext)) {
+    return {
+      ok: false,
+      provider: 'heuristic',
+      model,
+      fallback: true,
+      reason: 'ai_circuit_breaker_open'
+    };
+  }
+
   const payload = buildPromptPayload({
     hotel,
     guest,
@@ -229,7 +252,7 @@ export const enhanceConciergeIntelligence = async ({
   try {
     logger.info('openai_concierge_using_openai', {
       model,
-      timeoutMs: getTimeoutMs()
+      timeoutMs: getAiTimeoutMs()
     });
 
     if (isDebug()) {
@@ -260,6 +283,7 @@ export const enhanceConciergeIntelligence = async ({
       confidence: result.confidence,
       escalationLevel: result.escalation_level
     });
+    recordAiSuccess();
 
     return {
       ok: true,
@@ -274,6 +298,7 @@ export const enhanceConciergeIntelligence = async ({
       message: error.message,
       status: error.status || error.code || null
     });
+    recordAiFailure(error, circuitContext);
 
     return {
       ok: false,

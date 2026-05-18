@@ -4,7 +4,7 @@ import { logger } from '../../utils/logger.js';
 const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_MAX_RESERVATIONS = 50;
 const MAX_PAGE_SIZE = 50;
-const MAX_PAGES = 4;
+const MAX_RESERVATIONS = 1000;
 
 const extractReservations = (payload) => {
   if (Array.isArray(payload)) {
@@ -52,9 +52,9 @@ export const getReservations = async ({
 } = {}) => {
   const reservations = [];
   const normalizedPageSize = Math.min(Math.max(Number(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
-  const normalizedMaxReservations = Math.min(Math.max(Number(maxReservations) || DEFAULT_MAX_RESERVATIONS, 1), 200);
+  const normalizedMaxReservations = Math.min(Math.max(Number(maxReservations) || DEFAULT_MAX_RESERVATIONS, 1), MAX_RESERVATIONS);
   const maxPagesForLimit = Math.ceil(normalizedMaxReservations / normalizedPageSize);
-  const pageLimit = Math.min(MAX_PAGES, maxPagesForLimit);
+  const pageLimit = maxPagesForLimit;
 
   logger.info('Apaleo reservations fetch started', {
     from,
