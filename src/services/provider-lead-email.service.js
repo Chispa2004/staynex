@@ -391,6 +391,41 @@ const buildSmtpErrorPayload = ({ error }) => ({
   mode: process.env.EXPERIENCE_PROVIDER_EMAIL_MODE
 });
 
+const getReadableSmtpErrorMessage = (errorPayload = {}) => {
+  if (errorPayload.message && errorPayload.message !== 'smtp_send_failed') {
+    return errorPayload.message;
+  }
+
+  return errorPayload.response
+    || errorPayload.code
+    || errorPayload.message
+    || 'smtp_send_failed';
+};
+
+const buildProviderEmailLogContext = ({
+  to,
+  subject,
+  hotelId = null,
+  bookingRequestId = null,
+  providerId = null,
+  providerExperienceId = null
+} = {}) => {
+  const smtp = getSafeSmtpSummary();
+
+  return {
+    hotelId,
+    bookingRequestId,
+    providerId,
+    providerExperienceId,
+    to,
+    subject,
+    smtpHost: smtp.host,
+    smtpPort: smtp.port,
+    secure: smtp.secure,
+    mode: smtp.mode
+  };
+};
+
 export const buildExperienceProviderLeadEmail = ({
   hotel,
   guest,
@@ -442,26 +477,54 @@ export const buildExperienceProviderLeadEmail = ({
   };
 };
 
-export const sendExperienceProviderLeadEmail = async (emailPayload) => {
-  if (!emailPayload?.to) {
+export const sendProviderEmail = async ({
+  to,
+  subject,
+  message,
+  text,
+  hotelId = null,
+  bookingRequestId = null,
+  providerId = null,
+  providerExperienceId = null,
+  reference = null
+} = {}) => {
+  const emailPayload = {
+    to: normalize(to),
+    subject: normalize(subject) || 'New Staynex experience lead',
+    text: normalize(message ?? text) || 'A new Staynex provider email was created.',
+    reference: reference || (bookingRequestId
+      ? `STAYNEX-${String(bookingRequestId).slice(0, 8).toUpperCase()}`
+      : `SMTP-TEST-${Date.now()}`),
+    mode: getEmailMode()
+  };
+  const logContext = buildProviderEmailLogContext({
+    to: emailPayload.to,
+    subject: emailPayload.subject,
+    hotelId,
+    bookingRequestId,
+    providerId,
+    providerExperienceId
+  });
+
+  logger.info('provider_booking_email_attempt', logContext);
+
+  if (!emailPayload.to) {
     return {
       status: 'skipped',
       reason: 'missing_provider_email',
+      smtp: getSafeSmtpSummary(),
       payload: emailPayload
     };
   }
 
   const mode = getEmailMode();
   if (mode !== 'live') {
-    logger.info('experience_provider_lead_email_prepared', {
-      to: emailPayload.to,
-      subject: emailPayload.subject,
-      mode
-    });
+    logger.info('experience_provider_lead_email_prepared', logContext);
 
     return {
       status: 'draft',
       reason: 'mock_mode',
+      smtp: getSafeSmtpSummary(),
       payload: {
         ...emailPayload,
         mode
@@ -472,10 +535,12 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => {
   try {
     const smtpResult = await sendSmtpMail(emailPayload);
 
-    logger.info('experience_provider_lead_email_sent', {
-      to: emailPayload.to,
-      subject: emailPayload.subject,
-      reference: emailPayload.reference
+    logger.info('provider_booking_email_success', {
+      ...logContext,
+      reference: emailPayload.reference,
+      messageId: smtpResult.messageId,
+      accepted: smtpResult.accepted,
+      attempts: smtpResult.attempts
     });
 
     return {
@@ -485,6 +550,7 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => {
         ...emailPayload,
         mode
       },
+      smtp: getSafeSmtpSummary(),
       transport: {
         provider: 'smtp',
         accepted: smtpResult.accepted,
@@ -494,20 +560,35 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => {
       }
     };
   } catch (error) {
+    const rawErrorPayload = buildSmtpErrorPayload({ error });
+    const readableMessage = getReadableSmtpErrorMessage(rawErrorPayload);
     const errorPayload = {
-      ...buildSmtpErrorPayload({ error }),
+      ...rawErrorPayload,
+      message: readableMessage,
+      rawMessage: rawErrorPayload.message,
       to: emailPayload.to,
       subject: emailPayload.subject,
       smtpConfig: getSafeSmtpSummary()
     };
 
-    logger.error('experience_provider_lead_email_failed', errorPayload);
-    console.error('experience_provider_lead_email_failed', errorPayload);
+    logger.error('provider_booking_email_failed', {
+      ...logContext,
+      ...errorPayload,
+      errorCode: errorPayload.code,
+      errorMessage: readableMessage
+    });
+    console.error('provider_booking_email_failed', {
+      ...logContext,
+      ...errorPayload,
+      errorCode: errorPayload.code,
+      errorMessage: readableMessage
+    });
 
     return {
       status: 'failed',
-      reason: error.message || 'smtp_send_failed',
+      reason: readableMessage,
       error: errorPayload,
+      smtp: getSafeSmtpSummary(),
       payload: {
         ...emailPayload,
         mode
@@ -516,15 +597,24 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => {
   }
 };
 
+export const sendExperienceProviderLeadEmail = async (emailPayload) => sendProviderEmail({
+  to: emailPayload?.to,
+  subject: emailPayload?.subject,
+  message: emailPayload?.text || emailPayload?.message,
+  reference: emailPayload?.reference,
+  hotelId: emailPayload?.hotelId || null,
+  bookingRequestId: emailPayload?.bookingRequestId || null,
+  providerId: emailPayload?.providerId || null,
+  providerExperienceId: emailPayload?.providerExperienceId || null
+});
+
 export const sendProviderEmailTest = async ({ to, subject, message }) => {
-  const payload = {
+  const result = await sendProviderEmail({
     to,
     subject: normalize(subject) || 'Staynex provider email test',
-    text: normalize(message) || 'This is a Staynex provider email delivery test.',
-    reference: `SMTP-TEST-${Date.now()}`,
-    mode: getEmailMode()
-  };
-  const result = await sendExperienceProviderLeadEmail(payload);
+    message: normalize(message) || 'This is a Staynex provider email delivery test.',
+    reference: `SMTP-TEST-${Date.now()}`
+  });
 
   return {
     success: result.status === 'sent',

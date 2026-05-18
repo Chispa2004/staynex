@@ -3,7 +3,7 @@ import { upsertGuestMemory } from './guest-memory.service.js';
 import { createConversion } from './revenue.service.js';
 import {
   buildExperienceProviderLeadEmail,
-  sendExperienceProviderLeadEmail
+  sendProviderEmail
 } from './provider-lead-email.service.js';
 import { logger } from '../utils/logger.js';
 
@@ -259,7 +259,21 @@ const deliverProviderLeadEmailForBookingRequest = async ({
     reason: 'experience_booking_request_created',
     to: emailPayload.to
   });
-  const emailResult = await sendExperienceProviderLeadEmail(emailPayload);
+  const resolvedProviderId = providerId || bookingRequest.provider_id || bookingRequest.metadata?.provider_id || null;
+  const resolvedProviderExperienceId = providerExperience?.provider_experience_id
+    || bookingRequest.provider_experience_id
+    || bookingRequest.metadata?.provider_experience_id
+    || null;
+  const emailResult = await sendProviderEmail({
+    to: emailPayload.to,
+    subject: emailPayload.subject,
+    message: emailPayload.text,
+    reference: emailPayload.reference,
+    hotelId: hotel.id,
+    bookingRequestId: bookingRequest.id,
+    providerId: resolvedProviderId,
+    providerExperienceId: resolvedProviderExperienceId
+  });
 
   const emailLogEvent = emailResult.status === 'failed'
     ? 'provider_lead_email_failed'
@@ -269,8 +283,8 @@ const deliverProviderLeadEmailForBookingRequest = async ({
   logger[emailResult.status === 'failed' ? 'warn' : 'info'](emailLogEvent, {
     hotelId: hotel.id,
     conversationId: conversation?.id || bookingRequest.conversation_id || null,
-    providerId: providerId || bookingRequest.provider_id || bookingRequest.metadata?.provider_id || null,
-    providerExperienceId: providerExperience?.provider_experience_id || bookingRequest.provider_experience_id || bookingRequest.metadata?.provider_experience_id || null,
+    providerId: resolvedProviderId,
+    providerExperienceId: resolvedProviderExperienceId,
     bookingRequestId: bookingRequest.id,
     message: bookingRequest.notes || bookingRequest.metadata?.original_message || null,
     reason: emailResult.reason,
