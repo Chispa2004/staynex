@@ -103,6 +103,93 @@ const HealthBar = ({ value = 0, isLight }) => {
   );
 };
 
+const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }) => {
+  const rows = revenue.partnerMarketplace || [];
+  const statusTone = {
+    converted: 'emerald',
+    lead_sent: 'sky',
+    pending_email: 'amber',
+    email_failed: 'red',
+    active: 'slate'
+  };
+  const statusLabel = {
+    converted: 'Converted',
+    lead_sent: 'Lead sent',
+    pending_email: 'Pending email',
+    email_failed: 'Email failed',
+    active: 'Active'
+  };
+
+  return (
+    <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className={ui.text.eyebrow(isLight)}>Staynex Partner Network</p>
+          <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>Partner Marketplace Revenue</h2>
+          <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
+            Platform-only view of external provider leads, Staynex commission and provider payouts.
+          </p>
+        </div>
+        <span className={ui.badge(isLight, metrics.partnerMarketplaceSqlReady === false ? 'amber' : 'violet')}>
+          {metrics.partnerMarketplaceSqlReady === false ? 'Migration required' : 'Platform only'}
+        </span>
+      </div>
+
+      {metrics.partnerMarketplaceSqlReady === false ? (
+        <div className={cn('mt-4 rounded-xl border px-4 py-3 text-sm', isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-300/10 text-amber-100')}>
+          Partner marketplace SQL migration required.
+        </div>
+      ) : null}
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard icon={Sparkles} isLight={isLight} label="Total Partner Leads" value={loading ? '...' : metrics.totalPartnerLeads || 0} helper="Provider leads created" tone="violet" />
+        <StatCard icon={CalendarCheck} isLight={isLight} label="Total Partner Bookings" value={loading ? '...' : metrics.totalPartnerBookings || 0} helper="Confirmed or completed" />
+        <StatCard icon={CircleDollarSign} isLight={isLight} label="Gross Partner Revenue" value={loading ? '...' : formatCurrency(metrics.totalPartnerRevenue)} helper="Total provider booking value" tone="sky" />
+        <StatCard icon={CircleDollarSign} isLight={isLight} label="Staynex Commission" value={loading ? '...' : formatCurrency(metrics.totalPartnerCommission)} helper="Platform revenue" />
+        <StatCard icon={CircleDollarSign} isLight={isLight} label="Provider Payout" value={loading ? '...' : formatCurrency(metrics.totalProviderPayout)} helper="Estimated provider share" tone="sky" />
+        <StatCard icon={Sparkles} isLight={isLight} label="Top Provider" value={loading ? '...' : metrics.topPartnerProvider || 'No data'} helper="Best marketplace source" tone="violet" />
+        <StatCard icon={Building2} isLight={isLight} label="Top Hotel Source" value={loading ? '...' : metrics.topPartnerHotel || 'No data'} helper="Best origin hotel" />
+        <StatCard icon={BarChart3} isLight={isLight} label="Conversion Rate" value={loading ? '...' : `${metrics.partnerConversionRate || 0}%`} helper="Bookings / leads" tone="sky" />
+        <StatCard icon={AlertTriangle} isLight={isLight} label="Failed Provider Emails" value={loading ? '...' : metrics.failedProviderEmails || 0} helper={`${metrics.pendingProviderEmails || 0} pending emails`} tone="sky" />
+      </div>
+
+      <div className={cn('mt-5 overflow-hidden rounded-xl border', isLight ? 'border-slate-200' : 'border-white/10')}>
+        <div className={cn('grid gap-3 border-b px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] md:grid-cols-[1.1fr_1fr_0.5fr_0.8fr_0.8fr_0.8fr_0.7fr]', isLight ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-white/10 bg-white/[0.03] text-slate-400')}>
+          <span>Provider</span>
+          <span>Hotel Source</span>
+          <span>Bookings</span>
+          <span>Revenue</span>
+          <span>Staynex Commission</span>
+          <span>Provider Payout</span>
+          <span>Status</span>
+        </div>
+        <div className="divide-y divide-slate-200/10">
+          {rows.map((row) => (
+            <div key={row.key} className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[1.1fr_1fr_0.5fr_0.8fr_0.8fr_0.8fr_0.7fr] md:items-center">
+              <strong className="truncate">{row.provider}</strong>
+              <span className={cn('truncate', ui.text.muted(isLight))}>{row.hotelSource || 'Unknown hotel'}</span>
+              <span>{row.bookings || 0}</span>
+              <span>{formatCurrency(row.revenue)}</span>
+              <span>{formatCurrency(row.staynexCommission)}</span>
+              <span>{formatCurrency(row.providerPayout)}</span>
+              <span className={ui.badge(isLight, statusTone[row.status] || 'slate')}>{statusLabel[row.status] || row.status}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {!loading && rows.length === 0 ? (
+        <PremiumEmptyState
+          icon={Sparkles}
+          title="No partner marketplace revenue yet."
+          description="Provider leads from Luxotour and other external partners will appear here once bookings are created."
+          className="mt-4"
+        />
+      ) : null}
+    </section>
+  );
+};
+
 const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
   const [form, setForm] = useState(initialForm);
 
@@ -433,6 +520,13 @@ export const PlatformConsoleClient = () => {
         <StatCard icon={BookOpen} isLight={isLight} label="WhatsApp ready" value={loading ? '...' : metrics.whatsappConfiguredHotels || 0} helper="Hotels with configured number" />
       </section>
 
+      <PartnerMarketplaceRevenueSection
+        metrics={metrics}
+        revenue={revenue}
+        isLight={isLight}
+        loading={loading}
+      />
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
         <section className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
           <div className={cn('border-b px-4 py-3', isLight ? 'border-slate-200' : 'border-white/10')}>
@@ -526,38 +620,6 @@ export const PlatformConsoleClient = () => {
               <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Experience revenue</span><strong>{formatCurrency(metrics.totalExperienceRevenue)}</strong></div>
               <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Experience bookings</span><strong>{formatCurrency(metrics.totalExperienceBookingRevenue)}</strong></div>
               <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Accepted offers</span><strong>{metrics.acceptedOffers || 0}</strong></div>
-            </div>
-          </section>
-
-          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
-            <p className={ui.text.eyebrow(isLight)}>Partner Marketplace Revenue</p>
-            <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{formatCurrency(metrics.totalPartnerCommission)}</h2>
-            <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
-              Staynex commission from partner leads. Top provider: {metrics.topPartnerProvider || 'No partner data'}.
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div><span className={ui.text.muted(isLight)}>Partner leads</span><p className="font-semibold">{metrics.totalPartnerLeads || 0}</p></div>
-              <div><span className={ui.text.muted(isLight)}>Bookings</span><p className="font-semibold">{metrics.totalPartnerBookings || 0}</p></div>
-              <div><span className={ui.text.muted(isLight)}>Revenue</span><p className="font-semibold">{formatCurrency(metrics.totalPartnerRevenue)}</p></div>
-              <div><span className={ui.text.muted(isLight)}>Provider payout</span><p className="font-semibold">{formatCurrency(metrics.totalProviderPayout)}</p></div>
-              <div><span className={ui.text.muted(isLight)}>Conversion</span><p className="font-semibold">{metrics.partnerConversionRate || 0}%</p></div>
-              <div><span className={ui.text.muted(isLight)}>Email issues</span><p className="font-semibold">{metrics.failedProviderEmails || 0}</p></div>
-            </div>
-            <div className="mt-4 space-y-2">
-              {(revenue.partnerMarketplace || []).slice(0, 5).map((row) => (
-                <div key={row.key} className={cn('rounded-lg border p-3 text-xs', ui.surface(isLight, 'subtle'))}>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="truncate font-semibold">{row.provider}</span>
-                    <strong>{formatCurrency(row.staynexCommission)}</strong>
-                  </div>
-                  <p className={cn('mt-1', ui.text.muted(isLight))}>
-                    {row.leads} leads / {row.bookings} bookings / {formatCurrency(row.revenue)} gross
-                  </p>
-                </div>
-              ))}
-              {!(revenue.partnerMarketplace || []).length ? (
-                <p className={cn('text-sm', ui.text.muted(isLight))}>No partner marketplace leads yet.</p>
-              ) : null}
             </div>
           </section>
 

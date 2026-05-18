@@ -388,27 +388,48 @@ export const getPlatformOverview = async (supabase) => {
   const totalProviderPayout = partnerBookings.reduce((total, row) => total + Number(row.provider_payout_amount || row.metadata?.provider_payout_amount || 0), 0);
   const pendingProviderEmails = partnerBookings.filter((row) => ['pending', 'draft'].includes(row.lead_status || row.metadata?.provider_email_status)).length;
   const failedProviderEmails = partnerBookings.filter((row) => (row.lead_status || row.metadata?.provider_email_status) === 'failed').length;
+  const hotelsById = hotelRows.reduce((acc, hotel) => ({
+    ...acc,
+    [hotel.id]: hotel
+  }), {});
+  const partnerMarketplaceSqlReady = experienceBookings.length === 0
+    || experienceBookings.some((row) => (
+      Object.prototype.hasOwnProperty.call(row, 'revenue_owner')
+      || Object.prototype.hasOwnProperty.call(row, 'revenue_type')
+      || Object.prototype.hasOwnProperty.call(row, 'platform_commission_amount')
+    ));
   const partnerProviderRows = Object.values(partnerBookings.reduce((acc, row) => {
-    const key = row.provider_id || row.partner_id || row.provider_source || row.metadata?.provider_source || 'unknown';
+    const providerKey = row.provider_id || row.partner_id || row.provider_source || row.metadata?.provider_source || 'unknown';
+    const key = `${providerKey}:${row.hotel_id || 'unknown_hotel'}`;
+    const emailStatus = row.lead_status || row.metadata?.provider_email_status || 'pending';
     const current = acc[key] || {
       key,
       provider: row.provider_source || row.partner_name || row.metadata?.provider_source || 'Unknown provider',
-      hotelSource: null,
+      hotelId: row.hotel_id || null,
+      hotelSource: hotelsById[row.hotel_id]?.name || 'Unknown hotel',
       bookings: 0,
       leads: 0,
       revenue: 0,
       staynexCommission: 0,
       providerPayout: 0,
       pendingEmails: 0,
-      failedEmails: 0
+      failedEmails: 0,
+      status: 'active'
     };
     current.leads += 1;
     if (['confirmed', 'completed'].includes(row.status)) current.bookings += 1;
     current.revenue += Number(row.estimated_revenue || 0);
     current.staynexCommission += Number(row.platform_commission_amount || row.metadata?.platform_commission_amount || row.commission_estimate || 0);
     current.providerPayout += Number(row.provider_payout_amount || row.metadata?.provider_payout_amount || 0);
-    if (['pending', 'draft'].includes(row.lead_status || row.metadata?.provider_email_status)) current.pendingEmails += 1;
-    if ((row.lead_status || row.metadata?.provider_email_status) === 'failed') current.failedEmails += 1;
+    if (['pending', 'draft'].includes(emailStatus)) current.pendingEmails += 1;
+    if (emailStatus === 'failed') current.failedEmails += 1;
+    current.status = current.failedEmails > 0
+      ? 'email_failed'
+      : current.pendingEmails > 0
+        ? 'pending_email'
+        : current.bookings > 0
+          ? 'converted'
+          : 'lead_sent';
     acc[key] = current;
     return acc;
   }, {})).sort((a, b) => b.staynexCommission - a.staynexCommission);
@@ -450,6 +471,7 @@ export const getPlatformOverview = async (supabase) => {
       topPartnerProvider,
       topPartnerHotel: topPartnerHotel?.name || 'No hotel source',
       partnerConversionRate: totalPartnerLeads ? Math.round((totalPartnerBookings / totalPartnerLeads) * 100) : 0,
+      partnerMarketplaceSqlReady,
       totalActiveUsers: users.filter((row) => row.status === 'active').length,
       pmsConnectedHotels: hotelRows.filter((hotel) => hotel.pms?.enabled).length,
       whatsappConfiguredHotels: hotelRows.filter((hotel) => hotel.stats.whatsappConfigured).length,
