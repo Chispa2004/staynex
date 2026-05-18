@@ -87,6 +87,25 @@ assert.equal(rejected.allowed, false);
 
 const providerCatalog = [
   {
+    id: 'provider-agafay-dinner',
+    hotel_id: 'hotel-morocco',
+    provider_assignment_hotel_id: 'hotel-morocco',
+    provider_experience_id: 'provider-agafay-dinner',
+    provider_id: 'luxotour',
+    provider_source: 'Luxotour Morocco',
+    title: 'Agafay Desert Dinner',
+    slug: 'agafay-desert-dinner',
+    category: 'romantic',
+    short_description: 'Dinner experience in the Agafay desert.',
+    price: 110,
+    currency: 'EUR',
+    duration: 'Evening',
+    active: true,
+    tags: ['agafay', 'desert dinner', 'marrakech'],
+    target_guest_types: ['couples', 'romantic'],
+    metadata: { experience_provider: true }
+  },
+  {
     id: 'provider-agafay',
     hotel_id: 'hotel-morocco',
     provider_assignment_hotel_id: 'hotel-morocco',
@@ -184,7 +203,7 @@ const strictMoroccoCatalog = buildStrictHotelExperienceCatalog({
     }
   ]
 });
-assert.equal(strictMoroccoCatalog.providerExperiences.length, 4);
+assert.equal(strictMoroccoCatalog.providerExperiences.length, 5);
 assert.equal(strictMoroccoCatalog.hotelExperiences.length, 0);
 assert.equal(strictMoroccoCatalog.blockedCrossTenantExperiences, true);
 assert.equal(strictMoroccoCatalog.providerNames.includes('Luxotour Morocco'), true);
@@ -258,6 +277,38 @@ const providerInterest = await classifyProviderExperienceConversation({
 assert.equal(providerInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
 assert.equal(providerInterest.bookingReady, false);
 
+const exactAgafayInterest = await classifyProviderExperienceConversation({
+  message: 'Me interesa Agafay Desert Dinner',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: {
+    provider_experience_id: 'provider-quad',
+    provider_id: 'luxotour',
+    provider_name: 'Luxotour Morocco',
+    title: 'Marrakech Quad Adventure'
+  }
+});
+assert.equal(exactAgafayInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
+assert.equal(exactAgafayInterest.matchedExperience.title, 'Agafay Desert Dinner');
+
+const exactQuadInterest = await classifyProviderExperienceConversation({
+  message: 'Me interesa Marrakech Quad Adventure',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: {
+    provider_experience_id: 'provider-agafay-dinner',
+    provider_id: 'luxotour',
+    provider_name: 'Luxotour Morocco',
+    title: 'Agafay Desert Dinner'
+  }
+});
+assert.equal(exactQuadInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
+assert.equal(exactQuadInterest.matchedExperience.title, 'Marrakech Quad Adventure');
+
+const hammamInterest = await classifyProviderExperienceConversation({
+  message: 'Me interesa Hammam',
+  hotelExperiences: providerCatalog
+});
+assert.equal(hammamInterest.matchedExperience.title, 'Marrakech Hammam Experience');
+
 const prematureBooking = await detectExperienceBookingIntent({
   message: 'Me interesa Agafay',
   hotelExperiences: providerCatalog
@@ -271,7 +322,7 @@ const realBooking = await detectExperienceBookingIntent({
 });
 assert.equal(realBooking.detected, true);
 assert.equal(realBooking.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
-assert.equal(realBooking.matchedExperience.title, 'Excursion al desierto de Agafay');
+assert.equal(realBooking.matchedExperience.title, 'Agafay Desert Dinner');
 
 const directProviderBooking = await detectExperienceBookingIntent({
   message: 'Quiero reservar Atlas Mountains para manana para 2 personas',
@@ -310,11 +361,24 @@ const hammamContext = {
 const contextBooking = await detectExperienceBookingIntent({
   message: 'Vale, envia la solicitud',
   hotelExperiences: providerCatalog,
-  latestProviderContext: hammamContext
+  latestProviderContext: {
+    provider_experience_id: 'provider-agafay-dinner',
+    provider_id: 'luxotour',
+    provider_name: 'Luxotour Morocco',
+    title: 'Agafay Desert Dinner'
+  }
 });
 assert.equal(contextBooking.detected, true);
 assert.equal(contextBooking.reason, 'provider_booking_confirmation_override');
-assert.equal(contextBooking.matchedExperience.title, 'Marrakech Hammam Experience');
+assert.equal(contextBooking.matchedExperience.title, 'Agafay Desert Dinner');
+
+const hammamContextBooking = await detectExperienceBookingIntent({
+  message: 'Vale, envia la solicitud',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: hammamContext
+});
+assert.equal(hammamContextBooking.detected, true);
+assert.equal(hammamContextBooking.matchedExperience.title, 'Marrakech Hammam Experience');
 
 const quadContextBooking = await detectExperienceBookingIntent({
   message: 'adelante',
@@ -349,6 +413,7 @@ console.log(JSON.stringify({
     'provider excursion inquiry does not create booking',
     'provider excursion interest stays conversational',
     'provider excursion booking requires explicit action',
+    'exact provider experience mention overrides previous last context',
     'direct provider booking creates booking-ready intent',
     'booking without exact experience asks follow-up',
     'provider confirmation override creates booking-ready intent from last context',

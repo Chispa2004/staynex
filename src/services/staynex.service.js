@@ -791,10 +791,7 @@ export const processGuestMessage = async ({
     senderType: 'ai',
     content: aiResponseWithUpsell.reply
   });
-  const providerExperienceForState = providerExperienceConversation.matchedExperience
-    || (providerRecommendationReply && providerExperienceConversation.intentType === 'excursion_inquiry'
-      ? providerExperiences[0] || experienceCatalog.find((experience) => experience?.provider_source || experience?.provider_id) || null
-      : null);
+  const providerExperienceForState = providerExperienceConversation.matchedExperience || null;
   const previousLastProviderExperience = conversationState.previousState?.state_metadata?.last_provider_experience || null;
   const nextLastProviderExperience = providerExperienceForState
     ? {
@@ -803,6 +800,19 @@ export const processGuestMessage = async ({
       last_provider_interest_at: new Date().toISOString()
     }
     : previousLastProviderExperience;
+
+  if (providerExperienceForState) {
+    logger.info('provider_last_experience_updated', {
+      hotelId: activeHotel.id,
+      conversationId: conversation.id,
+      message,
+      matchedTitle: providerExperienceForState.title || null,
+      matchedId: providerExperienceForState.provider_experience_id || providerExperienceForState.id || null,
+      matchScore: providerExperienceConversation.confidence || null,
+      matchReason: providerExperienceConversation.reason || null,
+      previousLastExperience: previousLastProviderExperience?.title || previousLastProviderExperience?.provider_experience_id || null
+    });
+  }
   const savedConversationState = await upsertConversationAiState({
     hotelId: activeHotel.id,
     conversationId: conversation.id,

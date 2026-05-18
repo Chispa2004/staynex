@@ -27,6 +27,25 @@ const providerEmailAlreadySent = (bookingRequest = {}) => Boolean(
   || bookingRequest?.lead_email_sent_at
 );
 
+const BOOKING_DEDUPE_WINDOW_MS = 10 * 60 * 1000;
+
+const isSameBookingExperience = ({ booking = {}, providerExperienceId = null, title = '' }) => {
+  const bookingProviderExperienceId = booking.provider_experience_id
+    || booking.metadata?.provider_experience_id
+    || null;
+
+  if (providerExperienceId && bookingProviderExperienceId) {
+    return providerExperienceId === bookingProviderExperienceId;
+  }
+
+  return normalize(booking.experience_title || '') === normalize(title || '');
+};
+
+const isWithinBookingDedupeWindow = (booking = {}) => {
+  const createdAt = new Date(booking.created_at || 0).getTime();
+  return Number.isFinite(createdAt) && Date.now() - createdAt <= BOOKING_DEDUPE_WINDOW_MS;
+};
+
 const isMissingLeadColumns = (error) => (
   error?.message?.includes('lead_')
   || error?.message?.includes('provider_email_')
@@ -506,15 +525,113 @@ const guestsCountFromMessage = (message = '') => {
   return countMatch ? Number(countMatch[1]) : null;
 };
 
-const wordsForExperience = (experience = {}) => [
-  experience.title,
-  experience.slug,
-  experience.category,
-  experience.partner_name,
-  experience.provider_source,
-  ...(experience.tags || []),
-  ...(experience.target_guest_types || [])
-].filter(Boolean).map(normalize);
+const tokenize = (value = '') => normalize(value)
+  .replace(/[^a-z0-9\s]+/g, ' ')
+  .split(/\s+/)
+  .map((token) => token.trim())
+  .filter(Boolean);
+
+const genericExperienceTokens = new Set([
+  'marrakech',
+  'experience',
+  'experiencia',
+  'excursion',
+  'tour',
+  'day',
+  'trip',
+  'full',
+  'half',
+  'activity',
+  'actividad',
+  'adventure'
+]);
+
+const distinctiveTokens = (value = '') => tokenize(value)
+  .filter((token) => token.length >= 4)
+  .filter((token) => !genericExperienceTokens.has(token));
+
+const aliasMap = {
+  agafay: ['agafay', 'agafay desert', 'desert dinner'],
+  quad: ['quad', 'quad adventure'],
+  hammam: ['hammam', 'spa hammam'],
+  atlas: ['atlas', 'atlas mountains'],
+  essaouira: ['essaouira'],
+  tanger: ['tanger', 'tangier'],
+  tangier: ['tangier', 'tanger']
+};
+
+const aliasesForExperience = (experience = {}) => {
+  const haystack = [
+    experience.title,
+    experience.slug,
+    ...(experience.tags || [])
+  ].filter(Boolean).map(normalize).join(' ');
+
+  return Object.entries(aliasMap)
+    .filter(([key]) => haystack.includes(key))
+    .flatMap(([, aliases]) => aliases)
+    .map(normalize);
+};
+
+const scoreExperienceForMessage = ({ message, experience }) => {
+  const text = normalize(message).replace(/[^a-z0-9\s]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const title = normalize(experience?.title || '').replace(/[^a-z0-9\s]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const titleTokens = distinctiveTokens(experience?.title || '');
+
+  if (title && title.length >= 4 && text.includes(title)) {
+    return {
+      score: 1,
+      reason: 'exact_title'
+    };
+  }
+
+  const matchedTitleTokens = titleTokens.filter((token) => text.includes(token));
+  if (titleTokens.length >= 2 && matchedTitleTokens.length === titleTokens.length) {
+    return {
+      score: 0.94,
+      reason: 'strong_title_keywords'
+    };
+  }
+
+  const alias = aliasesForExperience(experience).find((item) => item.length >= 4 && text.includes(item));
+  if (alias) {
+    return {
+      score: 0.9,
+      reason: `controlled_alias:${alias}`
+    };
+  }
+
+  if (matchedTitleTokens.length > 0) {
+    return {
+      score: 0.84,
+      reason: `title_keyword:${matchedTitleTokens.join(',')}`
+    };
+  }
+
+  const slugTokens = distinctiveTokens(experience?.slug || '');
+  const matchedSlugTokens = slugTokens.filter((token) => text.includes(token));
+  if (slugTokens.length >= 2 && matchedSlugTokens.length === slugTokens.length) {
+    return {
+      score: 0.82,
+      reason: 'slug_keywords'
+    };
+  }
+
+  const tag = (experience?.tags || [])
+    .map(normalize)
+    .find((item) => item.length >= 4 && !genericExperienceTokens.has(item) && text.includes(item));
+  if (tag) {
+    return {
+      score: 0.76,
+      reason: `tag:${tag}`
+    };
+  }
+
+  return {
+    score: 0,
+    reason: 'no_match'
+  };
+};
 
 const getLatestExperienceOffer = async ({ conversationId }) => {
   if (!conversationId) {
@@ -579,7 +696,43 @@ const matchHotelExperience = ({
   latestOffer = null,
   latestProviderContext = null
 }) => {
-  const text = normalize(message);
+  logger.info('provider_experience_match_attempt', {
+    message,
+    catalogSize: hotelExperiences.length,
+    previousLastExperience: latestProviderContext?.title || latestProviderContext?.provider_experience_id || null
+  });
+
+  const scored = (hotelExperiences || [])
+    .map((experience) => ({
+      experience,
+      ...scoreExperienceForMessage({ message, experience })
+    }))
+    .sort((a, b) => b.score - a.score);
+  const direct = scored[0];
+
+  if (direct?.score >= 0.76) {
+    logger.info('provider_experience_match_result', {
+      message,
+      matchedTitle: direct.experience.title,
+      matchedId: direct.experience.provider_experience_id || direct.experience.id || null,
+      matchScore: direct.score,
+      matchReason: direct.reason,
+      previousLastExperience: latestProviderContext?.title || latestProviderContext?.provider_experience_id || null
+    });
+    return direct.experience;
+  }
+
+  if (direct?.score > 0) {
+    logger.info('provider_experience_match_rejected', {
+      message,
+      matchedTitle: direct.experience.title,
+      matchedId: direct.experience.provider_experience_id || direct.experience.id || null,
+      matchScore: direct.score,
+      matchReason: direct.reason,
+      previousLastExperience: latestProviderContext?.title || latestProviderContext?.provider_experience_id || null
+    });
+  }
+
   const offeredExperienceId = latestOffer?.metadata?.hotel_experience_id
     || latestOffer?.metadata?.provider_experience_id
     || latestProviderContext?.provider_experience_id
@@ -592,12 +745,28 @@ const matchHotelExperience = ({
       || experience.provider_experience_id === offeredExperienceId
       || experience.metadata?.provider_experience_id === offeredExperienceId
     ));
-    if (offered) return offered;
+    if (offered) {
+      logger.info('provider_experience_match_result', {
+        message,
+        matchedTitle: offered.title,
+        matchedId: offered.provider_experience_id || offered.id || null,
+        matchScore: 0.7,
+        matchReason: 'last_provider_context',
+        previousLastExperience: latestProviderContext?.title || latestProviderContext?.provider_experience_id || null
+      });
+      return offered;
+    }
   }
 
-  return hotelExperiences.find((experience) => wordsForExperience(experience).some((word) => (
-    word.length >= 4 && text.includes(word)
-  ))) || null;
+  logger.info('provider_experience_match_result', {
+    message,
+    matchedTitle: null,
+    matchedId: null,
+    matchScore: 0,
+    matchReason: 'no_clear_match',
+    previousLastExperience: latestProviderContext?.title || latestProviderContext?.provider_experience_id || null
+  });
+  return null;
 };
 
 const hasQuestionShape = (message = '') => /[?¿]/.test(message);
@@ -1009,30 +1178,44 @@ export const createExperienceBookingRequest = async ({
       message,
       reason: intent.reason || intent.conversationIntent?.reason || null
     });
-    const { data: existing, error: existingError } = await supabase
+    const { data: existingCandidates, error: existingError } = await supabase
       .from('experience_booking_requests')
       .select('*')
       .eq('hotel_id', hotel.id)
       .eq('conversation_id', conversation.id)
-      .eq('experience_title', title)
-      .in('status', ['pending', 'reviewing', 'confirmed'])
+      .in('status', ['pending', 'reviewing'])
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(20);
 
     if (existingError) {
       throw existingError;
     }
 
+    const existing = (existingCandidates || []).find((booking) => (
+      isSameBookingExperience({ booking, providerExperienceId, title })
+      && isWithinBookingDedupeWindow(booking)
+    ));
+
+    logger.info('provider_booking_dedupe_checked', {
+      hotelId: hotel.id,
+      conversationId: conversation.id,
+      providerId,
+      providerExperienceId,
+      message,
+      matchedTitle: title,
+      candidates: existingCandidates?.length || 0,
+      dedupeReason: existing ? 'same_experience_recent_active_request' : 'no_recent_same_experience'
+    });
+
     if (existing) {
-      logger.info('provider_booking_request_duplicate_skipped', {
+      logger.info('provider_booking_dedupe_hit', {
         hotelId: hotel.id,
         conversationId: conversation.id,
         providerId: providerId || existing.provider_id || existing.metadata?.provider_id || null,
         providerExperienceId: providerExperienceId || existing.provider_experience_id || existing.metadata?.provider_experience_id || null,
         bookingRequestId: existing.id,
         message,
-        reason: 'active_booking_request_already_exists'
+        dedupeReason: 'same_conversation_same_provider_experience_recent_pending_or_reviewing'
       });
       return deliverProviderLeadEmailForBookingRequest({
         supabase,
@@ -1047,6 +1230,16 @@ export const createExperienceBookingRequest = async ({
         providerLeadEmail: providerLeadEmail || existing.provider_lead_email || existing.metadata?.provider_lead_email || null
       });
     }
+
+    logger.info('provider_booking_dedupe_miss', {
+      hotelId: hotel.id,
+      conversationId: conversation.id,
+      providerId,
+      providerExperienceId,
+      message,
+      matchedTitle: title,
+      dedupeReason: 'different_experience_or_outside_window_or_inactive_status'
+    });
 
     const baseRecord = {
       hotel_id: hotel.id,
