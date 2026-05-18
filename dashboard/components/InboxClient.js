@@ -100,9 +100,23 @@ const normalizeInboxConversations = (conversations = []) => {
 const INBOX_READ_STATE_KEY = 'staynex_inbox_read_state';
 const INBOX_UNREAD_TOTAL_KEY = 'staynex_inbox_unread_total';
 const INBOX_HUMAN_TOTAL_KEY = 'staynex_inbox_human_total';
+const INBOX_TRANSLATION_LANGUAGE_KEY = 'staynex_inbox_translation_language';
 export const INBOX_UNREAD_EVENT = 'staynex:inbox-unread-updated';
 export const INBOX_HUMAN_EVENT = 'staynex:inbox-human-updated';
 const scopedKey = (key, hotelId) => `${key}:${hotelId || 'none'}`;
+const TRANSLATION_LANGUAGES = [
+  { code: 'es', label: 'ES' },
+  { code: 'en', label: 'EN' },
+  { code: 'fr', label: 'FR' },
+  { code: 'de', label: 'DE' },
+  { code: 'it', label: 'IT' },
+  { code: 'pt', label: 'PT' }
+];
+
+const normalizeTranslationLanguage = (value) => {
+  const language = String(value || '').trim().toLowerCase();
+  return TRANSLATION_LANGUAGES.some((item) => item.code === language) ? language : 'es';
+};
 
 const readStoredReadState = (hotelId) => {
   if (typeof window === 'undefined') {
@@ -123,6 +137,38 @@ const persistReadState = (nextState, hotelId) => {
   }
 
   window.localStorage.setItem(scopedKey(INBOX_READ_STATE_KEY, hotelId), JSON.stringify(nextState));
+};
+
+const readStoredTranslationLanguage = (hotelId) => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.localStorage.getItem(scopedKey(INBOX_TRANSLATION_LANGUAGE_KEY, hotelId)) || null;
+};
+
+const persistTranslationLanguage = (language, hotelId) => {
+  if (typeof window === 'undefined' || !hotelId) {
+    return;
+  }
+
+  window.localStorage.setItem(scopedKey(INBOX_TRANSLATION_LANGUAGE_KEY, hotelId), normalizeTranslationLanguage(language));
+};
+
+const getMessageTranslationFromMetadata = (message, targetLanguage) => {
+  const normalizedTarget = normalizeTranslationLanguage(targetLanguage);
+  const cached = message?.metadata?.translations?.[normalizedTarget];
+
+  if (!cached?.translated_text) {
+    return null;
+  }
+
+  return {
+    translation: cached.translated_text,
+    sourceLanguage: cached.source_language || message.original_language || null,
+    targetLanguage: cached.target_language || normalizedTarget,
+    provider: cached.provider || 'cache'
+  };
 };
 
 const dispatchUnreadTotal = (total, hotelId) => {
@@ -301,7 +347,9 @@ export const InboxClient = ({ conversations }) => {
   const [readStateLoaded, setReadStateLoaded] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [currentHotel, setCurrentHotel] = useState(null);
-  const [staffLanguage, setStaffLanguage] = useState(language || 'es');
+  const [staffLanguage, setStaffLanguage] = useState(normalizeTranslationLanguage(language || 'es'));
+  const [translationOverrides, setTranslationOverrides] = useState({});
+  const [translatingMessages, setTranslatingMessages] = useState({});
   const [realtimeStatus, setRealtimeStatus] = useState('connecting');
   const [refreshing, setRefreshing] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
@@ -316,6 +364,7 @@ export const InboxClient = ({ conversations }) => {
   const loadInFlightRef = useRef(false);
   const mountedRef = useRef(false);
   const pageVisibleRef = useRef(true);
+  const staffLanguageRef = useRef(staffLanguage);
 
   const selectedConversation = items.find((conversation) => conversation.id === selectedId) || null;
   const unreadTotal = useMemo(() => getTotalUnread(items, readState), [items, readState]);
@@ -344,6 +393,10 @@ export const InboxClient = ({ conversations }) => {
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
+
+  useEffect(() => {
+    staffLanguageRef.current = staffLanguage;
+  }, [staffLanguage]);
 
   useEffect(() => {
     if (!currentHotel?.id) {
@@ -425,7 +478,13 @@ export const InboxClient = ({ conversations }) => {
       }
 
       setCurrentHotel(body.hotel || null);
-      setStaffLanguage(body.staffLanguage || language || 'es');
+      setStaffLanguage(normalizeTranslationLanguage(
+        readStoredTranslationLanguage(nextHotelId)
+        || staffLanguageRef.current
+        || body.staffLanguage
+        || language
+        || 'es'
+      ));
       setItems(nextItems);
       setSelectedId((current) => {
         const currentSelection = selectedIdRef.current || current;
@@ -475,7 +534,9 @@ export const InboxClient = ({ conversations }) => {
       setReadStateLoaded(false);
       setCopilotOpen(false);
       setMobileChatOpen(false);
-      setStaffLanguage(language || 'es');
+      setStaffLanguage(normalizeTranslationLanguage(language || 'es'));
+      setTranslationOverrides({});
+      setTranslatingMessages({});
     };
 
     window.addEventListener('staynex:tenant-changed', handleTenantChanged);
@@ -794,6 +855,162 @@ export const InboxClient = ({ conversations }) => {
     }
   };
 
+  const requestMessageTranslation = useCallback(async (item, targetLanguage) => {
+    if (!item?.id || !item.content?.trim()) {
+      return null;
+    }
+
+    const normalizedTarget = normalizeTranslationLanguage(targetLanguage);
+    const sourceLanguage = item.original_language || translateMessageForStaff({
+      message: item.content,
+      targetLanguage: normalizedTarget
+    }).sourceLanguage;
+
+    if (sourceLanguage && sourceLanguage === normalizedTarget) {
+      return null;
+    }
+
+    const key = `${item.id}:${normalizedTarget}`;
+
+    if (translationOverrides[key] || translatingMessages[key]) {
+      return translationOverrides[key] || null;
+    }
+
+    setTranslatingMessages((current) => ({
+      ...current,
+      [key]: true
+    }));
+
+    try {
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messageId: item.id,
+          text: item.content,
+          sourceLanguage,
+          targetLanguage: normalizedTarget
+        })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not translate message');
+      }
+
+      const nextTranslation = {
+        translation: body.translatedText,
+        sourceLanguage: body.sourceLanguage || sourceLanguage,
+        targetLanguage: body.targetLanguage || normalizedTarget,
+        provider: body.provider || null
+      };
+
+      setTranslationOverrides((current) => ({
+        ...current,
+        [key]: nextTranslation
+      }));
+
+      setItems((current) => current.map((conversation) => ({
+        ...conversation,
+        messages: (conversation.messages || []).map((messageItem) => (
+          messageItem.id === item.id
+            ? {
+              ...messageItem,
+              original_language: nextTranslation.sourceLanguage || messageItem.original_language,
+              translated_language: nextTranslation.targetLanguage,
+              translated_text: nextTranslation.translation || messageItem.translated_text,
+              translation_provider: nextTranslation.provider || messageItem.translation_provider,
+              metadata: body.metadata || {
+                ...(messageItem.metadata || {}),
+                translations: {
+                  ...(messageItem.metadata?.translations || {}),
+                  [normalizedTarget]: {
+                    translated_text: nextTranslation.translation,
+                    source_language: nextTranslation.sourceLanguage,
+                    target_language: nextTranslation.targetLanguage,
+                    provider: nextTranslation.provider
+                  }
+                }
+              }
+            }
+            : messageItem
+        ))
+      })));
+
+      return nextTranslation;
+    } catch (error) {
+      console.warn('Message translation failed', error);
+      return null;
+    } finally {
+      setTranslatingMessages((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+    }
+  }, [translatingMessages, translationOverrides]);
+
+  useEffect(() => {
+    if (!selectedConversation?.messages?.length || !staffLanguage) {
+      return;
+    }
+
+    selectedConversation.messages
+      .filter((item) => ['guest', 'ai'].includes(item.sender_type))
+      .slice(-20)
+      .forEach((item) => {
+        const sourceLanguage = item.original_language || translateMessageForStaff({
+          message: item.content,
+          targetLanguage: staffLanguage
+        }).sourceLanguage;
+        const key = `${item.id}:${staffLanguage}`;
+        const cached = getMessageTranslationFromMetadata(item, staffLanguage);
+
+        if (
+          sourceLanguage
+          && sourceLanguage !== staffLanguage
+          && !cached
+          && !translationOverrides[key]
+          && !translatingMessages[key]
+        ) {
+          requestMessageTranslation(item, staffLanguage);
+        }
+      });
+  }, [requestMessageTranslation, selectedConversation?.id, selectedConversation?.messages, staffLanguage, translatingMessages, translationOverrides]);
+
+  const handleTranslationLanguageChange = async (event) => {
+    const nextLanguage = normalizeTranslationLanguage(event.target.value);
+
+    setStaffLanguage(nextLanguage);
+    persistTranslationLanguage(nextLanguage, currentHotel?.id);
+    setHiddenTranslations({});
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.info('inbox_translation_language_changed', {
+        hotelId: currentHotel?.id || null,
+        language: nextLanguage
+      });
+    }
+
+    try {
+      await fetch('/api/translate', {
+        method: 'PATCH',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          preferredTranslationLanguage: nextLanguage
+        })
+      });
+    } catch (error) {
+      console.warn('Could not persist translation language preference', error);
+    }
+  };
+
   const toggleTranslation = (messageId) => {
     setHiddenTranslations((current) => ({
       ...current,
@@ -828,6 +1045,10 @@ export const InboxClient = ({ conversations }) => {
   const inboxGridColumns = copilotOpen
     ? 'lg:grid-cols-[360px_minmax(0,1fr)_360px]'
     : 'lg:grid-cols-[360px_minmax(0,1fr)]';
+  const selectedGuestLanguage = selectedConversation?.guest?.preferred_language
+    || [...(selectedConversation?.messages || [])].reverse().find((item) => item.sender_type === 'guest')?.original_language
+    || null;
+  const replyWillTranslate = Boolean(selectedGuestLanguage && selectedGuestLanguage !== staffLanguage);
 
   return (
     <div
@@ -1095,6 +1316,30 @@ export const InboxClient = ({ conversations }) => {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <label className={cn(
+                'inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
+                isLight
+                  ? 'border-slate-200 bg-white text-slate-700'
+                  : 'border-white/10 bg-white/[0.04] text-slate-200'
+              )}
+              >
+                <span>{t('inbox.readIn')}</span>
+                <select
+                  value={staffLanguage}
+                  onChange={handleTranslationLanguageChange}
+                  className={cn(
+                    'rounded-md border px-2 py-1 text-xs font-bold outline-none',
+                    isLight
+                      ? 'border-slate-200 bg-slate-50 text-slate-900'
+                      : 'border-white/10 bg-[#101724] text-white'
+                  )}
+                  aria-label={t('inbox.readIn')}
+                >
+                  {TRANSLATION_LANGUAGES.map((item) => (
+                    <option key={item.code} value={item.code}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
               <span className={[
                 'w-fit rounded-full border px-3 py-1 text-xs font-semibold capitalize',
                 selectedHumanEscalation.needsHuman
@@ -1157,13 +1402,15 @@ export const InboxClient = ({ conversations }) => {
         >
           {(selectedConversation?.messages || []).map((item) => {
             const isStaff = item.sender_type === 'staff';
+            const translationKey = `${item.id}:${staffLanguage}`;
             const fallbackTranslation = item.sender_type === 'guest'
               ? translateMessageForStaff({
                 message: item.content,
                 targetLanguage: staffLanguage || language
               })
               : { translation: null, sourceLanguage: item.original_language || null, targetLanguage: item.translated_language || null };
-            const storedTranslation = item.translated_text
+            const metadataTranslation = getMessageTranslationFromMetadata(item, staffLanguage);
+            const directTranslation = item.translated_text && item.translated_language === staffLanguage
               ? {
                 translation: item.translated_text,
                 sourceLanguage: item.original_language || fallbackTranslation.sourceLanguage,
@@ -1171,11 +1418,13 @@ export const InboxClient = ({ conversations }) => {
                 provider: item.translation_provider
               }
               : null;
-            const messageTranslation = storedTranslation || fallbackTranslation;
+            const messageTranslation = translationOverrides[translationKey] || metadataTranslation || directTranslation || fallbackTranslation;
             const hasTranslation = Boolean(messageTranslation.translation);
+            const isTranslating = Boolean(translatingMessages[translationKey]);
             const translationVisible = hasTranslation && !hiddenTranslations[item.id];
             const languageBadge = item.original_language || messageTranslation.sourceLanguage || null;
             const translationLabel = isStaff ? t('inbox.guestTranslation') : t('inbox.staffTranslation');
+            const alreadyInStaffLanguage = !hasTranslation && languageBadge && languageBadge === staffLanguage;
 
             return (
               <div
@@ -1261,6 +1510,14 @@ export const InboxClient = ({ conversations }) => {
                           </p>
                         ) : null}
                       </div>
+                    ) : isTranslating ? (
+                      <p className={isLight ? 'border-t border-slate-200 pt-3 text-xs font-semibold text-slate-500' : 'border-t border-white/10 pt-3 text-xs font-semibold text-slate-500'}>
+                        {t('inbox.translating')}
+                      </p>
+                    ) : alreadyInStaffLanguage ? (
+                      <p className={isLight ? 'border-t border-slate-200 pt-3 text-xs font-semibold text-slate-500' : 'border-t border-white/10 pt-3 text-xs font-semibold text-slate-500'}>
+                        {t('inbox.alreadyInYourLanguage')}
+                      </p>
                     ) : null}
                   </div>
                 </article>
@@ -1278,6 +1535,11 @@ export const InboxClient = ({ conversations }) => {
           ].join(' ')}
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
         >
+          {replyWillTranslate ? (
+            <p className={isLight ? 'mb-2 px-1 text-xs font-semibold text-slate-500' : 'mb-2 px-1 text-xs font-semibold text-slate-500'}>
+              {t('inbox.replyWillBeSentIn', { language: String(selectedGuestLanguage).toUpperCase() })}
+            </p>
+          ) : null}
           <div className={[
             'flex items-end gap-2 rounded-xl border p-2 shadow-inner',
             isLight

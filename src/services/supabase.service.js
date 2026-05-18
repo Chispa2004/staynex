@@ -329,7 +329,7 @@ export const createMessage = async ({
     translated_text: translatedText,
     translation_provider: translationProvider,
     translation_confidence: translationConfidence,
-    metadata
+    metadata: metadata || {}
   };
 
   let { data, error } = await client

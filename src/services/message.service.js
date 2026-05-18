@@ -48,6 +48,16 @@ export const sendStaffMessage = async ({
   });
   const outboundMessage = guestTranslation.translatedText || message.trim();
 
+  if (guestTranslation.translatedText) {
+    logger.info('staff_reply_translation_applied', {
+      conversationId,
+      guestId: conversation.guest.id,
+      sourceLanguage: detectedStaffLanguage,
+      targetLanguage: guestLanguage,
+      provider: guestTranslation.provider
+    });
+  }
+
   const staffMessage = await createMessage({
     conversationId,
     senderType: 'staff',

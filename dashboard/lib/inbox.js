@@ -272,7 +272,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   let guestsQuery = guestIds.length
     ? supabase
       .from('guests')
-      .select('id, phone_number, current_room')
+      .select('id, phone_number, current_room, preferred_language')
       .in('id', guestIds)
     : Promise.resolve({ data: [], error: null });
 
