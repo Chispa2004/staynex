@@ -48,6 +48,7 @@ const hotelAdminPermissions = [
   'knowledge_base',
   'qr_rooms',
   'onboarding',
+  'academy',
   'pms_connections',
   'pms_connections_manage',
   'settings',
@@ -79,6 +80,7 @@ const rolePermissions = {
     'automations',
     'knowledge_base',
     'qr_rooms',
+    'academy',
     'pms_connections'
   ],
   receptionist: [
@@ -91,7 +93,8 @@ const rolePermissions = {
     'local_knowledge',
     'local_knowledge_manage',
     'experience_bookings',
-    'experience_bookings_manage'
+    'experience_bookings_manage',
+    'academy'
   ],
   housekeeping: [
     'housekeeping',
@@ -126,6 +129,7 @@ const platformPermissions = {
 const routeRules = [
   { pattern: /^\/dashboard\/settings\/users(?:\/.*)?$/, permission: 'user_management' },
   { pattern: /^\/dashboard\/settings\/pms(?:\/.*)?$/, permission: 'pms_connections' },
+  { pattern: /^\/dashboard\/settings\/academy(?:\/.*)?$/, permission: 'academy' },
   { pattern: /^\/dashboard\/ai-logs(?:\/.*)?$/, permission: 'ai_logs' },
   { pattern: /^\/dashboard\/upsells(?:\/.*)?$/, permission: 'upsells' },
   { pattern: /^\/dashboard\/experiences(?:\/.*)?$/, permission: 'experiences' },

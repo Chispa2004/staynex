@@ -100,6 +100,7 @@ const navigationGroups = [
       { href: '/dashboard/qr-rooms', labelKey: 'sidebar.qrRooms', icon: QrCode },
       { href: '/dashboard/local-knowledge', labelKey: 'sidebar.localKnowledge', icon: Map },
       { href: '/dashboard/knowledge', labelKey: 'sidebar.knowledgeBase', icon: BookOpen },
+      { href: '/dashboard/settings/academy', labelKey: 'sidebar.academy', icon: ShieldCheck },
       { href: '/settings', labelKey: 'sidebar.settings', icon: Settings }
     ]
   }

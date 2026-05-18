@@ -1,13 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, PlugZap, ShieldCheck } from 'lucide-react';
+import { BookOpen, GraduationCap, PlugZap, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 const settingsItems = [
+  {
+    href: '/dashboard/settings/academy',
+    icon: GraduationCap,
+    title: 'Staynex Academy',
+    titleKey: 'screens.academy',
+    descriptionKey: 'screens.academyDescription',
+    description: 'Guia operativa para configurar y usar Staynex sin perderse.'
+  },
   {
     href: '/dashboard/settings/knowledge',
     icon: BookOpen,
