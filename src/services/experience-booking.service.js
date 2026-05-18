@@ -566,11 +566,11 @@ const distinctiveTokens = (value = '') => tokenize(value)
   .filter((token) => !genericExperienceTokens.has(token));
 
 const aliasMap = {
-  agafay: ['agafay', 'agafay desert', 'desert dinner'],
+  agafay: ['agafay', 'agafay desert', 'desert dinner', 'dessert dinner'],
   quad: ['quad', 'quad adventure'],
   hammam: ['hammam', 'spa hammam'],
   atlas: ['atlas', 'atlas mountains'],
-  essaouira: ['essaouira'],
+  essaouira: ['essaouira', 'essaouira coastal'],
   tanger: ['tanger', 'tangier'],
   tangier: ['tangier', 'tanger']
 };
@@ -645,6 +645,165 @@ const scoreExperienceForMessage = ({ message, experience }) => {
   return {
     score: 0,
     reason: 'no_match'
+  };
+};
+
+const matchExplicitProviderExperience = ({ message, providerExperiences = [] }) => {
+  const scored = (providerExperiences || [])
+    .map((experience) => ({
+      experience,
+      ...scoreExperienceForMessage({ message, experience })
+    }))
+    .sort((a, b) => b.score - a.score);
+  const best = scored[0];
+
+  return best?.score >= 0.76 ? best : null;
+};
+
+const contextToExperience = ({ lastProviderExperience = null, providerExperiences = [] } = {}) => {
+  const id = lastProviderExperience?.provider_experience_id
+    || lastProviderExperience?.last_provider_experience_id
+    || lastProviderExperience?.experience_id
+    || lastProviderExperience?.id
+    || null;
+
+  if (!id) {
+    return null;
+  }
+
+  return providerExperiences.find((experience) => (
+    experience.id === id
+    || experience.provider_experience_id === id
+    || experience.metadata?.provider_experience_id === id
+  )) || null;
+};
+
+export const resolveCurrentProviderExperienceForBooking = ({
+  message = '',
+  recentMessages = [],
+  providerExperiences = [],
+  lastProviderExperience = null
+} = {}) => {
+  const recentGuestMessages = (recentMessages || [])
+    .filter((item) => item?.sender_type === 'guest' || item?.senderType === 'guest')
+    .map((item) => ({
+      id: item.id || null,
+      content: item.content || item.message || '',
+      created_at: item.created_at || item.createdAt || null
+    }))
+    .filter((item) => item.content);
+  const previousLastTitle = lastProviderExperience?.title || lastProviderExperience?.last_provider_experience_title || null;
+
+  safeProviderLog('info', 'provider_booking_experience_resolution_attempt', {
+    currentMessage: message,
+    recentGuestMessages: recentGuestMessages.map((item) => item.content).slice(-6),
+    lastProviderExperienceTitle: previousLastTitle,
+    previousLastTitle
+  });
+
+  const currentMatch = matchExplicitProviderExperience({
+    message,
+    providerExperiences
+  });
+  if (currentMatch) {
+    const result = {
+      resolvedExperience: currentMatch.experience,
+      resolvedSource: 'current_message',
+      resolvedFromMessage: message,
+      matchScore: currentMatch.score,
+      matchReason: currentMatch.reason,
+      previousLastTitle
+    };
+    safeProviderLog('info', 'provider_booking_experience_resolution_result', {
+      currentMessage: message,
+      recentGuestMessages: recentGuestMessages.map((item) => item.content).slice(-6),
+      lastProviderExperienceTitle: previousLastTitle,
+      resolvedTitle: currentMatch.experience.title,
+      resolvedSource: result.resolvedSource,
+      previousLastTitle,
+      matchScore: currentMatch.score,
+      matchReason: currentMatch.reason
+    });
+    return result;
+  }
+
+  for (const recentMessage of [...recentGuestMessages].reverse()) {
+    if (normalize(recentMessage.content) === normalize(message)) {
+      continue;
+    }
+
+    const recentMatch = matchExplicitProviderExperience({
+      message: recentMessage.content,
+      providerExperiences
+    });
+
+    if (recentMatch) {
+      const result = {
+        resolvedExperience: recentMatch.experience,
+        resolvedSource: 'recent_guest_message',
+        resolvedFromMessage: recentMessage.content,
+        matchScore: recentMatch.score,
+        matchReason: recentMatch.reason,
+        previousLastTitle
+      };
+      safeProviderLog('info', 'provider_booking_experience_resolution_result', {
+        currentMessage: message,
+        recentGuestMessages: recentGuestMessages.map((item) => item.content).slice(-6),
+        lastProviderExperienceTitle: previousLastTitle,
+        resolvedTitle: recentMatch.experience.title,
+        resolvedSource: result.resolvedSource,
+        previousLastTitle,
+        matchScore: recentMatch.score,
+        matchReason: recentMatch.reason
+      });
+      return result;
+    }
+  }
+
+  const contextExperience = contextToExperience({
+    lastProviderExperience,
+    providerExperiences
+  });
+  if (contextExperience) {
+    const result = {
+      resolvedExperience: contextExperience,
+      resolvedSource: 'last_provider_experience',
+      resolvedFromMessage: lastProviderExperience?.last_guest_interest_message || null,
+      matchScore: 0.7,
+      matchReason: 'last_provider_experience',
+      previousLastTitle
+    };
+    safeProviderLog('info', 'provider_booking_experience_resolution_result', {
+      currentMessage: message,
+      recentGuestMessages: recentGuestMessages.map((item) => item.content).slice(-6),
+      lastProviderExperienceTitle: previousLastTitle,
+      resolvedTitle: contextExperience.title,
+      resolvedSource: result.resolvedSource,
+      previousLastTitle,
+      matchScore: 0.7,
+      matchReason: 'last_provider_experience'
+    });
+    return result;
+  }
+
+  safeProviderLog('info', 'provider_booking_experience_resolution_result', {
+    currentMessage: message,
+    recentGuestMessages: recentGuestMessages.map((item) => item.content).slice(-6),
+    lastProviderExperienceTitle: previousLastTitle,
+    resolvedTitle: null,
+    resolvedSource: null,
+    previousLastTitle,
+    matchScore: 0,
+    matchReason: 'no_recent_or_context_experience'
+  });
+
+  return {
+    resolvedExperience: null,
+    resolvedSource: null,
+    resolvedFromMessage: null,
+    matchScore: 0,
+    matchReason: 'no_recent_or_context_experience',
+    previousLastTitle
   };
 };
 
@@ -1010,7 +1169,7 @@ export const classifyProviderExperienceConversation = async ({
   const hasBareConfirmation = includesAny(text, ['yes confirm', 'yes please book', 'yes book', 'si confirmar', 'sí confirmar', 'si reservar', 'sí reservar']);
   const followsExperienceOfferWithAction = Boolean((latestOffer || latestProviderContext) && (hasBookingLanguage || hasBareConfirmation || confirmationOverride));
 
-  if (latestProviderContext && confirmationOverride) {
+  if (latestProviderContext && confirmationOverride && !mentionsExperience) {
     if (!matchedExperience) {
       return {
         intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
@@ -1142,20 +1301,41 @@ export const detectExperienceBookingIntent = async ({
   message = '',
   conversationId = null,
   hotelExperiences = [],
-  latestProviderContext = null
+  latestProviderContext = null,
+  recentMessages = []
 } = {}) => {
+  const loadedLatestProviderContext = latestProviderContext || await getLatestProviderExperienceContext({ conversationId });
+  const experienceResolution = resolveCurrentProviderExperienceForBooking({
+    message,
+    recentMessages,
+    providerExperiences: hotelExperiences,
+    lastProviderExperience: loadedLatestProviderContext
+  });
+  const resolvedLatestProviderContext = experienceResolution.resolvedExperience
+    ? buildLastProviderExperienceState({
+      providerExperience: experienceResolution.resolvedExperience,
+      reason: experienceResolution.resolvedSource === 'last_provider_experience'
+        ? 'explicit_guest_interest'
+        : 'explicit_guest_booking_intent',
+      message: experienceResolution.resolvedFromMessage || message,
+      callsite: `detectExperienceBookingIntent.${experienceResolution.resolvedSource || 'none'}`
+    })
+    : loadedLatestProviderContext;
   const classified = await classifyProviderExperienceConversation({
     message,
     conversationId,
     hotelExperiences,
-    latestProviderContext
+    latestProviderContext: resolvedLatestProviderContext
   });
+  const matchedExperience = experienceResolution.resolvedExperience || classified.matchedExperience || null;
 
   if (!classified.bookingReady) {
     return {
       detected: false,
       confidence: classified.confidence || 0,
       reason: classified.reason,
+      experienceResolution,
+      matchedExperience,
       conversationIntent: classified
     };
   }
@@ -1165,11 +1345,12 @@ export const detectExperienceBookingIntent = async ({
     confidence: classified.confidence,
     reason: classified.reason,
     latestOffer: classified.latestOffer,
-    latestProviderContext: classified.latestProviderContext,
-    matchedExperience: classified.matchedExperience,
+    latestProviderContext: resolvedLatestProviderContext || classified.latestProviderContext,
+    matchedExperience,
     requestedDate: classified.requestedDate,
     requestedTime: classified.requestedTime,
     guestsCount: classified.guestsCount,
+    experienceResolution,
     conversationIntent: classified
   };
 };
@@ -1462,6 +1643,10 @@ export const createExperienceBookingRequest = async ({
         guest_phone: guest?.phone_number || reservation?.guest_phone || null,
         original_message: message,
         provider_booking_confirmation_override: confirmationOverride,
+        resolved_experience_source: intent.experienceResolution?.resolvedSource || null,
+        resolved_from_message: intent.experienceResolution?.resolvedFromMessage || null,
+        resolved_provider_experience_title: intent.experienceResolution?.resolvedExperience?.title || experience?.title || title,
+        previous_last_provider_experience_title: intent.experienceResolution?.previousLastTitle || null,
         desired_date: intent.requestedDate,
         desired_time: intent.requestedTime,
         guests_count: intent.guestsCount || reservation?.adults || null,

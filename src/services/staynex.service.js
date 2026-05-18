@@ -709,8 +709,25 @@ export const processGuestMessage = async ({
     message,
     conversationId: conversation.id,
     hotelExperiences: experienceCatalog,
-    latestProviderContext: providerExperienceConversation.latestProviderContext || null
+    latestProviderContext: providerExperienceConversation.latestProviderContext || null,
+    recentMessages: conversationContext.recentMessages
   });
+  const bookingResolvedFromRecentExplicitExperience = ['current_message', 'recent_guest_message'].includes(
+    experienceBookingIntent.experienceResolution?.resolvedSource
+  );
+  let preBookingLastProviderWrite = null;
+  if (bookingResolvedFromRecentExplicitExperience && experienceBookingIntent.matchedExperience) {
+    preBookingLastProviderWrite = await setLastProviderExperience({
+      hotelId: activeHotel.id,
+      conversationId: conversation.id,
+      guestId: guest.id,
+      providerExperience: experienceBookingIntent.matchedExperience,
+      reason: 'explicit_guest_booking_intent',
+      message: experienceBookingIntent.experienceResolution?.resolvedFromMessage || message,
+      previousLastExperience: providerExperienceConversation.latestProviderContext || conversationState.previousState?.state_metadata?.last_provider_experience || null,
+      callsite: `staynex.processGuestMessage.bookingResolution.${experienceBookingIntent.experienceResolution?.resolvedSource}`
+    });
+  }
   const experienceBookingRequest = await createExperienceBookingRequest({
     hotel: activeHotel,
     guest,
@@ -791,24 +808,36 @@ export const processGuestMessage = async ({
     content: aiResponseWithUpsell.reply
   });
   const previousLastProviderExperience = conversationState.previousState?.state_metadata?.last_provider_experience || null;
-  const lastProviderWriteReason = providerExperienceConversation.matchedExperience
-    ? providerExperienceConversation.bookingReady
+  const effectiveProviderExperienceForState = experienceBookingIntent.matchedExperience
+    || providerExperienceConversation.matchedExperience
+    || null;
+  const effectiveProviderIntentForState = experienceBookingIntent.matchedExperience
+    ? {
+      bookingReady: experienceBookingIntent.detected,
+      reason: experienceBookingIntent.reason || experienceBookingIntent.conversationIntent?.reason || providerExperienceConversation.reason,
+      intentType: experienceBookingIntent.conversationIntent?.intentType || providerExperienceConversation.intentType
+    }
+    : providerExperienceConversation;
+  const lastProviderWriteReason = effectiveProviderExperienceForState
+    ? effectiveProviderIntentForState.bookingReady
       ? 'explicit_guest_booking_intent'
-      : providerExperienceConversation.reason === 'soft_interest_or_detail_request'
+      : effectiveProviderIntentForState.reason === 'soft_interest_or_detail_request'
         ? 'explicit_guest_detail_request'
-        : providerExperienceConversation.intentType === 'excursion_interest'
+        : effectiveProviderIntentForState.intentType === 'excursion_interest'
           ? 'explicit_guest_interest'
           : null
     : null;
-  const lastProviderWrite = providerExperienceConversation.intentType
+  const lastProviderWrite = preBookingLastProviderWrite?.written
+    ? preBookingLastProviderWrite
+    : (providerExperienceConversation.intentType || experienceBookingIntent.conversationIntent?.intentType)
     ? await setLastProviderExperience({
       hotelId: activeHotel.id,
       conversationId: conversation.id,
       guestId: guest.id,
-      providerExperience: providerExperienceConversation.matchedExperience || null,
+      providerExperience: effectiveProviderExperienceForState,
       reason: lastProviderWriteReason || 'recommendation_list',
       message,
-      previousLastExperience: previousLastProviderExperience,
+      previousLastExperience: preBookingLastProviderWrite?.lastProviderExperience || previousLastProviderExperience,
       callsite: 'staynex.processGuestMessage.providerExperienceConversation'
     })
     : {

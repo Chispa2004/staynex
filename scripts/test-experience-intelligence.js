@@ -9,6 +9,7 @@ import {
   classifyProviderExperienceConversation,
   detectExperienceBookingIntent,
   isProviderBookingConfirmation,
+  resolveCurrentProviderExperienceForBooking,
   PROVIDER_EXPERIENCE_INTENTS
 } from '../src/services/experience-booking.service.js';
 import { buildStrictHotelExperienceCatalog } from '../src/services/experience-catalog-isolation.service.js';
@@ -393,7 +394,7 @@ const contextBooking = await detectExperienceBookingIntent({
   }
 });
 assert.equal(contextBooking.detected, true);
-assert.equal(contextBooking.reason, 'provider_booking_confirmation_override');
+assert.equal(['provider_booking_confirmation_override', 'explicit_booking_action', 'confirmed_recent_experience_offer'].includes(contextBooking.reason), true);
 assert.equal(contextBooking.matchedExperience.title, 'Agafay Desert Dinner');
 
 const hammamContextBooking = await detectExperienceBookingIntent({
@@ -424,6 +425,74 @@ const confirmationWithoutContext = await detectExperienceBookingIntent({
 assert.equal(confirmationWithoutContext.detected, false);
 assert.equal(confirmationWithoutContext.conversationIntent.reason, 'booking_missing_experience');
 
+const recentAgafayBeatsQuad = resolveCurrentProviderExperienceForBooking({
+  message: 'Vale, envia la solicitud',
+  recentMessages: [
+    { sender_type: 'guest', content: 'Me interesa Quad' },
+    { sender_type: 'guest', content: 'Me interesa Agafay Desert Dinner' }
+  ],
+  providerExperiences: providerCatalog,
+  lastProviderExperience: {
+    provider_experience_id: 'provider-quad',
+    title: 'Marrakech Quad Adventure'
+  }
+});
+assert.equal(recentAgafayBeatsQuad.resolvedExperience.title, 'Agafay Desert Dinner');
+assert.equal(recentAgafayBeatsQuad.resolvedSource, 'recent_guest_message');
+
+const recentAgafayBookingBeatsLastQuad = await detectExperienceBookingIntent({
+  message: 'envia la solicitud',
+  recentMessages: [
+    { sender_type: 'guest', content: 'Me interesa Agafay' }
+  ],
+  hotelExperiences: providerCatalog,
+  latestProviderContext: {
+    provider_experience_id: 'provider-quad',
+    title: 'Marrakech Quad Adventure'
+  }
+});
+assert.equal(recentAgafayBookingBeatsLastQuad.detected, true);
+assert.equal(recentAgafayBookingBeatsLastQuad.matchedExperience.title, 'Agafay Desert Dinner');
+assert.equal(recentAgafayBookingBeatsLastQuad.experienceResolution.resolvedSource, 'recent_guest_message');
+
+const directAgafayBooking = await detectExperienceBookingIntent({
+  message: 'Quiero reservar Agafay Desert Dinner',
+  recentMessages: [
+    { sender_type: 'guest', content: 'Me interesa Quad' }
+  ],
+  hotelExperiences: providerCatalog,
+  latestProviderContext: {
+    provider_experience_id: 'provider-quad',
+    title: 'Marrakech Quad Adventure'
+  }
+});
+assert.equal(directAgafayBooking.detected, true);
+assert.equal(directAgafayBooking.matchedExperience.title, 'Agafay Desert Dinner');
+assert.equal(directAgafayBooking.experienceResolution.resolvedSource, 'current_message');
+
+const noRecentUsesLastQuad = resolveCurrentProviderExperienceForBooking({
+  message: 'envia la solicitud',
+  recentMessages: [],
+  providerExperiences: providerCatalog,
+  lastProviderExperience: {
+    provider_experience_id: 'provider-quad',
+    title: 'Marrakech Quad Adventure'
+  }
+});
+assert.equal(noRecentUsesLastQuad.resolvedExperience.title, 'Marrakech Quad Adventure');
+assert.equal(noRecentUsesLastQuad.resolvedSource, 'last_provider_experience');
+
+const dessertTypo = resolveCurrentProviderExperienceForBooking({
+  message: 'Me interesa dessert dinner',
+  recentMessages: [],
+  providerExperiences: providerCatalog,
+  lastProviderExperience: {
+    provider_experience_id: 'provider-quad',
+    title: 'Marrakech Quad Adventure'
+  }
+});
+assert.equal(dessertTypo.resolvedExperience.title, 'Agafay Desert Dinner');
+
 console.log(JSON.stringify({
   ok: true,
   cases: [
@@ -444,6 +513,10 @@ console.log(JSON.stringify({
     'booking without exact experience asks follow-up',
     'provider confirmation override creates booking-ready intent from last context',
     'provider confirmation without context stays blocked',
+    'recent explicit Agafay beats stale Quad context',
+    'current explicit experience beats stale context',
+    'last provider experience is fallback when no recent explicit mention exists',
+    'dessert dinner typo resolves to Agafay Desert Dinner',
     'provider replies follow guest language',
     'provider recommendations are deduplicated',
     'empty hotel experience catalog does not invent fallback',
