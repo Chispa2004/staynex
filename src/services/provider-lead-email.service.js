@@ -17,6 +17,23 @@ const getSmtpConfig = () => ({
   from: normalize(process.env.SMTP_FROM || process.env.EMAIL_FROM || 'Staynex <no-reply@staynex.ai>')
 });
 
+const getSafeSmtpSummary = () => {
+  const config = getSmtpConfig();
+
+  return {
+    provider: 'smtp',
+    host: config.host || null,
+    port: config.port || null,
+    user: config.user || null,
+    from: config.from || null,
+    mode: getEmailMode(),
+    secure: Number(config.port) === 465,
+    startTls: Number(config.port) !== 465,
+    authConfigured: Boolean(config.user && config.pass),
+    passwordConfigured: Boolean(config.pass)
+  };
+};
+
 const extractEmailAddress = (value = '') => {
   const match = String(value).match(/<([^>]+)>/);
   return normalize(match?.[1] || value);
@@ -97,15 +114,24 @@ const createSmtpReader = (socket) => {
 const assertSmtpOk = (response, accepted = ['2', '3']) => {
   const code = String(response || '').slice(0, 3);
   if (!accepted.some((prefix) => code.startsWith(prefix))) {
-    throw new Error(`smtp_unexpected_response_${code || 'unknown'}`);
+    const error = new Error(`smtp_unexpected_response_${code || 'unknown'}`);
+    error.code = `SMTP_${code || 'UNKNOWN'}`;
+    error.responseCode = code ? Number(code) : undefined;
+    error.response = response;
+    throw error;
   }
 };
 
 const sendCommand = async ({ socket, read, command, accepted }) => {
-  socket.write(`${command}\r\n`);
-  const response = await read();
-  assertSmtpOk(response, accepted);
-  return response;
+  try {
+    socket.write(`${command}\r\n`);
+    const response = await read();
+    assertSmtpOk(response, accepted);
+    return response;
+  } catch (error) {
+    error.command = command;
+    throw error;
+  }
 };
 
 const upgradeToTls = async ({ socket, host }) => new Promise((resolve, reject) => {
@@ -275,11 +301,26 @@ export const sendExperienceProviderLeadEmail = async (emailPayload) => {
       }
     };
   } catch (error) {
-    logger.warn('experience_provider_lead_email_failed', {
+    const smtpSummary = getSafeSmtpSummary();
+    const errorPayload = {
+      type: 'smtp_send_failed',
       to: emailPayload.to,
       subject: emailPayload.subject,
-      message: error.message
-    });
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response,
+      responseCode: error.responseCode,
+      stack: error.stack,
+      smtpHost: process.env.SMTP_HOST,
+      smtpPort: process.env.SMTP_PORT,
+      smtpUser: process.env.SMTP_USER,
+      mode: process.env.EXPERIENCE_PROVIDER_EMAIL_MODE,
+      smtpConfig: smtpSummary
+    };
+
+    logger.error('experience_provider_lead_email_failed', errorPayload);
+    console.error('experience_provider_lead_email_failed', errorPayload);
 
     return {
       status: 'failed',
