@@ -294,6 +294,9 @@ const LogDetail = ({ log, onClose }) => {
         <DetailRow label="hotel_name" value={log.hotel_name} />
         <DetailRow label="detected_language" value={log.detected_language} />
         <DetailRow label="response_language" value={log.response_language} />
+        <DetailRow label="translated_for_staff" value={log.translated_for_staff} />
+        <DetailRow label="translated_for_guest" value={log.translated_for_guest} />
+        <DetailRow label="translation_provider" value={log.translation_provider} />
         <DetailRow label="detected_intent" value={log.detected_intent} />
         <DetailRow label="detected_room" value={log.detected_room} />
         <DetailRow label="knowledge_used" value={log.knowledge_used} />

@@ -84,6 +84,7 @@ import {
   setLastProviderExperience
 } from './experience-booking.service.js';
 import { buildStrictHotelExperienceCatalog } from './experience-catalog-isolation.service.js';
+import { translateForStaff } from './translation.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -234,11 +235,28 @@ export const processGuestMessage = async ({
     hotelId: activeHotel.id,
     guestId: guest.id
   });
+  const guestLanguage = guest.preferred_language || activeHotel.default_language || 'es';
+  const staffTranslationLanguage = activeHotel.staff_translation_language || activeHotel.default_language || 'es';
+  const staffTranslation = await translateForStaff({
+    text: message,
+    guestLanguage,
+    staffLanguage: staffTranslationLanguage
+  });
 
   const guestMessage = await createMessage({
     conversationId: conversation.id,
     senderType: 'guest',
-    content: message
+    content: message,
+    originalLanguage: staffTranslation.sourceLanguage || guestLanguage,
+    translatedLanguage: staffTranslation.translatedText ? staffTranslation.targetLanguage : null,
+    translatedText: staffTranslation.translatedText,
+    translationProvider: staffTranslation.provider,
+    translationConfidence: staffTranslation.confidence,
+    metadata: {
+      translation_direction: 'guest_to_staff',
+      conversation_language: guestLanguage,
+      staff_language: staffTranslationLanguage
+    }
   });
 
   const conversationContext = await buildConversationContext({
@@ -755,7 +773,11 @@ export const processGuestMessage = async ({
     await createMessage({
       conversationId: conversation.id,
       senderType: 'ai',
-      content: `Experience booking request created: ${experienceBookingRequest.experience_title}. Reception must confirm availability before the guest is told it is confirmed.`
+      content: `Experience booking request created: ${experienceBookingRequest.experience_title}. Reception must confirm availability before the guest is told it is confirmed.`,
+      originalLanguage: 'en',
+      metadata: {
+        system_event: 'experience_booking_request_created'
+      }
     });
   }
 
@@ -805,7 +827,12 @@ export const processGuestMessage = async ({
   const aiMessage = await createMessage({
     conversationId: conversation.id,
     senderType: 'ai',
-    content: aiResponseWithUpsell.reply
+    content: aiResponseWithUpsell.reply,
+    originalLanguage: conversationContext.language,
+    metadata: {
+      translation_direction: 'ai_to_guest',
+      response_language: conversationContext.language
+    }
   });
   const previousLastProviderExperience = conversationState.previousState?.state_metadata?.last_provider_experience || null;
   const effectiveProviderExperienceForState = experienceBookingIntent.matchedExperience
@@ -956,6 +983,9 @@ export const processGuestMessage = async ({
     providerExperiencesCount: providerExperiences.length,
     hotelExperiencesCount: hotelExperiences.length,
     responseLanguage: conversationContext.language,
+    translatedForStaff: Boolean(staffTranslation.translatedText),
+    translatedForGuest: false,
+    translationProvider: staffTranslation.provider,
     sourcePriority: providerExperiences.length ? 'provider_experiences>hotel_experiences>local_knowledge' : hotelExperiences.length ? 'hotel_experiences>local_knowledge' : 'local_knowledge_or_empty',
     blockedCrossTenantExperiences: strictCatalog.blockedCrossTenantExperiences,
     providerNamesLoaded: strictCatalog.providerNames.join(', '),

@@ -58,6 +58,8 @@ const normalizeHotelUser = (row) => ({
   status: row.status || 'active',
   platform_role: row.platform_role || 'none',
   multi_property_access: Boolean(row.multi_property_access),
+  preferred_dashboard_language: row.preferred_dashboard_language || 'es',
+  preferred_translation_language: row.preferred_translation_language || row.preferred_dashboard_language || 'es',
   is_default: Boolean(row.is_default),
   invited_at: row.invited_at || null,
   accepted_at: row.accepted_at || null,

@@ -10,7 +10,7 @@ const getBackendUrl = () => (
 
 export async function POST(request) {
   try {
-    const { supabase, hotel, role, platformRole } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, hotelUser, role, platformRole } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'inbox')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
@@ -50,7 +50,8 @@ export async function POST(request) {
       body: JSON.stringify({
         conversationId,
         message: body.message,
-        hotelId: hotel.id
+        hotelId: hotel.id,
+        staffLanguage: body.staffLanguage || hotelUser?.preferred_translation_language || hotel?.default_language || 'es'
       })
     });
 

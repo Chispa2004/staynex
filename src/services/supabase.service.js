@@ -8,6 +8,27 @@ const isMissingPreferredLanguageColumn = (error) => (
   || error?.hint?.includes('preferred_language')
 );
 
+const isMissingMessageTranslationColumn = (error) => (
+  error?.message?.includes('original_language')
+  || error?.message?.includes('translated_language')
+  || error?.message?.includes('translated_text')
+  || error?.message?.includes('translation_provider')
+  || error?.message?.includes('translation_confidence')
+  || error?.message?.includes('metadata')
+  || error?.details?.includes('original_language')
+  || error?.details?.includes('translated_language')
+  || error?.details?.includes('translated_text')
+  || error?.details?.includes('translation_provider')
+  || error?.details?.includes('translation_confidence')
+  || error?.details?.includes('metadata')
+  || error?.hint?.includes('original_language')
+  || error?.hint?.includes('translated_language')
+  || error?.hint?.includes('translated_text')
+  || error?.hint?.includes('translation_provider')
+  || error?.hint?.includes('translation_confidence')
+  || error?.hint?.includes('metadata')
+);
+
 export const getSupabase = () => {
   if (supabase) {
     return supabase;
@@ -287,18 +308,50 @@ export const touchConversation = async (conversationId) => {
   return data;
 };
 
-export const createMessage = async ({ conversationId, senderType, content }) => {
+export const createMessage = async ({
+  conversationId,
+  senderType,
+  content,
+  originalLanguage = null,
+  translatedLanguage = null,
+  translatedText = null,
+  translationProvider = null,
+  translationConfidence = null,
+  metadata = null
+}) => {
   const client = getSupabase();
+  const messageRecord = {
+    conversation_id: conversationId,
+    sender_type: senderType,
+    content,
+    original_language: originalLanguage,
+    translated_language: translatedLanguage,
+    translated_text: translatedText,
+    translation_provider: translationProvider,
+    translation_confidence: translationConfidence,
+    metadata
+  };
 
-  const { data, error } = await client
+  let { data, error } = await client
     .from('messages')
-    .insert({
-      conversation_id: conversationId,
-      sender_type: senderType,
-      content
-    })
+    .insert(messageRecord)
     .select('*')
     .single();
+
+  if (error && isMissingMessageTranslationColumn(error)) {
+    const fallbackResult = await client
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_type: senderType,
+        content
+      })
+      .select('*')
+      .single();
+
+    data = fallbackResult.data;
+    error = fallbackResult.error;
+  }
 
   if (error) {
     throw error;

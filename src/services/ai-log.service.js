@@ -56,6 +56,9 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.message?.includes('provider_experiences_count')
   || error?.message?.includes('hotel_experiences_count')
   || error?.message?.includes('response_language')
+  || error?.message?.includes('translated_for_staff')
+  || error?.message?.includes('translated_for_guest')
+  || error?.message?.includes('translation_provider')
   || error?.message?.includes('source_priority')
   || error?.message?.includes('blocked_cross_tenant_experiences')
   || error?.message?.includes('provider_names_loaded')
@@ -100,6 +103,9 @@ const isMissingOptionalMetadataFields = (error) => (
   || error?.details?.includes('provider_experiences_count')
   || error?.details?.includes('hotel_experiences_count')
   || error?.details?.includes('response_language')
+  || error?.details?.includes('translated_for_staff')
+  || error?.details?.includes('translated_for_guest')
+  || error?.details?.includes('translation_provider')
   || error?.details?.includes('source_priority')
   || error?.details?.includes('blocked_cross_tenant_experiences')
   || error?.details?.includes('provider_names_loaded')
@@ -174,6 +180,9 @@ export const createAiLog = async ({
   lastProviderExperienceId = null,
   providerLeadStatus = null,
   providerEmailStatus = null,
+  translatedForStaff = false,
+  translatedForGuest = false,
+  translationProvider = null,
   ai_provider = null,
   ai_model = null,
   fallback_used = false
@@ -240,7 +249,10 @@ export const createAiLog = async ({
       matched_provider_experience_id: toNullableText(matchedProviderExperienceId),
       last_provider_experience_id: toNullableText(lastProviderExperienceId),
       provider_lead_status: toNullableText(providerLeadStatus),
-      provider_email_status: toNullableText(providerEmailStatus)
+      provider_email_status: toNullableText(providerEmailStatus),
+      translated_for_staff: Boolean(translatedForStaff),
+      translated_for_guest: Boolean(translatedForGuest),
+      translation_provider: toNullableText(translationProvider)
     };
 
     let { data, error } = await supabase
@@ -301,6 +313,9 @@ export const createAiLog = async ({
         last_provider_experience_id,
         provider_lead_status,
         provider_email_status,
+        translated_for_staff,
+        translated_for_guest,
+        translation_provider,
         ...fallbackRecord
       } = logRecord;
       const fallbackResult = await supabase

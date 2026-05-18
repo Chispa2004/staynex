@@ -5,7 +5,7 @@ import { canAccess } from '@/lib/permissions';
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, fallback, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, hotelUser, fallback, role } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'inbox')) {
       return NextResponse.json({ conversations: [], hotel, error: 'Access denied' }, { status: 403 });
@@ -19,6 +19,7 @@ export async function GET(request) {
       conversations,
       hotel,
       hotelId: hotel?.id || null,
+      staffLanguage: hotelUser?.preferred_translation_language || hotel?.default_language || 'es',
       fallback
     });
   } catch (error) {

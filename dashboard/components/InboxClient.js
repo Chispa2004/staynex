@@ -301,6 +301,7 @@ export const InboxClient = ({ conversations }) => {
   const [readStateLoaded, setReadStateLoaded] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
   const [currentHotel, setCurrentHotel] = useState(null);
+  const [staffLanguage, setStaffLanguage] = useState(language || 'es');
   const [realtimeStatus, setRealtimeStatus] = useState('connecting');
   const [refreshing, setRefreshing] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
@@ -424,6 +425,7 @@ export const InboxClient = ({ conversations }) => {
       }
 
       setCurrentHotel(body.hotel || null);
+      setStaffLanguage(body.staffLanguage || language || 'es');
       setItems(nextItems);
       setSelectedId((current) => {
         const currentSelection = selectedIdRef.current || current;
@@ -473,6 +475,7 @@ export const InboxClient = ({ conversations }) => {
       setReadStateLoaded(false);
       setCopilotOpen(false);
       setMobileChatOpen(false);
+      setStaffLanguage(language || 'es');
     };
 
     window.addEventListener('staynex:tenant-changed', handleTenantChanged);
@@ -743,7 +746,8 @@ export const InboxClient = ({ conversations }) => {
         },
         body: JSON.stringify({
           conversationId: selectedConversation.id,
-          message: message.trim()
+          message: message.trim(),
+          staffLanguage
         })
       });
 
@@ -1153,12 +1157,25 @@ export const InboxClient = ({ conversations }) => {
         >
           {(selectedConversation?.messages || []).map((item) => {
             const isStaff = item.sender_type === 'staff';
-            const staffTranslation = translateMessageForStaff({
-              message: item.content,
-              targetLanguage: language
-            });
-            const hasTranslation = Boolean(staffTranslation.translation);
+            const fallbackTranslation = item.sender_type === 'guest'
+              ? translateMessageForStaff({
+                message: item.content,
+                targetLanguage: staffLanguage || language
+              })
+              : { translation: null, sourceLanguage: item.original_language || null, targetLanguage: item.translated_language || null };
+            const storedTranslation = item.translated_text
+              ? {
+                translation: item.translated_text,
+                sourceLanguage: item.original_language || fallbackTranslation.sourceLanguage,
+                targetLanguage: item.translated_language || fallbackTranslation.targetLanguage,
+                provider: item.translation_provider
+              }
+              : null;
+            const messageTranslation = storedTranslation || fallbackTranslation;
+            const hasTranslation = Boolean(messageTranslation.translation);
             const translationVisible = hasTranslation && !hiddenTranslations[item.id];
+            const languageBadge = item.original_language || messageTranslation.sourceLanguage || null;
+            const translationLabel = isStaff ? t('inbox.guestTranslation') : t('inbox.staffTranslation');
 
             return (
               <div
@@ -1176,7 +1193,7 @@ export const InboxClient = ({ conversations }) => {
                 >
                   <div className="mb-2 flex items-center justify-between gap-4">
                     <p className={[
-                      'text-xs font-semibold',
+                      'flex items-center gap-2 text-xs font-semibold',
                       isLight
                         ? item.sender_type === 'staff'
                           ? 'text-sky-800'
@@ -1191,6 +1208,11 @@ export const InboxClient = ({ conversations }) => {
                         : item.sender_type === 'staff'
                           ? t('inbox.staff')
                           : 'Staynex'}
+                      {languageBadge ? (
+                        <span className={isLight ? 'rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500' : 'rounded-full border border-white/10 bg-black/20 px-1.5 py-0.5 text-[10px] font-bold text-slate-300'}>
+                          {String(languageBadge).toUpperCase()}
+                        </span>
+                      ) : null}
                     </p>
                     <p className={isLight ? 'text-xs text-slate-500' : 'text-xs opacity-60'}>{formatTime(item.created_at)}</p>
                   </div>
@@ -1206,7 +1228,8 @@ export const InboxClient = ({ conversations }) => {
                       <div className={isLight ? 'border-t border-slate-200 pt-3' : 'border-t border-white/10 pt-3'}>
                         <div className="mb-2 flex items-center justify-between gap-3">
                           <p className={isLight ? 'text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500' : 'text-[10px] font-semibold uppercase tracking-[0.16em] opacity-60'}>
-                            {t('inbox.staffTranslation')}
+                            {translationLabel}
+                            {messageTranslation.targetLanguage ? ` - ${String(messageTranslation.targetLanguage).toUpperCase()}` : ''}
                           </p>
                           <button
                             type="button"
@@ -1234,7 +1257,7 @@ export const InboxClient = ({ conversations }) => {
                               : 'border-white/10 bg-black/20'
                           ].join(' ')}
                           >
-                            {staffTranslation.translation}
+                            {messageTranslation.translation}
                           </p>
                         ) : null}
                       </div>

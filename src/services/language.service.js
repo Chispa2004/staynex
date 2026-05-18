@@ -4,6 +4,76 @@ const normalize = (value = '') => value
   .replace(/[\u0300-\u036f]/g, '');
 
 const LANGUAGE_SIGNALS = {
+  bg: [
+    'zakuska',
+    'staya',
+    'koga',
+    'molya',
+    'blagodarya',
+    'rezerviram',
+    'ekskurzii',
+    'дейности',
+    'екскурзии',
+    'стая',
+    'закуска',
+    'моля',
+    'благодаря'
+  ],
+  ru: [
+    'spasibo',
+    'nomer',
+    'zavtrak',
+    'pozhaluysta',
+    'ekskursii',
+    'комната',
+    'номер',
+    'завтрак',
+    'пожалуйста',
+    'экскурсии'
+  ],
+  ar: [
+    'غرفة',
+    'فطور',
+    'شكرا',
+    'من فضلك',
+    'رحلات',
+    'حجز'
+  ],
+  it: [
+    'colazione',
+    'camera',
+    'asciugamani',
+    'per favore',
+    'escursioni',
+    'prenotare',
+    'wifi'
+  ],
+  pt: [
+    'pequeno almoço',
+    'pequeno-almoco',
+    'cafe da manha',
+    'quarto',
+    'toalhas',
+    'por favor',
+    'excursões',
+    'excursao'
+  ],
+  nl: [
+    'ontbijt',
+    'kamer',
+    'handdoeken',
+    'alsjeblieft',
+    'excursies',
+    'boeken'
+  ],
+  pl: [
+    'sniadanie',
+    'pokoj',
+    'reczniki',
+    'prosze',
+    'wycieczki',
+    'zarezerwowac'
+  ],
   de: [
     'was',
     'welche',
@@ -13,6 +83,10 @@ const LANGUAGE_SIGNALS = {
     'handtucher',
     'zimmer',
     'bitte',
+    'wann',
+    'wann beginnt',
+    'fruhstuck',
+    'frühstück',
     'wlan',
     'passwort',
     'wie lautet',
@@ -72,9 +146,31 @@ const LANGUAGE_SIGNALS = {
   ]
 };
 
-export const SUPPORTED_LANGUAGES = ['es', 'en', 'fr', 'de'];
+export const SUPPORTED_LANGUAGES = ['es', 'en', 'fr', 'de', 'it', 'pt', 'bg', 'ru', 'ar', 'nl', 'pl'];
+
+const detectByScript = (value = '') => {
+  if (/[\u0600-\u06ff]/.test(value)) {
+    return 'ar';
+  }
+
+  if (/[а-яё]/i.test(value)) {
+    const normalizedValue = normalize(value);
+    const bgSignals = LANGUAGE_SIGNALS.bg.filter((signal) => normalizedValue.includes(normalize(signal))).length;
+    const ruSignals = LANGUAGE_SIGNALS.ru.filter((signal) => normalizedValue.includes(normalize(signal))).length;
+
+    return bgSignals >= ruSignals ? 'bg' : 'ru';
+  }
+
+  return null;
+};
 
 export const detectGuestLanguage = (message, fallbackLanguage = 'es') => {
+  const scriptLanguage = detectByScript(message);
+
+  if (scriptLanguage) {
+    return scriptLanguage;
+  }
+
   const text = normalize(message);
   const scoredLanguages = SUPPORTED_LANGUAGES.map((language) => ({
     language,

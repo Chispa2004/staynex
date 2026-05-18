@@ -3,6 +3,7 @@ import { validateEnvironment } from '../src/config/env.js';
 import { getOrCreateLocalTestHotel } from '../src/services/supabase.service.js';
 import { seedDemoKnowledge } from '../src/services/knowledge.service.js';
 import { processGuestMessage } from '../src/services/staynex.service.js';
+import { detectLanguage, translateForGuest, translateForStaff } from '../src/services/translation.service.js';
 
 process.env.USE_MOCK_AI = 'true';
 process.env.REQUIRE_TWILIO = 'false';
@@ -11,6 +12,35 @@ validateEnvironment({ exitOnError: true });
 
 const hotel = await getOrCreateLocalTestHotel();
 await seedDemoKnowledge(hotel);
+
+const assertEqual = (actual, expected, message) => {
+  if (actual !== expected) {
+    throw new Error(`${message}. Expected ${expected}, received ${actual}`);
+  }
+};
+
+const germanToSpanish = await translateForStaff({
+  text: 'Wann beginnt das Fr\u00fchst\u00fcck?',
+  guestLanguage: detectLanguage('Wann beginnt das Fr\u00fchst\u00fcck?'),
+  staffLanguage: 'es'
+});
+assertEqual(germanToSpanish.sourceLanguage, 'de', 'German language detection failed');
+assertEqual(germanToSpanish.targetLanguage, 'es', 'Staff translation target failed');
+
+const spanishToGerman = await translateForGuest({
+  text: 'El desayuno es de 7 a 10',
+  staffLanguage: 'es',
+  guestLanguage: 'de'
+});
+assertEqual(spanishToGerman.targetLanguage, 'de', 'Guest translation target failed');
+
+const bulgarianToSpanish = await translateForStaff({
+  text: '\u041a\u043e\u0433\u0430 \u0437\u0430\u043f\u043e\u0447\u0432\u0430 \u0437\u0430\u043a\u0443\u0441\u043a\u0430\u0442\u0430?',
+  guestLanguage: detectLanguage('\u041a\u043e\u0433\u0430 \u0437\u0430\u043f\u043e\u0447\u0432\u0430 \u0437\u0430\u043a\u0443\u0441\u043a\u0430\u0442\u0430?'),
+  staffLanguage: 'es'
+});
+assertEqual(bulgarianToSpanish.sourceLanguage, 'bg', 'Bulgarian language detection failed');
+assertEqual(bulgarianToSpanish.targetLanguage, 'es', 'Bulgarian staff translation target failed');
 
 const examples = [
   {

@@ -10,6 +10,50 @@ const groupMessagesByConversation = (messages) => messages.reduce((groups, messa
   return groups;
 }, new Map());
 
+const isMissingMessageTranslationFields = (error) => (
+  error?.message?.includes('original_language')
+  || error?.message?.includes('translated_language')
+  || error?.message?.includes('translated_text')
+  || error?.message?.includes('translation_provider')
+  || error?.message?.includes('translation_confidence')
+  || error?.message?.includes('metadata')
+  || error?.details?.includes('original_language')
+  || error?.details?.includes('translated_language')
+  || error?.details?.includes('translated_text')
+  || error?.details?.includes('translation_provider')
+  || error?.details?.includes('translation_confidence')
+  || error?.details?.includes('metadata')
+);
+
+const getMessagesForConversations = async ({ supabase, conversationIds }) => {
+  const baseSelect = 'id, conversation_id, sender_type, content, created_at';
+  const extendedSelect = `${baseSelect}, original_language, translated_language, translated_text, translation_provider, translation_confidence, metadata`;
+  let { data, error } = await supabase
+    .from('messages')
+    .select(extendedSelect)
+    .in('conversation_id', conversationIds)
+    .order('created_at', { ascending: true })
+    .limit(INBOX_MESSAGE_LIMIT);
+
+  if (error && isMissingMessageTranslationFields(error)) {
+    const fallback = await supabase
+      .from('messages')
+      .select(baseSelect)
+      .in('conversation_id', conversationIds)
+      .order('created_at', { ascending: true })
+      .limit(INBOX_MESSAGE_LIMIT);
+
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+};
+
 const getLatestAiLogsByConversation = async ({ supabase, conversationIds }) => {
   if (!conversationIds.length) {
     return new Map();
@@ -236,14 +280,9 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     guestsQuery = guestsQuery.eq('hotel_id', resolvedHotelId);
   }
 
-  const [{ data: guests, error: guestsError }, { data: messages, error: messagesError }, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest] = await Promise.all([
+  const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest] = await Promise.all([
     guestsQuery,
-    supabase
-      .from('messages')
-      .select('id, conversation_id, sender_type, content, created_at')
-      .in('conversation_id', conversationIds)
-      .order('created_at', { ascending: true })
-      .limit(INBOX_MESSAGE_LIMIT),
+    getMessagesForConversations({ supabase, conversationIds }),
     getLatestAiLogsByConversation({ supabase, conversationIds }),
     getActiveUpsellsByConversation({ supabase, conversationIds }),
     getActiveOffersByConversation({ supabase, conversationIds }),
@@ -254,10 +293,6 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
 
   if (guestsError) {
     throw guestsError;
-  }
-
-  if (messagesError) {
-    throw messagesError;
   }
 
   const guestsById = new Map((guests || []).map((guest) => [guest.id, guest]));
