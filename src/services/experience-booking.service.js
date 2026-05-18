@@ -20,6 +20,204 @@ const isMissingBookingTable = (error) => (
 
 const includesAny = (text, words) => words.some((word) => text.includes(normalize(word)));
 
+const providerEmailAlreadySent = (bookingRequest = {}) => Boolean(
+  bookingRequest?.metadata?.provider_email_sent_at
+  || bookingRequest?.metadata?.provider_email_status === 'sent'
+  || bookingRequest?.lead_status === 'sent'
+  || bookingRequest?.lead_email_sent_at
+);
+
+const isMissingLeadColumns = (error) => (
+  error?.message?.includes('lead_')
+  || error?.message?.includes('provider_email_')
+  || error?.details?.includes('lead_')
+  || error?.details?.includes('provider_email_')
+);
+
+const verifyProviderConnectedToHotel = async ({
+  supabase,
+  hotelId,
+  providerId
+}) => {
+  if (!providerId) {
+    return false;
+  }
+
+  const { data, error } = await supabase
+    .from('hotel_experience_providers')
+    .select('id, lead_email, active, provider:experience_providers(id, name, active, contact_email)')
+    .eq('hotel_id', hotelId)
+    .eq('provider_id', providerId)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (error) {
+    logger.warn('Provider assignment verification failed', {
+      hotelId,
+      providerId,
+      message: error.message
+    });
+    return false;
+  }
+
+  return data && data.provider?.active !== false ? data : false;
+};
+
+const buildProviderEmailMetadata = ({
+  bookingRequest,
+  emailPayload,
+  emailResult
+}) => ({
+  ...(bookingRequest?.metadata || {}),
+  provider_email_to: emailPayload?.to || null,
+  provider_email_status: emailResult.status,
+  provider_email_error: emailResult.status === 'failed' ? emailResult.reason : null,
+  provider_email_sent_at: emailResult.status === 'sent' ? new Date().toISOString() : bookingRequest?.metadata?.provider_email_sent_at || null,
+  provider_email_prepared_at: emailResult.status === 'draft' ? new Date().toISOString() : bookingRequest?.metadata?.provider_email_prepared_at || null,
+  provider_email_reference: emailPayload?.reference || null,
+  provider_email_mode: emailPayload?.mode || process.env.EXPERIENCE_PROVIDER_EMAIL_MODE || 'mock'
+});
+
+const updateBookingRequestProviderEmailState = async ({
+  supabase,
+  bookingRequest,
+  emailPayload,
+  emailResult
+}) => {
+  const metadata = buildProviderEmailMetadata({
+    bookingRequest,
+    emailPayload,
+    emailResult
+  });
+  const sentAt = metadata.provider_email_sent_at;
+  const updateWithLeadColumns = {
+    metadata,
+    lead_status: emailResult.status,
+    lead_email_payload: emailPayload,
+    lead_email_sent_at: emailResult.status === 'sent' ? sentAt : null,
+    lead_error: emailResult.status === 'failed' ? emailResult.reason : null,
+    updated_at: new Date().toISOString()
+  };
+
+  let { data, error } = await supabase
+    .from('experience_booking_requests')
+    .update(updateWithLeadColumns)
+    .eq('id', bookingRequest.id)
+    .select('*')
+    .single();
+
+  if (error && isMissingLeadColumns(error)) {
+    const fallback = await supabase
+      .from('experience_booking_requests')
+      .update({
+        metadata,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', bookingRequest.id)
+      .select('*')
+      .single();
+
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) {
+    logger.warn('Experience provider lead status update failed', {
+      bookingRequestId: bookingRequest.id,
+      message: error.message
+    });
+    return {
+      ...bookingRequest,
+      metadata
+    };
+  }
+
+  return data || {
+    ...bookingRequest,
+    metadata
+  };
+};
+
+const deliverProviderLeadEmailForBookingRequest = async ({
+  supabase,
+  hotel,
+  guest,
+  reservation,
+  conversation,
+  bookingRequest,
+  providerExperience,
+  providerId,
+  providerSource,
+  providerLeadEmail
+}) => {
+  if (!providerSource && !providerId) {
+    return bookingRequest;
+  }
+
+  if (providerEmailAlreadySent(bookingRequest)) {
+    logger.info('experience_provider_lead_email_duplicate_skipped', {
+      bookingRequestId: bookingRequest.id,
+      hotelId: hotel.id,
+      providerSource: providerSource || bookingRequest.provider_source || bookingRequest.metadata?.provider_source || null
+    });
+    return bookingRequest;
+  }
+
+  const assignment = await verifyProviderConnectedToHotel({
+    supabase,
+    hotelId: hotel.id,
+    providerId: providerId || bookingRequest.provider_id || bookingRequest.metadata?.provider_id
+  });
+
+  if (!assignment) {
+    logger.warn('experience_provider_lead_email_skipped_unassigned_provider', {
+      bookingRequestId: bookingRequest.id,
+      hotelId: hotel.id,
+      providerId
+    });
+    return updateBookingRequestProviderEmailState({
+      supabase,
+      bookingRequest,
+      emailPayload: {
+        to: providerLeadEmail,
+        subject: `New Staynex experience lead - ${hotel.name || 'Hotel'}`,
+        mode: process.env.EXPERIENCE_PROVIDER_EMAIL_MODE || 'mock'
+      },
+      emailResult: {
+        status: 'skipped',
+        reason: 'provider_not_connected_to_hotel'
+      }
+    });
+  }
+
+  const resolvedLeadEmail = providerLeadEmail
+    || bookingRequest.provider_lead_email
+    || bookingRequest.metadata?.provider_lead_email
+    || assignment.lead_email
+    || assignment.provider?.contact_email
+    || null;
+  const emailPayload = buildExperienceProviderLeadEmail({
+    hotel,
+    guest,
+    reservation,
+    conversation,
+    bookingRequest: {
+      ...bookingRequest,
+      provider_source: providerSource || bookingRequest.provider_source || assignment.provider?.name || null
+    },
+    providerExperience,
+    leadEmail: resolvedLeadEmail
+  });
+  const emailResult = await sendExperienceProviderLeadEmail(emailPayload);
+
+  return updateBookingRequestProviderEmailState({
+    supabase,
+    bookingRequest,
+    emailPayload,
+    emailResult
+  });
+};
+
 const uniqueExperiences = (experiences = []) => {
   const seen = new Set();
 
@@ -545,7 +743,18 @@ export const createExperienceBookingRequest = async ({
     }
 
     if (existing) {
-      return existing;
+      return deliverProviderLeadEmailForBookingRequest({
+        supabase,
+        hotel,
+        guest,
+        reservation,
+        conversation,
+        bookingRequest: existing,
+        providerExperience: experience,
+        providerId: providerId || existing.provider_id || existing.metadata?.provider_id || null,
+        providerSource: providerSource || existing.provider_source || existing.metadata?.provider_source || null,
+        providerLeadEmail: providerLeadEmail || existing.provider_lead_email || existing.metadata?.provider_lead_email || null
+      });
     }
 
     const baseRecord = {
@@ -621,45 +830,19 @@ export const createExperienceBookingRequest = async ({
       throw error;
     }
 
-    if (providerSource) {
-      const emailPayload = buildExperienceProviderLeadEmail({
+    if (providerSource || providerId) {
+      data = await deliverProviderLeadEmailForBookingRequest({
+        supabase,
         hotel,
         guest,
         reservation,
         conversation,
         bookingRequest: data,
         providerExperience: experience,
-        leadEmail: providerLeadEmail
+        providerId,
+        providerSource,
+        providerLeadEmail
       });
-      const emailResult = await sendExperienceProviderLeadEmail(emailPayload);
-
-      try {
-        const { error: leadUpdateError } = await supabase
-          .from('experience_booking_requests')
-          .update({
-            lead_status: emailResult.status,
-            lead_email_payload: emailPayload,
-            lead_email_sent_at: emailResult.status === 'sent' ? new Date().toISOString() : null,
-            lead_error: emailResult.status === 'failed' ? emailResult.reason : null
-          })
-          .eq('id', data.id);
-
-        if (leadUpdateError && !leadUpdateError.message?.includes('lead_')) {
-          logger.warn('Experience provider lead status update failed', { message: leadUpdateError.message });
-        }
-      } catch (leadUpdateError) {
-        if (!leadUpdateError.message?.includes('lead_')) {
-          logger.warn('Experience provider lead status update failed', { message: leadUpdateError.message });
-        }
-      }
-
-      data = {
-        ...data,
-        provider_source: data.provider_source || providerSource,
-        provider_lead_email: data.provider_lead_email || providerLeadEmail,
-        lead_status: emailResult.status,
-        lead_email_payload: emailPayload
-      };
     }
 
     await createConversion({

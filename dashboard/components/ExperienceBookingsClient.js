@@ -40,6 +40,30 @@ const statusTone = {
   cancelled: 'slate'
 };
 
+const providerEmailStatus = (booking) => (
+  booking.metadata?.provider_email_status
+  || booking.lead_status
+  || (booking.metadata?.provider_lead_required ? 'pending' : null)
+);
+
+const providerEmailTone = {
+  sent: 'emerald',
+  draft: 'sky',
+  pending: 'amber',
+  failed: 'red',
+  skipped: 'slate',
+  not_required: 'slate'
+};
+
+const providerEmailLabel = {
+  sent: 'Provider email sent',
+  draft: 'Provider email prepared',
+  pending: 'Provider email pending',
+  failed: 'Provider email failed',
+  skipped: 'Provider email skipped',
+  not_required: 'No provider email'
+};
+
 const StatCard = ({ icon: Icon, label, value, helper, isLight }) => (
   <article className={cn('rounded-xl border p-4', ui.surface(isLight))}>
     <div className="flex items-start justify-between gap-4">
@@ -257,6 +281,11 @@ export const ExperienceBookingsClient = () => {
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className={cn('truncate text-lg font-semibold', ui.text.title(isLight))}>{booking.experience_title}</h2>
                     <span className={ui.badge(isLight, statusTone[booking.status] || 'slate')}>{booking.status}</span>
+                    {providerEmailStatus(booking) ? (
+                      <span className={ui.badge(isLight, providerEmailTone[providerEmailStatus(booking)] || 'slate')}>
+                        {providerEmailLabel[providerEmailStatus(booking)] || providerEmailStatus(booking)}
+                      </span>
+                    ) : null}
                   </div>
                   <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>
                     {booking.guest_name || 'Guest'} / Room {booking.room_number || '-'} / {booking.partner_name || 'Internal concierge'}
@@ -264,6 +293,11 @@ export const ExperienceBookingsClient = () => {
                   <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
                     Created {formatDate(booking.created_at)} / Source {booking.source || 'ai_concierge'}
                   </p>
+                  {booking.metadata?.provider_email_error || booking.lead_error ? (
+                    <p className={cn('mt-2 text-xs font-medium', isLight ? 'text-red-700' : 'text-red-200')}>
+                      Provider email error: {booking.metadata?.provider_email_error || booking.lead_error}
+                    </p>
+                  ) : null}
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <div><span className={ui.text.eyebrow(isLight)}>Date</span><p className="text-sm font-semibold">{booking.requested_date || 'To confirm'}</p></div>
                     <div><span className={ui.text.eyebrow(isLight)}>Time</span><p className="text-sm font-semibold">{booking.requested_time || 'To confirm'}</p></div>
