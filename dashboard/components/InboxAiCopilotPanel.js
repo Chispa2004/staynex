@@ -137,6 +137,12 @@ export const InboxAiCopilotPanel = ({
   const revenuePotential = offers.reduce((total, offer) => total + Number(offer.suggested_price || 0), 0);
   const copilot = conversation?.copilot || safeCopilot(conversation, humanEscalation);
   const summaryBullets = copilot.summary?.bullets || [];
+  const guestIntelligence = copilot.guestIntelligence || {};
+  const affinities = guestIntelligence.affinities || {};
+  const topAffinities = Object.entries(affinities)
+    .filter(([key]) => key.endsWith('_affinity'))
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .slice(0, 4);
 
   const copySuggestedReply = async () => {
     if (!copilot.suggestedReply?.text || typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -262,6 +268,49 @@ export const InboxAiCopilotPanel = ({
                 </div>
               ))}
             </div>
+          ) : null}
+        </Section>
+
+        <Section title="Guest Intelligence" icon={Sparkles}>
+          <div className="flex flex-wrap gap-2">
+            {guestIntelligence.profileType ? <Pill tone="violet">{String(guestIntelligence.profileType).replaceAll('_', ' ')}</Pill> : null}
+            {guestIntelligence.revenuePotentialScore !== null && guestIntelligence.revenuePotentialScore !== undefined ? (
+              <Pill tone={Number(guestIntelligence.revenuePotentialScore) >= 65 ? 'emerald' : 'sky'}>
+                Revenue {Math.round(Number(guestIntelligence.revenuePotentialScore || 0))}/100
+              </Pill>
+            ) : null}
+            {guestIntelligence.reviewRiskScore !== null && guestIntelligence.reviewRiskScore !== undefined ? (
+              <Pill tone={Number(guestIntelligence.reviewRiskScore) >= 60 ? 'orange' : 'emerald'}>
+                Review risk {Math.round(Number(guestIntelligence.reviewRiskScore || 0))}/100
+              </Pill>
+            ) : null}
+            {guestIntelligence.prediction?.conversion_probability || guestIntelligence.prediction?.conversionProbability ? (
+              <Pill tone="emerald">
+                Convert {formatPercent(guestIntelligence.prediction.conversion_probability ?? guestIntelligence.prediction.conversionProbability)}
+              </Pill>
+            ) : null}
+          </div>
+          {topAffinities.length ? (
+            <div className="mt-3 space-y-2">
+              {topAffinities.map(([key, value]) => (
+                <div key={key}>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className={isLight ? 'text-slate-500' : 'text-slate-400'}>{key.replace('_affinity', '').replaceAll('_', ' ')}</span>
+                    <span className={isLight ? 'font-semibold text-slate-700' : 'font-semibold text-slate-200'}>{Math.round(Number(value || 0))}</span>
+                  </div>
+                  <div className={isLight ? 'h-2 overflow-hidden rounded-full bg-slate-100' : 'h-2 overflow-hidden rounded-full bg-white/10'}>
+                    <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.max(0, Math.min(100, Number(value || 0)))}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>No intelligence profile yet.</p>
+          )}
+          {guestIntelligence.profileSummary ? (
+            <p className={isLight ? 'mt-3 text-xs leading-5 text-slate-500' : 'mt-3 text-xs leading-5 text-slate-500'}>
+              {guestIntelligence.profileSummary}
+            </p>
           ) : null}
         </Section>
 

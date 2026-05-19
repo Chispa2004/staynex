@@ -271,6 +271,7 @@ export const evaluateAutomationOpportunity = ({
   guestMemory = [],
   aiState = null,
   pmsIntelligenceContext = null,
+  guestIntelligenceContext = null,
   now = new Date(),
   weather = null,
   recentRuns = [],
@@ -313,6 +314,9 @@ export const evaluateAutomationOpportunity = ({
   const daysToDeparture = daysBetween(today, reservation.departure_date);
   const status = reservation.status || '';
   const stayPhase = pmsIntelligenceContext?.stayPhase || pmsIntelligenceContext?.stay_phase || null;
+  const guestProfile = guestIntelligenceContext?.profile || guestIntelligenceContext || {};
+  const revenuePrediction = guestIntelligenceContext?.revenuePrediction || guestIntelligenceContext?.prediction || {};
+  const affinities = guestIntelligenceContext?.affinities || {};
   const memoryText = guestMemory.map((item) => `${item.memory_key} ${item.memory_value}`).join(' ').toLowerCase();
   const aiIntent = String(aiState?.current_intent || '').toLowerCase();
   const sentiment = String(aiState?.sentiment || '').toLowerCase();
@@ -326,12 +330,12 @@ export const evaluateAutomationOpportunity = ({
   const decisions = {
     [INTELLIGENT_AUTOMATION_TYPES.WELCOME_MESSAGE]: status === 'checked_in' || status === 'in_house' || stayPhase === 'in_house' || daysToArrival === 0,
     [INTELLIGENT_AUTOMATION_TYPES.LATE_CHECKOUT_OFFER]: Boolean(pmsIntelligenceContext?.lateCheckoutEligible) || stayPhase === 'pre_checkout' || daysToDeparture === 1 || daysToDeparture === 0,
-    [INTELLIGENT_AUTOMATION_TYPES.SPA_UPSELL]: /spa|wellness|hammam|massage|relax|bienestar|masaje/.test(combinedSignals),
-    [INTELLIGENT_AUTOMATION_TYPES.EXPERIENCE_RECOMMENDATION]: /tour|excursion|experience|actividad|excursion|agafay|atlas|boat|catamaran/.test(combinedSignals),
-    [INTELLIGENT_AUTOMATION_TYPES.RESTAURANT_PROMOTION]: /restaurant|dinner|cena|comer|gastronomy|food/.test(combinedSignals),
-    [INTELLIGENT_AUTOMATION_TYPES.TRANSFER_OFFER]: daysToArrival !== null && daysToArrival <= 2 && /transfer|airport|taxi|arrival|traslado|aeropuerto/.test(combinedSignals),
+    [INTELLIGENT_AUTOMATION_TYPES.SPA_UPSELL]: Number(affinities.spa_affinity || affinities.wellness_affinity || 0) >= 65 || Number(revenuePrediction.likelyToBuySpa || revenuePrediction.likely_to_buy_spa || 0) >= 0.55 || /spa|wellness|hammam|massage|relax|bienestar|masaje/.test(combinedSignals),
+    [INTELLIGENT_AUTOMATION_TYPES.EXPERIENCE_RECOMMENDATION]: Number(affinities.adventure_affinity || 0) >= 60 || Number(revenuePrediction.likelyToBuyExperience || revenuePrediction.likely_to_buy_experience || 0) >= 0.55 || /tour|excursion|experience|actividad|excursion|agafay|atlas|boat|catamaran/.test(combinedSignals),
+    [INTELLIGENT_AUTOMATION_TYPES.RESTAURANT_PROMOTION]: Number(affinities.restaurant_affinity || 0) >= 60 || /restaurant|dinner|cena|comer|gastronomy|food/.test(combinedSignals),
+    [INTELLIGENT_AUTOMATION_TYPES.TRANSFER_OFFER]: (daysToArrival !== null && daysToArrival <= 2 && /transfer|airport|taxi|arrival|traslado|aeropuerto/.test(combinedSignals)) || Number(revenuePrediction.likelyToBuyTransfer || revenuePrediction.likely_to_buy_transfer || 0) >= 0.58,
     [INTELLIGENT_AUTOMATION_TYPES.WEATHER_TRIGGER]: ['rain', 'rainy', 'storm', 'wind'].includes(String(weather?.condition || '').toLowerCase()),
-    [INTELLIGENT_AUTOMATION_TYPES.VIP_FOLLOWUP]: Number(pmsIntelligenceContext?.vipScore || pmsIntelligenceContext?.vip_score || 0) >= 70 || guest?.vip || Number(guest?.score || 0) >= 80 || /vip|premium|luxury|suite|anniversary|honeymoon/.test(combinedSignals),
+    [INTELLIGENT_AUTOMATION_TYPES.VIP_FOLLOWUP]: Number(guestProfile.vipScore || guestProfile.vip_score || 0) >= 70 || Number(pmsIntelligenceContext?.vipScore || pmsIntelligenceContext?.vip_score || 0) >= 70 || guest?.vip || Number(guest?.score || 0) >= 80 || /vip|premium|luxury|suite|anniversary|honeymoon/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.BIRTHDAY_MESSAGE]: /birthday|cumple|anniversary|honeymoon|celebration|celebramos/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.ABANDONED_INTEREST_FOLLOWUP]: /interested|me interesa|tell me more|cuentame|details|availability/.test(combinedSignals)
   };

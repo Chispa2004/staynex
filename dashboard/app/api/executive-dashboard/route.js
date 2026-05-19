@@ -83,6 +83,10 @@ const isMissingOptionalTable = (error) => (
   || error?.message?.includes('room_status_snapshots')
   || error?.message?.includes('hotel_occupancy_snapshots')
   || error?.message?.includes('guest_stay_context')
+  || error?.message?.includes('guest_intelligence_profiles')
+  || error?.message?.includes('guest_revenue_predictions')
+  || error?.message?.includes('guest_interest_affinities')
+  || error?.message?.includes('revenue_ai_events')
   || error?.details?.includes('guest_ai_profiles')
   || error?.details?.includes('ai_offers')
   || error?.details?.includes('conversation_ai_state')
@@ -91,6 +95,10 @@ const isMissingOptionalTable = (error) => (
   || error?.details?.includes('room_status_snapshots')
   || error?.details?.includes('hotel_occupancy_snapshots')
   || error?.details?.includes('guest_stay_context')
+  || error?.details?.includes('guest_intelligence_profiles')
+  || error?.details?.includes('guest_revenue_predictions')
+  || error?.details?.includes('guest_interest_affinities')
+  || error?.details?.includes('revenue_ai_events')
   || error?.hint?.includes('guest_ai_profiles')
   || error?.hint?.includes('ai_offers')
   || error?.hint?.includes('conversation_ai_state')
@@ -99,6 +107,10 @@ const isMissingOptionalTable = (error) => (
   || error?.hint?.includes('room_status_snapshots')
   || error?.hint?.includes('hotel_occupancy_snapshots')
   || error?.hint?.includes('guest_stay_context')
+  || error?.hint?.includes('guest_intelligence_profiles')
+  || error?.hint?.includes('guest_revenue_predictions')
+  || error?.hint?.includes('guest_interest_affinities')
+  || error?.hint?.includes('revenue_ai_events')
 );
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
@@ -351,7 +363,11 @@ export async function GET(request) {
       localKnowledgeRows,
       roomStatusRows,
       latestOccupancyRows,
-      guestStayContextRows
+      guestStayContextRows,
+      guestIntelligenceProfiles,
+      guestRevenuePredictions,
+      guestInterestAffinities,
+      revenueAiEvents
     ] = await Promise.all([
       safeCount(withHotel(
         supabase.from('conversations').select('id', { count: 'exact', head: true }),
@@ -452,6 +468,23 @@ export async function GET(request) {
         supabase.from('guest_stay_context').select('*'),
         hotelId
       ).in('stay_phase', ['in_house', 'pre_checkout']).order('last_updated_at', { ascending: false }).limit(500))
+      ,
+      safeRows(withHotel(
+        supabase.from('guest_intelligence_profiles').select('*'),
+        hotelId
+      ).order('updated_at', { ascending: false }).limit(500)),
+      safeRows(withHotel(
+        supabase.from('guest_revenue_predictions').select('*'),
+        hotelId
+      ).order('generated_at', { ascending: false }).limit(500)),
+      safeRows(withHotel(
+        supabase.from('guest_interest_affinities').select('*'),
+        hotelId
+      ).order('updated_at', { ascending: false }).limit(500)),
+      safeRows(withHotel(
+        supabase.from('revenue_ai_events').select('*'),
+        hotelId
+      ).order('created_at', { ascending: false }).limit(500))
     ]);
 
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
@@ -560,6 +593,40 @@ export async function GET(request) {
       health: latestOccupancyRows.length || roomStatusRows.length || guestStayContextRows.length ? 'active' : 'fallback',
       lastUpdatedAt: latestOccupancy?.created_at || roomStatusRows[0]?.last_updated_at || guestStayContextRows[0]?.last_updated_at || null
     };
+    const profileCounts = guestIntelligenceProfiles.reduce((acc, profile) => {
+      const key = profile.profile_type || 'unknown';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const topProfile = Object.entries(profileCounts).sort((a, b) => b[1] - a[1])[0] || null;
+    const highRevenueGuests = guestIntelligenceProfiles.filter((profile) => Number(profile.revenue_potential_score || 0) >= 70).length;
+    const reviewRiskGuests = guestIntelligenceProfiles.filter((profile) => Number(profile.review_risk_score || 0) >= 60).length;
+    const avgConversionProbability = guestRevenuePredictions.length
+      ? Math.round((guestRevenuePredictions.reduce((total, item) => total + Number(item.conversion_probability || 0), 0) / guestRevenuePredictions.length) * 100)
+      : 0;
+    const estimatedRevenueAi = guestRevenuePredictions.reduce((total, item) => total + Number(item.estimated_revenue || 0), 0);
+    const topAffinity = Object.entries(guestInterestAffinities.reduce((acc, row) => {
+      [
+        'spa_affinity',
+        'wellness_affinity',
+        'adventure_affinity',
+        'restaurant_affinity',
+        'luxury_affinity',
+        'transfer_affinity',
+        'family_affinity',
+        'nightlife_affinity'
+      ].forEach((key) => {
+        acc[key] = (acc[key] || 0) + Number(row[key] || 0);
+      });
+      return acc;
+    }, {})).sort((a, b) => b[1] - a[1])[0] || null;
+    const revenueAiInsights = [
+      highRevenueGuests ? `${highRevenueGuests} guests show high revenue potential` : null,
+      reviewRiskGuests ? `${reviewRiskGuests} guests need review-risk protection before upsells` : null,
+      topProfile ? `${topProfile[0].replaceAll('_', ' ')} is the top guest profile` : null,
+      topAffinity ? `${topAffinity[0].replace('_affinity', '').replaceAll('_', ' ')} is the strongest affinity` : null,
+      avgConversionProbability ? `Average predicted conversion is ${avgConversionProbability}%` : null
+    ].filter(Boolean);
 
     return NextResponse.json({
       hotel,
@@ -597,6 +664,17 @@ export async function GET(request) {
         }
       },
       operationalContext,
+      guestIntelligenceInsights: {
+        profiles: guestIntelligenceProfiles.length,
+        highRevenueGuests,
+        reviewRiskGuests,
+        topProfile: topProfile ? { type: topProfile[0], count: topProfile[1] } : null,
+        topAffinity: topAffinity ? { type: topAffinity[0], score: Math.round(topAffinity[1]) } : null,
+        estimatedRevenueAi,
+        avgConversionProbability,
+        revenueAiEvents: revenueAiEvents.length,
+        insights: revenueAiInsights
+      },
       revenue: {
         totalUpsells: recentUpsells.length,
         byType: {

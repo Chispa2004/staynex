@@ -299,6 +299,76 @@ const getRoomStatusByRoomNumber = async ({ supabase, roomNumbers, hotelId }) => 
   }
 };
 
+const getGuestIntelligenceByGuest = async ({ supabase, guestIds, hotelId }) => {
+  if (!guestIds.length || !hotelId) {
+    return new Map();
+  }
+
+  try {
+    const [profilesResult, affinitiesResult, predictionsResult, signalsResult] = await Promise.all([
+      supabase
+        .from('guest_intelligence_profiles')
+        .select('*')
+        .eq('hotel_id', hotelId)
+        .in('guest_id', guestIds)
+        .order('updated_at', { ascending: false })
+        .limit(500),
+      supabase
+        .from('guest_interest_affinities')
+        .select('*')
+        .eq('hotel_id', hotelId)
+        .in('guest_id', guestIds)
+        .order('updated_at', { ascending: false })
+        .limit(500),
+      supabase
+        .from('guest_revenue_predictions')
+        .select('*')
+        .eq('hotel_id', hotelId)
+        .in('guest_id', guestIds)
+        .order('generated_at', { ascending: false })
+        .limit(500),
+      supabase
+        .from('guest_behavior_signals')
+        .select('*')
+        .eq('hotel_id', hotelId)
+        .in('guest_id', guestIds)
+        .order('created_at', { ascending: false })
+        .limit(1000)
+    ]);
+
+    const firstByGuest = (rows = [], dateField = 'updated_at') => rows.reduce((acc, row) => {
+      const current = acc.get(row.guest_id);
+      if (!current || new Date(row[dateField] || 0) > new Date(current[dateField] || 0)) {
+        acc.set(row.guest_id, row);
+      }
+      return acc;
+    }, new Map());
+
+    const profiles = firstByGuest(profilesResult.data || []);
+    const affinities = firstByGuest(affinitiesResult.data || []);
+    const predictions = firstByGuest(predictionsResult.data || [], 'generated_at');
+    const signals = (signalsResult.data || []).reduce((acc, signal) => {
+      const current = acc.get(signal.guest_id) || [];
+      current.push(signal);
+      acc.set(signal.guest_id, current);
+      return acc;
+    }, new Map());
+
+    return guestIds.reduce((acc, guestId) => {
+      acc.set(guestId, {
+        profile: profiles.get(guestId) || null,
+        affinities: affinities.get(guestId) || null,
+        prediction: predictions.get(guestId) || null,
+        signals: signals.get(guestId) || []
+      });
+      return acc;
+    }, new Map());
+  } catch (error) {
+    console.warn('Inbox guest intelligence unavailable', error.message);
+    return new Map();
+  }
+};
+
 export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
   let resolvedHotelId = hotelId;
 
@@ -343,7 +413,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     guestsQuery = guestsQuery.eq('hotel_id', resolvedHotelId);
   }
 
-  const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest] = await Promise.all([
+  const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, intelligenceByGuest] = await Promise.all([
     guestsQuery,
     getMessagesForConversations({ supabase, conversationIds }),
     getLatestAiLogsByConversation({ supabase, conversationIds }),
@@ -352,7 +422,8 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     getExperienceBookingsByConversation({ supabase, conversationIds }),
     getAiStateByConversation({ supabase, conversationIds }),
     getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
-    getGuestStayContextByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
+    getGuestStayContextByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
+    getGuestIntelligenceByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
   ]);
 
   if (guestsError) {
@@ -385,6 +456,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
       offers: offersByConversation.get(conversation.id) || [],
       experienceBookings: experienceBookingsByConversation.get(conversation.id) || [],
       aiState: aiStateByConversation.get(conversation.id) || null,
+      guestIntelligence: intelligenceByGuest.get(conversation.guest_id) || null,
       pmsIntelligenceContext: {
         stayPhase: guestStayContext?.stay_phase || null,
         roomStatus: roomStatus ? {

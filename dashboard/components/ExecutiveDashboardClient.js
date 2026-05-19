@@ -269,6 +269,7 @@ export const ExecutiveDashboardClient = () => {
 
       <KPIGrid kpis={data?.kpis || {}} loading={loading} />
       <OperationalContextCard data={data?.operationalContext || {}} loading={loading} />
+      <GuestIntelligenceInsightsCard data={data?.guestIntelligenceInsights || {}} loading={loading} />
 
       <div className="grid min-h-0 items-stretch gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)] 2xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,0.55fr)]">
         <LiveActivityFeed activity={data?.activity || []} loading={loading} />
@@ -344,6 +345,72 @@ const OperationalContextCard = ({ data = {}, loading = false }) => {
         <p className={isLight ? 'mt-4 text-xs text-slate-500' : 'mt-4 text-xs text-slate-500'}>
           Last PMS intelligence update: {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(data.lastUpdatedAt))}
         </p>
+      ) : null}
+    </ExecutiveCard>
+  );
+};
+
+const GuestIntelligenceInsightsCard = ({ data = {}, loading = false }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const topProfile = data.topProfile?.type ? data.topProfile.type.replaceAll('_', ' ') : 'Learning';
+  const topAffinity = data.topAffinity?.type ? data.topAffinity.type.replace('_affinity', '').replaceAll('_', ' ') : 'Learning';
+  const stats = [
+    { label: 'Profiles', value: data.profiles ?? 0, tone: 'violet' },
+    { label: 'High revenue guests', value: data.highRevenueGuests ?? 0, tone: 'emerald' },
+    { label: 'Review risk', value: data.reviewRiskGuests ?? 0, tone: Number(data.reviewRiskGuests || 0) > 0 ? 'orange' : 'slate' },
+    { label: 'Predicted revenue', value: formatCurrency(data.estimatedRevenueAi || 0), tone: 'emerald' },
+    { label: 'Avg conversion', value: `${data.avgConversionProbability || 0}%`, tone: 'sky' },
+    { label: 'Revenue AI events', value: data.revenueAiEvents ?? 0, tone: 'violet' }
+  ];
+
+  return (
+    <ExecutiveCard className="p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className={isLight ? 'flex h-9 w-9 items-center justify-center rounded-lg border border-violet-200 bg-violet-50 text-violet-700' : 'flex h-9 w-9 items-center justify-center rounded-lg border border-violet-300/20 bg-violet-300/10 text-violet-100'}>
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Guest Intelligence Insights</h2>
+              <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
+                Revenue AI profile signals, affinities and conversion predictions for today&apos;s operation.
+              </p>
+            </div>
+          </div>
+        </div>
+        <ExecutiveBadge tone={data.profiles ? 'violet' : 'slate'}>
+          {data.profiles ? 'Intelligence active' : 'Learning mode'}
+        </ExecutiveBadge>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {stats.map((item) => (
+          <div key={item.label} className={isLight ? 'rounded-xl border border-slate-200 bg-slate-50 p-3' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{item.label}</p>
+            <p className={isLight ? 'mt-2 text-xl font-semibold text-slate-950' : 'mt-2 text-xl font-semibold text-white'}>{loading ? '...' : item.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-4' : 'rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Top guest profile</p>
+          <p className={isLight ? 'mt-2 text-sm font-semibold capitalize text-slate-950' : 'mt-2 text-sm font-semibold capitalize text-white'}>{topProfile}</p>
+        </div>
+        <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-4' : 'rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Top affinity</p>
+          <p className={isLight ? 'mt-2 text-sm font-semibold capitalize text-slate-950' : 'mt-2 text-sm font-semibold capitalize text-white'}>{topAffinity}</p>
+        </div>
+      </div>
+
+      {data.insights?.length ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {data.insights.slice(0, 4).map((insight) => (
+            <ExecutiveBadge key={insight} tone="sky">{insight}</ExecutiveBadge>
+          ))}
+        </div>
       ) : null}
     </ExecutiveCard>
   );

@@ -109,6 +109,9 @@ const classifySentiment = ({ conversation = {}, ticket = null } = {}) => {
 };
 
 const detectRevenueOpportunity = (conversation = {}) => {
+  const intelligence = conversation.guestIntelligence || {};
+  const prediction = intelligence.revenuePrediction || intelligence.prediction || {};
+  const affinities = intelligence.affinities || {};
   const offers = conversation.offers || [];
   const upsells = conversation.upsells || [];
   const bookings = conversation.experienceBookings || [];
@@ -144,6 +147,26 @@ const detectRevenueOpportunity = (conversation = {}) => {
     };
   }
 
+  const predictionEntries = [
+    ['Spa / hammam', prediction.likelyToBuySpa ?? prediction.likely_to_buy_spa, 'spa_affinity'],
+    ['Local experience', prediction.likelyToBuyExperience ?? prediction.likely_to_buy_experience, 'adventure_affinity'],
+    ['Room upgrade', prediction.likelyToBuyUpgrade ?? prediction.likely_to_buy_upgrade, 'luxury_affinity'],
+    ['Late checkout', prediction.likelyToBuyLateCheckout ?? prediction.likely_to_buy_late_checkout, null],
+    ['Transfer', prediction.likelyToBuyTransfer ?? prediction.likely_to_buy_transfer, 'transfer_affinity']
+  ].sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0));
+  const bestPrediction = predictionEntries[0];
+
+  if (Number(bestPrediction?.[1] || 0) >= 0.45) {
+    return {
+      label: bestPrediction[0],
+      ...money(prediction.estimatedRevenue || prediction.estimated_revenue || 0),
+      confidence: Number(bestPrediction[1]),
+      tone: Number(bestPrediction[1]) >= 0.7 ? 'emerald' : 'sky',
+      source: 'guest_intelligence',
+      affinity: bestPrediction[2] ? affinities[bestPrediction[2]] : null
+    };
+  }
+
   if (hasAny(text, ['spa', 'hammam', 'massage', 'late checkout', 'transfer', 'excursion', 'tour', 'agafay', 'quad', 'restaurant', 'upgrade'])) {
     return {
       label: 'Guest interest detected',
@@ -164,6 +187,17 @@ const detectRevenueOpportunity = (conversation = {}) => {
 };
 
 const detectVip = (conversation = {}) => {
+  const intelligenceProfile = conversation.guestIntelligence?.profile || conversation.guestIntelligence || {};
+  if (Number(intelligenceProfile.vip_score || intelligenceProfile.vipScore || 0) >= 70) {
+    const probability = clamp(Number(intelligenceProfile.vip_score || intelligenceProfile.vipScore || 0) / 100);
+    return {
+      probability,
+      label: 'Likely VIP',
+      tone: 'violet',
+      reasons: ['Guest Intelligence VIP score']
+    };
+  }
+
   const memoryText = normalizeText((conversation.guestMemory || [])
     .map((item) => `${item.memory_key || ''} ${item.memory_value || ''} ${item.memory_type || ''}`)
     .join(' '));
@@ -242,6 +276,11 @@ const suggestedActionFor = ({ priority, sentiment, revenueOpportunity, conversat
   ].filter(Boolean).join(' '));
 
   const pmsContext = conversation.pmsIntelligenceContext || ticket?.pmsIntelligenceContext || null;
+  const intelligenceProfile = conversation.guestIntelligence?.profile || {};
+
+  if (Number(intelligenceProfile.review_risk_score || intelligenceProfile.reviewRiskScore || 0) >= 65) {
+    return { title: 'Protect guest experience', detail: 'Guest Intelligence shows elevated review risk. Keep the reply empathetic and avoid revenue language.', tone: 'orange' };
+  }
 
   if (pmsContext?.roomStatus?.maintenanceStatus === 'maintenance' || pmsContext?.roomStatus?.maintenance_status === 'maintenance') {
     return { title: 'Check room maintenance', detail: 'The PMS context says this room may be under maintenance. Confirm status before replying.', tone: 'orange' };
@@ -346,6 +385,10 @@ const suggestedReplyFor = ({ language, priority, suggestedAction, revenueOpportu
 export const buildConversationCopilot = (conversation = {}) => {
   const language = languageFromConversation(conversation);
   const pmsContext = conversation.pmsIntelligenceContext || null;
+  const guestIntelligence = conversation.guestIntelligence || null;
+  const intelligenceProfile = guestIntelligence?.profile || {};
+  const intelligenceAffinities = guestIntelligence?.affinities || {};
+  const intelligencePrediction = guestIntelligence?.prediction || guestIntelligence?.revenuePrediction || {};
   const sentiment = classifySentiment({ conversation });
   const revenueOpportunity = detectRevenueOpportunity(conversation);
   const vip = detectVip(conversation);
@@ -375,7 +418,18 @@ export const buildConversationCopilot = (conversation = {}) => {
       stayPhase: pmsContext?.stayPhase || pmsContext?.guestStayContext?.stay_phase || null,
       roomType: pmsContext?.guestStayContext?.room_type || pmsContext?.roomStatus?.roomType || null,
       checkoutDate: pmsContext?.guestStayContext?.departure_date || null,
-      vipScore: pmsContext?.vipScore ?? pmsContext?.guestStayContext?.vip_score ?? null
+      vipScore: intelligenceProfile.vip_score ?? intelligenceProfile.vipScore ?? pmsContext?.vipScore ?? pmsContext?.guestStayContext?.vip_score ?? null
+    },
+    guestIntelligence: {
+      profileType: intelligenceProfile.profile_type || intelligenceProfile.profileType || null,
+      profileSummary: intelligenceProfile.profile_summary || intelligenceProfile.profileSummary || null,
+      revenuePotentialScore: intelligenceProfile.revenue_potential_score ?? intelligenceProfile.revenuePotentialScore ?? null,
+      reviewRiskScore: intelligenceProfile.review_risk_score ?? intelligenceProfile.reviewRiskScore ?? null,
+      engagementScore: intelligenceProfile.engagement_score ?? intelligenceProfile.engagementScore ?? null,
+      automationAffinityScore: intelligenceProfile.automation_affinity_score ?? intelligenceProfile.automationAffinityScore ?? null,
+      affinities: intelligenceAffinities,
+      prediction: intelligencePrediction,
+      signals: guestIntelligence?.signals || []
     },
     pmsContext: {
       stayPhase: pmsContext?.stayPhase || pmsContext?.guestStayContext?.stay_phase || null,
