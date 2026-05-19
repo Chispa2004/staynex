@@ -241,6 +241,24 @@ const suggestedActionFor = ({ priority, sentiment, revenueOpportunity, conversat
     ...guestMessages(conversation.messages || []).slice(-4).map((message) => message.content)
   ].filter(Boolean).join(' '));
 
+  const pmsContext = conversation.pmsIntelligenceContext || ticket?.pmsIntelligenceContext || null;
+
+  if (pmsContext?.roomStatus?.maintenanceStatus === 'maintenance' || pmsContext?.roomStatus?.maintenance_status === 'maintenance') {
+    return { title: 'Check room maintenance', detail: 'The PMS context says this room may be under maintenance. Confirm status before replying.', tone: 'orange' };
+  }
+
+  if (pmsContext?.roomStatus?.housekeepingStatus === 'dirty' || pmsContext?.roomStatus?.housekeeping_status === 'dirty') {
+    return { title: 'Check room status', detail: 'The room is marked dirty. Coordinate housekeeping before promising readiness.', tone: 'orange' };
+  }
+
+  if (pmsContext?.lateCheckoutEligible) {
+    return { title: 'Offer late checkout', detail: 'Guest is near checkout and PMS context suggests late checkout is eligible.', tone: 'emerald' };
+  }
+
+  if (pmsContext?.upgradeEligible) {
+    return { title: 'Offer upgrade', detail: 'PMS context suggests this stay may be upgrade eligible.', tone: 'emerald' };
+  }
+
   if (priority.level === 'urgent') {
     return { title: 'Escalate immediately', detail: 'Notify reception or the duty manager before sending a guest-facing promise.', tone: 'red' };
   }
@@ -327,6 +345,7 @@ const suggestedReplyFor = ({ language, priority, suggestedAction, revenueOpportu
 
 export const buildConversationCopilot = (conversation = {}) => {
   const language = languageFromConversation(conversation);
+  const pmsContext = conversation.pmsIntelligenceContext || null;
   const sentiment = classifySentiment({ conversation });
   const revenueOpportunity = detectRevenueOpportunity(conversation);
   const vip = detectVip(conversation);
@@ -352,7 +371,21 @@ export const buildConversationCopilot = (conversation = {}) => {
       memoryCount: (conversation.guestMemory || []).length,
       openTickets: conversation.openTickets?.length || 0,
       bookingsCount: (conversation.experienceBookings || []).length,
-      lastIntent: conversation.aiState?.current_intent || conversation.aiLog?.detected_intent || null
+      lastIntent: conversation.aiState?.current_intent || conversation.aiLog?.detected_intent || null,
+      stayPhase: pmsContext?.stayPhase || pmsContext?.guestStayContext?.stay_phase || null,
+      roomType: pmsContext?.guestStayContext?.room_type || pmsContext?.roomStatus?.roomType || null,
+      checkoutDate: pmsContext?.guestStayContext?.departure_date || null,
+      vipScore: pmsContext?.vipScore ?? pmsContext?.guestStayContext?.vip_score ?? null
+    },
+    pmsContext: {
+      stayPhase: pmsContext?.stayPhase || pmsContext?.guestStayContext?.stay_phase || null,
+      roomStatus: pmsContext?.roomStatus || null,
+      occupancy: pmsContext?.occupancy || null,
+      revenuePotential: pmsContext?.revenuePotential || 0,
+      upgradeEligible: Boolean(pmsContext?.upgradeEligible),
+      lateCheckoutEligible: Boolean(pmsContext?.lateCheckoutEligible),
+      recommendedActions: pmsContext?.recommendedActions || [],
+      warnings: pmsContext?.operationalWarnings || []
     },
     logs: {
       copilot_action_generated: suggestedAction.title,
@@ -391,6 +424,8 @@ export const buildTicketCopilot = (ticket = {}, allTickets = []) => {
   const sentiment = classifySentiment({ ticket });
   const priority = priorityFromSignals({ sentiment, ticket });
   const department = departmentFromTicket(ticket);
+  const pmsContext = ticket.pmsIntelligenceContext || {};
+  const roomStatus = pmsContext.roomStatus || ticket.roomStatus || null;
   const similarIncidents = allTickets.filter((item) => (
     item.id !== ticket.id
     && item.category
@@ -398,7 +433,11 @@ export const buildTicketCopilot = (ticket = {}, allTickets = []) => {
     && item.category === ticket.category
   )).slice(0, 3);
   const satisfactionRisk = escalationRiskFor({ priority, sentiment, ticket });
-  const suggestedResolution = priority.level === 'urgent'
+  const suggestedResolution = roomStatus?.maintenanceStatus === 'maintenance' || roomStatus?.maintenance_status === 'maintenance'
+    ? 'PMS context shows this room may be under maintenance. Confirm with maintenance before closing the ticket.'
+    : roomStatus?.housekeepingStatus === 'dirty' || roomStatus?.housekeeping_status === 'dirty'
+      ? 'PMS context shows the room is dirty. Assign housekeeping and follow up once the room is checked.'
+      : priority.level === 'urgent'
     ? 'Escalate immediately and confirm safety before closing the ticket.'
     : department === 'Maintenance'
       ? 'Assign maintenance, confirm room access, then send a short follow-up to the guest.'
@@ -413,6 +452,7 @@ export const buildTicketCopilot = (ticket = {}, allTickets = []) => {
     suggestedResolution,
     satisfactionRisk,
     sentiment,
+    roomStatus,
     similarPastIncidents: similarIncidents.map((item) => ({
       id: item.id,
       title: item.title,

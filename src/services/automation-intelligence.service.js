@@ -270,6 +270,7 @@ export const evaluateAutomationOpportunity = ({
   conversation = null,
   guestMemory = [],
   aiState = null,
+  pmsIntelligenceContext = null,
   now = new Date(),
   weather = null,
   recentRuns = [],
@@ -311,6 +312,7 @@ export const evaluateAutomationOpportunity = ({
   const daysToArrival = daysBetween(today, reservation.arrival_date);
   const daysToDeparture = daysBetween(today, reservation.departure_date);
   const status = reservation.status || '';
+  const stayPhase = pmsIntelligenceContext?.stayPhase || pmsIntelligenceContext?.stay_phase || null;
   const memoryText = guestMemory.map((item) => `${item.memory_key} ${item.memory_value}`).join(' ').toLowerCase();
   const aiIntent = String(aiState?.current_intent || '').toLowerCase();
   const sentiment = String(aiState?.sentiment || '').toLowerCase();
@@ -322,14 +324,14 @@ export const evaluateAutomationOpportunity = ({
   }
 
   const decisions = {
-    [INTELLIGENT_AUTOMATION_TYPES.WELCOME_MESSAGE]: status === 'checked_in' || status === 'in_house' || daysToArrival === 0,
-    [INTELLIGENT_AUTOMATION_TYPES.LATE_CHECKOUT_OFFER]: daysToDeparture === 1 || daysToDeparture === 0,
+    [INTELLIGENT_AUTOMATION_TYPES.WELCOME_MESSAGE]: status === 'checked_in' || status === 'in_house' || stayPhase === 'in_house' || daysToArrival === 0,
+    [INTELLIGENT_AUTOMATION_TYPES.LATE_CHECKOUT_OFFER]: Boolean(pmsIntelligenceContext?.lateCheckoutEligible) || stayPhase === 'pre_checkout' || daysToDeparture === 1 || daysToDeparture === 0,
     [INTELLIGENT_AUTOMATION_TYPES.SPA_UPSELL]: /spa|wellness|hammam|massage|relax|bienestar|masaje/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.EXPERIENCE_RECOMMENDATION]: /tour|excursion|experience|actividad|excursion|agafay|atlas|boat|catamaran/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.RESTAURANT_PROMOTION]: /restaurant|dinner|cena|comer|gastronomy|food/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.TRANSFER_OFFER]: daysToArrival !== null && daysToArrival <= 2 && /transfer|airport|taxi|arrival|traslado|aeropuerto/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.WEATHER_TRIGGER]: ['rain', 'rainy', 'storm', 'wind'].includes(String(weather?.condition || '').toLowerCase()),
-    [INTELLIGENT_AUTOMATION_TYPES.VIP_FOLLOWUP]: guest?.vip || Number(guest?.score || 0) >= 80 || /vip|premium|luxury|suite|anniversary|honeymoon/.test(combinedSignals),
+    [INTELLIGENT_AUTOMATION_TYPES.VIP_FOLLOWUP]: Number(pmsIntelligenceContext?.vipScore || pmsIntelligenceContext?.vip_score || 0) >= 70 || guest?.vip || Number(guest?.score || 0) >= 80 || /vip|premium|luxury|suite|anniversary|honeymoon/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.BIRTHDAY_MESSAGE]: /birthday|cumple|anniversary|honeymoon|celebration|celebramos/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.ABANDONED_INTEREST_FOLLOWUP]: /interested|me interesa|tell me more|cuentame|details|availability/.test(combinedSignals)
   };

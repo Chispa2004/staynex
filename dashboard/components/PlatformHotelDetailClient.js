@@ -97,6 +97,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
   const auditLogs = detail?.auditLogs || [];
   const dataRetentionAuditLogs = detail?.dataRetentionAuditLogs || [];
   const lastRetentionRun = dataRetentionAuditLogs[0];
+  const pmsIntelligenceHealth = detail?.pmsIntelligenceHealth || {};
 
   const revenue = useMemo(() => ({
     accepted: conversions.filter((item) => item.status === 'accepted').reduce((total, item) => total + Number(item.estimated_amount || 0), 0),
@@ -382,6 +383,30 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
                 </div>
               ))}
               {pmsConnections.length === 0 ? <p className={cn('text-sm', ui.text.muted(isLight))}>No PMS connection configured.</p> : null}
+            </div>
+          </section>
+
+          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+            <div className="flex items-start gap-3">
+              <span className={cn('flex h-9 w-9 items-center justify-center rounded-lg border', ui.badge(isLight, pmsIntelligenceHealth.operationalContextHealth === 'active' ? 'emerald' : 'slate'))}>
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className={ui.text.eyebrow(isLight)}>PMS Intelligence Health</p>
+                <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>
+                  {pmsIntelligenceHealth.operationalContextHealth === 'active'
+                    ? 'Operational context is active for this hotel.'
+                    : 'Operational context is in fallback mode until the PMS intelligence SQL/job runs.'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div><span className={ui.text.muted(isLight)}>Last PMS sync</span><p className="font-semibold">{formatDate(pmsIntelligenceHealth.lastPmsSync)}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Reservations synced</span><p className="font-semibold">{pmsIntelligenceHealth.reservationsSynced || 0}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Room status</span><p className="font-semibold">{pmsIntelligenceHealth.roomStatusAvailable ? 'Available' : 'Unknown'}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Occupancy</span><p className="font-semibold">{pmsIntelligenceHealth.occupancyAvailable ? `${pmsIntelligenceHealth.occupancyPercent || 0}%` : 'Unknown'}</p></div>
+              <div><span className={ui.text.muted(isLight)}>VIP guests</span><p className="font-semibold">{pmsIntelligenceHealth.vipGuests || 0}</p></div>
+              <div><span className={ui.text.muted(isLight)}>Upgrade ops</span><p className="font-semibold">{pmsIntelligenceHealth.upgradeOpportunities || 0}</p></div>
             </div>
           </section>
 

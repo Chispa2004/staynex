@@ -265,6 +265,30 @@ export const InboxAiCopilotPanel = ({
           ) : null}
         </Section>
 
+        <Section title="Guest Stay Context" icon={CalendarCheck}>
+          <div className="flex flex-wrap gap-2">
+            <Pill tone={copilot.pmsContext?.stayPhase === 'pre_checkout' ? 'orange' : 'slate'}>
+              Stay {copilot.pmsContext?.stayPhase || 'unknown'}
+            </Pill>
+            <Pill tone={copilot.pmsContext?.roomStatus?.housekeepingStatus === 'dirty' ? 'orange' : 'slate'}>
+              Room {copilot.pmsContext?.roomStatus?.housekeepingStatus || 'unknown'}
+            </Pill>
+            <Pill tone={copilot.pmsContext?.roomStatus?.maintenanceStatus === 'maintenance' ? 'red' : 'slate'}>
+              Maintenance {copilot.pmsContext?.roomStatus?.maintenanceStatus || 'unknown'}
+            </Pill>
+            {copilot.pmsContext?.upgradeEligible ? <Pill tone="emerald">Upgrade eligible</Pill> : null}
+            {copilot.pmsContext?.lateCheckoutEligible ? <Pill tone="emerald">Late checkout eligible</Pill> : null}
+            {Number(copilot.pmsContext?.revenuePotential || 0) > 0 ? (
+              <Pill tone="emerald">PMS revenue {formatCurrency(copilot.pmsContext.revenuePotential)}</Pill>
+            ) : null}
+          </div>
+          {copilot.pmsContext?.warnings?.length ? (
+            <p className={isLight ? 'mt-3 text-xs leading-5 text-slate-500' : 'mt-3 text-xs leading-5 text-slate-500'}>
+              {copilot.pmsContext.warnings.join(' / ')}
+            </p>
+          ) : null}
+        </Section>
+
         <Section title="AI State" icon={BrainCircuit}>
           <div className="flex flex-wrap gap-2">
             <Pill tone="violet">Intent: {aiState?.current_intent || conversation?.aiLog?.detected_intent || 'learning'}</Pill>

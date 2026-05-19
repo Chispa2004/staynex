@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgeEuro, BookOpen, Bot, CalendarPlus, CheckCircle2, Inbox, MessageSquareText, PlugZap, RefreshCw, Rocket, Sparkles, TrendingUp } from 'lucide-react';
+import { BadgeEuro, BedDouble, BookOpen, Bot, CalendarPlus, CheckCircle2, Inbox, MessageSquareText, PlugZap, RefreshCw, Rocket, Sparkles, TrendingUp } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { KPIGrid } from './KPIGrid';
 import { LiveActivityFeed } from './LiveActivityFeed';
@@ -268,6 +268,7 @@ export const ExecutiveDashboardClient = () => {
       />
 
       <KPIGrid kpis={data?.kpis || {}} loading={loading} />
+      <OperationalContextCard data={data?.operationalContext || {}} loading={loading} />
 
       <div className="grid min-h-0 items-stretch gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)] 2xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,0.55fr)]">
         <LiveActivityFeed activity={data?.activity || []} loading={loading} />
@@ -296,6 +297,57 @@ const formatCurrency = (value) => new Intl.NumberFormat(undefined, {
   currency: 'EUR',
   maximumFractionDigits: 0
 }).format(Number(value || 0));
+
+const OperationalContextCard = ({ data = {}, loading = false }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const stats = [
+    { label: 'Occupancy', value: data.occupancyToday === null || data.occupancyToday === undefined ? 'Unknown' : `${data.occupancyToday}%`, tone: 'emerald' },
+    { label: 'Arrivals', value: data.arrivalsToday ?? 0, tone: 'sky' },
+    { label: 'Departures', value: data.departuresToday ?? 0, tone: 'orange' },
+    { label: 'Rooms ready', value: data.roomsReady ?? 0, tone: 'emerald' },
+    { label: 'Rooms dirty', value: data.roomsDirty ?? 0, tone: 'orange' },
+    { label: 'Maintenance', value: data.roomsMaintenance ?? 0, tone: data.roomsMaintenance > 0 ? 'orange' : 'slate' },
+    { label: 'VIP guests', value: data.vipGuests ?? 0, tone: 'violet' },
+    { label: 'Upgrade opportunities', value: data.upgradeOpportunities ?? 0, tone: 'emerald' }
+  ];
+
+  return (
+    <ExecutiveCard className={isLight ? 'p-5' : 'p-5'}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className={isLight ? 'flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700' : 'flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-300/20 bg-emerald-300/10 text-emerald-100'}>
+              <BedDouble className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Operational Context</h2>
+              <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
+                PMS-derived room, occupancy and stay context for AI, Copilot and automations.
+              </p>
+            </div>
+          </div>
+        </div>
+        <ExecutiveBadge tone={data.health === 'active' ? 'emerald' : 'slate'}>
+          {data.health === 'active' ? 'PMS intelligence active' : 'Fallback mode'}
+        </ExecutiveBadge>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((item) => (
+          <div key={item.label} className={isLight ? 'rounded-xl border border-slate-200 bg-slate-50 p-3' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
+            <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>{item.label}</p>
+            <p className={isLight ? 'mt-2 text-xl font-semibold text-slate-950' : 'mt-2 text-xl font-semibold text-white'}>{loading ? '...' : item.value}</p>
+          </div>
+        ))}
+      </div>
+      {data.lastUpdatedAt ? (
+        <p className={isLight ? 'mt-4 text-xs text-slate-500' : 'mt-4 text-xs text-slate-500'}>
+          Last PMS intelligence update: {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(data.lastUpdatedAt))}
+        </p>
+      ) : null}
+    </ExecutiveCard>
+  );
+};
 
 const DashboardIntelligencePanel = ({
   summary,

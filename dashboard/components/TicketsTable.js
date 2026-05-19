@@ -189,6 +189,11 @@ export const TicketsTable = ({ tickets }) => {
                     <CopilotPill tone={copilot.aiPriority?.tone}>{copilot.aiPriority?.level || 'normal'}</CopilotPill>
                     <CopilotPill tone="sky">{copilot.suggestedDepartment || 'Reception'}</CopilotPill>
                     <CopilotPill tone={copilot.satisfactionRisk?.tone}>Risk {copilot.satisfactionRisk?.level || 'low'}</CopilotPill>
+                    {copilot.roomStatus ? (
+                      <CopilotPill tone={copilot.roomStatus.housekeepingStatus === 'dirty' ? 'orange' : 'slate'}>
+                        Room {copilot.roomStatus.housekeepingStatus}
+                      </CopilotPill>
+                    ) : null}
                   </div>
                   <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
                     {copilot.suggestedResolution}
@@ -289,6 +294,11 @@ export const TicketsTable = ({ tickets }) => {
                           </CopilotPill>
                           <CopilotPill tone="sky">{copilot.suggestedDepartment || 'Reception'}</CopilotPill>
                           <CopilotPill tone={copilot.satisfactionRisk?.tone}>Risk {copilot.satisfactionRisk?.level || 'low'}</CopilotPill>
+                          {copilot.roomStatus ? (
+                            <CopilotPill tone={copilot.roomStatus.housekeepingStatus === 'dirty' ? 'orange' : 'slate'}>
+                              Room {copilot.roomStatus.housekeepingStatus}
+                            </CopilotPill>
+                          ) : null}
                         </div>
                         <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
                           {copilot.suggestedResolution}

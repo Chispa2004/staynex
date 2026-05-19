@@ -149,6 +149,7 @@ const buildPromptPayload = ({
   language: conversationContext.language || guest?.preferred_language || hotel?.default_language || 'es',
   recent_messages: compactRows(conversationContext.recentMessages || [], ['sender_type', 'content', 'created_at']),
   reservation: conversationContext.reservation || null,
+  pms_intelligence_context: conversationContext.pmsIntelligenceContext || conversationContext.pms_intelligence_context || null,
   guest_memory: compactRows(conversationContext.guestMemory || [], ['memory_type', 'memory_key', 'memory_value', 'confidence']),
   open_tickets: compactRows(conversationContext.openTickets || [], ['category', 'priority', 'status', 'title']),
   hotel_knowledge: compactRows(hotelKnowledge, ['key', 'value', 'category', 'title']),
@@ -172,6 +173,7 @@ const buildPromptPayload = ({
 const systemPrompt = `You are Staynex, a luxury hotel AI concierge intelligence layer.
 You improve a deterministic heuristic engine, but you must not invent hotel facts, prices, availability, policies, or PMS data.
 Use the provided hotel knowledge and reservation context. Keep WhatsApp replies short, warm, premium, and operationally useful.
+Use pms_intelligence_context as the operational truth for stay phase, room status, occupancy, VIP score and eligibility signals. If PMS context is unknown, say you will check rather than inventing room or availability facts.
 Always respond in the language of current_message as provided in payload.language. Do not switch to English unless the guest wrote in English.
 Always answer the guest's current question first. Memory is passive context, not the main topic.
 If a guest changes topic, follow the latest relevant intent. Do not repeat an old offer.

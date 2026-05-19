@@ -80,16 +80,25 @@ const isMissingOptionalTable = (error) => (
   || error?.message?.includes('conversation_ai_state')
   || error?.message?.includes('hotel_onboarding_state')
   || error?.message?.includes('local_knowledge_items')
+  || error?.message?.includes('room_status_snapshots')
+  || error?.message?.includes('hotel_occupancy_snapshots')
+  || error?.message?.includes('guest_stay_context')
   || error?.details?.includes('guest_ai_profiles')
   || error?.details?.includes('ai_offers')
   || error?.details?.includes('conversation_ai_state')
   || error?.details?.includes('hotel_onboarding_state')
   || error?.details?.includes('local_knowledge_items')
+  || error?.details?.includes('room_status_snapshots')
+  || error?.details?.includes('hotel_occupancy_snapshots')
+  || error?.details?.includes('guest_stay_context')
   || error?.hint?.includes('guest_ai_profiles')
   || error?.hint?.includes('ai_offers')
   || error?.hint?.includes('conversation_ai_state')
   || error?.hint?.includes('hotel_onboarding_state')
   || error?.hint?.includes('local_knowledge_items')
+  || error?.hint?.includes('room_status_snapshots')
+  || error?.hint?.includes('hotel_occupancy_snapshots')
+  || error?.hint?.includes('guest_stay_context')
 );
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
@@ -339,7 +348,10 @@ export async function GET(request) {
       activeGuestsRows,
       pmsConnections,
       onboardingRows,
-      localKnowledgeRows
+      localKnowledgeRows,
+      roomStatusRows,
+      latestOccupancyRows,
+      guestStayContextRows
     ] = await Promise.all([
       safeCount(withHotel(
         supabase.from('conversations').select('id', { count: 'exact', head: true }),
@@ -427,6 +439,19 @@ export async function GET(request) {
         supabase.from('local_knowledge_items').select('id, title, category, featured, active, priority, tags, audience_tags, recommendation_contexts, weather_tags, updated_at'),
         hotelId
       ).order('featured', { ascending: false }).order('priority', { ascending: false }).limit(30))
+      ,
+      safeRows(withHotel(
+        supabase.from('room_status_snapshots').select('*'),
+        hotelId
+      ).order('last_updated_at', { ascending: false }).limit(500)),
+      safeRows(withHotel(
+        supabase.from('hotel_occupancy_snapshots').select('*'),
+        hotelId
+      ).order('created_at', { ascending: false }).limit(1)),
+      safeRows(withHotel(
+        supabase.from('guest_stay_context').select('*'),
+        hotelId
+      ).in('stay_phase', ['in_house', 'pre_checkout']).order('last_updated_at', { ascending: false }).limit(500))
     ]);
 
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
@@ -518,6 +543,23 @@ export async function GET(request) {
     const openAiLogs = recentAiLogs.filter((item) => item.openai_concierge_used);
     const openAiConfidenceValues = recentAiLogs.map((item) => Number(item.confidence_score)).filter(Number.isFinite);
     const satisfactionValues = recentAiLogs.map((item) => Number(item.ai_satisfaction_estimate)).filter(Number.isFinite);
+    const latestOccupancy = latestOccupancyRows[0] || null;
+    const operationalContext = {
+      occupancyToday: latestOccupancy?.occupancy_percent ?? null,
+      occupiedRooms: latestOccupancy?.occupied_rooms || 0,
+      availableRooms: latestOccupancy?.available_rooms || 0,
+      arrivalsToday: latestOccupancy?.arrivals_today ?? arrivalsToday,
+      departuresToday: latestOccupancy?.departures_today ?? departuresToday,
+      stayoversToday: latestOccupancy?.stayovers_today || 0,
+      roomsReady: roomStatusRows.filter((room) => ['clean', 'inspected'].includes(room.housekeeping_status)).length,
+      roomsDirty: roomStatusRows.filter((room) => room.housekeeping_status === 'dirty').length,
+      roomsMaintenance: roomStatusRows.filter((room) => ['maintenance', 'out_of_order'].includes(room.maintenance_status)).length,
+      vipGuests: guestStayContextRows.filter((context) => Number(context.vip_score || 0) >= 70).length,
+      upgradeOpportunities: guestStayContextRows.filter((context) => context.upgrade_eligible).length,
+      lateCheckoutEligible: guestStayContextRows.filter((context) => context.late_checkout_eligible).length,
+      health: latestOccupancyRows.length || roomStatusRows.length || guestStayContextRows.length ? 'active' : 'fallback',
+      lastUpdatedAt: latestOccupancy?.created_at || roomStatusRows[0]?.last_updated_at || guestStayContextRows[0]?.last_updated_at || null
+    };
 
     return NextResponse.json({
       hotel,
@@ -554,6 +596,7 @@ export async function GET(request) {
           urgentTickets: allTickets.filter((item) => ['maintenance', 'emergency'].includes(item.category) && item.priority === 'urgent').length
         }
       },
+      operationalContext,
       revenue: {
         totalUpsells: recentUpsells.length,
         byType: {

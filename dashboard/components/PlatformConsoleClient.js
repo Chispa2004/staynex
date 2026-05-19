@@ -12,6 +12,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   DoorOpen,
+  FileSpreadsheet,
   Mail,
   MessageSquareText,
   PlugZap,
@@ -384,6 +385,82 @@ const ProviderEmailTestPanel = ({ isLight }) => {
   );
 };
 
+const GoogleSheetsSyncPanel = ({ isLight }) => {
+  const [syncing, setSyncing] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const syncSheets = async () => {
+    setSyncing(true);
+    setResult(null);
+
+    try {
+      const response = await fetch('/api/platform/sync-google-sheets', {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        cache: 'no-store'
+      });
+      const body = await response.json();
+
+      if (!response.ok || !body.ok) {
+        throw new Error(body.error || 'Google Sheets sync failed');
+      }
+
+      setResult({
+        type: 'success',
+        message: `${body.totalRows || 0} rows synced across ${(body.tabs || []).length} tabs.`,
+        tabs: body.tabs || [],
+        syncedAt: body.syncedAt
+      });
+    } catch (error) {
+      setResult({
+        type: 'error',
+        message: error.message
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+      <div className="flex items-start gap-3">
+        <span className={cn('flex h-10 w-10 items-center justify-center rounded-lg border', ui.badge(isLight, 'emerald'))}>
+          <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div>
+          <p className={ui.text.eyebrow(isLight)}>Platform BI</p>
+          <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>Google Sheets Sync</h2>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>Push platform metrics to Staynex Platform Control.</p>
+        </div>
+      </div>
+
+      <button type="button" disabled={syncing} onClick={syncSheets} className={cn('mt-4 w-full justify-center', ui.button(isLight, 'primary'))}>
+        <FileSpreadsheet className={syncing ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
+        {syncing ? 'Syncing...' : 'Sync Google Sheets'}
+      </button>
+
+      {result ? (
+        <div className={cn(
+          'mt-4 rounded-lg border px-3 py-2 text-sm',
+          result.type === 'success'
+            ? isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+            : isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100'
+        )}>
+          <p>{result.message}</p>
+          {result.syncedAt ? <p className="mt-1 text-xs opacity-80">Last sync: {formatDate(result.syncedAt)}</p> : null}
+          {result.tabs?.length ? (
+            <div className="mt-2 grid gap-1 text-xs opacity-90">
+              {result.tabs.slice(0, 4).map((tab) => (
+                <span key={tab.tabName}>{tab.tabName}: {tab.rowsSynced} rows</span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+};
+
 export const PlatformConsoleClient = () => {
   const router = useRouter();
   const { theme } = useDashboardTheme();
@@ -638,6 +715,8 @@ export const PlatformConsoleClient = () => {
         </section>
 
         <aside className="space-y-6">
+          {canCreate ? <GoogleSheetsSyncPanel isLight={isLight} /> : null}
+
           <ProviderEmailTestPanel isLight={isLight} />
 
           <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>

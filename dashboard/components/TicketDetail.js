@@ -250,6 +250,11 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
               <CopilotPill tone={ticket.copilot?.sentiment?.tone}>
                 {ticket.copilot?.sentiment?.label || 'neutral'}
               </CopilotPill>
+              {ticket.copilot?.roomStatus ? (
+                <CopilotPill tone={ticket.copilot.roomStatus.housekeepingStatus === 'dirty' ? 'orange' : 'slate'}>
+                  Room {ticket.copilot.roomStatus.housekeepingStatus} / {ticket.copilot.roomStatus.occupancyStatus || 'unknown'}
+                </CopilotPill>
+              ) : null}
             </div>
           </div>
           {ticket.copilot?.similarPastIncidents?.length ? (

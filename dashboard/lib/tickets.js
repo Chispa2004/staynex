@@ -4,6 +4,64 @@ import { buildTicketCopilot } from './ai-copilot';
 
 const TICKET_SELECT = 'id, hotel_id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id, guest_id';
 
+const getRoomStatusesForTickets = async ({ supabase, tickets, hotelId }) => {
+  const roomNumbers = [...new Set((tickets || []).map((ticket) => ticket.room_number).filter(Boolean))];
+
+  if (!hotelId || !roomNumbers.length) {
+    return new Map();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('room_status_snapshots')
+      .select('*')
+      .eq('hotel_id', hotelId)
+      .in('room_number', roomNumbers)
+      .order('last_updated_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((byRoom, status) => {
+      if (!byRoom.has(status.room_number)) {
+        byRoom.set(status.room_number, status);
+      }
+
+      return byRoom;
+    }, new Map());
+  } catch (error) {
+    console.warn('Ticket PMS room status unavailable', error.message);
+    return new Map();
+  }
+};
+
+const attachTicketCopilot = async ({ supabase, tickets, hotelId }) => {
+  const roomStatusByRoom = await getRoomStatusesForTickets({ supabase, tickets, hotelId });
+
+  return tickets.map((ticket) => {
+    const roomStatus = roomStatusByRoom.get(ticket.room_number) || null;
+    const pmsIntelligenceContext = {
+      roomStatus: roomStatus ? {
+        roomNumber: roomStatus.room_number,
+        roomType: roomStatus.room_type,
+        housekeepingStatus: roomStatus.housekeeping_status,
+        maintenanceStatus: roomStatus.maintenance_status,
+        occupancyStatus: roomStatus.occupancy_status,
+        lastUpdatedAt: roomStatus.last_updated_at
+      } : null
+    };
+
+    return {
+      ...ticket,
+      roomStatus,
+      pmsIntelligenceContext,
+      copilot: buildTicketCopilot({ ...ticket, roomStatus, pmsIntelligenceContext }, tickets)
+    };
+  });
+};
+
 export const getTickets = async ({ supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
   if (!hotelId) {
     return [];
@@ -19,12 +77,7 @@ export const getTickets = async ({ supabase = getSupabaseAdmin(), hotelId = null
     throw error;
   }
 
-  const tickets = data || [];
-
-  return tickets.map((ticket) => ({
-    ...ticket,
-    copilot: buildTicketCopilot(ticket, tickets)
-  }));
+  return attachTicketCopilot({ supabase, tickets: data || [], hotelId });
 };
 
 export const getTicketsByCategories = async (categories, { supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
@@ -43,12 +96,7 @@ export const getTicketsByCategories = async (categories, { supabase = getSupabas
     throw error;
   }
 
-  const tickets = data || [];
-
-  return tickets.map((ticket) => ({
-    ...ticket,
-    copilot: buildTicketCopilot(ticket, tickets)
-  }));
+  return attachTicketCopilot({ supabase, tickets: data || [], hotelId });
 };
 
 export const getTicketDetail = async (ticketId, { supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
@@ -81,10 +129,7 @@ export const getTicketDetail = async (ticketId, { supabase = getSupabaseAdmin(),
     throw messagesError;
   }
 
-  const ticketWithCopilot = {
-    ...ticket,
-    copilot: buildTicketCopilot(ticket, [ticket])
-  };
+  const [ticketWithCopilot] = await attachTicketCopilot({ supabase, tickets: [ticket], hotelId });
 
   return {
     ticket: ticketWithCopilot,
@@ -144,7 +189,8 @@ export const updateTicketStatus = async ({
     metadata: { source: 'dashboard_ticket_status' }
   });
 
-  return {
+  const [ticketWithCopilot] = await attachTicketCopilot({ supabase, tickets: [data], hotelId });
+  return ticketWithCopilot || {
     ...data,
     copilot: buildTicketCopilot(data, [data])
   };

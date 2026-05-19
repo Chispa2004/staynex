@@ -87,6 +87,7 @@ import {
 import { buildStrictHotelExperienceCatalog } from './experience-catalog-isolation.service.js';
 import { translateForStaff } from './translation.service.js';
 import { checkInboundMessageRateLimit } from './scalability-guard.service.js';
+import { buildPmsIntelligenceContext } from './pms-intelligence.service.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -330,6 +331,13 @@ export const processGuestMessage = async ({
     conversation,
     message,
     reservation
+  });
+  conversationContext.pmsIntelligenceContext = await buildPmsIntelligenceContext({
+    hotelId: activeHotel.id,
+    guestId: guest.id,
+    reservationId: conversationContext.reservation?.id || reservation?.id || null,
+    roomNumber: guest.current_room || conversationContext.reservation?.room_number || null,
+    reservation: conversationContext.reservation || reservation || null
   });
 
   const knowledgeResult = await findKnowledgeAnswerWithMetadata(

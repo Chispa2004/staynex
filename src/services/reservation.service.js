@@ -8,6 +8,7 @@ import { logger } from '../utils/logger.js';
 import { detectGuestLanguage } from './language.service.js';
 import { randomBytes } from 'node:crypto';
 import { getDefaultHotel, getHotelById } from './hotel.service.js';
+import { persistReservationOperationalContext } from './pms-intelligence.service.js';
 
 const cleanText = (value) => {
   if (typeof value !== 'string') {
@@ -182,6 +183,22 @@ const getReservationRecord = ({ data, hotelId, guestId, guestPhone, accessToken,
   updated_at: new Date().toISOString()
 });
 
+const tryPersistOperationalContext = async ({ reservation, guest }) => {
+  try {
+    await persistReservationOperationalContext({
+      reservation: {
+        ...reservation,
+        guest_id: reservation.guest_id || guest?.id || null
+      }
+    });
+  } catch (error) {
+    logger.warn('Reservation PMS intelligence context skipped', {
+      reservationId: reservation?.id || null,
+      error: error.message
+    });
+  }
+};
+
 export const createOrUpdateReservation = async (data) => {
   const client = getSupabase();
   const pmsProvider = cleanText(data.pms_provider) || 'mock';
@@ -270,17 +287,24 @@ export const createOrUpdateReservation = async (data) => {
       missingColumns
     });
 
+    const normalizedLegacyReservation = {
+      ...legacyReservation,
+      reservation_access_token: missingColumns.includes('reservation_access_token')
+        ? null
+        : legacyReservation.reservation_access_token,
+      source: missingColumns.includes('source') ? null : legacyReservation.source,
+      adults: missingColumns.includes('adults') ? null : legacyReservation.adults,
+      children: missingColumns.includes('children') ? null : legacyReservation.children,
+      notes: missingColumns.includes('notes') ? null : legacyReservation.notes
+    };
+
+    await tryPersistOperationalContext({
+      reservation: normalizedLegacyReservation,
+      guest
+    });
+
     return {
-      reservation: {
-        ...legacyReservation,
-        reservation_access_token: missingColumns.includes('reservation_access_token')
-          ? null
-          : legacyReservation.reservation_access_token,
-        source: missingColumns.includes('source') ? null : legacyReservation.source,
-        adults: missingColumns.includes('adults') ? null : legacyReservation.adults,
-        children: missingColumns.includes('children') ? null : legacyReservation.children,
-        notes: missingColumns.includes('notes') ? null : legacyReservation.notes
-      },
+      reservation: normalizedLegacyReservation,
       guest
     };
   }
@@ -294,6 +318,11 @@ export const createOrUpdateReservation = async (data) => {
     pmsProvider: reservation.pms_provider,
     pmsReservationId: reservation.pms_reservation_id,
     reservationAccessToken: reservation.reservation_access_token
+  });
+
+  await tryPersistOperationalContext({
+    reservation,
+    guest
   });
 
   return {

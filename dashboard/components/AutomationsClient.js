@@ -321,6 +321,25 @@ export const AutomationsClient = () => {
         <StatCard icon={Sparkles} label="AI suggestions" value={stats.aiSuggestions.length} tone="sky" />
       </div>
 
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <CalendarClock className={isLight ? 'h-4 w-4 text-emerald-600' : 'h-4 w-4 text-emerald-300'} aria-hidden="true" />
+              <p className="text-sm font-semibold">PMS-powered triggers ready</p>
+            </div>
+            <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
+              Automation Center can now use PMS Intelligence signals such as check-in, checkout tomorrow, room ready, low occupancy, VIP guests and upgrade opportunities.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {['check-in', 'checkout', 'room ready', 'occupancy', 'VIP'].map((trigger) => (
+              <Badge key={trigger} tone="emerald">{trigger}</Badge>
+            ))}
+          </div>
+        </div>
+      </Card>
+
       {migrationRequired ? (
         <div className={isLight ? 'rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900' : 'rounded-lg border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm text-amber-100'}>
           Automation engine SQL migration required. Run <span className="font-semibold">supabase/sql/create_automation_engine.sql</span> manually to persist automation runs, revenue and engine settings.

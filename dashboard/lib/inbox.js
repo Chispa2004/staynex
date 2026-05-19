@@ -237,6 +237,68 @@ const getGuestMemoryByGuest = async ({ supabase, guestIds, hotelId }) => {
   }
 };
 
+const getGuestStayContextByGuest = async ({ supabase, guestIds, hotelId }) => {
+  if (!guestIds.length || !hotelId) {
+    return new Map();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('guest_stay_context')
+      .select('*')
+      .eq('hotel_id', hotelId)
+      .in('guest_id', guestIds)
+      .order('last_updated_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((contextByGuest, context) => {
+      if (!contextByGuest.has(context.guest_id)) {
+        contextByGuest.set(context.guest_id, context);
+      }
+
+      return contextByGuest;
+    }, new Map());
+  } catch (error) {
+    console.warn('Inbox PMS guest stay context unavailable', error.message);
+    return new Map();
+  }
+};
+
+const getRoomStatusByRoomNumber = async ({ supabase, roomNumbers, hotelId }) => {
+  if (!roomNumbers.length || !hotelId) {
+    return new Map();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('room_status_snapshots')
+      .select('*')
+      .eq('hotel_id', hotelId)
+      .in('room_number', roomNumbers)
+      .order('last_updated_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((statusByRoom, status) => {
+      if (!statusByRoom.has(status.room_number)) {
+        statusByRoom.set(status.room_number, status);
+      }
+
+      return statusByRoom;
+    }, new Map());
+  } catch (error) {
+    console.warn('Inbox PMS room status unavailable', error.message);
+    return new Map();
+  }
+};
+
 export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
   let resolvedHotelId = hotelId;
 
@@ -281,7 +343,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     guestsQuery = guestsQuery.eq('hotel_id', resolvedHotelId);
   }
 
-  const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest] = await Promise.all([
+  const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest] = await Promise.all([
     guestsQuery,
     getMessagesForConversations({ supabase, conversationIds }),
     getLatestAiLogsByConversation({ supabase, conversationIds }),
@@ -289,7 +351,8 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     getActiveOffersByConversation({ supabase, conversationIds }),
     getExperienceBookingsByConversation({ supabase, conversationIds }),
     getAiStateByConversation({ supabase, conversationIds }),
-    getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
+    getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
+    getGuestStayContextByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
   ]);
 
   if (guestsError) {
@@ -297,14 +360,23 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   }
 
   const guestsById = new Map((guests || []).map((guest) => [guest.id, guest]));
+  const roomNumbers = [...new Set((guests || []).map((guest) => guest.current_room).filter(Boolean))];
+  const roomStatusByRoom = await getRoomStatusByRoomNumber({
+    supabase,
+    roomNumbers,
+    hotelId: resolvedHotelId
+  });
   const messagesByConversation = groupMessagesByConversation(messages || []);
 
   return conversations.map((conversation) => {
     const conversationMessages = messagesByConversation.get(conversation.id) || [];
     const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
+    const guest = guestsById.get(conversation.guest_id) || null;
+    const guestStayContext = stayContextByGuest.get(conversation.guest_id) || null;
+    const roomStatus = roomStatusByRoom.get(guest?.current_room || guestStayContext?.room_number) || null;
     const enrichedConversation = {
       ...conversation,
-      guest: guestsById.get(conversation.guest_id) || null,
+      guest,
       guestMemory: memoryByGuest.get(conversation.guest_id) || [],
       messages: conversationMessages,
       lastMessage,
@@ -312,7 +384,25 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
       upsells: upsellsByConversation.get(conversation.id) || [],
       offers: offersByConversation.get(conversation.id) || [],
       experienceBookings: experienceBookingsByConversation.get(conversation.id) || [],
-      aiState: aiStateByConversation.get(conversation.id) || null
+      aiState: aiStateByConversation.get(conversation.id) || null,
+      pmsIntelligenceContext: {
+        stayPhase: guestStayContext?.stay_phase || null,
+        roomStatus: roomStatus ? {
+          roomNumber: roomStatus.room_number,
+          roomType: roomStatus.room_type,
+          housekeepingStatus: roomStatus.housekeeping_status,
+          maintenanceStatus: roomStatus.maintenance_status,
+          occupancyStatus: roomStatus.occupancy_status,
+          lastUpdatedAt: roomStatus.last_updated_at
+        } : null,
+        vipScore: guestStayContext?.vip_score ?? null,
+        revenuePotential: guestStayContext?.revenue_potential || 0,
+        upgradeEligible: Boolean(guestStayContext?.upgrade_eligible),
+        lateCheckoutEligible: Boolean(guestStayContext?.late_checkout_eligible),
+        transferLikely: Boolean(guestStayContext?.transfer_likely),
+        experienceLikely: Boolean(guestStayContext?.experience_likely),
+        guestStayContext
+      }
     };
 
     return {
