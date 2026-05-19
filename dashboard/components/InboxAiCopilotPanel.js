@@ -1,7 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, BadgeEuro, BrainCircuit, CalendarCheck, CheckCircle2, Clock3, MessageSquareText, Sparkles, UserRound, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import {
+  AlertTriangle,
+  BadgeEuro,
+  BrainCircuit,
+  CalendarCheck,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock3,
+  MessageSquareText,
+  ShieldAlert,
+  Sparkles,
+  UserRound,
+  XCircle
+} from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const formatCurrency = (value, currency = 'EUR') => new Intl.NumberFormat(undefined, {
@@ -10,6 +24,8 @@ const formatCurrency = (value, currency = 'EUR') => new Intl.NumberFormat(undefi
   maximumFractionDigits: 0
 }).format(Number(value || 0));
 
+const formatPercent = (value) => `${Math.round(Number(value || 0) * 100)}%`;
+
 const Pill = ({ children, tone = 'slate' }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -17,13 +33,14 @@ const Pill = ({ children, tone = 'slate' }) => {
     emerald: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
     red: isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100',
     orange: isLight ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-orange-300/20 bg-orange-400/10 text-orange-100',
+    amber: isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
     violet: isLight ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-violet-300/20 bg-violet-400/10 text-violet-100',
     sky: isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-400/10 text-sky-100',
     slate: isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-white/[0.045] text-slate-300'
   };
 
   return (
-    <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${tones[tone] || tones.slate}`}>
+    <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${tones[tone] || tones.slate}`}>
       {children}
     </span>
   );
@@ -62,6 +79,45 @@ const ActionButton = ({ children, onClick, disabled = false, tone = 'slate', tit
   );
 };
 
+const safeCopilot = (conversation, humanEscalation) => {
+  const lastGuest = [...(conversation?.messages || [])].reverse().find((message) => message.sender_type === 'guest');
+  const language = lastGuest?.original_language || conversation?.guest?.preferred_language || 'en';
+
+  return {
+    sentiment: { label: conversation?.aiState?.sentiment || 'neutral', tone: 'slate', confidence: 0.55, reasons: ['Basic AI state signal'] },
+    priority: { level: humanEscalation?.needsHuman ? 'high' : 'low', tone: humanEscalation?.needsHuman ? 'orange' : 'slate', confidence: 0.55, reasons: [humanEscalation?.reason || 'No urgent signal'] },
+    suggestedAction: {
+      title: humanEscalation?.needsHuman ? 'Review personally' : 'Reply normally',
+      detail: humanEscalation?.needsHuman ? 'Reception should review the conversation before promising a resolution.' : 'No critical operational blocker is visible.',
+      tone: humanEscalation?.needsHuman ? 'orange' : 'slate'
+    },
+    suggestedReply: {
+      text: humanEscalation?.needsHuman
+        ? 'Thanks for letting us know. I will ask reception to review this personally and come back to you shortly.'
+        : 'Of course, I can help with that. Let me check the best option for your stay.',
+      language,
+      confidence: 0.55
+    },
+    summary: {
+      bullets: [
+        conversation?.guest?.current_room ? `Room ${conversation.guest.current_room}` : null,
+        lastGuest?.content ? `Latest guest message: ${lastGuest.content}` : 'No recent guest message'
+      ].filter(Boolean)
+    },
+    revenueOpportunity: { label: 'No active revenue signal', amount: 0, currency: 'EUR', confidence: 0.3, tone: 'slate', source: 'none' },
+    vip: { probability: 0.12, label: 'Standard guest', tone: 'slate', reasons: ['No VIP signal'] },
+    escalationRisk: { level: humanEscalation?.needsHuman ? 'medium' : 'low', tone: humanEscalation?.needsHuman ? 'orange' : 'emerald', reasons: [humanEscalation?.reason || 'No escalation pattern'] },
+    language,
+    guestSnapshot: {
+      room: conversation?.guest?.current_room || null,
+      phone: conversation?.guest?.phone_number || null,
+      memoryCount: (conversation?.guestMemory || []).length,
+      bookingsCount: (conversation?.experienceBookings || []).length,
+      lastIntent: conversation?.aiState?.current_intent || conversation?.aiLog?.detected_intent || null
+    }
+  };
+};
+
 export const InboxAiCopilotPanel = ({
   conversation,
   humanEscalation,
@@ -71,6 +127,7 @@ export const InboxAiCopilotPanel = ({
 }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
+  const [copied, setCopied] = useState(false);
   const offers = conversation?.offers || [];
   const upsells = conversation?.upsells || [];
   const experienceBookings = conversation?.experienceBookings || [];
@@ -78,12 +135,18 @@ export const InboxAiCopilotPanel = ({
   const aiState = conversation?.aiState || null;
   const activeOffer = offers[0] || null;
   const revenuePotential = offers.reduce((total, offer) => total + Number(offer.suggested_price || 0), 0);
-  const lastGuestMessage = [...(conversation?.messages || [])].reverse().find((message) => message.sender_type === 'guest');
-  const suggestedReply = humanEscalation?.needsHuman
-    ? 'Thanks for letting us know. I will ask reception to review this personally and come back to you shortly.'
-    : activeOffer
-      ? `I can help arrange ${activeOffer.offer_type}. Would you like me to check availability for you?`
-      : 'Of course, I can help with that. Let me check the best option for your stay.';
+  const copilot = conversation?.copilot || safeCopilot(conversation, humanEscalation);
+  const summaryBullets = copilot.summary?.bullets || [];
+
+  const copySuggestedReply = async () => {
+    if (!copilot.suggestedReply?.text || typeof navigator === 'undefined' || !navigator.clipboard) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(copilot.suggestedReply.text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
 
   return (
     <aside className={[
@@ -98,8 +161,8 @@ export const InboxAiCopilotPanel = ({
             <Sparkles className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
-          <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>AI Suggestions</p>
-          <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>Context, offers and operational signals</p>
+            <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>AI Copilot</p>
+            <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>Reception intelligence for this guest</p>
           </div>
         </div>
         {onClose ? (
@@ -110,31 +173,103 @@ export const InboxAiCopilotPanel = ({
       </div>
 
       <div className="executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-        <Section title="Suggested Reply" icon={MessageSquareText}>
+        <div className="grid grid-cols-2 gap-2">
+          <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Sentiment</p>
+            <div className="mt-2"><Pill tone={copilot.sentiment?.tone}>{copilot.sentiment?.label || 'neutral'}</Pill></div>
+            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.sentiment?.confidence)} confidence</p>
+          </div>
+          <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Priority</p>
+            <div className="mt-2"><Pill tone={copilot.priority?.tone}>{copilot.priority?.level || 'low'}</Pill></div>
+            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.priority?.confidence)} confidence</p>
+          </div>
+          <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Escalation risk</p>
+            <div className="mt-2"><Pill tone={copilot.escalationRisk?.tone}>{copilot.escalationRisk?.level || 'low'}</Pill></div>
+          </div>
+          <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">VIP probability</p>
+            <div className="mt-2"><Pill tone={copilot.vip?.tone}>{copilot.vip?.label || 'Standard guest'}</Pill></div>
+            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.vip?.probability)}</p>
+          </div>
+        </div>
+
+        <Section title="Suggested Action" icon={ShieldAlert}>
+          <div className="flex flex-wrap gap-2">
+            <Pill tone={copilot.suggestedAction?.tone}>{copilot.suggestedAction?.title || 'Reply normally'}</Pill>
+            <Pill tone="sky">Language {String(copilot.language || 'en').toUpperCase()}</Pill>
+          </div>
+          <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
+            {copilot.suggestedAction?.detail || 'No operational recommendation yet.'}
+          </p>
+        </Section>
+
+        <Section title="Generate Professional Reply" icon={MessageSquareText}>
           <p className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm leading-6 text-slate-700' : 'rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3 py-3 text-sm leading-6 text-slate-200'}>
-            {suggestedReply}
+            {copilot.suggestedReply?.text}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Pill tone="sky">Summary ready</Pill>
-            <Pill tone={aiState?.sentiment === 'negative' ? 'red' : 'emerald'}>Sentiment {aiState?.sentiment || 'neutral'}</Pill>
-            <Pill tone={humanEscalation?.needsHuman ? 'orange' : 'slate'}>
-              {humanEscalation?.needsHuman ? 'Unresolved issue' : 'No urgent blocker'}
-            </Pill>
+            <Pill tone="emerald">Reply ready</Pill>
+            <Pill tone="sky">{String(copilot.suggestedReply?.language || copilot.language || 'en').toUpperCase()}</Pill>
+            <ActionButton onClick={copySuggestedReply} tone="emerald">
+              <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              {copied ? 'Copied' : 'Copy reply'}
+            </ActionButton>
           </div>
-          {lastGuestMessage?.content ? (
-            <p className={isLight ? 'mt-3 line-clamp-2 text-xs leading-5 text-slate-500' : 'mt-3 line-clamp-2 text-xs leading-5 text-slate-500'}>
-              Last guest signal: {lastGuestMessage.content}
-            </p>
+        </Section>
+
+        <Section title="Conversation Summary" icon={BrainCircuit}>
+          {summaryBullets.length ? (
+            <ul className={isLight ? 'space-y-2 text-sm leading-6 text-slate-600' : 'space-y-2 text-sm leading-6 text-slate-400'}>
+              {summaryBullets.slice(0, 5).map((item) => (
+                <li key={item} className="flex gap-2">
+                  <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>No conversation summary yet.</p>
+          )}
+        </Section>
+
+        <Section title="Revenue Opportunity" icon={BadgeEuro}>
+          <div className="flex flex-wrap gap-2">
+            <Pill tone={copilot.revenueOpportunity?.tone}>{copilot.revenueOpportunity?.label || 'No active revenue signal'}</Pill>
+            {Number(copilot.revenueOpportunity?.amount || 0) > 0 ? (
+              <Pill tone="emerald">{formatCurrency(copilot.revenueOpportunity.amount, copilot.revenueOpportunity.currency)}</Pill>
+            ) : null}
+            {upsells.slice(0, 3).map((upsell) => (
+              <Pill key={upsell.id} tone="violet">{upsell.upsell_type}</Pill>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Guest Profile Snapshot" icon={UserRound}>
+          <div className="flex flex-wrap gap-2">
+            <Pill tone="slate">Room {copilot.guestSnapshot?.room || '-'}</Pill>
+            <Pill tone="slate">Phone {copilot.guestSnapshot?.phone || '-'}</Pill>
+            <Pill tone="violet">{copilot.guestSnapshot?.memoryCount || 0} memory signals</Pill>
+            <Pill tone="sky">{copilot.guestSnapshot?.bookingsCount || 0} bookings</Pill>
+            {copilot.guestSnapshot?.lastIntent ? <Pill tone="emerald">{copilot.guestSnapshot.lastIntent}</Pill> : null}
+          </div>
+          {memory.length ? (
+            <div className="mt-3 space-y-2">
+              {memory.slice(0, 4).map((item) => (
+                <div key={item.id} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-sm text-slate-300'}>
+                  <span className="font-semibold">{item.memory_key}</span>: {item.memory_value}
+                </div>
+              ))}
+            </div>
           ) : null}
         </Section>
 
         <Section title="AI State" icon={BrainCircuit}>
           <div className="flex flex-wrap gap-2">
-            <Pill tone="violet">Intent: {aiState?.current_intent || 'learning'}</Pill>
-            <Pill tone="sky">{Math.round(Number(aiState?.intent_confidence || 0) * 100)}% confidence</Pill>
+            <Pill tone="violet">Intent: {aiState?.current_intent || conversation?.aiLog?.detected_intent || 'learning'}</Pill>
+            <Pill tone="sky">{Math.round(Number(aiState?.intent_confidence || conversation?.aiLog?.confidence_score || 0) * 100)}% confidence</Pill>
             <Pill tone={aiState?.escalation_level === 'ai_handled' ? 'slate' : 'orange'}>{aiState?.escalation_level || 'ai_handled'}</Pill>
-            <Pill tone={aiState?.sentiment === 'negative' ? 'red' : 'slate'}>{aiState?.sentiment || 'neutral'}</Pill>
-            {aiState?.openai_enhanced ? <Pill tone="emerald">OpenAI enhanced</Pill> : null}
           </div>
           {(aiState?.ai_summary || aiState?.last_ai_response) ? (
             <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
@@ -207,20 +342,6 @@ export const InboxAiCopilotPanel = ({
             </div>
           ) : (
             <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>No active experience booking request.</p>
-          )}
-        </Section>
-
-        <Section title="Guest Memory" icon={UserRound}>
-          {memory.length ? (
-            <div className="space-y-2">
-              {memory.slice(0, 8).map((item) => (
-                <div key={item.id} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-sm text-slate-300'}>
-                  <span className="font-semibold">{item.memory_key}</span>: {item.memory_value}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>No saved memory yet.</p>
           )}
         </Section>
 

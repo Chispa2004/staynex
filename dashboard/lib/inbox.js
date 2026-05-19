@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from './supabase';
+import { buildConversationCopilot } from './ai-copilot';
 
 const INBOX_CONVERSATION_LIMIT = 100;
 const INBOX_MESSAGE_LIMIT = 3000;
@@ -301,8 +302,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   return conversations.map((conversation) => {
     const conversationMessages = messagesByConversation.get(conversation.id) || [];
     const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
-
-    return {
+    const enrichedConversation = {
       ...conversation,
       guest: guestsById.get(conversation.guest_id) || null,
       guestMemory: memoryByGuest.get(conversation.guest_id) || [],
@@ -313,6 +313,11 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
       offers: offersByConversation.get(conversation.id) || [],
       experienceBookings: experienceBookingsByConversation.get(conversation.id) || [],
       aiState: aiStateByConversation.get(conversation.id) || null
+    };
+
+    return {
+      ...enrichedConversation,
+      copilot: buildConversationCopilot(enrichedConversation)
     };
   });
 };

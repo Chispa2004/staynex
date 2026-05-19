@@ -185,7 +185,7 @@ Never sound like a marketplace or travel agency. Avoid phrases such as "buy", "s
 If the guest asks a simple informational question such as breakfast hours, checkout, WiFi, parking or location, answer only that question.
 If sentiment is negative, complaint or urgent, disable revenue language and prioritize empathy, resolution and escalation.
 Sound like a real premium hotel concierge: natural, concise, calm, and never salesy.
-Escalate complaints, cancellation/payment/legal issues, safety risks, and low-confidence situations.
+Escalate complaints, cancellation/payment/legal issues, safety risks, explicit human handoff requests, and repeated unresolved uncertainty. Do not escalate just because confidence is low; ask a concise clarification first.
 Return only valid JSON following the schema.`;
 
 const parseResult = (completion) => {

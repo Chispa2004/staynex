@@ -8,6 +8,7 @@ import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
@@ -86,11 +87,16 @@ const normalizeInboxConversations = (conversations = []) => {
     const messages = dedupeMessages(conversation.messages || []);
     const lastMessage = messages[messages.length - 1] || conversation.lastMessage || null;
 
-    byId.set(conversation.id, {
+    const normalizedConversation = {
       ...conversation,
       messages,
       lastMessage,
       last_message_at: conversation.last_message_at || lastMessage?.created_at || conversation.created_at
+    };
+
+    byId.set(conversation.id, {
+      ...normalizedConversation,
+      copilot: conversation.copilot || buildConversationCopilot(normalizedConversation)
     });
   });
 
@@ -250,14 +256,14 @@ const getHumanEscalation = (conversation) => {
 
   if (Number(aiLog?.confidence_score) < 0.65) {
     return {
-      needsHuman: true,
+      needsHuman: false,
       reason: 'low_confidence'
     };
   }
 
   if (aiLog?.detected_intent === 'unknown') {
     return {
-      needsHuman: true,
+      needsHuman: false,
       reason: 'fallback_response'
     };
   }
@@ -324,13 +330,18 @@ const updateConversationWithMessage = ({ conversations, conversationId, message 
       };
     }
 
-    return {
+    const nextConversation = {
       ...conversation,
       last_message_at: message.created_at || conversation.last_message_at,
       lastMessage: message,
       messages: [...currentMessages, message].sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       )
+    };
+
+    return {
+      ...nextConversation,
+      copilot: buildConversationCopilot(nextConversation)
     };
   })
 );
@@ -1047,6 +1058,9 @@ export const InboxClient = ({ conversations }) => {
 
   const copilotSignals = [
     selectedHumanEscalation.needsHuman,
+    ['high', 'urgent'].includes(selectedConversation?.copilot?.priority?.level),
+    ['medium', 'high'].includes(selectedConversation?.copilot?.escalationRisk?.level),
+    selectedConversation?.copilot?.revenueOpportunity?.source && selectedConversation.copilot.revenueOpportunity.source !== 'none',
     (selectedConversation?.offers || []).length > 0,
     (selectedConversation?.upsells || []).length > 0,
     (selectedConversation?.experienceBookings || []).length > 0,
@@ -1380,7 +1394,7 @@ export const InboxClient = ({ conversations }) => {
                 )}
               >
                 <Bot className="h-4 w-4" aria-hidden="true" />
-                AI Suggestions
+                AI Copilot
                 {copilotSignals > 0 ? (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-300 px-1.5 text-[10px] font-black text-slate-950">
                     {copilotSignals}

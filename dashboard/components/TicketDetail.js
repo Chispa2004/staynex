@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Circle, Loader2, PlayCircle } from 'lucide-react';
+import { ArrowLeft, BrainCircuit, CheckCircle2, Circle, Loader2, PlayCircle, ShieldAlert } from 'lucide-react';
 import { PriorityBadge, StatusBadge } from './Badge';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
@@ -31,6 +31,25 @@ const senderLabel = {
   ai: 'Staynex',
   staff: 'Staff'
 };
+
+const copilotToneClass = (tone = 'slate') => {
+  const tones = {
+    red: 'border-red-300/20 bg-red-500/10 text-red-100',
+    orange: 'border-orange-300/20 bg-orange-400/10 text-orange-100',
+    emerald: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+    sky: 'border-sky-300/20 bg-sky-400/10 text-sky-100',
+    violet: 'border-violet-300/20 bg-violet-400/10 text-violet-100',
+    slate: 'border-white/10 bg-white/[0.045] text-slate-300'
+  };
+
+  return tones[tone] || tones.slate;
+};
+
+const CopilotPill = ({ children, tone = 'slate' }) => (
+  <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${copilotToneClass(tone)}`}>
+    {children}
+  </span>
+);
 
 export const TicketDetail = ({ initialTicket, initialMessages }) => {
   const [ticket, setTicket] = useState(initialTicket);
@@ -207,6 +226,45 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
             <dd className="mt-2 text-sm font-medium text-slate-100">{formatDate(ticket.created_at)}</dd>
           </div>
         </dl>
+
+        <div className="mt-6 rounded-xl border border-emerald-300/15 bg-emerald-300/[0.055] p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <BrainCircuit className="h-4 w-4 text-emerald-200" aria-hidden="true" />
+                <h2 className="text-sm font-semibold text-white">AI Copilot for this ticket</h2>
+              </div>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+                {ticket.copilot?.suggestedResolution || 'Review the ticket and reply with a clear next step.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <CopilotPill tone={ticket.copilot?.aiPriority?.tone}>
+                <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
+                {ticket.copilot?.aiPriority?.level || ticket.priority || 'normal'}
+              </CopilotPill>
+              <CopilotPill tone="sky">{ticket.copilot?.suggestedDepartment || 'Reception'}</CopilotPill>
+              <CopilotPill tone={ticket.copilot?.satisfactionRisk?.tone}>
+                Risk {ticket.copilot?.satisfactionRisk?.level || 'low'}
+              </CopilotPill>
+              <CopilotPill tone={ticket.copilot?.sentiment?.tone}>
+                {ticket.copilot?.sentiment?.label || 'neutral'}
+              </CopilotPill>
+            </div>
+          </div>
+          {ticket.copilot?.similarPastIncidents?.length ? (
+            <div className="mt-4 rounded-lg border border-white/10 bg-black/15 px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Similar past incidents</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ticket.copilot.similarPastIncidents.map((incident) => (
+                  <CopilotPill key={incident.id} tone="slate">
+                    {incident.room_number || 'No room'} / {incident.title || 'Ticket'}
+                  </CopilotPill>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="rounded-lg border border-white/10 bg-[#0b1019]/88 p-5 shadow-2xl shadow-black/15">

@@ -89,14 +89,14 @@ export const detectHumanEscalation = ({
 
   if (Number(aiResponse?.confidence) < 0.65) {
     return {
-      needsHuman: true,
+      needsHuman: false,
       humanReason: 'low_confidence'
     };
   }
 
   if (aiResponse?.intent === 'unknown') {
     return {
-      needsHuman: true,
+      needsHuman: false,
       humanReason: 'fallback_response'
     };
   }
@@ -149,12 +149,10 @@ export const buildHumanHandoffReply = ({ language = 'es', reason = null }) => {
 export const shouldReplaceReplyForHumanEscalation = ({ aiResponse, reason }) => (
   Boolean(reason)
   && reason !== 'emergency_detected'
+  && reason !== 'low_confidence'
   && (
-    Number(aiResponse?.confidence) < 0.65
-    || aiResponse?.intent === 'unknown'
-    || aiResponse?.intent === 'human_escalation'
+    aiResponse?.intent === 'human_escalation'
     || reason === 'complaint_detected'
-    || reason === 'fallback_response'
     || reason === 'technical_issue_detected'
   )
 );

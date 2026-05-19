@@ -5,6 +5,18 @@ const normalize = (value = '') => String(value)
 
 const includesAny = (text, words) => words.some((word) => text.includes(normalize(word)));
 
+const tokenize = (value = '') => normalize(value)
+  .replace(/[^a-z0-9\s]/g, ' ')
+  .split(/\s+/)
+  .filter((token) => token.length > 2);
+
+const unique = (items = []) => [...new Set(items.filter(Boolean))];
+
+const chooseVariant = (variants = [], seed = 0) => {
+  if (!variants.length) return '';
+  return variants[Math.abs(Number(seed || 0)) % variants.length];
+};
+
 export const AI_STYLE_PROFILES = {
   luxury_concierge: {
     id: 'luxury_concierge',
@@ -326,6 +338,276 @@ export const chooseNaturalConciergeResponse = ({
   }
 
   return openAiSuggestedResponse || conciergeResponse || baseResponse || null;
+};
+
+export const getClarificationCount = (conversationState = {}) => (
+  Number(conversationState?.previousState?.state_metadata?.smart_response?.clarification_count || 0)
+);
+
+export const buildClarificationReply = ({
+  language = 'es',
+  message = '',
+  providerIntent = null,
+  variantIndex = 0
+} = {}) => {
+  const text = normalize(message);
+  const looksLikeExperience = providerIntent?.intentType
+    || includesAny(text, ['excursion', 'excursiones', 'actividad', 'actividades', 'tour', 'experiencia', 'book', 'reservar']);
+  const templates = {
+    es: looksLikeExperience
+      ? [
+        'Creo que hablas de una experiencia. ¿Quieres informacion o quieres que envie una solicitud de disponibilidad?',
+        'Para ayudarte bien: ¿buscas detalles de la excursion o quieres iniciar una solicitud de reserva?'
+      ]
+      : [
+        'Disculpa, no estoy seguro de haber entendido bien. ¿Te refieres a una reserva, una incidencia o informacion del hotel?',
+        '¿Me puedes dar un poco mas de detalle para ayudarte mejor?',
+        'Quiero ayudarte bien. ¿Puedes decirme si es sobre tu habitacion, una reserva o algun servicio del hotel?'
+      ],
+    en: looksLikeExperience
+      ? [
+        'I think you mean an experience. Would you like details, or would you like me to send an availability request?',
+        'Just to help properly: are you asking for tour details or would you like to start a booking request?'
+      ]
+      : [
+        'Sorry, I am not completely sure I understood. Do you mean a reservation, an issue, or hotel information?',
+        'Could you share a little more detail so I can help properly?',
+        'I want to help accurately. Is this about your room, a reservation, or a hotel service?'
+      ],
+    fr: looksLikeExperience
+      ? [
+        'Je pense que vous parlez d une experience. Souhaitez-vous des details ou envoyer une demande de disponibilite?',
+        'Pour vous aider correctement: souhaitez-vous des informations ou commencer une demande de reservation?'
+      ]
+      : [
+        'Pardon, je ne suis pas certain d avoir bien compris. Parlez-vous d une reservation, d un probleme ou d une information hotel?',
+        'Pouvez-vous me donner un peu plus de details pour mieux vous aider?',
+        'Je veux vous repondre correctement. Est-ce au sujet de votre chambre, d une reservation ou d un service de l hotel?'
+      ],
+    de: looksLikeExperience
+      ? [
+        'Ich glaube, Sie meinen ein Erlebnis. Moechten Sie Details oder soll ich eine Verfuegbarkeitsanfrage senden?',
+        'Damit ich richtig helfen kann: Geht es um Informationen zur Tour oder um eine Buchungsanfrage?'
+      ]
+      : [
+        'Entschuldigung, ich bin nicht ganz sicher, ob ich Sie richtig verstanden habe. Geht es um eine Reservierung, ein Problem oder Hotelinformationen?',
+        'Koennen Sie mir bitte etwas mehr Details geben, damit ich besser helfen kann?',
+        'Ich moechte genau helfen. Geht es um Ihr Zimmer, eine Reservierung oder einen Hotelservice?'
+      ]
+  };
+
+  return chooseVariant(templates[language] || templates.es, variantIndex);
+};
+
+export const buildEscalationReply = ({ language = 'es', reason = null, variantIndex = 0 } = {}) => {
+  if (reason === 'emergency_detected') {
+    return {
+      es: 'Hemos marcado tu mensaje como urgente. Por favor, contacta tambien inmediatamente con recepcion o emergencias si hay riesgo para tu seguridad. Lo derivo ahora a recepcion.',
+      en: 'We have marked your message as urgent. Please also contact reception or emergency services immediately if there is any risk to your safety. I am forwarding this to reception now.',
+      fr: 'Nous avons marque votre message comme urgent. Veuillez aussi contacter immediatement la reception ou les urgences s il y a un risque pour votre securite. Je le transmets maintenant.',
+      de: 'Wir haben Ihre Nachricht als dringend markiert. Bitte kontaktieren Sie sofort auch die Rezeption oder den Notdienst, falls Gefahr besteht. Ich leite dies jetzt weiter.'
+    }[language] || null;
+  }
+
+  const templates = {
+    es: [
+      'Para no darte una respuesta incorrecta, paso esta consulta a recepcion para que puedan ayudarte bien.',
+      'Lo derivo a recepcion para revisarlo con cuidado y darte una respuesta correcta.'
+    ],
+    en: [
+      'To avoid giving you the wrong answer, I am forwarding this to reception so they can help properly.',
+      'I will pass this to reception so they can review it carefully and give you the right answer.'
+    ],
+    fr: [
+      'Pour eviter de vous donner une mauvaise reponse, je transmets cela a la reception afin qu elle vous aide correctement.',
+      'Je transmets cela a la reception pour verifier avec attention et vous repondre correctement.'
+    ],
+    de: [
+      'Damit ich Ihnen keine falsche Antwort gebe, leite ich das an die Rezeption weiter.',
+      'Ich gebe das an die Rezeption weiter, damit es sorgfaeltig geprueft wird.'
+    ]
+  };
+
+  return chooseVariant(templates[language] || templates.es, variantIndex);
+};
+
+export const areResponsesSimilar = (first = '', second = '') => {
+  const a = unique(tokenize(first));
+  const b = unique(tokenize(second));
+
+  if (!a.length || !b.length) return false;
+
+  const overlap = a.filter((token) => b.includes(token)).length;
+  const ratio = overlap / Math.max(a.length, b.length);
+
+  return ratio >= 0.64 || normalize(first) === normalize(second);
+};
+
+export const detectRepeatedResponse = ({ response = '', recentMessages = [], previousResponse = null } = {}) => {
+  const candidates = [
+    previousResponse,
+    ...(recentMessages || [])
+      .filter((item) => ['ai', 'assistant'].includes(item.sender_type || item.senderType))
+      .map((item) => item.content)
+  ].filter(Boolean);
+
+  return candidates.some((candidate) => areResponsesSimilar(response, candidate));
+};
+
+export const improveRepeatedResponse = ({
+  response = '',
+  language = 'es',
+  strategy = 'confirmation',
+  variantIndex = 0
+} = {}) => {
+  const alternatives = {
+    clarification: {
+      es: ['¿Me puedes concretar un poco mas para ayudarte sin equivocarme?'],
+      en: ['Could you clarify one detail so I can help without guessing?'],
+      fr: ['Pouvez-vous preciser un peu pour que je vous aide sans me tromper?'],
+      de: ['Koennen Sie das kurz genauer sagen, damit ich richtig helfen kann?']
+    },
+    escalation: {
+      es: ['Lo paso al equipo para revisarlo con cuidado y responderte correctamente.'],
+      en: ['I will pass this to the team so they can review it carefully and answer correctly.'],
+      fr: ['Je transmets cela a l equipe pour verification et reponse correcte.'],
+      de: ['Ich gebe das an das Team weiter, damit es sorgfaeltig geprueft wird.']
+    },
+    confirmation: {
+      es: ['De acuerdo, lo reviso y te indico el siguiente paso.'],
+      en: ['Understood, I will check this and guide you with the next step.'],
+      fr: ['Tres bien, je verifie cela et vous indique la prochaine etape.'],
+      de: ['Verstanden, ich pruefe das und sage Ihnen den naechsten Schritt.']
+    }
+  };
+
+  return chooseVariant(alternatives[strategy]?.[language] || alternatives.confirmation.es, variantIndex) || response;
+};
+
+export const chooseSmarterConciergeResponse = ({
+  message = '',
+  aiResponse = {},
+  language = 'es',
+  conversationState = {},
+  humanEscalation = { needsHuman: false, humanReason: null },
+  enhancedRisk = { hasRisk: false },
+  providerIntent = null,
+  knowledgeUsed = false,
+  recentMessages = []
+} = {}) => {
+  const confidence = Number(aiResponse?.confidence || 0);
+  const intent = aiResponse?.intent || null;
+  const previousClarifications = getClarificationCount(conversationState);
+  const variantIndex = previousClarifications + (recentMessages?.length || 0);
+  const explicitHuman = humanEscalation.humanReason === 'human_requested';
+  const seriousEscalation = Boolean(
+    explicitHuman
+    || enhancedRisk?.hasRisk
+    || ['emergency_detected', 'complaint_detected', 'technical_issue_detected'].includes(humanEscalation.humanReason)
+  );
+  const unclear = Boolean(
+    !knowledgeUsed
+    && !seriousEscalation
+    && (
+      confidence > 0 && confidence < 0.65
+      || intent === 'unknown'
+      || humanEscalation.humanReason === 'low_confidence'
+      || humanEscalation.humanReason === 'fallback_response'
+    )
+  );
+
+  let responseStrategy = 'direct_answer';
+  let reply = aiResponse?.reply || '';
+  let needsHuman = Boolean(humanEscalation.needsHuman);
+  let humanReason = humanEscalation.humanReason || null;
+  let clarificationUsed = false;
+  let escalationReason = humanReason;
+
+  if (seriousEscalation) {
+    responseStrategy = explicitHuman ? 'requested_handoff' : 'human_escalation';
+    needsHuman = true;
+    humanReason = humanReason || enhancedRisk?.reason || 'human_required';
+    reply = buildEscalationReply({
+      language,
+      reason: humanReason,
+      variantIndex
+    }) || reply;
+  } else if (unclear && previousClarifications >= 1) {
+    responseStrategy = 'escalate_after_repeated_unclear';
+    needsHuman = true;
+    humanReason = 'repeated_unclear_request';
+    escalationReason = humanReason;
+    reply = buildEscalationReply({
+      language,
+      reason: humanReason,
+      variantIndex
+    });
+  } else if (unclear) {
+    responseStrategy = 'clarification';
+    needsHuman = false;
+    humanReason = null;
+    escalationReason = null;
+    clarificationUsed = true;
+    reply = buildClarificationReply({
+      language,
+      message,
+      providerIntent,
+      variantIndex
+    });
+  }
+
+  const repeated = detectRepeatedResponse({
+    response: reply,
+    recentMessages,
+    previousResponse: conversationState?.previousState?.last_ai_response
+  });
+
+  if (repeated) {
+    reply = improveRepeatedResponse({
+      response: reply,
+      language,
+      strategy: responseStrategy === 'clarification'
+        ? 'clarification'
+        : responseStrategy.includes('escalation') || responseStrategy.includes('handoff')
+          ? 'escalation'
+          : 'confirmation',
+      variantIndex: variantIndex + 1
+    });
+  }
+
+  const nextClarificationCount = clarificationUsed
+    ? previousClarifications + 1
+    : responseStrategy === 'direct_answer'
+      ? 0
+      : previousClarifications;
+
+  return {
+    aiResponse: {
+      ...aiResponse,
+      reply,
+      confidence: clarificationUsed ? Math.max(confidence, 0.68) : confidence,
+      intent: clarificationUsed ? 'clarification_needed' : aiResponse.intent,
+      concierge_intent: clarificationUsed ? 'clarification_needed' : aiResponse.concierge_intent,
+      escalate_to_human: needsHuman,
+      create_ticket: clarificationUsed ? false : aiResponse.create_ticket,
+      fallbackUsed: Boolean(aiResponse.fallbackUsed ?? aiResponse.fallback_used),
+      fallback_used: Boolean(aiResponse.fallback_used ?? aiResponse.fallbackUsed)
+    },
+    humanEscalation: {
+      needsHuman,
+      humanReason
+    },
+    metadata: {
+      response_strategy: responseStrategy,
+      clarification_used: clarificationUsed,
+      clarification_count: nextClarificationCount,
+      escalation_reason: escalationReason,
+      repeated_response_detected: repeated,
+      response_variant: variantIndex,
+      confidence,
+      language
+    }
+  };
 };
 
 export const buildResponseGuidance = ({

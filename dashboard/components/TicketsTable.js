@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Circle, Loader2, PlayCircle } from 'lucide-react';
+import { BrainCircuit, CheckCircle2, Circle, Loader2, PlayCircle, ShieldAlert } from 'lucide-react';
 import { PriorityBadge, StatusBadge } from './Badge';
 import { TicketAgeLabel } from './TicketAgeLabel';
 import { TicketCategoryIcon } from './TicketCategoryIcon';
@@ -33,6 +33,34 @@ const formatDate = (value) => {
 const formatText = (value, fallback) => value?.replaceAll('_', ' ') || fallback;
 
 const isUrgentTicket = (ticket) => ticket.priority === 'urgent' || ticket.category === 'emergency';
+
+const copilotToneClass = (tone = 'slate') => {
+  const tones = {
+    red: 'border-red-300/20 bg-red-500/10 text-red-100',
+    orange: 'border-orange-300/20 bg-orange-400/10 text-orange-100',
+    emerald: 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+    sky: 'border-sky-300/20 bg-sky-400/10 text-sky-100',
+    violet: 'border-violet-300/20 bg-violet-400/10 text-violet-100',
+    slate: 'border-white/10 bg-white/[0.045] text-slate-300'
+  };
+
+  return tones[tone] || tones.slate;
+};
+
+const CopilotPill = ({ children, tone = 'slate' }) => (
+  <span className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold capitalize ${copilotToneClass(tone)}`}>
+    {children}
+  </span>
+);
+
+const getTicketCopilot = (ticket) => ticket.copilot || {
+  aiPriority: { level: ticket.priority || 'normal', tone: isUrgentTicket(ticket) ? 'red' : 'slate' },
+  suggestedDepartment: 'Reception',
+  suggestedResolution: 'Review the ticket and reply with a clear next step.',
+  satisfactionRisk: { level: isUrgentTicket(ticket) ? 'high' : 'low', tone: isUrgentTicket(ticket) ? 'red' : 'emerald' },
+  sentiment: { label: 'neutral', tone: 'slate' },
+  similarPastIncidents: []
+};
 
 const getTicketRowClass = (ticket) => {
   if (isUrgentTicket(ticket)) {
@@ -120,6 +148,7 @@ export const TicketsTable = ({ tickets }) => {
           {items.map((ticket) => {
             const urgent = isUrgentTicket(ticket);
             const loading = updatingId === ticket.id;
+            const copilot = getTicketCopilot(ticket);
 
             return (
               <article
@@ -150,6 +179,20 @@ export const TicketsTable = ({ tickets }) => {
                   <StatusBadge status={ticket.status} />
                   <TicketAgeLabel createdAt={ticket.created_at} urgent={urgent} />
                   <span className="text-xs text-slate-500">{formatDate(ticket.created_at)}</span>
+                </div>
+                <div className="mt-4 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.055] p-3">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-100">
+                    <BrainCircuit className="h-3.5 w-3.5" aria-hidden="true" />
+                    AI Copilot
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <CopilotPill tone={copilot.aiPriority?.tone}>{copilot.aiPriority?.level || 'normal'}</CopilotPill>
+                    <CopilotPill tone="sky">{copilot.suggestedDepartment || 'Reception'}</CopilotPill>
+                    <CopilotPill tone={copilot.satisfactionRisk?.tone}>Risk {copilot.satisfactionRisk?.level || 'low'}</CopilotPill>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
+                    {copilot.suggestedResolution}
+                  </p>
                 </div>
                 <div className="mt-4 flex justify-end gap-1.5">
                   {STATUS_ACTIONS.map((action) => {
@@ -194,12 +237,14 @@ export const TicketsTable = ({ tickets }) => {
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.status')}</th>
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.date')}</th>
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.age')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">AI Copilot</th>
                 <th className="px-5 py-4 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.quickActions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/10">
               {items.map((ticket) => {
                 const urgent = isUrgentTicket(ticket);
+                const copilot = getTicketCopilot(ticket);
 
                 return (
                   <tr
@@ -234,6 +279,21 @@ export const TicketsTable = ({ tickets }) => {
                     </td>
                     <td className="whitespace-nowrap px-5 py-4 text-sm">
                       <TicketAgeLabel createdAt={ticket.created_at} urgent={urgent} />
+                    </td>
+                    <td className="min-w-[280px] px-5 py-4">
+                      <div className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.045] px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <CopilotPill tone={copilot.aiPriority?.tone}>
+                            <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+                            {copilot.aiPriority?.level || 'normal'}
+                          </CopilotPill>
+                          <CopilotPill tone="sky">{copilot.suggestedDepartment || 'Reception'}</CopilotPill>
+                          <CopilotPill tone={copilot.satisfactionRisk?.tone}>Risk {copilot.satisfactionRisk?.level || 'low'}</CopilotPill>
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
+                          {copilot.suggestedResolution}
+                        </p>
+                      </div>
                     </td>
                     <td className="whitespace-nowrap px-5 py-4">
                       <div className="flex justify-end gap-1.5">

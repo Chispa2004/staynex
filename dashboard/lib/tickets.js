@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from './supabase';
 import { writeEnterpriseAuditLog } from './enterprise-audit';
+import { buildTicketCopilot } from './ai-copilot';
 
 const TICKET_SELECT = 'id, hotel_id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id, guest_id';
 
@@ -18,7 +19,12 @@ export const getTickets = async ({ supabase = getSupabaseAdmin(), hotelId = null
     throw error;
   }
 
-  return data || [];
+  const tickets = data || [];
+
+  return tickets.map((ticket) => ({
+    ...ticket,
+    copilot: buildTicketCopilot(ticket, tickets)
+  }));
 };
 
 export const getTicketsByCategories = async (categories, { supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
@@ -37,7 +43,12 @@ export const getTicketsByCategories = async (categories, { supabase = getSupabas
     throw error;
   }
 
-  return data || [];
+  const tickets = data || [];
+
+  return tickets.map((ticket) => ({
+    ...ticket,
+    copilot: buildTicketCopilot(ticket, tickets)
+  }));
 };
 
 export const getTicketDetail = async (ticketId, { supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
@@ -70,8 +81,13 @@ export const getTicketDetail = async (ticketId, { supabase = getSupabaseAdmin(),
     throw messagesError;
   }
 
+  const ticketWithCopilot = {
+    ...ticket,
+    copilot: buildTicketCopilot(ticket, [ticket])
+  };
+
   return {
-    ticket,
+    ticket: ticketWithCopilot,
     messages: messages || []
   };
 };
@@ -128,5 +144,8 @@ export const updateTicketStatus = async ({
     metadata: { source: 'dashboard_ticket_status' }
   });
 
-  return data;
+  return {
+    ...data,
+    copilot: buildTicketCopilot(data, [data])
+  };
 };

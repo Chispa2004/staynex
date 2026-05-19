@@ -56,6 +56,7 @@ import {
 import { enhanceConciergeIntelligence } from './openai-concierge.service.js';
 import {
   buildResponseGuidance,
+  chooseSmarterConciergeResponse,
   chooseNaturalConciergeResponse,
   shouldSuppressOfferForNaturalConversation
 } from './natural-conversation.service.js';
@@ -644,7 +645,7 @@ export const processGuestMessage = async ({
   });
   const offerAllowedInReply = Boolean(enhancedRevenueOpportunity && !finalOfferSuppression.suppress);
 
-  const humanEscalation = detectHumanEscalation({
+  let humanEscalation = detectHumanEscalation({
     message,
     aiResponse: rawAiResponse,
     knowledgeUsed: Boolean(knowledgeResult)
@@ -845,6 +846,33 @@ export const processGuestMessage = async ({
     });
   }
 
+  const smarterResponse = chooseSmarterConciergeResponse({
+    message,
+    aiResponse: aiResponseWithUpsell,
+    language: conversationContext.language,
+    conversationState,
+    humanEscalation,
+    enhancedRisk,
+    providerIntent: providerExperienceConversation,
+    knowledgeUsed: Boolean(knowledgeResult || providerRecommendationReply || experienceBookingRequest),
+    recentMessages: conversationContext.recentMessages
+  });
+  aiResponseWithUpsell = smarterResponse.aiResponse;
+  humanEscalation = smarterResponse.humanEscalation;
+
+  logger.info('smarter_concierge_response_strategy', {
+    hotelId: activeHotel.id,
+    guestId: guest.id,
+    conversationId: conversation.id,
+    response_strategy: smarterResponse.metadata.response_strategy,
+    clarification_used: smarterResponse.metadata.clarification_used,
+    escalation_reason: smarterResponse.metadata.escalation_reason,
+    repeated_response_detected: smarterResponse.metadata.repeated_response_detected,
+    response_variant: smarterResponse.metadata.response_variant,
+    confidence: smarterResponse.metadata.confidence,
+    language: smarterResponse.metadata.language
+  });
+
   const conciergeMemories = await persistConciergeMemory({
     hotel: activeHotel,
     guest,
@@ -955,6 +983,7 @@ export const processGuestMessage = async ({
         openai_risk_flags: openAiResult?.risk_flags || [],
         openai_department_actions: openAiResult?.department_actions || [],
         natural_response_guidance: responseGuidance,
+        smart_response: smarterResponse.metadata,
         final_offer_suppression: finalOfferSuppression,
         provider_experience_conversation: {
           intent: providerExperienceConversation.intentType || null,
@@ -1067,6 +1096,7 @@ export const processGuestMessage = async ({
     aiSummary: openAiResult?.summary || null,
     aiReasoning: [
       openAiResult?.reasoning || openAiConcierge.reason || null,
+      `response_strategy=${smarterResponse.metadata.response_strategy}; clarification_used=${smarterResponse.metadata.clarification_used}; escalation_reason=${smarterResponse.metadata.escalation_reason || 'none'}; repeated_response_detected=${smarterResponse.metadata.repeated_response_detected}; response_variant=${smarterResponse.metadata.response_variant}; confidence=${smarterResponse.metadata.confidence}; language=${smarterResponse.metadata.language}`,
       `hotel_context_source=${hotelContextSource}; hotel_id=${activeHotel.id}; provider_experiences=${providerExperiences.length}; hotel_experiences=${hotelExperiences.length}; providers=${strictCatalog.providerNames.join(', ') || 'none'}; final_experience_source=${strictCatalog.finalExperienceSource}; blocked_cross_tenant=${strictCatalog.blockedCrossTenantExperiences}; response_language=${conversationContext.language}`,
       providerExperienceConversation.intentType
         ? `provider_experience_intent=${providerExperienceConversation.intentType}; booking_ready=${Boolean(providerExperienceConversation.bookingReady)}; booking_created=${Boolean(experienceBookingRequest)}; booking_request_id=${experienceBookingRequest?.id || 'none'}; booking_block_reason=${experienceBookingRequest ? 'none' : experienceBookingIntent.reason || providerExperienceConversation.reason || 'none'}; provider_used=${providerExperienceConversation.matchedExperience?.provider_source || experienceBookingRequest?.provider_source || 'none'}; provider_experience_used=${providerExperienceConversation.matchedExperience?.title || experienceBookingRequest?.experience_title || 'none'}; provider_lead_status=${experienceBookingRequest?.lead_status || 'none'}; provider_email_status=${experienceBookingRequest?.metadata?.provider_email_status || experienceBookingRequest?.lead_status || 'none'}; matched_provider_experience_id=${providerExperienceConversation.matchedExperience?.provider_experience_id || providerExperienceConversation.matchedExperience?.id || 'none'}; last_provider_experience_id=${nextLastProviderExperience?.provider_experience_id || conversationState.previousState?.state_metadata?.last_provider_experience?.provider_experience_id || 'none'}`
