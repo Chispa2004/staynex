@@ -258,14 +258,23 @@ const buildGuestSignals = ({
     .slice(0, 6);
 };
 
-const buildInsights = ({ guestMemory, upsells, aiLogs, conversations }) => {
+const buildInsights = ({ guestMemory, upsells, aiLogs, conversations, scheduledMessages = [] }) => {
   const memoryKeys = new Set(guestMemory.map((item) => item.memory_key));
   const languageCounts = countBy(aiLogs, 'detected_language');
   const topLanguage = Object.entries(languageCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'es';
   const lowConfidence = aiLogs.filter((item) => Number(item.confidence_score) < 0.65).length;
   const romanticUpsells = upsells.filter((item) => item.upsell_type === 'romantic_package').length;
+  const automationCounts = countBy(scheduledMessages, 'automation_type');
+  const topAutomation = Object.entries(automationCounts).sort((a, b) => b[1] - a[1])[0];
 
   return [
+    {
+      title: 'Automation opportunity',
+      description: topAutomation
+        ? `${topAutomation[0].replace(/_/g, ' ')} is the strongest proactive workflow right now.`
+        : 'No proactive automations scheduled yet today.',
+      tone: topAutomation ? 'emerald' : 'slate'
+    },
     {
       title: 'Upgrade-ready guests',
       description: `${upsells.filter((item) => ['room_upgrade', 'late_checkout'].includes(item.upsell_type)).length} guests show signals for paid upgrades.`,
@@ -708,7 +717,8 @@ export async function GET(request) {
         guestMemory: recentGuestMemory,
         upsells: recentUpsells,
         aiLogs: recentAiLogs,
-        conversations: recentConversations
+        conversations: recentConversations,
+        scheduledMessages: recentScheduledMessages
       })
     });
   } catch (error) {

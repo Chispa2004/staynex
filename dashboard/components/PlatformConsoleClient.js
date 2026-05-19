@@ -76,7 +76,7 @@ const WorkspaceMark = ({ hotel, size = 'h-11 w-11' }) => (
 );
 
 const StatCard = ({ icon: Icon, label, value, helper, isLight, tone = 'emerald' }) => (
-  <article className={cn('rounded-xl border p-4', ui.surface(isLight))}>
+  <article className={cn('premium-fade-in rounded-xl border p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-2xl', ui.surface(isLight))}>
     <div className="flex items-start justify-between gap-4">
       <div>
         <p className={ui.text.eyebrow(isLight)}>{label}</p>
@@ -133,7 +133,15 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
   };
 
   return (
-    <section id="partner-marketplace-revenue" className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+    <section
+      id="partner-marketplace-revenue"
+      className={cn(
+        'overflow-hidden rounded-xl border p-5',
+        isLight
+          ? 'border-violet-200/80 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.12),transparent_32%),#fff] text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.08)]'
+          : 'border-violet-300/15 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.16),transparent_34%),rgba(11,16,25,0.94)] text-slate-100 shadow-[0_18px_55px_rgba(0,0,0,0.24)]'
+      )}
+    >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className={ui.text.eyebrow(isLight)}>Staynex Partner Network</p>
@@ -164,7 +172,7 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
         <StatCard icon={Sparkles} isLight={isLight} label="Top Provider" value={partnerMarketplaceMetrics.topProvider} helper="Best marketplace source" tone="violet" />
       </div>
 
-      <div className={cn('mt-5 overflow-hidden rounded-xl border', isLight ? 'border-slate-200' : 'border-white/10')}>
+      <div className={cn('mt-5 overflow-hidden rounded-xl border', isLight ? 'border-slate-200 bg-white/80 shadow-sm' : 'border-white/10 bg-black/10')}>
         <div className={cn('grid gap-3 border-b px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] md:grid-cols-[1.1fr_1fr_0.5fr_0.8fr_0.8fr_0.8fr_0.7fr]', isLight ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-white/10 bg-white/[0.03] text-slate-400')}>
           <span>Provider</span>
           <span>Hotel Source</span>
@@ -176,8 +184,13 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
         </div>
         <div className="divide-y divide-slate-200/10">
           {rows.map((row) => (
-            <div key={row.key} className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[1.1fr_1fr_0.5fr_0.8fr_0.8fr_0.8fr_0.7fr] md:items-center">
-              <strong className="truncate">{row.provider}</strong>
+            <div key={row.key} className={cn('grid gap-3 px-4 py-3 text-sm transition md:grid-cols-[1.1fr_1fr_0.5fr_0.8fr_0.8fr_0.8fr_0.7fr] md:items-center', isLight ? 'hover:bg-slate-50' : 'hover:bg-white/[0.035]')}>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-xs font-black', isLight ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-violet-300/20 bg-violet-400/10 text-violet-100')}>
+                  {(row.provider || 'P').slice(0, 2).toUpperCase()}
+                </span>
+                <strong className="truncate">{row.provider}</strong>
+              </div>
               <span className={cn('truncate', ui.text.muted(isLight))}>{row.hotelSource || 'Unknown hotel'}</span>
               <span>{row.bookings || 0}</span>
               <span>{formatCurrency(row.revenue)}</span>
@@ -560,7 +573,7 @@ export const PlatformConsoleClient = () => {
 
           <div className="divide-y divide-slate-200/10">
             {sortedHotels.map((hotel) => (
-              <article key={hotel.id} className={cn('grid gap-4 p-4 transition hover:bg-emerald-300/[0.035] xl:grid-cols-[minmax(0,1.15fr)_0.75fr_1fr_auto]', isLight ? 'hover:bg-slate-50' : '')}>
+              <article key={hotel.id} className={cn('premium-fade-in grid gap-4 p-4 transition duration-200 hover:-translate-y-0.5 hover:bg-emerald-300/[0.035] xl:grid-cols-[minmax(0,1.15fr)_0.75fr_1fr_auto]', isLight ? 'hover:bg-slate-50 hover:shadow-sm' : '')}>
                 <div className="flex min-w-0 gap-3">
                   <WorkspaceMark hotel={hotel} />
                   <div className="min-w-0">
@@ -583,6 +596,11 @@ export const PlatformConsoleClient = () => {
                   </div>
                   <div className="mt-2"><HealthBar value={hotel.healthScore || 0} isLight={isLight} /></div>
                   <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>{hotel.healthStatus || 'Unknown'} / onboarding {hotel.onboarding?.percent || 0}%</p>
+                  <div className="mt-3 grid grid-cols-3 gap-1.5">
+                    <span className={ui.badge(isLight, hotel.pms?.enabled ? 'emerald' : 'slate', true)}>PMS</span>
+                    <span className={ui.badge(isLight, hotel.stats?.whatsappConfigured ? 'sky' : 'slate', true)}>WhatsApp</span>
+                    <span className={ui.badge(isLight, (hotel.stats?.aiHandled || 0) > 0 ? 'violet' : 'slate', true)}>AI</span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">

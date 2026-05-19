@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, BadgeEuro, BrainCircuit, CalendarCheck, CheckCircle2, Clock3, Sparkles, UserRound, XCircle } from 'lucide-react';
+import { AlertTriangle, BadgeEuro, BrainCircuit, CalendarCheck, CheckCircle2, Clock3, MessageSquareText, Sparkles, UserRound, XCircle } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const formatCurrency = (value, currency = 'EUR') => new Intl.NumberFormat(undefined, {
@@ -34,7 +34,7 @@ const Section = ({ title, icon: Icon, children }) => {
   const isLight = theme === 'light';
 
   return (
-    <section className={isLight ? 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
+    <section className={isLight ? 'premium-fade-in rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md' : 'premium-fade-in rounded-xl border border-white/10 bg-white/[0.025] p-4 transition hover:-translate-y-0.5 hover:bg-white/[0.04]'}>
       <div className="mb-3 flex items-center gap-2">
         {Icon ? <Icon className={isLight ? 'h-4 w-4 text-slate-500' : 'h-4 w-4 text-slate-400'} /> : null}
         <h3 className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>{title}</h3>
@@ -78,6 +78,12 @@ export const InboxAiCopilotPanel = ({
   const aiState = conversation?.aiState || null;
   const activeOffer = offers[0] || null;
   const revenuePotential = offers.reduce((total, offer) => total + Number(offer.suggested_price || 0), 0);
+  const lastGuestMessage = [...(conversation?.messages || [])].reverse().find((message) => message.sender_type === 'guest');
+  const suggestedReply = humanEscalation?.needsHuman
+    ? 'Thanks for letting us know. I will ask reception to review this personally and come back to you shortly.'
+    : activeOffer
+      ? `I can help arrange ${activeOffer.offer_type}. Would you like me to check availability for you?`
+      : 'Of course, I can help with that. Let me check the best option for your stay.';
 
   return (
     <aside className={[
@@ -86,10 +92,15 @@ export const InboxAiCopilotPanel = ({
       isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#080c14] text-slate-100'
     ].join(' ')}
     >
-      <div className={isLight ? 'flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-4' : 'flex shrink-0 items-center justify-between border-b border-white/10 bg-[#0b1019] px-4 py-4'}>
-        <div>
-          <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>AI Copilot</p>
+      <div className={isLight ? 'flex shrink-0 items-center justify-between border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#fff] px-4 py-4' : 'flex shrink-0 items-center justify-between border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),#0b1019] px-4 py-4'}>
+        <div className="flex items-center gap-3">
+          <span className={isLight ? 'flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-lg shadow-emerald-100' : 'flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-300/10 text-emerald-100 shadow-lg shadow-emerald-950/20'}>
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div>
+          <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>AI Suggestions</p>
           <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>Context, offers and operational signals</p>
+          </div>
         </div>
         {onClose ? (
           <button type="button" onClick={onClose} className={isLight ? 'rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] p-2 text-slate-400 hover:bg-white/[0.08]'}>
@@ -99,6 +110,24 @@ export const InboxAiCopilotPanel = ({
       </div>
 
       <div className="executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+        <Section title="Suggested Reply" icon={MessageSquareText}>
+          <p className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm leading-6 text-slate-700' : 'rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3 py-3 text-sm leading-6 text-slate-200'}>
+            {suggestedReply}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Pill tone="sky">Summary ready</Pill>
+            <Pill tone={aiState?.sentiment === 'negative' ? 'red' : 'emerald'}>Sentiment {aiState?.sentiment || 'neutral'}</Pill>
+            <Pill tone={humanEscalation?.needsHuman ? 'orange' : 'slate'}>
+              {humanEscalation?.needsHuman ? 'Unresolved issue' : 'No urgent blocker'}
+            </Pill>
+          </div>
+          {lastGuestMessage?.content ? (
+            <p className={isLight ? 'mt-3 line-clamp-2 text-xs leading-5 text-slate-500' : 'mt-3 line-clamp-2 text-xs leading-5 text-slate-500'}>
+              Last guest signal: {lastGuestMessage.content}
+            </p>
+          ) : null}
+        </Section>
+
         <Section title="AI State" icon={BrainCircuit}>
           <div className="flex flex-wrap gap-2">
             <Pill tone="violet">Intent: {aiState?.current_intent || 'learning'}</Pill>

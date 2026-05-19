@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, Bot, Eye, EyeOff, RefreshCw, Send, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Clock3, Eye, EyeOff, Languages, MessageSquareText, RefreshCw, Send, Sparkles, UserRound, X, Zap } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -111,6 +111,16 @@ const TRANSLATION_LANGUAGES = [
   { code: 'de', label: 'DE' },
   { code: 'it', label: 'IT' },
   { code: 'pt', label: 'PT' }
+];
+
+const quickReplyTemplates = [
+  { label: 'Late checkout', text: 'Of course, I can check late checkout availability for you.' },
+  { label: 'Restaurant', text: 'I can help with restaurant recommendations or a table request.' },
+  { label: 'Transfer', text: 'I can help arrange a transfer. What time would you like to travel?' },
+  { label: 'Spa', text: 'I can check spa options and availability for you.' },
+  { label: 'Escalate', text: 'I will ask reception to review this personally.' },
+  { label: 'Translate', text: '' },
+  { label: 'Create ticket', text: 'I will create a ticket so the team can follow up.' }
 ];
 
 const normalizeTranslationLanguage = (value) => {
@@ -1053,11 +1063,11 @@ export const InboxClient = ({ conversations }) => {
   return (
     <div
       className={[
-        'relative grid h-[calc(100dvh-92px)] min-h-[520px] overflow-hidden rounded-xl border shadow-2xl backdrop-blur sm:h-[calc(100dvh-118px)] lg:h-[calc(100vh-190px)] lg:min-h-[560px]',
+        'premium-fade-in relative grid h-[calc(100dvh-92px)] min-h-[520px] overflow-hidden rounded-2xl border shadow-2xl backdrop-blur sm:h-[calc(100dvh-118px)] lg:h-[calc(100vh-190px)] lg:min-h-[560px]',
         inboxGridColumns,
         isLight
           ? 'border-slate-200 bg-white shadow-slate-200/80'
-          : 'border-white/10 bg-[#0b1019]/88 shadow-black/25'
+          : 'border-white/10 bg-gradient-to-br from-[#0b1019]/95 via-[#0b1019]/88 to-[#101827]/90 shadow-black/25'
       ].join(' ')}
     >
       <aside className={[
@@ -1180,7 +1190,7 @@ export const InboxClient = ({ conversations }) => {
                   setMobileChatOpen(true);
                 }}
                 className={[
-                  'relative block w-full rounded-lg border px-4 py-4 text-left transition',
+              'premium-fade-in relative block w-full rounded-xl border px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5',
                   isLight
                     ? active
                       ? 'border-emerald-200 bg-emerald-50 shadow-sm shadow-emerald-100'
@@ -1287,8 +1297,8 @@ export const InboxClient = ({ conversations }) => {
       ].join(' ')}
       >
         <header className={[
-          'shrink-0 border-b px-3 py-3 sm:px-5 sm:py-4',
-          isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.025]'
+              'shrink-0 border-b px-3 py-3 sm:px-5 sm:py-4',
+              isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.035]'
         ].join(' ')}
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1370,7 +1380,7 @@ export const InboxClient = ({ conversations }) => {
                 )}
               >
                 <Bot className="h-4 w-4" aria-hidden="true" />
-                AI Copilot
+                AI Suggestions
                 {copilotSignals > 0 ? (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-300 px-1.5 text-[10px] font-black text-slate-950">
                     {copilotSignals}
@@ -1395,8 +1405,8 @@ export const InboxClient = ({ conversations }) => {
         </header>
 
         <div className={[
-          'executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6',
-          isLight ? 'bg-slate-50' : 'bg-[#080c14]/45'
+          'executive-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6',
+          isLight ? 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_32%),#f8fafc]' : 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#080c14]/70'
         ].join(' ')}
         ref={messagesScrollRef}
         >
@@ -1425,17 +1435,35 @@ export const InboxClient = ({ conversations }) => {
             const languageBadge = item.original_language || messageTranslation.sourceLanguage || null;
             const translationLabel = isStaff ? t('inbox.guestTranslation') : t('inbox.staffTranslation');
             const alreadyInStaffLanguage = !hasTranslation && languageBadge && languageBadge === staffLanguage;
+            const isAi = item.sender_type === 'ai';
+            const SenderIcon = isAi ? Bot : isStaff ? UserRound : MessageSquareText;
+            const senderAvatarClass = isLight
+              ? isAi
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 shadow-emerald-100'
+                : isStaff
+                  ? 'border-sky-200 bg-sky-50 text-sky-700 shadow-sky-100'
+                  : 'border-slate-200 bg-white text-slate-600 shadow-slate-200'
+              : isAi
+                ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 shadow-emerald-950/20'
+                : isStaff
+                  ? 'border-sky-300/20 bg-sky-300/10 text-sky-100 shadow-sky-950/20'
+                  : 'border-white/10 bg-white/[0.055] text-slate-300 shadow-black/20';
 
             return (
               <div
                 key={item.id}
                 className={[
-                  'flex',
+                  'premium-fade-in flex items-end gap-2',
                   isStaff ? 'justify-end' : 'justify-start'
                 ].join(' ')}
               >
+                {!isStaff ? (
+                  <span className={cn('mb-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border shadow-lg sm:inline-flex', senderAvatarClass)}>
+                    <SenderIcon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                ) : null}
                 <article className={[
-                  'max-w-[min(90%,760px)] rounded-lg border px-3 py-3 sm:max-w-[min(82%,760px)] sm:px-4 sm:py-3.5',
+                  'max-w-[min(90%,760px)] rounded-2xl border px-3 py-3 transition duration-200 sm:max-w-[min(82%,760px)] sm:px-4 sm:py-3.5',
                   isStaff ? 'rounded-br-md' : 'rounded-bl-md',
                   senderStyles[theme][item.sender_type] || senderStyles[theme].guest
                 ].join(' ')}
@@ -1457,13 +1485,21 @@ export const InboxClient = ({ conversations }) => {
                         : item.sender_type === 'staff'
                           ? t('inbox.staff')
                           : 'Staynex'}
+                      {isAi ? (
+                        <span className={ui.badge(isLight, 'emerald', true)}>
+                          AI
+                        </span>
+                      ) : null}
                       {languageBadge ? (
                         <span className={isLight ? 'rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500' : 'rounded-full border border-white/10 bg-black/20 px-1.5 py-0.5 text-[10px] font-bold text-slate-300'}>
                           {String(languageBadge).toUpperCase()}
                         </span>
                       ) : null}
                     </p>
-                    <p className={isLight ? 'text-xs text-slate-500' : 'text-xs opacity-60'}>{formatTime(item.created_at)}</p>
+                    <p className={isLight ? 'inline-flex items-center gap-1 text-xs text-slate-500' : 'inline-flex items-center gap-1 text-xs opacity-60'}>
+                      {formatTime(item.created_at)}
+                      {isStaff ? <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> : null}
+                    </p>
                   </div>
                   <div className="space-y-3">
                     <div>
@@ -1521,9 +1557,27 @@ export const InboxClient = ({ conversations }) => {
                     ) : null}
                   </div>
                 </article>
+                {isStaff ? (
+                  <span className={cn('mb-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border shadow-lg sm:inline-flex', senderAvatarClass)}>
+                    <SenderIcon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                ) : null}
               </div>
             );
           })}
+          {sending ? (
+            <div className="flex items-center gap-2">
+              <span className={cn('hidden h-9 w-9 items-center justify-center rounded-full border sm:inline-flex', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+                <Bot className="h-4 w-4 animate-pulse" aria-hidden="true" />
+              </span>
+              <div className={cn('rounded-2xl border px-4 py-3 text-sm font-semibold', isLight ? 'border-emerald-200 bg-white text-slate-600 shadow-sm' : 'border-emerald-300/20 bg-white/[0.04] text-slate-300')}>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
+                  AI thinking...
+                </span>
+              </div>
+            </div>
+          ) : null}
           <div ref={messagesEndRef} />
         </div>
 
@@ -1536,10 +1590,36 @@ export const InboxClient = ({ conversations }) => {
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
         >
           {replyWillTranslate ? (
-            <p className={isLight ? 'mb-2 px-1 text-xs font-semibold text-slate-500' : 'mb-2 px-1 text-xs font-semibold text-slate-500'}>
+            <p className={isLight ? 'mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600' : 'mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-400'}>
+              <Languages className="h-3.5 w-3.5" aria-hidden="true" />
               {t('inbox.replyWillBeSentIn', { language: String(selectedGuestLanguage).toUpperCase() })}
             </p>
           ) : null}
+          <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+            {quickReplyTemplates.map((reply) => (
+              <button
+                key={reply.label}
+                type="button"
+                onClick={() => {
+                  if (reply.label === 'Translate') {
+                    setCopilotOpen(true);
+                    return;
+                  }
+
+                  setMessage(reply.text);
+                }}
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5',
+                  isLight
+                    ? 'border-slate-200 bg-white text-slate-600 shadow-sm hover:border-emerald-200 hover:text-slate-950'
+                    : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-emerald-300/25 hover:bg-white/[0.08] hover:text-white'
+                )}
+              >
+                {reply.label === 'Escalate' ? <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> : reply.label === 'Translate' ? <Languages className="h-3.5 w-3.5" aria-hidden="true" /> : <Zap className="h-3.5 w-3.5" aria-hidden="true" />}
+                {reply.label}
+              </button>
+            ))}
+          </div>
           <div className={[
             'flex items-end gap-2 rounded-xl border p-2 shadow-inner',
             isLight
@@ -1566,8 +1646,12 @@ export const InboxClient = ({ conversations }) => {
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
               <Send className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">{t('buttons.send')}</span>
+              <span className="hidden sm:inline">{sending ? 'Sending...' : t('buttons.send')}</span>
             </button>
+          </div>
+          <div className={cn('mt-2 flex flex-wrap items-center gap-2 px-1 text-[11px] font-semibold', isLight ? 'text-slate-500' : 'text-slate-500')}>
+            <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" aria-hidden="true" /> Sent indicator active</span>
+            <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> AI-assisted replies</span>
           </div>
         </form>
       </section>

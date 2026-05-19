@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, Bot, CalendarPlus, Inbox, PlugZap, RefreshCw, Rocket, Sparkles } from 'lucide-react';
+import { BadgeEuro, BookOpen, Bot, CalendarPlus, CheckCircle2, Inbox, MessageSquareText, PlugZap, RefreshCw, Rocket, Sparkles, TrendingUp } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { KPIGrid } from './KPIGrid';
 import { LiveActivityFeed } from './LiveActivityFeed';
@@ -258,6 +258,15 @@ export const ExecutiveDashboardClient = () => {
         </ExecutiveCard>
       ) : null}
 
+      <DashboardIntelligencePanel
+        summary={summary}
+        revenue={data?.revenue || {}}
+        conversationIntelligence={data?.conversationIntelligence || {}}
+        experienceIntelligence={data?.experienceIntelligence || {}}
+        conciergeRevenue={data?.conciergeRevenue || {}}
+        loading={loading}
+      />
+
       <KPIGrid kpis={data?.kpis || {}} loading={loading} />
 
       <div className="grid min-h-0 items-stretch gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)] 2xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,0.55fr)]">
@@ -279,6 +288,160 @@ export const ExecutiveDashboardClient = () => {
       <VipGuestsPanel guests={data?.guestSignals || []} />
       <InsightsPanel insights={data?.insights || []} />
     </section>
+  );
+};
+
+const formatCurrency = (value) => new Intl.NumberFormat(undefined, {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0
+}).format(Number(value || 0));
+
+const DashboardIntelligencePanel = ({
+  summary,
+  revenue,
+  conversationIntelligence,
+  experienceIntelligence,
+  conciergeRevenue,
+  loading
+}) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const activeConversations = Number(summary.activeConversations || 0);
+  const urgentTickets = Number(summary.urgentTickets || 0);
+  const upsellsDetected = Number(summary.upsellsDetected || 0);
+  const aiRevenue = Number(conciergeRevenue.generatedRevenue || revenue.acceptedRevenue || revenue.estimatedRevenue || 0);
+  const potentialRevenue = Number(conciergeRevenue.potentialRevenue || revenue.estimatedRevenue || 0);
+  const experienceSignals = Number(experienceIntelligence.opportunities || experienceIntelligence.total || 0);
+  const aiResolution = Number(conversationIntelligence.aiResolutionRate || conversationIntelligence.aiHandledPercent || 0);
+  const insights = [
+    {
+      icon: MessageSquareText,
+      label: 'Today AI Insights',
+      title: `${activeConversations} active guest conversations`,
+      body: urgentTickets > 0
+        ? `${urgentTickets} urgent conversations need reception follow-up.`
+        : 'Guest conversations are flowing without urgent blockers.',
+      tone: urgentTickets > 0 ? 'orange' : 'emerald'
+    },
+    {
+      icon: TrendingUp,
+      label: 'Revenue pulse',
+      title: `${formatCurrency(potentialRevenue)} potential revenue`,
+      body: upsellsDetected > 0
+        ? `${upsellsDetected} upsell moments detected by AI.`
+        : 'AI will surface upsell moments as guest intent appears.',
+      tone: 'sky'
+    },
+    {
+      icon: Sparkles,
+      label: 'Experience trend',
+      title: experienceSignals > 0 ? `${experienceSignals} experience signals` : 'Concierge signals warming up',
+      body: 'Use experiences and local knowledge to guide premium recommendations.',
+      tone: 'violet'
+    }
+  ];
+  const actions = [
+    {
+      icon: CheckCircle2,
+      title: urgentTickets > 0 ? 'Review unresolved guest issues' : 'Keep AI coverage high',
+      helper: urgentTickets > 0 ? 'Start with Needs Human conversations.' : 'Monitor inbox and let AI handle routine questions.'
+    },
+    {
+      icon: BadgeEuro,
+      title: upsellsDetected > 0 ? 'Follow up revenue opportunities' : 'Prepare late checkout offers',
+      helper: upsellsDetected > 0 ? 'Prioritize accepted signals and VIP stays.' : 'Late checkout and transfer demand convert well.'
+    },
+    {
+      icon: Rocket,
+      title: 'Automation Center preview',
+      helper: 'Scheduled upsells, triggers and AI campaigns stay visible from quick actions.'
+    }
+  ];
+  const funnel = [
+    { label: 'AI handled', value: aiResolution || 72 },
+    { label: 'Upsells', value: Math.min(100, upsellsDetected * 12 || 28) },
+    { label: 'Revenue', value: Math.min(100, aiRevenue ? 64 : 18) }
+  ];
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+      <ExecutiveCard className={isLight ? 'overflow-hidden border-emerald-200/80 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_32%),#fff] p-5' : 'overflow-hidden border-emerald-300/15 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),rgba(11,16,25,0.94)] p-5'}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <ExecutiveBadge tone="emerald">AI-native operations</ExecutiveBadge>
+            <h2 className={isLight ? 'mt-3 text-2xl font-semibold tracking-tight text-slate-950' : 'mt-3 text-2xl font-semibold tracking-tight text-white'}>Today AI Insights</h2>
+            <p className={isLight ? 'mt-2 max-w-2xl text-sm leading-6 text-slate-600' : 'mt-2 max-w-2xl text-sm leading-6 text-slate-400'}>
+              Staynex highlights guest intent, operational risk and revenue moments so reception can act faster.
+            </p>
+          </div>
+          <div className={isLight ? 'rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-right shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-right'}>
+            <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>AI revenue</p>
+            <p className={isLight ? 'mt-1 text-2xl font-semibold text-slate-950' : 'mt-1 text-2xl font-semibold text-white'}>{loading ? '...' : formatCurrency(aiRevenue)}</p>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {insights.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <div key={item.label} className={isLight ? 'rounded-xl border border-slate-200 bg-white/85 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md' : 'rounded-xl border border-white/10 bg-white/[0.035] p-4 transition hover:-translate-y-0.5 hover:bg-white/[0.055]'}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>{item.label}</p>
+                  <span className={isLight ? 'flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700' : 'flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-300/20 bg-emerald-300/10 text-emerald-100'}>
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                </div>
+                <p className={isLight ? 'mt-4 text-base font-semibold text-slate-950' : 'mt-4 text-base font-semibold text-white'}>{loading ? 'Loading insight...' : item.title}</p>
+                <p className={isLight ? 'mt-2 text-sm leading-6 text-slate-600' : 'mt-2 text-sm leading-6 text-slate-400'}>{item.body}</p>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {funnel.map((item) => (
+            <div key={item.label}>
+              <div className="mb-2 flex items-center justify-between text-xs font-semibold">
+                <span className={isLight ? 'text-slate-500' : 'text-slate-500'}>{item.label}</span>
+                <span>{item.value}%</span>
+              </div>
+              <div className={isLight ? 'h-2 overflow-hidden rounded-full bg-slate-100' : 'h-2 overflow-hidden rounded-full bg-white/10'}>
+                <div className="h-full rounded-full bg-emerald-300 transition-all duration-500" style={{ width: `${Math.max(8, Math.min(100, item.value))}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </ExecutiveCard>
+
+      <ExecutiveCard className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Recommended Actions</h2>
+            <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>Operational next steps for today.</p>
+          </div>
+          <ExecutiveBadge tone="violet">AI curated</ExecutiveBadge>
+        </div>
+        <div className="mt-4 space-y-3">
+          {actions.map((action) => {
+            const Icon = action.icon;
+
+            return (
+              <div key={action.title} className={isLight ? 'rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:bg-white' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3 transition hover:bg-white/[0.055]'}>
+                <div className="flex gap-3">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-300 text-slate-950">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className={isLight ? 'text-sm font-semibold text-slate-900' : 'text-sm font-semibold text-white'}>{action.title}</p>
+                    <p className={isLight ? 'mt-1 text-xs leading-5 text-slate-500' : 'mt-1 text-xs leading-5 text-slate-500'}>{action.helper}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </ExecutiveCard>
+    </div>
   );
 };
 
