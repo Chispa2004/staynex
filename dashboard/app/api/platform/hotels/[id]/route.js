@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  archiveHotelWorkspace,
   getHotelPlatformDetail,
   getPlatformContext,
   writePlatformAuditLog
@@ -158,6 +159,30 @@ export async function PATCH(request, { params }) {
   } catch (error) {
     return NextResponse.json({
       error: error.message || 'Could not update hotel operations state'
+    }, { status: error.status || 500 });
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const { id } = await params;
+    const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
+    const body = await request.json().catch(() => ({}));
+
+    const result = await archiveHotelWorkspace({
+      supabase,
+      hotelId: id,
+      actor: user,
+      platformRole,
+      confirm: body.confirm === true
+    });
+
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'no-store' }
+    });
+  } catch (error) {
+    return NextResponse.json({
+      error: error.message || 'Could not delete hotel workspace'
     }, { status: error.status || 500 });
   }
 }

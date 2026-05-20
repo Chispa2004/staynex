@@ -42,6 +42,7 @@ export const PmsConnectionsClient = () => {
   const [busyAction, setBusyAction] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [connectorPreview, setConnectorPreview] = useState(null);
   const [form, setForm] = useState(defaultForm());
   const requestIdRef = useRef(0);
 
@@ -101,6 +102,17 @@ export const PmsConnectionsClient = () => {
       return;
     }
 
+    if (provider.configurationMode !== 'credentials') {
+      setEditing(null);
+      setConnectorPreview(provider);
+      setFeedback({
+        type: 'info',
+        message: `${provider.name} is ${provider.statusLabel || 'coming soon'}. The adapter is visible for planning, but live credentials are not enabled yet.`
+      });
+      return;
+    }
+
+    setConnectorPreview(null);
     setEditing({ provider, connection });
     setForm(defaultForm(provider, connection));
   };
@@ -306,17 +318,56 @@ export const PmsConnectionsClient = () => {
           <div>
             <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>Safe PMS mode</p>
             <p className={isLight ? 'mt-1 text-sm leading-6 text-slate-600' : 'mt-1 text-sm leading-6 text-slate-400'}>
-              Staynex only authenticates, reads reservations and imports them through the existing reservation token flow. Webhooks receive Apaleo reservation events and never write back to PMS folios, charges or room assignments.
+              Staynex only authenticates, reads reservations and imports them through the existing reservation token flow. Apaleo is live today; Pluriel, Ubikos and other PMS adapters are prepared as beta or coming-soon connectors without writing back to folios, charges or room assignments.
             </p>
           </div>
         </div>
       </ExecutiveCard>
 
+      {connectorPreview ? (
+        <ExecutiveCard className="border-sky-300/25 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <ExecutiveBadge tone={connectorPreview.status === 'beta' ? 'amber' : 'slate'}>
+                {connectorPreview.statusLabel || 'Coming soon'}
+              </ExecutiveBadge>
+              <h2 className={isLight ? 'mt-3 text-xl font-semibold text-slate-950' : 'mt-3 text-xl font-semibold text-white'}>
+                {connectorPreview.name} connector readiness
+              </h2>
+              <p className={isLight ? 'mt-2 max-w-3xl text-sm leading-6 text-slate-600' : 'mt-2 max-w-3xl text-sm leading-6 text-slate-400'}>
+                {connectorPreview.name} is registered in the Staynex PMS ecosystem for {connectorPreview.region || 'global'} hotels. It is clickable here so teams can see readiness, but live API credentials remain disabled until the provider adapter is activated.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConnectorPreview(null)}
+              className={isLight ? 'rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
+            >
+              Close
+            </button>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Region</p>
+              <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{connectorPreview.region}</p>
+            </div>
+            <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Type</p>
+              <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{connectorPreview.type}</p>
+            </div>
+            <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Readiness</p>
+              <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{connectorPreview.readiness}</p>
+            </div>
+          </div>
+        </ExecutiveCard>
+      ) : null}
+
       {loading && !providers.length ? (
         <PremiumLoadingState title="Loading PMS connections" description="Staynex is checking this hotel's PMS configuration." rows={3} cards={2} />
       ) : (
       <div className="grid gap-4 xl:grid-cols-2">
-        {(providers.length ? providers : [{ key: 'apaleo', name: 'Apaleo', status: 'available', defaultBaseUrl: 'https://api.apaleo.com' }]).map((provider) => (
+        {(providers.length ? providers : [{ key: 'apaleo', name: 'Apaleo', status: 'connected', statusLabel: 'Connected', configurationMode: 'credentials', defaultBaseUrl: 'https://api.apaleo.com' }]).map((provider) => (
           <PmsProviderCard
             key={provider.key}
             provider={provider}

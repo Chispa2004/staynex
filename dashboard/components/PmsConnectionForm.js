@@ -50,7 +50,7 @@ export const PmsConnectionForm = ({
               className={inputClass}
               value={form.base_url}
               onChange={(event) => setForm((current) => ({ ...current, base_url: event.target.value }))}
-              placeholder="https://api.apaleo.com"
+              placeholder={provider.defaultBaseUrl || 'https://api.provider.example'}
             />
           </label>
           <label className="space-y-2">
@@ -59,7 +59,7 @@ export const PmsConnectionForm = ({
               className={inputClass}
               value={form.client_id}
               onChange={(event) => setForm((current) => ({ ...current, client_id: event.target.value }))}
-              placeholder="Apaleo client id"
+              placeholder={`${provider.name} client id`}
               required
             />
           </label>
@@ -69,7 +69,7 @@ export const PmsConnectionForm = ({
               className={inputClass}
               value={form.account_code}
               onChange={(event) => setForm((current) => ({ ...current, account_code: event.target.value }))}
-              placeholder="Apaleo account code"
+              placeholder={`${provider.name} account code`}
               required
             />
           </label>
@@ -80,7 +80,7 @@ export const PmsConnectionForm = ({
               className={inputClass}
               value={form.client_secret}
               onChange={(event) => setForm((current) => ({ ...current, client_secret: event.target.value }))}
-              placeholder={initialConnection?.has_client_secret ? 'Leave blank to keep existing secret' : 'Apaleo client secret'}
+              placeholder={initialConnection?.has_client_secret ? 'Leave blank to keep existing secret' : `${provider.name} client secret`}
               required={!initialConnection?.has_client_secret}
             />
           </label>

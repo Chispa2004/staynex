@@ -1,6 +1,12 @@
 import { getCurrentHotelForRequest } from './current-hotel';
 import { writeEnterpriseAuditLog } from './enterprise-audit';
 import { canAccessPlatform } from './permissions';
+import {
+  buildHotelArchiveFallbackUpdate,
+  buildHotelArchiveUpdate,
+  getScopedArchiveOperations,
+  isArchivedHotel
+} from './platform-delete';
 
 export const PLAN_LABELS = {
   starter: 'Starter',
@@ -130,6 +136,142 @@ export const writePlatformAuditLog = async ({
   });
 };
 
+export const archiveHotelWorkspace = async ({
+  supabase,
+  hotelId,
+  actor,
+  platformRole,
+  confirm = false
+}) => {
+  if (!confirm) {
+    const error = new Error('Delete confirmation is required');
+    error.status = 400;
+    throw error;
+  }
+
+  const { data: hotel, error: lookupError } = await supabase
+    .from('hotels')
+    .select('*')
+    .eq('id', hotelId)
+    .single();
+
+  if (lookupError) {
+    throw lookupError;
+  }
+
+  if (isArchivedHotel(hotel)) {
+    return {
+      ok: true,
+      mode: 'already_archived',
+      hotel,
+      related: []
+    };
+  }
+
+  const now = new Date().toISOString();
+  const archiveUpdate = buildHotelArchiveUpdate({
+    hotel,
+    now,
+    actorId: actor?.id || null
+  });
+  let archivedHotel = null;
+  let archiveMode = 'soft_delete';
+
+  const archiveResult = await supabase
+    .from('hotels')
+    .update(archiveUpdate)
+    .eq('id', hotelId)
+    .select('*')
+    .single();
+
+  if (archiveResult.error) {
+    const fallbackUpdate = buildHotelArchiveFallbackUpdate({ hotel, now });
+    const fallbackResult = await supabase
+      .from('hotels')
+      .update(fallbackUpdate)
+      .eq('id', hotelId)
+      .select('*')
+      .single();
+
+    if (fallbackResult.error) {
+      await writePlatformAuditLog({
+        supabase,
+        actor,
+        platformRole,
+        action: 'hotel_workspace_delete_failed',
+        hotelId,
+        metadata: {
+          hotel_name: hotel.name,
+          error: fallbackResult.error.message,
+          archive_error: archiveResult.error.message
+        }
+      });
+      throw fallbackResult.error;
+    }
+
+    archivedHotel = fallbackResult.data;
+    archiveMode = 'fallback_archive';
+  } else {
+    archivedHotel = archiveResult.data;
+  }
+
+  const related = [];
+
+  for (const operation of getScopedArchiveOperations(hotelId, now)) {
+    try {
+      const { error } = await supabase
+        .from(operation.table)
+        .update(operation.update)
+        .eq(operation.matchColumn, operation.matchValue);
+
+      related.push({
+        table: operation.table,
+        ok: !error,
+        error: error?.message || null
+      });
+    } catch (error) {
+      related.push({
+        table: operation.table,
+        ok: false,
+        error: error.message
+      });
+    }
+  }
+
+  await writePlatformAuditLog({
+    supabase,
+    actor,
+    platformRole,
+    action: 'hotel_workspace_archived',
+    hotelId,
+    metadata: {
+      hotel_name: hotel.name,
+      archive_mode: archiveMode,
+      related
+    }
+  });
+
+  await writePlatformAuditLog({
+    supabase,
+    actor,
+    platformRole,
+    action: 'hotel_workspace_deleted',
+    hotelId,
+    metadata: {
+      hotel_name: hotel.name,
+      delete_mode: archiveMode,
+      soft_delete: true
+    }
+  });
+
+  return {
+    ok: true,
+    mode: archiveMode,
+    hotel: archivedHotel,
+    related
+  };
+};
+
 const byHotel = (rows, key = 'hotel_id') => rows.reduce((acc, row) => {
   const hotelId = row[key];
   if (!hotelId) return acc;
@@ -209,45 +351,61 @@ export const getPlatformOverview = async (supabase) => {
     safeRows(supabase.from('local_knowledge_items').select('*'), 'local_knowledge_items'),
     safeRows(supabase.from('hotel_knowledge').select('*'), 'hotel_knowledge')
   ]);
+  const visibleHotels = hotels.filter((hotel) => !isArchivedHotel(hotel));
+  const visibleHotelIds = new Set(visibleHotels.map((hotel) => hotel.id));
+  const scopedRows = (rows, key = 'hotel_id') => rows.filter((row) => !row[key] || visibleHotelIds.has(row[key]));
+  const scopedUsers = scopedRows(users);
+  const scopedConversations = scopedRows(conversations);
+  const scopedAiLogs = scopedRows(aiLogs);
+  const scopedTickets = scopedRows(tickets);
+  const scopedReservations = scopedRows(reservations);
+  const scopedPmsConnections = scopedRows(pmsConnections);
+  const scopedOnboardingStates = scopedRows(onboardingStates);
+  const scopedConversions = scopedRows(conversions);
+  const scopedOffers = scopedRows(offers);
+  const scopedExperiences = scopedRows(experiences);
+  const scopedExperienceBookings = scopedRows(experienceBookings);
+  const scopedLocalKnowledge = scopedRows(localKnowledge);
+  const scopedKnowledgeEntries = scopedRows(knowledgeEntries);
 
-  const usersByHotel = byHotel(users);
-  const activeUsersByHotel = users.reduce((acc, row) => {
+  const usersByHotel = byHotel(scopedUsers);
+  const activeUsersByHotel = scopedUsers.reduce((acc, row) => {
     if (row.hotel_id && row.status === 'active') acc[row.hotel_id] = (acc[row.hotel_id] || 0) + 1;
     return acc;
   }, {});
-  const conversationsByHotel = byHotel(conversations);
-  const activeConversationsByHotel = conversations.reduce((acc, row) => {
+  const conversationsByHotel = byHotel(scopedConversations);
+  const activeConversationsByHotel = scopedConversations.reduce((acc, row) => {
     if (row.hotel_id && ['active', 'needs_human', 'open'].includes(row.status || 'active')) {
       acc[row.hotel_id] = (acc[row.hotel_id] || 0) + 1;
     }
     return acc;
   }, {});
-  const reservationsByHotel = byHotel(reservations);
-  const aiLogsByHotel = byHotel(aiLogs);
-  const aiHandledByHotel = aiLogs.reduce((acc, row) => {
+  const reservationsByHotel = byHotel(scopedReservations);
+  const aiLogsByHotel = byHotel(scopedAiLogs);
+  const aiHandledByHotel = scopedAiLogs.reduce((acc, row) => {
     if (row.hotel_id && (row.ai_resolution_estimate || row.openai_concierge_used || row.response_text || row.generated_response)) {
       acc[row.hotel_id] = (acc[row.hotel_id] || 0) + 1;
     }
     return acc;
   }, {});
-  const ticketsByHotel = byHotel(tickets);
-  const openTicketsByHotel = tickets.reduce((acc, ticket) => {
+  const ticketsByHotel = byHotel(scopedTickets);
+  const openTicketsByHotel = scopedTickets.reduce((acc, ticket) => {
     if (ticket.hotel_id && !['closed', 'completed', 'resolved'].includes(ticket.status)) {
       acc[ticket.hotel_id] = (acc[ticket.hotel_id] || 0) + 1;
     }
     return acc;
   }, {});
-  const urgentTicketsByHotel = tickets.reduce((acc, ticket) => {
+  const urgentTicketsByHotel = scopedTickets.reduce((acc, ticket) => {
     if (ticket.hotel_id && ticket.priority === 'urgent' && ['open', 'in_progress'].includes(ticket.status)) {
       acc[ticket.hotel_id] = (acc[ticket.hotel_id] || 0) + 1;
     }
     return acc;
   }, {});
-  const revenueByHotel = sumByHotel(conversions.filter((row) => row.status === 'accepted'), 'estimated_amount');
-  const offerRevenueByHotel = sumByHotel(offers.filter((row) => row.status === 'accepted' && !row.metadata?.experience_intelligence), 'suggested_price');
-  const experienceOfferRevenueByHotel = sumByHotel(offers.filter((row) => row.status === 'accepted' && row.metadata?.experience_intelligence), 'suggested_price');
+  const revenueByHotel = sumByHotel(scopedConversions.filter((row) => row.status === 'accepted'), 'estimated_amount');
+  const offerRevenueByHotel = sumByHotel(scopedOffers.filter((row) => row.status === 'accepted' && !row.metadata?.experience_intelligence), 'suggested_price');
+  const experienceOfferRevenueByHotel = sumByHotel(scopedOffers.filter((row) => row.status === 'accepted' && row.metadata?.experience_intelligence), 'suggested_price');
   const experienceBookingRevenueByHotel = sumByHotel(
-    experienceBookings.filter((row) => ['confirmed', 'completed'].includes(row.status)),
+    scopedExperienceBookings.filter((row) => ['confirmed', 'completed'].includes(row.status)),
     'estimated_revenue'
   );
   const experienceRevenueByHotel = Object.keys({
@@ -257,11 +415,11 @@ export const getPlatformOverview = async (supabase) => {
     ...acc,
     [hotelId]: Number(experienceOfferRevenueByHotel[hotelId] || 0) + Number(experienceBookingRevenueByHotel[hotelId] || 0)
   }), {});
-  const offersByHotel = byHotel(offers);
-  const acceptedOffers = offers.filter((row) => row.status === 'accepted');
+  const offersByHotel = byHotel(scopedOffers);
+  const acceptedOffers = scopedOffers.filter((row) => row.status === 'accepted');
   const acceptedOffersByHotel = byHotel(acceptedOffers);
-  const experienceBookingsByHotel = byHotel(experienceBookings);
-  const partnerBookings = experienceBookings.filter((row) => (
+  const experienceBookingsByHotel = byHotel(scopedExperienceBookings);
+  const partnerBookings = scopedExperienceBookings.filter((row) => (
     row.revenue_owner === 'staynex'
     || row.revenue_type === 'partner_marketplace'
     || row.metadata?.revenue_owner === 'staynex'
@@ -275,9 +433,9 @@ export const getPlatformOverview = async (supabase) => {
     acc[row.hotel_id] = (acc[row.hotel_id] || 0) + Number(row.platform_commission_amount || row.metadata?.platform_commission_amount || row.commission_estimate || 0);
     return acc;
   }, {});
-  const localKnowledgeByHotel = byHotel(localKnowledge);
-  const knowledgeEntriesByHotel = byHotel(knowledgeEntries);
-  const pmsByHotel = pmsConnections.reduce((acc, connection) => {
+  const localKnowledgeByHotel = byHotel(scopedLocalKnowledge);
+  const knowledgeEntriesByHotel = byHotel(scopedKnowledgeEntries);
+  const pmsByHotel = scopedPmsConnections.reduce((acc, connection) => {
     if (!connection.hotel_id) return acc;
     const current = acc[connection.hotel_id];
     if (!current || new Date(connection.updated_at || 0).getTime() > new Date(current.updated_at || 0).getTime()) {
@@ -285,19 +443,19 @@ export const getPlatformOverview = async (supabase) => {
     }
     return acc;
   }, {});
-  const onboardingByHotel = onboardingStates.reduce((acc, state) => {
+  const onboardingByHotel = scopedOnboardingStates.reduce((acc, state) => {
     acc[state.hotel_id] = state;
     return acc;
   }, {});
   const lastActivityByHotel = [
-    latestByHotel(conversations, 'hotel_id', ['last_message_at', 'created_at']),
-    latestByHotel(aiLogs),
-    latestByHotel(tickets),
-    latestByHotel(reservations),
-    latestByHotel(conversions),
-    latestByHotel(offers),
-    latestByHotel(experienceBookings),
-    latestByHotel(localKnowledge)
+    latestByHotel(scopedConversations, 'hotel_id', ['last_message_at', 'created_at']),
+    latestByHotel(scopedAiLogs),
+    latestByHotel(scopedTickets),
+    latestByHotel(scopedReservations),
+    latestByHotel(scopedConversions),
+    latestByHotel(scopedOffers),
+    latestByHotel(scopedExperienceBookings),
+    latestByHotel(scopedLocalKnowledge)
   ].reduce((acc, source) => {
     Object.entries(source).forEach(([hotelId, value]) => {
       if (!acc[hotelId] || new Date(value).getTime() > new Date(acc[hotelId]).getTime()) {
@@ -307,7 +465,7 @@ export const getPlatformOverview = async (supabase) => {
     return acc;
   }, {});
 
-  const hotelRows = hotels.map((hotel) => {
+  const hotelRows = visibleHotels.map((hotel) => {
     const pmsConnection = pmsByHotel[hotel.id] || null;
     const onboarding = onboardingByHotel[hotel.id] || null;
     const stats = {
@@ -331,7 +489,7 @@ export const getPlatformOverview = async (supabase) => {
       partnerBookings: partnerBookingsByHotel[hotel.id] || 0,
       partnerRevenue: partnerRevenueByHotel[hotel.id] || 0,
       partnerCommission: partnerCommissionByHotel[hotel.id] || 0,
-      experiences: experiences.filter((item) => item.hotel_id === hotel.id).length,
+      experiences: scopedExperiences.filter((item) => item.hotel_id === hotel.id).length,
       localKnowledge: localKnowledgeByHotel[hotel.id] || 0,
       knowledgeBase: knowledgeEntriesByHotel[hotel.id] || 0,
       whatsappConfigured: Boolean(hotel.whatsapp_number)
@@ -369,7 +527,7 @@ export const getPlatformOverview = async (supabase) => {
     };
   });
 
-  const totalRevenue = conversions
+  const totalRevenue = scopedConversions
     .filter((row) => row.status === 'accepted')
     .reduce((total, row) => total + Number(row.estimated_amount || 0), 0);
   const totalExperienceRevenue = acceptedOffers
@@ -378,7 +536,7 @@ export const getPlatformOverview = async (supabase) => {
   const totalOfferRevenue = acceptedOffers
     .filter((row) => !row.metadata?.experience_intelligence)
     .reduce((total, row) => total + Number(row.suggested_price || 0), 0);
-  const totalExperienceBookingRevenue = experienceBookings
+  const totalExperienceBookingRevenue = scopedExperienceBookings
     .filter((row) => ['confirmed', 'completed'].includes(row.status))
     .reduce((total, row) => total + Number(row.estimated_revenue || 0), 0);
   const totalPartnerLeads = partnerBookings.length;
@@ -392,8 +550,8 @@ export const getPlatformOverview = async (supabase) => {
     ...acc,
     [hotel.id]: hotel
   }), {});
-  const partnerMarketplaceSqlReady = experienceBookings.length === 0
-    || experienceBookings.some((row) => (
+  const partnerMarketplaceSqlReady = scopedExperienceBookings.length === 0
+    || scopedExperienceBookings.some((row) => (
       Object.prototype.hasOwnProperty.call(row, 'revenue_owner')
       || Object.prototype.hasOwnProperty.call(row, 'revenue_type')
       || Object.prototype.hasOwnProperty.call(row, 'platform_commission_amount')
@@ -442,20 +600,39 @@ export const getPlatformOverview = async (supabase) => {
       commission: hotel.stats.partnerCommission || 0
     }))
     .sort((a, b) => b.commission - a.commission)[0] || null;
-  const totalOffers = offers.length;
-  const aiHandled = aiLogs.filter((row) => row.ai_resolution_estimate || row.openai_concierge_used).length;
+  const totalOffers = scopedOffers.length;
+  const aiHandled = scopedAiLogs.filter((row) => row.ai_resolution_estimate || row.openai_concierge_used).length;
+  const enabledPmsConnections = scopedPmsConnections.filter((connection) => connection.enabled);
+  const hotelsByPms = enabledPmsConnections.reduce((acc, connection) => {
+    const provider = connection.provider || 'unknown';
+    acc[provider] = (acc[provider] || 0) + 1;
+    return acc;
+  }, {});
+  const pmsCoverage = hotelRows.length ? Math.round((hotelRows.filter((hotel) => hotel.pms?.enabled).length / hotelRows.length) * 100) : 0;
+  const pmsEcosystem = {
+    activeProviders: Object.keys(hotelsByPms).length,
+    connectedHotels: hotelRows.filter((hotel) => hotel.pms?.enabled).length,
+    coveragePercent: pmsCoverage,
+    hotelsByPms,
+    connectorReadiness: [
+      { key: 'apaleo', name: 'Apaleo', status: 'Connected', region: 'Europe', readiness: 'Production connector' },
+      { key: 'pluriel', name: 'Pluriel', status: 'Beta', region: 'Popular in Morocco', readiness: 'Adapter scaffold ready' },
+      { key: 'ubikos', name: 'Ubikos', status: 'Coming soon', region: 'Morocco riads and boutique hotels', readiness: 'Discovery placeholder' }
+    ],
+    moroccoReadiness: 'Pluriel beta scaffold and Ubikos coming-soon adapter are registered for Morocco pilots.'
+  };
 
   return {
     hotels: hotelRows,
     metrics: {
-      totalHotels: hotels.length,
+      totalHotels: hotelRows.length,
       activeHotels: hotelRows.filter((hotel) => (hotel.stats.conversations > 0 || hotel.stats.reservations > 0 || hotel.pms?.enabled)).length,
       hotelsNeedingAttention: hotelRows.filter((hotel) => hotel.healthScore < 60 || hotel.stats.urgentTickets > 0 || hotel.pms?.lastSyncError).length,
-      totalReservations: reservations.length,
-      totalConversations: conversations.length,
-      totalAiConversations: aiLogs.length,
-      totalExperienceBookings: experienceBookings.length,
-      aiHandledPercent: aiLogs.length ? Math.round((aiHandled / aiLogs.length) * 100) : 0,
+      totalReservations: scopedReservations.length,
+      totalConversations: scopedConversations.length,
+      totalAiConversations: scopedAiLogs.length,
+      totalExperienceBookings: scopedExperienceBookings.length,
+      aiHandledPercent: scopedAiLogs.length ? Math.round((aiHandled / scopedAiLogs.length) * 100) : 0,
       totalAiRevenue: totalRevenue + totalOfferRevenue + totalExperienceRevenue + totalExperienceBookingRevenue,
       totalUpsellRevenue: totalRevenue,
       totalOfferRevenue,
@@ -472,11 +649,11 @@ export const getPlatformOverview = async (supabase) => {
       topPartnerHotel: topPartnerHotel?.name || 'No hotel source',
       partnerConversionRate: totalPartnerLeads ? Math.round((totalPartnerBookings / totalPartnerLeads) * 100) : 0,
       partnerMarketplaceSqlReady,
-      totalActiveUsers: users.filter((row) => row.status === 'active').length,
+      totalActiveUsers: scopedUsers.filter((row) => row.status === 'active').length,
       pmsConnectedHotels: hotelRows.filter((hotel) => hotel.pms?.enabled).length,
       whatsappConfiguredHotels: hotelRows.filter((hotel) => hotel.stats.whatsappConfigured).length,
-      totalLocalKnowledge: localKnowledge.length,
-      totalExperiences: experiences.length,
+      totalLocalKnowledge: scopedLocalKnowledge.length,
+      totalExperiences: scopedExperiences.length,
       acceptedOffers: acceptedOffers.length,
       offerConversionRate: totalOffers ? Math.round((acceptedOffers.length / totalOffers) * 100) : 0
     },
@@ -489,34 +666,35 @@ export const getPlatformOverview = async (supabase) => {
         }))
         .sort((a, b) => b.revenue - a.revenue)
         .slice(0, 5),
-      topUpsells: Object.entries(conversions.reduce((acc, row) => {
+      topUpsells: Object.entries(scopedConversions.reduce((acc, row) => {
         const key = row.upsell_type || 'unknown';
         acc[key] = (acc[key] || 0) + Number(row.estimated_amount || 0);
         return acc;
       }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6),
-      topExperiences: Object.entries(offers
+      topExperiences: Object.entries(scopedOffers
         .filter((row) => row.metadata?.experience_intelligence)
         .reduce((acc, row) => {
           const key = row.metadata?.hotel_experience_title || row.offer_type || 'experience';
           acc[key] = (acc[key] || 0) + Number(row.suggested_price || 0);
           return acc;
         }, {})).sort((a, b) => b[1] - a[1]).slice(0, 6),
-      partnerMarketplace: partnerProviderRows.slice(0, 10)
+      partnerMarketplace: partnerProviderRows.slice(0, 10),
+      pmsEcosystem
     },
     raw: {
-      users,
-      conversations,
-      aiLogs,
-      tickets,
-      reservations,
-      pmsConnections,
-      onboardingStates,
-      conversions,
-      offers,
-      experiences,
-      experienceBookings,
-      localKnowledge,
-      knowledgeEntries
+      users: scopedUsers,
+      conversations: scopedConversations,
+      aiLogs: scopedAiLogs,
+      tickets: scopedTickets,
+      reservations: scopedReservations,
+      pmsConnections: scopedPmsConnections,
+      onboardingStates: scopedOnboardingStates,
+      conversions: scopedConversions,
+      offers: scopedOffers,
+      experiences: scopedExperiences,
+      experienceBookings: scopedExperienceBookings,
+      localKnowledge: scopedLocalKnowledge,
+      knowledgeEntries: scopedKnowledgeEntries
     }
   };
 };

@@ -6,44 +6,14 @@ import { getApaleoAccessToken } from '../integrations/apaleo/apaleo-auth.service
 import { apaleoFetch } from '../integrations/apaleo/apaleo-client.service.js';
 import { syncReservationsFromApaleo } from '../integrations/apaleo/apaleo-sync.service.js';
 import {
+  getPmsConnectorDefinition,
+  isPmsConnectorConfigurable,
+  listPmsConnectors
+} from '../integrations/pms/registry.js';
+import {
   getPmsBatchSize,
   getPmsMaxReservations
 } from './scalability-guard.service.js';
-
-const SUPPORTED_PROVIDERS = {
-  apaleo: {
-    key: 'apaleo',
-    name: 'Apaleo',
-    status: 'available',
-    authType: 'oauth_client_credentials',
-    defaultBaseUrl: 'https://api.apaleo.com'
-  },
-  mews: {
-    key: 'mews',
-    name: 'Mews',
-    status: 'coming_soon'
-  },
-  cloudbeds: {
-    key: 'cloudbeds',
-    name: 'Cloudbeds',
-    status: 'coming_soon'
-  },
-  opera: {
-    key: 'opera',
-    name: 'Oracle OPERA',
-    status: 'coming_soon'
-  },
-  hostaway: {
-    key: 'hostaway',
-    name: 'Hostaway',
-    status: 'coming_soon'
-  },
-  sihot: {
-    key: 'sihot',
-    name: 'SIHOT',
-    status: 'coming_soon'
-  }
-};
 
 const redactConnection = (connection) => {
   if (!connection) {
@@ -66,7 +36,7 @@ const resolveHotelId = async (hotelId) => {
   return hotel?.id || null;
 };
 
-export const getAvailablePmsProviders = () => Object.values(SUPPORTED_PROVIDERS);
+export const getAvailablePmsProviders = () => listPmsConnectors();
 
 export const getHotelPmsConnection = async ({ hotelId, provider = 'apaleo' } = {}) => {
   const resolvedHotelId = await resolveHotelId(hotelId);
@@ -117,7 +87,7 @@ const buildConnectionRecord = ({
   client_id: clientId || null,
   ...(clientSecret ? { encrypted_client_secret: encryptSecret(clientSecret) } : {}),
   account_code: accountCode || null,
-  base_url: baseUrl || SUPPORTED_PROVIDERS[provider]?.defaultBaseUrl || null,
+  base_url: baseUrl || getPmsConnectorDefinition(provider)?.defaultBaseUrl || null,
   enabled: Boolean(enabled),
   metadata,
   sync_status: 'configured',
@@ -138,8 +108,12 @@ export const saveHotelPmsConnection = async ({
 } = {}) => {
   const resolvedHotelId = await resolveHotelId(hotelId);
 
-  if (!SUPPORTED_PROVIDERS[provider]) {
+  if (!getPmsConnectorDefinition(provider)) {
     throw new Error(`Unsupported PMS provider: ${provider}`);
+  }
+
+  if (!isPmsConnectorConfigurable(provider)) {
+    throw new Error(`${getPmsConnectorDefinition(provider).name} is registered in Staynex but live credential setup is not enabled yet`);
   }
 
   const client = getSupabase();
@@ -249,7 +223,7 @@ export const connectionToApaleoConfig = (connection) => {
     clientId: connection.client_id,
     clientSecret: decryptSecret(connection.encrypted_client_secret),
     accountCode: connection.account_code,
-    baseUrl: connection.base_url || SUPPORTED_PROVIDERS.apaleo.defaultBaseUrl,
+    baseUrl: connection.base_url || getPmsConnectorDefinition('apaleo').defaultBaseUrl,
     scope: connection.metadata?.scope || ''
   };
 };

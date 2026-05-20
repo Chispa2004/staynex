@@ -1,13 +1,7 @@
 import { encryptSecret } from './pms-encryption';
+import { PMS_PROVIDER_CATALOG, getPmsProvider, isPmsProviderConfigurable } from './pms-providers';
 
-export const PMS_PROVIDERS = [
-  { key: 'apaleo', name: 'Apaleo', status: 'available', defaultBaseUrl: 'https://api.apaleo.com' },
-  { key: 'mews', name: 'Mews', status: 'coming_soon' },
-  { key: 'cloudbeds', name: 'Cloudbeds', status: 'coming_soon' },
-  { key: 'opera', name: 'Oracle OPERA', status: 'coming_soon' },
-  { key: 'hostaway', name: 'Hostaway', status: 'coming_soon' },
-  { key: 'sihot', name: 'SIHOT', status: 'coming_soon' }
-];
+export const PMS_PROVIDERS = PMS_PROVIDER_CATALOG;
 
 export const redactConnection = (connection) => {
   if (!connection) {
@@ -47,6 +41,16 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 22000) => {
 
 export const saveConnection = async ({ supabase, hotelId, payload }) => {
   const provider = payload.provider || 'apaleo';
+  const providerDefinition = getPmsProvider(provider);
+
+  if (!providerDefinition) {
+    throw new Error(`Unsupported PMS provider: ${provider}`);
+  }
+
+  if (!isPmsProviderConfigurable(providerDefinition)) {
+    throw new Error(`${providerDefinition.name} is not ready for credential setup yet. Use the connector readiness panel to request beta activation.`);
+  }
+
   const existingResult = await supabase
     .from('hotel_pms_connections')
     .select('*')
@@ -65,7 +69,7 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
     provider,
     client_id: payload.client_id || null,
     account_code: payload.account_code || null,
-    base_url: payload.base_url || PMS_PROVIDERS.find((item) => item.key === provider)?.defaultBaseUrl || null,
+    base_url: payload.base_url || providerDefinition.defaultBaseUrl || null,
     enabled: payload.enabled !== false,
     sync_status: existing?.sync_status || 'configured',
     webhook_url: payload.webhook_url || existing?.webhook_url || getProviderWebhookUrl(provider),

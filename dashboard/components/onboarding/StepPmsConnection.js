@@ -6,6 +6,7 @@ import { CheckCircle2, PlugZap, RefreshCw } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from '@/components/ExecutiveCard';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getAuthHeaders } from '@/lib/auth-headers';
+import { PMS_PROVIDER_CATALOG } from '@/lib/pms-providers';
 
 const getStatus = (connections) => {
   const apaleo = connections.find((item) => item.provider === 'apaleo');
@@ -62,22 +63,18 @@ export const StepPmsConnection = () => {
         <div>
           <ExecutiveBadge tone="sky">Step 2</ExecutiveBadge>
           <h2 className={isLight ? 'mt-3 text-2xl font-semibold text-slate-950' : 'mt-3 text-2xl font-semibold text-white'}>PMS connection</h2>
-          <p className={isLight ? 'mt-2 max-w-2xl text-sm leading-6 text-slate-600' : 'mt-2 max-w-2xl text-sm leading-6 text-slate-400'}>Connect Apaleo now, or continue with Staynex demo data and connect PMS later.</p>
+          <p className={isLight ? 'mt-2 max-w-2xl text-sm leading-6 text-slate-600' : 'mt-2 max-w-2xl text-sm leading-6 text-slate-400'}>Connect Apaleo now, or review beta and coming-soon PMS connectors for future activation.</p>
         </div>
         <ExecutiveBadge tone={status.connected ? 'emerald' : 'amber'}>{status.connected ? 'Connected' : 'Optional'}</ExecutiveBadge>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-4">
-        {[
-          ['Apaleo', 'available'],
-          ['Mews', 'coming soon'],
-          ['Cloudbeds', 'coming soon'],
-          ['Oracle OPERA', 'coming soon']
-        ].map(([name, label]) => (
-          <div key={name} className={isLight ? 'rounded-xl border border-slate-200 bg-slate-50 p-4' : 'rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
+        {PMS_PROVIDER_CATALOG.slice(0, 8).map((provider) => (
+          <div key={provider.key} className={isLight ? 'rounded-xl border border-slate-200 bg-slate-50 p-4' : 'rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
             <PlugZap className="h-5 w-5 text-emerald-400" />
-            <p className={isLight ? 'mt-3 font-semibold text-slate-950' : 'mt-3 font-semibold text-white'}>{name}</p>
-            <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>{label}</p>
+            <p className={isLight ? 'mt-3 font-semibold text-slate-950' : 'mt-3 font-semibold text-white'}>{provider.name}</p>
+            <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>{provider.statusLabel}</p>
+            <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>{provider.region}</p>
           </div>
         ))}
       </div>

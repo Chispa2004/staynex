@@ -37,8 +37,15 @@ export const PmsProviderCard = ({
   const isLight = theme === 'light';
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const connected = Boolean(connection?.enabled && connection?.has_client_secret);
-  const available = provider.status === 'available';
+  const configurable = provider.configurationMode === 'credentials';
   const webhookUrl = connection?.webhook_url || provider.webhookUrl || '';
+  const statusTone = connected
+    ? 'emerald'
+    : provider.status === 'beta'
+      ? 'amber'
+      : provider.status === 'connected'
+        ? 'sky'
+        : 'slate';
 
   const copyWebhookUrl = async () => {
     if (!webhookUrl) {
@@ -60,13 +67,28 @@ export const PmsProviderCard = ({
           <div>
             <h3 className={isLight ? 'text-base font-semibold text-slate-950' : 'text-base font-semibold text-white'}>{provider.name}</h3>
             <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
-              {available ? 'OAuth client credentials' : 'Prepared for future provider support'}
+              {provider.commonUse || (configurable ? 'OAuth client credentials' : 'Prepared for future provider support')}
             </p>
           </div>
         </div>
-        <ExecutiveBadge tone={connected ? 'emerald' : available ? 'amber' : 'slate'}>
-          {connected ? 'Connected' : available ? 'Not connected' : 'Coming soon'}
+        <ExecutiveBadge tone={statusTone}>
+          {connected ? 'Connected' : provider.statusLabel || 'Coming soon'}
         </ExecutiveBadge>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Region</p>
+          <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{provider.region || 'Global'}</p>
+        </div>
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Type</p>
+          <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{provider.type || 'PMS'}</p>
+        </div>
+        <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Readiness</p>
+          <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{provider.readiness || 'Roadmap'}</p>
+        </div>
       </div>
 
       {connection ? (
@@ -120,7 +142,7 @@ export const PmsProviderCard = ({
               </button>
             </div>
             <p className={isLight ? 'mt-2 text-xs leading-5 text-slate-500' : 'mt-2 text-xs leading-5 text-slate-500'}>
-              Copy this URL into Apaleo webhook configuration for reservation events: created, amended, canceled, deleted.
+              Copy this URL into the PMS webhook configuration when the connector supports live webhooks.
             </p>
             {connection.last_webhook_at ? (
               <p className={isLight ? 'mt-2 text-xs text-slate-500' : 'mt-2 text-xs text-slate-500'}>
@@ -139,8 +161,8 @@ export const PmsProviderCard = ({
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
-        <button type="button" onClick={() => onEdit(provider, connection)} disabled={!available || !canManage} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
-          {connection ? 'Edit connection' : 'Connect'}
+        <button type="button" onClick={() => onEdit(provider, connection)} disabled={!canManage} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
+          {connection ? 'Edit connection' : configurable ? 'Connect' : 'View connector'}
         </button>
         <button type="button" onClick={() => onTest(provider)} disabled={!connection || !canManage || busyAction === 'test'} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
           <CheckCircle2 className={busyAction === 'test' ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} />
