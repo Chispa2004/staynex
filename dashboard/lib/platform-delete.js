@@ -95,8 +95,6 @@ export const buildHotelArchiveFallbackUpdate = ({
     name: `${String(hotel?.name || 'Hotel').replace(/\s+\(archived\)$/i, '')} (archived)`,
     slug: `${baseSlug}-${suffix}`,
     workspace_slug: `${baseSlug}-${suffix}`,
-    whatsapp_number: null,
-    support_email: null,
     description: 'Archived by platform admin. Run supabase/sql/add_hotel_archive_fields.sql for first-class archive fields.',
     updated_at: now
   };

@@ -177,12 +177,85 @@ const PmsEcosystemSection = ({ ecosystem = {}, isLight }) => {
                 <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{provider.name}</p>
                 <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{provider.region}</p>
               </div>
-              <span className={ui.badge(isLight, provider.status === 'Connected' ? 'emerald' : provider.status === 'Beta' ? 'amber' : 'slate', true)}>
+              <span className={ui.badge(isLight, provider.status === 'Connected' ? 'emerald' : provider.status === 'Setup available' ? 'amber' : 'slate', true)}>
                 {provider.status}
               </span>
             </div>
             <p className={cn('mt-3 text-sm leading-6', ui.text.body(isLight))}>{provider.readiness}</p>
           </article>
+        ))}
+      </div>
+    </section>
+  );
+};
+
+const readinessTone = (status) => {
+  if (status === 'healthy') return 'emerald';
+  if (status === 'warning') return 'amber';
+  if (status === 'critical') return 'red';
+  return 'slate';
+};
+
+const GoLiveReadinessSection = ({ readiness = {}, hotels = [], isLight, loading }) => {
+  const readinessHotels = readiness.hotels || [];
+  const lowestHotels = readinessHotels.slice(0, 5);
+  const readyCount = readiness.readyHotels || 0;
+  const totalHotels = hotels.length || readinessHotels.length || 0;
+
+  return (
+    <section className={cn('overflow-hidden rounded-xl border p-5', ui.surface(isLight))}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className={ui.text.eyebrow(isLight)}>Go-Live Readiness</p>
+          <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>
+            Readiness Center
+          </h2>
+          <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
+            Platform validation for PMS, WhatsApp, AI, revenue, automations, staff onboarding, GDPR and marketplace readiness before a hotel serves live guests.
+          </p>
+        </div>
+        <div className={cn('min-w-40 rounded-xl border p-4 text-center', isLight ? 'border-emerald-200 bg-emerald-50' : 'border-emerald-300/20 bg-emerald-300/10')}>
+          <p className={ui.text.eyebrow(isLight)}>Average score</p>
+          <p className={cn('mt-2 text-3xl font-semibold', ui.text.title(isLight))}>{loading ? '...' : `${readiness.averageScore || 0}%`}</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{readyCount}/{totalHotels} ready for live</p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={ShieldCheck} isLight={isLight} label="Ready hotels" value={readyCount} helper="No critical blockers" />
+        <StatCard icon={AlertTriangle} isLight={isLight} label="Blocked hotels" value={readiness.blockedHotels || 0} helper="Critical go-live blockers" tone="sky" />
+        <StatCard icon={Sparkles} isLight={isLight} label="Warnings" value={readiness.warningHotels || 0} helper="Setup improvements before launch" tone="violet" />
+        <StatCard icon={PlugZap} isLight={isLight} label="Threshold" value="80%" helper="Required for Enable Live Mode" />
+      </div>
+
+      {readiness.blockedHotels > 0 ? (
+        <div className={cn('mt-5 rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
+          Hotel not ready for live guests where critical blockers exist.
+        </div>
+      ) : null}
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-2">
+        {lowestHotels.map((hotel) => (
+          <Link key={hotel.id} href={`/platform/hotels/${hotel.id}`} className={cn('rounded-xl border p-4 transition hover:-translate-y-0.5', isLight ? 'border-slate-200 bg-white hover:bg-slate-50' : 'border-white/10 bg-white/[0.025] hover:bg-white/[0.045]')}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{hotel.name}</p>
+                <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                  {hotel.criticalChecks ? `${hotel.criticalChecks} critical blockers` : 'No critical blockers'} / {hotel.warningChecks || 0} warnings
+                </p>
+              </div>
+              <span className={ui.badge(isLight, hotel.readyForLive ? 'emerald' : hotel.criticalChecks ? 'red' : 'amber')}>
+                {hotel.score}%
+              </span>
+            </div>
+            {hotel.topBlockers?.length ? (
+              <p className={cn('mt-3 text-xs leading-5', ui.text.muted(isLight))}>
+                Blockers: {hotel.topBlockers.join(', ')}
+              </p>
+            ) : (
+              <p className={cn('mt-3 text-xs leading-5', ui.text.muted(isLight))}>Ready for final launch review.</p>
+            )}
+          </Link>
         ))}
       </div>
     </section>
@@ -564,6 +637,7 @@ export const PlatformConsoleClient = () => {
   const hotels = data.hotels || [];
   const metrics = data.metrics || {};
   const revenue = data.revenue || {};
+  const readiness = data.readiness || {};
   const canCreate = data.platformRole === 'platform_admin';
 
   const loadPlatform = async ({ silent = false } = {}) => {
@@ -749,6 +823,13 @@ export const PlatformConsoleClient = () => {
       <PartnerMarketplaceRevenueSection
         metrics={metrics}
         revenue={revenue}
+        isLight={isLight}
+        loading={loading}
+      />
+
+      <GoLiveReadinessSection
+        readiness={readiness}
+        hotels={hotels}
         isLight={isLight}
         loading={loading}
       />

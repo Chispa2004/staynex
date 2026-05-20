@@ -8,6 +8,7 @@ import { syncReservationsFromApaleo } from '../integrations/apaleo/apaleo-sync.s
 import {
   getPmsConnectorDefinition,
   isPmsConnectorConfigurable,
+  isPmsConnectorLiveApi,
   listPmsConnectors
 } from '../integrations/pms/registry.js';
 import {
@@ -23,6 +24,10 @@ const redactConnection = (connection) => {
   return {
     ...connection,
     encrypted_client_secret: undefined,
+    metadata: {
+      ...(connection.metadata || {}),
+      credentials_encrypted: undefined
+    },
     has_client_secret: Boolean(connection.encrypted_client_secret)
   };
 };
@@ -78,23 +83,48 @@ const buildConnectionRecord = ({
   clientId,
   clientSecret,
   accountCode,
+  apiKey,
+  propertyId,
   baseUrl,
   enabled = true,
+  connectionMode,
+  notes,
+  activationRequested = false,
   metadata = {}
-}) => ({
-  hotel_id: hotelId,
-  provider,
-  client_id: clientId || null,
-  ...(clientSecret ? { encrypted_client_secret: encryptSecret(clientSecret) } : {}),
-  account_code: accountCode || null,
-  base_url: baseUrl || getPmsConnectorDefinition(provider)?.defaultBaseUrl || null,
-  enabled: Boolean(enabled),
-  metadata,
-  sync_status: 'configured',
-  webhook_url: `${process.env.PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:3000'}/integrations/${provider}/webhook`,
-  webhook_status: 'not_configured',
-  updated_at: new Date().toISOString()
-});
+}) => {
+  const definition = getPmsConnectorDefinition(provider);
+  const pendingSetup = !isPmsConnectorLiveApi(provider);
+  const safeMetadata = {
+    ...metadata,
+    connection_mode: connectionMode || definition?.configurationMode || 'manual_setup',
+    property_id: propertyId || accountCode || metadata.property_id || null,
+    notes: notes || metadata.notes || null,
+    setup_status: pendingSetup ? 'pending_setup' : 'live_api',
+    activation_requested_at: activationRequested ? new Date().toISOString() : metadata.activation_requested_at || null
+  };
+
+  if (apiKey) {
+    safeMetadata.credentials_encrypted = {
+      ...(metadata.credentials_encrypted || {}),
+      api_key: encryptSecret(apiKey)
+    };
+  }
+
+  return {
+    hotel_id: hotelId,
+    provider,
+    client_id: clientId || null,
+    ...(clientSecret ? { encrypted_client_secret: encryptSecret(clientSecret) } : {}),
+    account_code: accountCode || propertyId || null,
+    base_url: baseUrl || definition?.defaultBaseUrl || null,
+    enabled: Boolean(enabled),
+    metadata: safeMetadata,
+    sync_status: pendingSetup ? 'pending_setup' : 'configured',
+    webhook_url: `${process.env.PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:3000'}/integrations/${provider}/webhook`,
+    webhook_status: 'not_configured',
+    updated_at: new Date().toISOString()
+  };
+};
 
 export const saveHotelPmsConnection = async ({
   hotelId,
@@ -102,8 +132,13 @@ export const saveHotelPmsConnection = async ({
   clientId,
   clientSecret,
   accountCode,
+  apiKey,
+  propertyId,
   baseUrl,
   enabled = true,
+  connectionMode,
+  notes,
+  activationRequested = false,
   metadata = {}
 } = {}) => {
   const resolvedHotelId = await resolveHotelId(hotelId);
@@ -113,7 +148,7 @@ export const saveHotelPmsConnection = async ({
   }
 
   if (!isPmsConnectorConfigurable(provider)) {
-    throw new Error(`${getPmsConnectorDefinition(provider).name} is registered in Staynex but live credential setup is not enabled yet`);
+    throw new Error(`${getPmsConnectorDefinition(provider).name} is registered in Staynex but setup is not enabled yet`);
   }
 
   const client = getSupabase();
@@ -123,8 +158,13 @@ export const saveHotelPmsConnection = async ({
     clientId,
     clientSecret,
     accountCode,
+    apiKey: apiKey || metadata.api_key || metadata.apiKey,
+    propertyId: propertyId || metadata.property_id || metadata.propertyId,
     baseUrl,
     enabled,
+    connectionMode: connectionMode || metadata.connection_mode || metadata.connectionMode,
+    notes: notes || metadata.notes,
+    activationRequested: activationRequested || metadata.activation_requested,
     metadata
   });
   const { data, error } = await client
@@ -236,7 +276,36 @@ export const testPmsConnection = async ({ hotelId, provider = 'apaleo' } = {}) =
   }
 
   if (provider !== 'apaleo') {
-    throw new Error(`${provider} is not implemented yet`);
+    const client = getSupabase();
+    await client
+      .from('hotel_pms_connections')
+      .update({
+        sync_status: 'pending_setup',
+        last_sync_error: null,
+        metadata: {
+          ...(connection.metadata || {}),
+          setup_status: 'pending_setup',
+          last_test_at: new Date().toISOString(),
+          last_test_result: 'activation_required'
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', connection.id);
+
+    return {
+      ok: true,
+      provider,
+      status: 'pending_setup',
+      connection: redactConnection({
+        ...connection,
+        sync_status: 'pending_setup',
+        metadata: {
+          ...(connection.metadata || {}),
+          last_test_result: 'activation_required'
+        }
+      }),
+      message: 'Configuration saved. Staynex team must activate the live connector before syncing.'
+    };
   }
 
   const config = connectionToApaleoConfig(connection);
@@ -290,7 +359,27 @@ export const syncHotelReservations = async ({
   }
 
   if (provider !== 'apaleo') {
-    throw new Error(`${provider} sync is not implemented yet`);
+    await getSupabase()
+      .from('hotel_pms_connections')
+      .update({
+        sync_status: 'pending_setup',
+        last_sync_error: 'Connector activation required before syncing',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', connection.id);
+
+    return {
+      provider,
+      totalFetched: 0,
+      totalProcessed: 0,
+      totalInserted: 0,
+      totalUpdated: 0,
+      totalSkipped: 0,
+      errors: [],
+      lastSyncedAt: null,
+      status: 'pending_setup',
+      message: 'Configuration saved. Staynex team must activate the live connector before syncing.'
+    };
   }
 
   const client = getSupabase();

@@ -8,89 +8,89 @@ export const PMS_CONNECTORS = {
   apaleo: {
     key: 'apaleo',
     name: 'Apaleo',
-    status: 'connected',
-    statusLabel: 'Connected',
+    status: 'live_api',
+    statusLabel: 'Live API',
     authType: 'oauth_client_credentials',
     defaultBaseUrl: 'https://api.apaleo.com',
     region: 'Europe',
     type: 'Cloud PMS',
     readiness: 'Production connector',
-    configurationMode: 'credentials',
+    configurationMode: 'live_api',
     adapter: ApaleoPmsConnector
   },
   pluriel: {
     key: 'pluriel',
     name: 'Pluriel',
-    status: 'beta',
-    statusLabel: 'Beta connector',
+    status: 'setup_available',
+    statusLabel: 'Setup available',
     region: 'Popular in Morocco',
     type: 'Hotel PMS',
-    readiness: 'Beta adapter scaffold ready',
-    configurationMode: 'intake',
+    readiness: 'API credentials required',
+    configurationMode: 'manual_setup',
     adapter: PlurielPmsConnector
   },
   ubikos: {
     key: 'ubikos',
     name: 'Ubikos',
-    status: 'coming_soon',
-    statusLabel: 'Coming soon',
+    status: 'setup_available',
+    statusLabel: 'Setup available',
     region: 'Morocco',
     type: 'Riads & boutique hotels',
-    readiness: 'Discovery placeholder',
-    configurationMode: 'preview',
+    readiness: 'Manual setup available',
+    configurationMode: 'manual_setup',
     adapter: UbikosPmsConnector
   },
   mews: {
     key: 'mews',
     name: 'Mews',
-    status: 'coming_soon',
-    statusLabel: 'Available soon',
+    status: 'setup_available',
+    statusLabel: 'Setup available',
     region: 'Europe / Global',
     type: 'Cloud PMS',
-    readiness: 'Adapter scaffold ready',
-    configurationMode: 'preview',
+    readiness: 'Connector activation required',
+    configurationMode: 'manual_setup',
     adapter: MewsPmsConnector
   },
   cloudbeds: {
     key: 'cloudbeds',
     name: 'Cloudbeds',
-    status: 'coming_soon',
-    statusLabel: 'Available soon',
+    status: 'setup_available',
+    statusLabel: 'Setup available',
     region: 'Global',
     type: 'Cloud PMS',
-    readiness: 'Adapter scaffold ready',
-    configurationMode: 'preview',
+    readiness: 'Connector activation required',
+    configurationMode: 'manual_setup',
     adapter: CloudbedsPmsConnector
   },
   opera_cloud: {
     key: 'opera_cloud',
     name: 'Opera Cloud',
-    status: 'coming_soon',
-    statusLabel: 'Coming soon',
+    status: 'setup_available',
+    statusLabel: 'Setup available',
     region: 'Global',
     type: 'Enterprise PMS',
-    readiness: 'Enterprise roadmap',
-    configurationMode: 'preview'
+    readiness: 'Connector activation required',
+    configurationMode: 'manual_setup'
   },
   protel: {
     key: 'protel',
     name: 'Protel',
-    status: 'coming_soon',
-    statusLabel: 'Coming soon',
+    status: 'setup_available',
+    statusLabel: 'Setup available',
     region: 'Europe / MENA',
     type: 'Hotel PMS',
-    readiness: 'Adapter planned',
-    configurationMode: 'preview'
+    readiness: 'Manual setup available',
+    configurationMode: 'manual_setup'
   },
   roomraccoon: {
     key: 'roomraccoon',
     name: 'RoomRaccoon',
-    status: 'coming_soon',
-    statusLabel: 'Coming soon',
+    status: 'setup_available',
+    statusLabel: 'Setup available',
     region: 'Europe / Global',
     type: 'Cloud PMS',
-    readiness: 'Adapter planned',
-    configurationMode: 'preview'
+    readiness: 'Connector activation required',
+    configurationMode: 'manual_setup'
   }
 };
 
@@ -99,7 +99,11 @@ export const listPmsConnectors = () => Object.values(PMS_CONNECTORS).map(({ adap
 export const getPmsConnectorDefinition = (provider = 'apaleo') => PMS_CONNECTORS[provider] || null;
 
 export const isPmsConnectorConfigurable = (provider = 'apaleo') => (
-  getPmsConnectorDefinition(provider)?.configurationMode === 'credentials'
+  ['live_api', 'manual_setup', 'csv_import'].includes(getPmsConnectorDefinition(provider)?.configurationMode)
+);
+
+export const isPmsConnectorLiveApi = (provider = 'apaleo') => (
+  getPmsConnectorDefinition(provider)?.configurationMode === 'live_api'
 );
 
 export const createPmsConnector = (provider = 'apaleo', options = {}) => {

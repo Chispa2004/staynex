@@ -7,6 +7,7 @@ import {
   getScopedArchiveOperations,
   isArchivedHotel
 } from './platform-delete';
+import { buildReadinessForHotel } from './golive-readiness';
 
 export const PLAN_LABELS = {
   starter: 'Starter',
@@ -177,6 +178,17 @@ export const archiveHotelWorkspace = async ({
   let archivedHotel = null;
   let archiveMode = 'soft_delete';
 
+  await writePlatformAuditLog({
+    supabase,
+    actor,
+    platformRole,
+    action: 'hotel_archive_started',
+    hotelId,
+    metadata: {
+      hotel_name: hotel.name
+    }
+  });
+
   const archiveResult = await supabase
     .from('hotels')
     .update(archiveUpdate)
@@ -194,6 +206,18 @@ export const archiveHotelWorkspace = async ({
       .single();
 
     if (fallbackResult.error) {
+      await writePlatformAuditLog({
+        supabase,
+        actor,
+        platformRole,
+        action: 'hotel_archive_failed',
+        hotelId,
+        metadata: {
+          hotel_name: hotel.name,
+          error: fallbackResult.error.message,
+          archive_error: archiveResult.error.message
+        }
+      });
       await writePlatformAuditLog({
         supabase,
         actor,
@@ -248,6 +272,19 @@ export const archiveHotelWorkspace = async ({
       hotel_name: hotel.name,
       archive_mode: archiveMode,
       related
+    }
+  });
+
+  await writePlatformAuditLog({
+    supabase,
+    actor,
+    platformRole,
+    action: 'hotel_archive_success',
+    hotelId,
+    metadata: {
+      hotel_name: hotel.name,
+      delete_mode: archiveMode,
+      soft_delete: true
     }
   });
 
@@ -496,7 +533,7 @@ export const getPlatformOverview = async (supabase) => {
     };
     const healthScore = buildHealthScore({ hotel, stats, pmsConnection, onboarding });
 
-    return {
+    const row = {
       ...hotel,
       plan_label: PLAN_LABELS[hotel.subscription_plan] || hotel.subscription_plan || 'No plan',
       pms: pmsConnection ? {
@@ -525,6 +562,20 @@ export const getPlatformOverview = async (supabase) => {
       healthStatus: getHealthStatus(healthScore),
       lastActivityAt: lastActivityByHotel[hotel.id] || hotel.updated_at || hotel.created_at
     };
+    row.readiness = buildReadinessForHotel({
+      hotel: row,
+      pmsConnections: pmsConnection ? [pmsConnection] : [],
+      users: scopedUsers.filter((item) => item.hotel_id === hotel.id),
+      reservations: scopedReservations.filter((item) => item.hotel_id === hotel.id),
+      conversations: scopedConversations.filter((item) => item.hotel_id === hotel.id),
+      aiLogs: scopedAiLogs.filter((item) => item.hotel_id === hotel.id),
+      tickets: scopedTickets.filter((item) => item.hotel_id === hotel.id),
+      experienceBookings: scopedExperienceBookings.filter((item) => item.hotel_id === hotel.id),
+      localKnowledge: scopedLocalKnowledge.filter((item) => item.hotel_id === hotel.id),
+      knowledgeEntries: scopedKnowledgeEntries.filter((item) => item.hotel_id === hotel.id)
+    });
+
+    return row;
   });
 
   const totalRevenue = scopedConversions
@@ -616,11 +667,23 @@ export const getPlatformOverview = async (supabase) => {
     hotelsByPms,
     connectorReadiness: [
       { key: 'apaleo', name: 'Apaleo', status: 'Connected', region: 'Europe', readiness: 'Production connector' },
-      { key: 'pluriel', name: 'Pluriel', status: 'Beta', region: 'Popular in Morocco', readiness: 'Adapter scaffold ready' },
-      { key: 'ubikos', name: 'Ubikos', status: 'Coming soon', region: 'Morocco riads and boutique hotels', readiness: 'Discovery placeholder' }
+      { key: 'pluriel', name: 'Pluriel', status: 'Setup available', region: 'Popular in Morocco', readiness: 'API credentials required' },
+      { key: 'ubikos', name: 'Ubikos', status: 'Setup available', region: 'Morocco riads and boutique hotels', readiness: 'Manual setup available' }
     ],
-    moroccoReadiness: 'Pluriel beta scaffold and Ubikos coming-soon adapter are registered for Morocco pilots.'
+    moroccoReadiness: 'Pluriel and Ubikos setup flows are registered for Morocco pilots.'
   };
+  const readinessSummaries = hotelRows.map((hotel) => ({
+    id: hotel.id,
+    name: hotel.name,
+    score: hotel.readiness?.readiness_score || 0,
+    readyForLive: Boolean(hotel.readiness?.ready_for_live),
+    criticalChecks: hotel.readiness?.critical_checks || 0,
+    warningChecks: hotel.readiness?.warning_checks || 0,
+    topBlockers: (hotel.readiness?.criticalIssues || []).slice(0, 3).map((item) => item.check_type)
+  })).sort((a, b) => a.score - b.score);
+  const averageReadiness = readinessSummaries.length
+    ? Math.round(readinessSummaries.reduce((sum, item) => sum + item.score, 0) / readinessSummaries.length)
+    : 0;
 
   return {
     hotels: hotelRows,
@@ -656,6 +719,13 @@ export const getPlatformOverview = async (supabase) => {
       totalExperiences: scopedExperiences.length,
       acceptedOffers: acceptedOffers.length,
       offerConversionRate: totalOffers ? Math.round((acceptedOffers.length / totalOffers) * 100) : 0
+    },
+    readiness: {
+      averageScore: averageReadiness,
+      readyHotels: readinessSummaries.filter((item) => item.readyForLive).length,
+      blockedHotels: readinessSummaries.filter((item) => item.criticalChecks > 0).length,
+      warningHotels: readinessSummaries.filter((item) => item.warningChecks > 0).length,
+      hotels: readinessSummaries
     },
     revenue: {
       topHotels: hotelRows
@@ -764,6 +834,20 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
     upgradeOpportunities: guestStayContexts.filter((context) => context.upgrade_eligible).length,
     recentLogs: pmsIntelligenceLogs
   };
+  const readiness = buildReadinessForHotel({
+    hotel,
+    users,
+    pmsConnections,
+    reservations,
+    conversations,
+    aiLogs,
+    tickets,
+    experienceBookings,
+    localKnowledge,
+    knowledgeEntries,
+    dataRetentionAuditLogs,
+    pmsIntelligenceHealth
+  });
 
   return {
     hotel,
@@ -782,6 +866,7 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
     auditLogs,
     dataRetentionAuditLogs,
     pmsIntelligenceHealth,
+    readiness,
     planLimits: PLAN_LIMITS[hotel.subscription_plan] || PLAN_LIMITS.starter
   };
 };

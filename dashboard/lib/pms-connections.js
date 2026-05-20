@@ -1,5 +1,5 @@
 import { encryptSecret } from './pms-encryption';
-import { PMS_PROVIDER_CATALOG, getPmsProvider, isPmsProviderConfigurable } from './pms-providers';
+import { PMS_PROVIDER_CATALOG, getPmsProvider, isPmsProviderConfigurable, isPmsProviderLiveApi } from './pms-providers';
 
 export const PMS_PROVIDERS = PMS_PROVIDER_CATALOG;
 
@@ -11,6 +11,10 @@ export const redactConnection = (connection) => {
   return {
     ...connection,
     encrypted_client_secret: undefined,
+    metadata: {
+      ...(connection.metadata || {}),
+      credentials_encrypted: undefined
+    },
     has_client_secret: Boolean(connection.encrypted_client_secret)
   };
 };
@@ -48,7 +52,7 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
   }
 
   if (!isPmsProviderConfigurable(providerDefinition)) {
-    throw new Error(`${providerDefinition.name} is not ready for credential setup yet. Use the connector readiness panel to request beta activation.`);
+    throw new Error(`${providerDefinition.name} is not ready for setup yet.`);
   }
 
   const existingResult = await supabase
@@ -64,26 +68,44 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
   }
 
   const existing = existingResult.data;
+  const connectionMode = payload.connection_mode || payload.connectionMode || providerDefinition.configurationMode || 'manual_setup';
+  const pendingSetup = !isPmsProviderLiveApi(providerDefinition);
+  const metadata = {
+    ...(existing?.metadata || {}),
+    ...(payload.metadata || {}),
+    connection_mode: connectionMode,
+    property_id: payload.property_id || payload.propertyId || payload.account_code || payload.accountCode || existing?.metadata?.property_id || null,
+    notes: payload.notes || existing?.metadata?.notes || null,
+    setup_status: pendingSetup ? 'pending_setup' : 'live_api',
+    activation_requested_at: payload.activation_requested ? new Date().toISOString() : existing?.metadata?.activation_requested_at || null
+  };
+
+  if (payload.api_key || payload.apiKey) {
+    metadata.credentials_encrypted = {
+      ...(existing?.metadata?.credentials_encrypted || {}),
+      api_key: encryptSecret(payload.api_key || payload.apiKey)
+    };
+  }
+
   const record = {
     hotel_id: hotelId,
     provider,
-    client_id: payload.client_id || null,
-    account_code: payload.account_code || null,
+    client_id: payload.client_id || payload.clientId || null,
+    account_code: payload.account_code || payload.accountCode || payload.property_id || payload.propertyId || null,
     base_url: payload.base_url || providerDefinition.defaultBaseUrl || null,
     enabled: payload.enabled !== false,
-    sync_status: existing?.sync_status || 'configured',
+    sync_status: pendingSetup ? 'pending_setup' : existing?.sync_status || 'configured',
     webhook_url: payload.webhook_url || existing?.webhook_url || getProviderWebhookUrl(provider),
     webhook_enabled: Boolean(payload.webhook_enabled || existing?.webhook_enabled),
     webhook_status: existing?.webhook_status || 'not_configured',
-    metadata: {
-      ...(existing?.metadata || {}),
-      ...(payload.metadata || {})
-    },
+    metadata,
     updated_at: new Date().toISOString()
   };
 
-  if (payload.client_secret) {
-    record.encrypted_client_secret = encryptSecret(payload.client_secret);
+  const clientSecret = payload.client_secret || payload.clientSecret;
+
+  if (clientSecret) {
+    record.encrypted_client_secret = encryptSecret(clientSecret);
   } else if (existing?.encrypted_client_secret) {
     record.encrypted_client_secret = existing.encrypted_client_secret;
   }

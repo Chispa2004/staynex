@@ -133,8 +133,13 @@ router.post('/pms-connections', async (req, res, next) => {
       clientId: req.body?.client_id || req.body?.clientId,
       clientSecret: req.body?.client_secret || req.body?.clientSecret,
       accountCode: req.body?.account_code || req.body?.accountCode,
+      apiKey: req.body?.api_key || req.body?.apiKey,
+      propertyId: req.body?.property_id || req.body?.propertyId,
       baseUrl: req.body?.base_url || req.body?.baseUrl,
       enabled: req.body?.enabled !== false,
+      connectionMode: req.body?.connection_mode || req.body?.connectionMode,
+      notes: req.body?.notes,
+      activationRequested: Boolean(req.body?.activation_requested || req.body?.activationRequested),
       metadata: req.body?.metadata || {}
     });
 

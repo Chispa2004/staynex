@@ -155,6 +155,83 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ ok: true, state });
     }
 
+    if (action === 'enable_live_mode') {
+      const detail = await getHotelPlatformDetail(supabase, id);
+
+      if (!detail.readiness?.ready_for_live) {
+        await writePlatformAuditLog({
+          supabase,
+          actor: user,
+          platformRole,
+          action: 'go_live_blocked',
+          hotelId: id,
+          metadata: {
+            readiness_score: detail.readiness?.readiness_score || 0,
+            critical_issues: (detail.readiness?.criticalIssues || []).map((item) => item.check_type)
+          }
+        });
+
+        return NextResponse.json({
+          error: 'Hotel not ready for live guests.',
+          readiness: detail.readiness
+        }, { status: 409 });
+      }
+
+      const now = new Date().toISOString();
+      const updatePayload = {
+        hotel_live_mode: true,
+        live_mode_enabled_at: now,
+        live_mode_enabled_by: user?.id || null,
+        updated_at: now,
+        metadata: {
+          ...(detail.hotel?.metadata || {}),
+          hotel_live_mode: true,
+          live_mode_enabled_at: now,
+          live_mode_enabled_by: user?.id || null
+        }
+      };
+      let updateResult = await supabase
+        .from('hotels')
+        .update(updatePayload)
+        .eq('id', id)
+        .select('*')
+        .single();
+
+      if (updateResult.error) {
+        updateResult = await supabase
+          .from('hotels')
+          .update({
+            updated_at: now,
+            metadata: updatePayload.metadata
+          })
+          .eq('id', id)
+          .select('*')
+          .single();
+      }
+
+      if (updateResult.error) {
+        throw updateResult.error;
+      }
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'go_live_enabled',
+        hotelId: id,
+        metadata: {
+          readiness_score: detail.readiness.readiness_score,
+          ready_for_live: true
+        }
+      });
+
+      return NextResponse.json({
+        ok: true,
+        hotel: updateResult.data,
+        readiness: detail.readiness
+      });
+    }
+
     return NextResponse.json({ error: 'Unsupported platform action' }, { status: 400 });
   } catch (error) {
     return NextResponse.json({

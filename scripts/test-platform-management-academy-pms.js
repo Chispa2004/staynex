@@ -32,12 +32,15 @@ assert.ok(dashboardProviderKeys.includes('pluriel'), 'Pluriel should be visible 
 assert.ok(dashboardProviderKeys.includes('ubikos'), 'Ubikos should be visible in dashboard PMS catalog');
 assert.ok(dashboardProviderKeys.includes('roomraccoon'), 'RoomRaccoon should be visible in dashboard PMS catalog');
 assert.ok(PMS_PROVIDER_CATALOG.every((provider) => provider.configurationMode), 'Every PMS card should be clickable into a mode');
+assert.ok(PMS_PROVIDER_CATALOG.every((provider) => !/coming soon|available soon|beta connector/i.test(provider.statusLabel)), 'PMS labels should be actionable setup labels');
 
 const backendProviderKeys = listPmsConnectors().map((provider) => provider.key);
 assert.ok(backendProviderKeys.includes('pluriel'), 'Pluriel should be registered in backend PMS registry');
 assert.ok(backendProviderKeys.includes('ubikos'), 'Ubikos should be registered in backend PMS registry');
-assert.equal(getPmsConnectorDefinition('pluriel').status, 'beta');
-assert.equal(getPmsConnectorDefinition('ubikos').status, 'coming_soon');
+assert.equal(getPmsConnectorDefinition('pluriel').status, 'setup_available');
+assert.equal(getPmsConnectorDefinition('ubikos').status, 'setup_available');
+assert.equal(getPmsConnectorDefinition('apaleo').statusLabel, 'Live API');
+assert.equal(getPmsConnectorDefinition('pluriel').configurationMode, 'manual_setup');
 
 const ubikosConnector = createPmsConnector('ubikos');
 const ubikosHealth = await ubikosConnector.healthCheck();
@@ -57,6 +60,7 @@ const fallbackUpdate = buildHotelArchiveFallbackUpdate({
   now: '2026-05-20T12:00:00.000Z'
 });
 assert.ok(fallbackUpdate.name.endsWith('(archived)'));
+assert.equal(Object.prototype.hasOwnProperty.call(fallbackUpdate, 'whatsapp_number'), false);
 assert.equal(isArchivedHotel(fallbackUpdate), true);
 
 const scopedOps = getScopedArchiveOperations('hotel-a', '2026-05-20T12:00:00.000Z');

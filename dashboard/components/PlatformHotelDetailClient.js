@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  AlertTriangle,
   ArrowLeft,
   BadgeCheck,
   Building2,
@@ -75,6 +76,93 @@ const DetailStat = ({ icon: Icon, label, value, isLight }) => (
   </article>
 );
 
+const readinessTone = (status) => {
+  if (status === 'healthy') return 'emerald';
+  if (status === 'warning') return 'amber';
+  if (status === 'critical') return 'red';
+  return 'slate';
+};
+
+const GoLiveReadinessPanel = ({ readiness, isLight, liveModeEnabled, saving, onEnable }) => {
+  const checks = readiness?.checks || [];
+  const blockers = readiness?.criticalIssues || [];
+
+  return (
+    <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className={ui.text.eyebrow(isLight)}>Go-Live Readiness</p>
+          <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>Readiness Center</h2>
+          <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
+            Production validation for PMS, WhatsApp, AI, Automations, Revenue, GDPR, Marketplace and Staff operations.
+          </p>
+        </div>
+        <div className={cn('rounded-xl border p-4 text-center', isLight ? 'border-emerald-200 bg-emerald-50' : 'border-emerald-300/20 bg-emerald-300/10')}>
+          <p className={ui.text.eyebrow(isLight)}>Readiness</p>
+          <p className={cn('mt-2 text-3xl font-semibold', ui.text.title(isLight))}>{readiness?.readiness_score || 0}%</p>
+          <span className={ui.badge(isLight, readiness?.ready_for_live ? 'emerald' : blockers.length ? 'red' : 'amber')}>
+            {liveModeEnabled ? 'Live mode enabled' : readiness?.ready_for_live ? 'Ready for live' : 'Not ready'}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-4">
+        <DetailStat icon={ShieldCheck} isLight={isLight} label="Healthy checks" value={readiness?.healthy_checks || 0} />
+        <DetailStat icon={AlertTriangle} isLight={isLight} label="Warnings" value={readiness?.warning_checks || 0} />
+        <DetailStat icon={ShieldAlert} isLight={isLight} label="Critical blockers" value={readiness?.critical_checks || 0} />
+        <DetailStat icon={Sparkles} isLight={isLight} label="Missing setup" value={readiness?.missing_checks || 0} />
+      </div>
+
+      {blockers.length ? (
+        <div className={cn('mt-5 rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
+          Hotel not ready for live guests. Resolve critical blockers first.
+        </div>
+      ) : null}
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-2">
+        {checks.map((item) => (
+          <article key={item.check_type} className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{item.check_type.replaceAll('_', ' ')}</p>
+                <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{item.category}</p>
+              </div>
+              <span className={ui.badge(isLight, readinessTone(item.status))}>{item.status}</span>
+            </div>
+            <p className={cn('mt-3 text-sm leading-6', ui.text.body(isLight))}>{item.message}</p>
+          </article>
+        ))}
+      </div>
+
+      {readiness?.recommendations?.length ? (
+        <div className={cn('mt-5 rounded-xl border p-4', isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-black/10')}>
+          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>Recommended actions</p>
+          <div className="mt-3 grid gap-2">
+            {readiness.recommendations.map((item) => (
+              <p key={item} className={cn('text-sm leading-6', ui.text.body(isLight))}>{item}</p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className={cn('text-xs', ui.text.muted(isLight))}>
+          Threshold: {readiness?.threshold || 80}% and no critical blockers.
+        </p>
+        <button
+          type="button"
+          onClick={onEnable}
+          disabled={!readiness?.ready_for_live || liveModeEnabled || saving}
+          className={cn('inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50', isLight ? 'border-emerald-200 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-emerald-300/20 bg-emerald-300 text-slate-950 hover:bg-emerald-200')}
+        >
+          <Sparkles className={saving ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
+          {liveModeEnabled ? 'Live Mode enabled' : saving ? 'Enabling...' : 'Enable Live Mode'}
+        </button>
+      </div>
+    </section>
+  );
+};
+
 export const PlatformHotelDetailClient = ({ hotelId }) => {
   const router = useRouter();
   const { theme } = useDashboardTheme();
@@ -83,6 +171,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [liveModeSaving, setLiveModeSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
@@ -98,6 +187,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
   const dataRetentionAuditLogs = detail?.dataRetentionAuditLogs || [];
   const lastRetentionRun = dataRetentionAuditLogs[0];
   const pmsIntelligenceHealth = detail?.pmsIntelligenceHealth || {};
+  const readiness = detail?.readiness || {};
 
   const revenue = useMemo(() => ({
     accepted: conversions.filter((item) => item.status === 'accepted').reduce((total, item) => total + Number(item.estimated_amount || 0), 0),
@@ -254,6 +344,35 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
     }
   };
 
+  const enableLiveMode = async () => {
+    setLiveModeSaving(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await fetch(`/api/platform/hotels/${hotelId}`, {
+        method: 'PATCH',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'enable_live_mode' })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not enable live mode');
+      }
+
+      setNotice('Live Mode enabled for this hotel.');
+      await loadDetail();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setLiveModeSaving(false);
+    }
+  };
+
   if (loading && !detail) {
     return (
       <div className="space-y-4">
@@ -316,6 +435,14 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
         <DetailStat icon={Sparkles} isLight={isLight} label="Experiences" value={hotel?.stats?.experiences || 0} />
         <DetailStat icon={Building2} isLight={isLight} label="Knowledge" value={(hotel?.stats?.localKnowledge || 0) + (hotel?.stats?.knowledgeBase || 0)} />
       </section>
+
+      <GoLiveReadinessPanel
+        readiness={readiness}
+        isLight={isLight}
+        liveModeEnabled={Boolean(hotel?.hotel_live_mode || hotel?.metadata?.hotel_live_mode)}
+        saving={liveModeSaving}
+        onEnable={enableLiveMode}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
         <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>

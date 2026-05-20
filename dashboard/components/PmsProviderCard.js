@@ -20,6 +20,7 @@ const syncTone = (status) => {
   if (['success', 'connected'].includes(status)) return 'emerald';
   if (['failed'].includes(status)) return 'red';
   if (['partial_success'].includes(status)) return 'amber';
+  if (['pending_setup'].includes(status)) return 'amber';
   return 'slate';
 };
 
@@ -37,13 +38,14 @@ export const PmsProviderCard = ({
   const isLight = theme === 'light';
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const connected = Boolean(connection?.enabled && connection?.has_client_secret);
-  const configurable = provider.configurationMode === 'credentials';
+  const liveApi = provider.configurationMode === 'live_api';
+  const pendingSetup = connection?.sync_status === 'pending_setup' || connection?.metadata?.setup_status === 'pending_setup';
   const webhookUrl = connection?.webhook_url || provider.webhookUrl || '';
   const statusTone = connected
     ? 'emerald'
-    : provider.status === 'beta'
+    : pendingSetup || provider.status === 'setup_available'
       ? 'amber'
-      : provider.status === 'connected'
+      : provider.status === 'live_api'
         ? 'sky'
         : 'slate';
 
@@ -67,12 +69,12 @@ export const PmsProviderCard = ({
           <div>
             <h3 className={isLight ? 'text-base font-semibold text-slate-950' : 'text-base font-semibold text-white'}>{provider.name}</h3>
             <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
-              {provider.commonUse || (configurable ? 'OAuth client credentials' : 'Prepared for future provider support')}
+              {provider.commonUse || (liveApi ? 'OAuth client credentials' : 'Manual setup available')}
             </p>
           </div>
         </div>
         <ExecutiveBadge tone={statusTone}>
-          {connected ? 'Connected' : provider.statusLabel || 'Coming soon'}
+          {connected ? 'Connected' : pendingSetup ? 'Pending setup' : provider.statusLabel || 'Setup available'}
         </ExecutiveBadge>
       </div>
 
@@ -162,15 +164,15 @@ export const PmsProviderCard = ({
 
       <div className="mt-5 flex flex-wrap gap-2">
         <button type="button" onClick={() => onEdit(provider, connection)} disabled={!canManage} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
-          {connection ? 'Edit connection' : configurable ? 'Connect' : 'View connector'}
+          {connection ? 'Manage connection' : liveApi ? 'Connect' : 'Start setup'}
         </button>
         <button type="button" onClick={() => onTest(provider)} disabled={!connection || !canManage || busyAction === 'test'} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
           <CheckCircle2 className={busyAction === 'test' ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} />
           Test Connection
         </button>
-        <button type="button" onClick={() => onSync(provider)} disabled={!connection || !canManage || busyAction === 'sync'} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
+        <button type="button" onClick={() => onSync(provider)} disabled={!connection || !canManage || busyAction === 'sync' || !liveApi} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
           <Clock3 className={busyAction === 'sync' ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-          Sync Now
+          {liveApi ? 'Sync Now' : 'Sync locked'}
         </button>
         {connection ? (
           <button type="button" onClick={() => onDisconnect(connection)} disabled={!canManage} className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50' : 'rounded-lg border border-red-300/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/15 disabled:opacity-50'}>
