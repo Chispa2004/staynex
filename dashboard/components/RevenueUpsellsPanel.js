@@ -40,7 +40,7 @@ export const RevenueUpsellsPanel = ({ revenue = {} }) => {
         </span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2">
         <Metric label="Estimated revenue" value={formatCurrency(revenue.estimatedRevenue)} />
         <Metric label="Accepted upsells" value={revenue.accepted || 0} />
         <Metric label="Conversion rate" value={`${revenue.conversionRate || 0}%`} />
@@ -100,9 +100,9 @@ const Metric = ({ label, value }) => {
   const isLight = theme === 'light';
 
   return (
-    <div className={isLight ? 'rounded-xl border border-slate-200 bg-slate-50 p-4' : 'rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
-      <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500'}>{label}</p>
-      <p className={isLight ? 'mt-2 text-2xl font-semibold tabular-nums text-slate-950' : 'mt-2 text-2xl font-semibold tabular-nums text-white'}>{value}</p>
+    <div className={isLight ? 'flex min-h-[124px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center' : 'flex min-h-[124px] flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.025] px-4 py-6 text-center'}>
+      <p className={isLight ? 'max-w-full whitespace-nowrap text-center text-[11px] font-semibold uppercase leading-none tracking-[0.16em] text-slate-500' : 'max-w-full whitespace-nowrap text-center text-[11px] font-semibold uppercase leading-none tracking-[0.16em] text-slate-500'}>{label}</p>
+      <p className={isLight ? 'mt-4 text-center text-2xl font-semibold leading-none tabular-nums text-slate-950 sm:text-[1.65rem]' : 'mt-4 text-center text-2xl font-semibold leading-none tabular-nums text-white sm:text-[1.65rem]'}>{value}</p>
     </div>
   );
 };
