@@ -156,12 +156,11 @@ export const InboxAiCopilotPanel = ({
 
   return (
     <aside className={[
-      'flex min-h-0 flex-col overflow-hidden',
-      compact ? 'h-full' : '',
+      'flex h-full max-h-full min-h-0 flex-col overflow-hidden',
       isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#080c14] text-slate-100'
     ].join(' ')}
     >
-      <div className={isLight ? 'flex shrink-0 items-center justify-between border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#fff] px-4 py-4' : 'flex shrink-0 items-center justify-between border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),#0b1019] px-4 py-4'}>
+      <div className={isLight ? 'sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#fff] px-4 py-4' : 'sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),#0b1019] px-4 py-4'}>
         <div className="flex items-center gap-3">
           <span className={isLight ? 'flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-lg shadow-emerald-100' : 'flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-300/10 text-emerald-100 shadow-lg shadow-emerald-950/20'}>
             <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -178,7 +177,7 @@ export const InboxAiCopilotPanel = ({
         ) : null}
       </div>
 
-      <div className="executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Sentiment</p>

@@ -238,13 +238,13 @@ const modules = [
     icon: ShieldCheck,
     roles: ['admin'],
     title: 'Privacidad y datos',
-    summary: 'Retencion y anonimización GDPR.',
+    summary: 'Retencion y anonimizacion GDPR.',
     what: 'Staynex puede anonimizar datos personales tras checkout y conservar analitica agregada.',
     use: 'Ayuda al hotel a explicar una politica de retencion clara.',
-    actions: ['Revisa dias de retencion.', 'Ejecuta dry-run antes de limpieza real.', 'Consulta ultimos audit logs.'],
+    actions: ['Revisa los dias de retencion.', 'Confirma que la politica esta aprobada por el hotel.', 'Consulta el ultimo estado de limpieza.'],
     example: 'Datos personales se anonimizan tras 30 dias; revenue y conteos quedan para analitica.',
-    mistakes: ['Borrar datos sin dry-run.', 'Confundir analitica agregada con datos personales.'],
-    recommendation: 'Prueba siempre en dry-run antes de activar limpieza real.'
+    mistakes: ['Cambiar la politica sin revisarla internamente.', 'Confundir analitica agregada con datos personales.'],
+    recommendation: 'Manten una politica clara y facil de explicar al equipo.'
   },
   {
     id: 'best-practices',

@@ -152,9 +152,9 @@ const RetentionPanel = () => {
         <RetentionMetric label="Last cleanup" value={lastRun} />
       </div>
 
-      <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-400">
-        Run a safe preview with <code className="rounded bg-white/10 px-1.5 py-0.5 text-slate-200">npm run jobs:cleanup -- --dry-run</code>.
-        The live cleanup uses the same policy and writes an audit trail in <code className="rounded bg-white/10 px-1.5 py-0.5 text-slate-200">data_retention_audit_logs</code>.
+      <div className="mt-5 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.06] p-4 text-sm leading-6 text-slate-300">
+        Automatic guest data anonymization and cleanup are managed securely by Staynex according to the configured privacy policy.
+        The hotel keeps operational visibility while personal guest details are protected after the retention period.
       </div>
     </section>
   );

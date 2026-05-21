@@ -29,8 +29,8 @@ export const RevenueUpsellsPanel = ({ revenue = {} }) => {
   const maxRevenue = Math.max(1, ...Object.values(revenueByType).map((value) => Number(value || 0)));
 
   return (
-    <ExecutiveCard className="p-5">
-      <div className="mb-5 flex items-center justify-between gap-3">
+    <ExecutiveCard className="p-5 sm:p-6">
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h2 className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Revenue & Upsells</h2>
           <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>Commercial opportunities detected by AI.</p>
@@ -47,25 +47,37 @@ export const RevenueUpsellsPanel = ({ revenue = {} }) => {
         <Metric label="This month" value={formatCurrency(revenue.revenueThisMonth || revenue.acceptedRevenue)} />
       </div>
 
-      <div className="mt-5 space-y-3">
+      <div className={isLight ? 'mt-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4' : 'mt-6 rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
+        <div className="mb-4 grid grid-cols-[minmax(0,1fr)_minmax(82px,auto)] items-center gap-3">
+          <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>Signal</p>
+          <p className={isLight ? 'text-right text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-right text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>Value</p>
+        </div>
+        <div className="space-y-4">
         {Object.entries(labels).map(([key, label]) => {
           const value = Number(revenueByType[key] || 0);
           const count = byType[key] || 0;
+          const progressBase = value > 0 ? maxRevenue : Math.max(1, revenue.totalUpsells || 1);
+          const progressValue = Math.min(100, ((value || count) / progressBase) * 100);
 
           return (
-            <div key={key}>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className={isLight ? 'text-sm font-medium text-slate-700' : 'text-sm font-medium text-slate-300'}>{label}</span>
+            <div key={key} className="grid grid-cols-[minmax(0,1fr)_minmax(82px,auto)] items-center gap-x-3 gap-y-2">
+              <div className="min-w-0">
+                <span className={isLight ? 'block truncate text-sm font-medium leading-5 text-slate-700' : 'block truncate text-sm font-medium leading-5 text-slate-300'}>{label}</span>
+              </div>
+              <div className="flex justify-end">
                 <ExecutiveBadge tone={value > 0 ? 'emerald' : count > 0 ? 'sky' : 'slate'}>
-                  {value > 0 ? formatCurrency(value) : `${count} signals`}
+                  <span className="tabular-nums whitespace-nowrap">
+                    {value > 0 ? formatCurrency(value) : `${count} signals`}
+                  </span>
                 </ExecutiveBadge>
               </div>
-              <div className={isLight ? 'h-2 overflow-hidden rounded-full bg-slate-100' : 'h-2 overflow-hidden rounded-full bg-white/[0.06]'}>
-                <div className="h-full rounded-full bg-emerald-300 transition-all" style={{ width: `${Math.min(100, ((value || count) / (value > 0 ? maxRevenue : Math.max(1, revenue.totalUpsells || 1))) * 100)}%` }} />
+              <div className={isLight ? 'col-span-2 h-2 overflow-hidden rounded-full bg-slate-200/80' : 'col-span-2 h-2 overflow-hidden rounded-full bg-white/[0.07]'}>
+                <div className="h-full rounded-full bg-emerald-300 transition-all duration-500" style={{ width: `${Math.max(progressValue > 0 ? 5 : 0, progressValue)}%` }} />
               </div>
             </div>
           );
         })}
+        </div>
       </div>
 
       <div className={isLight ? 'mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4' : 'mt-5 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-4'}>
@@ -88,9 +100,9 @@ const Metric = ({ label, value }) => {
   const isLight = theme === 'light';
 
   return (
-    <div className={isLight ? 'rounded-xl border border-slate-200 bg-slate-50 p-3' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
+    <div className={isLight ? 'rounded-xl border border-slate-200 bg-slate-50 p-4' : 'rounded-xl border border-white/10 bg-white/[0.025] p-4'}>
       <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500'}>{label}</p>
-      <p className={isLight ? 'mt-2 text-xl font-semibold text-slate-950' : 'mt-2 text-xl font-semibold text-white'}>{value}</p>
+      <p className={isLight ? 'mt-2 text-2xl font-semibold tabular-nums text-slate-950' : 'mt-2 text-2xl font-semibold tabular-nums text-white'}>{value}</p>
     </div>
   );
 };

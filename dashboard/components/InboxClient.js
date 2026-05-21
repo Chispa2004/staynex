@@ -1672,7 +1672,7 @@ export const InboxClient = ({ conversations }) => {
 
       {copilotOpen ? (
         <div className={[
-          'hidden min-h-0 border-l lg:block',
+          'hidden h-full min-h-0 overflow-hidden border-l lg:flex lg:flex-col',
           isLight ? 'border-slate-200' : 'border-white/10'
         ].join(' ')}
         >
@@ -1686,8 +1686,8 @@ export const InboxClient = ({ conversations }) => {
       ) : null}
 
       {copilotOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/45 backdrop-blur-sm lg:hidden">
-          <div className="h-full w-full max-w-[420px] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex h-dvh justify-end bg-black/45 backdrop-blur-sm lg:hidden">
+          <div className="h-full max-h-dvh min-h-0 w-full max-w-[420px] overflow-hidden shadow-2xl">
             <InboxAiCopilotPanel
               conversation={selectedConversation}
               humanEscalation={selectedHumanEscalation}
