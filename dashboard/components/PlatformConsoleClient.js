@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   BarChart3,
   BookOpen,
+  BrainCircuit,
   Building2,
   CalendarCheck,
   CheckCircle2,
@@ -808,6 +809,30 @@ export const PlatformConsoleClient = () => {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={deleteHotel}
       />
+
+      <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border', ui.badge(isLight, 'violet'))}>
+              <BrainCircuit className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={ui.text.eyebrow(isLight)}>Internal AI QA</p>
+                <span className={ui.badge(isLight, 'red', true)}>Platform only</span>
+              </div>
+              <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>Failure Intelligence</h2>
+              <p className={cn('mt-1 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
+                Private simulation analysis for unsafe responses, missed escalations, language drift, ticket quality and revenue intelligence before go-live.
+              </p>
+            </div>
+          </div>
+          <Link href="/platform/ai-quality" className={cn(ui.button(isLight, 'secondary'), 'shrink-0')}>
+            Open AI Quality
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={Building2} isLight={isLight} label="Total hotels" value={loading ? '...' : metrics.totalHotels || 0} helper={`${metrics.activeHotels || 0} active`} />

@@ -18,10 +18,12 @@ export const ROLE_LABELS = {
   analyst: 'Analyst'
 };
 
-export const PLATFORM_ROLES = ['platform_admin', 'support', 'none'];
+export const PLATFORM_ROLES = ['super_admin', 'platform_admin', 'internal_only', 'support', 'none'];
 
 export const PLATFORM_ROLE_LABELS = {
+  super_admin: 'Super admin',
   platform_admin: 'Platform admin',
+  internal_only: 'Internal QA',
   support: 'Support',
   none: 'Hotel workspace'
 };
@@ -115,11 +117,24 @@ const rolePermissions = {
 };
 
 const platformPermissions = {
+  super_admin: [
+    'workspace_switch',
+    'workspace_create',
+    'platform_console',
+    'tenant_support',
+    'ai_quality'
+  ],
   platform_admin: [
     'workspace_switch',
     'workspace_create',
     'platform_console',
-    'tenant_support'
+    'tenant_support',
+    'ai_quality'
+  ],
+  internal_only: [
+    'workspace_switch',
+    'platform_console',
+    'ai_quality'
   ],
   support: [
     'workspace_switch',

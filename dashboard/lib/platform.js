@@ -9,6 +9,8 @@ import {
 } from './platform-delete';
 import { buildReadinessForHotel } from './golive-readiness';
 
+const INTERNAL_PLATFORM_ROLES = ['platform_admin', 'super_admin', 'internal_only'];
+
 export const PLAN_LABELS = {
   starter: 'Starter',
   professional: 'Professional',
@@ -84,7 +86,7 @@ export const getPlatformContext = async (request, { requireAdmin = false } = {})
     throw error;
   }
 
-  if (requireAdmin && context.platformRole !== 'platform_admin') {
+  if (requireAdmin && !INTERNAL_PLATFORM_ROLES.includes(context.platformRole)) {
     const error = new Error('Platform admin access required');
     error.status = 403;
     throw error;

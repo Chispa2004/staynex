@@ -118,6 +118,7 @@ const INBOX_UNREAD_EVENT = 'staynex:inbox-unread-updated';
 const INBOX_HUMAN_TOTAL_KEY = 'staynex_inbox_human_total';
 const INBOX_HUMAN_EVENT = 'staynex:inbox-human-updated';
 const TENANT_CHANGED_EVENT = 'staynex:tenant-changed';
+const INTERNAL_PLATFORM_ROLES = ['platform_admin', 'super_admin', 'internal_only'];
 const scopedKey = (key, hotelId) => `${key}:${hotelId || 'none'}`;
 const WORKSPACE_RESOLUTION_TIMEOUT_MS = 7000;
 
@@ -166,7 +167,7 @@ const AppShellContent = ({ children }) => {
     () => filterNavigationByRole(navigationGroups, activeRole),
     [activeRole]
   );
-  const canAccessPlatformConsole = hotelContext.platformRole === 'platform_admin';
+  const canAccessPlatformConsole = INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -441,7 +442,7 @@ const AppShellContent = ({ children }) => {
     }
 
     if (pathname.startsWith('/platform')) {
-      if (hotelContext.platformRole !== 'platform_admin') {
+      if (!INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole)) {
         router.replace(getFirstAllowedRoute(activeRole));
       }
 
