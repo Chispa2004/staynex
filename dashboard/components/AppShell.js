@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ConciergeBell,
   Compass,
+  FlaskConical,
   Inbox,
   BookOpen,
   Map,
@@ -82,6 +83,7 @@ const navigationGroups = [
     items: [
       { href: '/dashboard/analytics', labelKey: 'sidebar.analytics', icon: BarChart3 },
       { href: '/dashboard/ai-logs', labelKey: 'sidebar.aiLogs', icon: Activity },
+      { href: '/dashboard/simulation', labelKey: 'sidebar.simulation', icon: FlaskConical },
       { href: '/dashboard/upsells', labelKey: 'sidebar.upsells', icon: TrendingUp },
       { href: '/dashboard/experiences', labelKey: 'sidebar.experiences', icon: Compass },
       { href: '/dashboard/guest-memory', labelKey: 'sidebar.guestMemory', icon: BrainCircuit },

@@ -3,6 +3,11 @@ import { handleTestMessage } from '../controllers/test.controller.js';
 import { createLuxuryHotelDemoData } from '../services/demo-data.service.js';
 import { sendProviderEmailTest } from '../services/provider-lead-email.service.js';
 import { syncPlatformGoogleSheets } from '../services/platform-sheets-sync.service.js';
+import {
+  runStaynexSimulation,
+  SIMULATION_HOTEL_TYPES,
+  SIMULATION_SCENARIOS
+} from '../services/simulation-mode.service.js';
 import { getSupabase } from '../services/supabase.service.js';
 
 const router = Router();
@@ -49,6 +54,28 @@ const verifyPlatformAdminRequest = async (req) => {
 };
 
 router.post('/test-message', handleTestMessage);
+
+router.get('/api/simulation/catalog', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    hotelTypes: SIMULATION_HOTEL_TYPES,
+    scenarios: SIMULATION_SCENARIOS.map(({ id, label }) => ({ id, label }))
+  });
+});
+
+router.post('/api/simulation/run', (req, res, next) => {
+  try {
+    const result = runStaynexSimulation({
+      count: req.body?.count,
+      hotelType: req.body?.hotelType || req.body?.hotel_type || 'all',
+      scenario: req.body?.scenario || 'all'
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
 
 router.post('/api/platform/test-provider-email', async (req, res, next) => {
   try {
