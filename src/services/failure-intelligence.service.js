@@ -100,6 +100,7 @@ export const classifySimulationFailure = (result = {}) => {
   const response = normalize(result.ai_responses?.[0]?.content || '');
   const pmsContext = result.analysis?.pms_context || {};
   const guestProfile = result.analysis?.guest_intelligence || {};
+  const usefulClarification = /room|reservation|booking|hotel|service|issue|habitacion|reserva|incidencia|servicio|chambre|probleme|information|zimmer|reservierung|problem|hotelservice|experiencia|experience|tour|availability|disponibilidad/.test(response);
 
   if (Number(result.confidence || 0) < 0.55 || (result.warnings || []).includes('low_confidence')) categories.push('low_confidence');
   if (result.repeated_response || (result.warnings || []).includes('repeated_response')) categories.push('repetitive_response', 'conversation_loop');
@@ -116,7 +117,7 @@ export const classifySimulationFailure = (result = {}) => {
   if (!pmsContext.stayPhase || !pmsContext.occupancy) categories.push('pms_context_missing');
   if (result.guest_type === 'vip' && !['vip_guest', 'luxury_guest'].includes(guestProfile.profileType)) categories.push('wrong_guest_context');
   if (['angry', 'urgent'].includes(result.guest_type) && !result.escalation_required && expected.escalation) categories.push('bad_sentiment_detection');
-  if (result.detected_intent === 'clarification_needed' || smartResponse.clarification_used) categories.push('unclear_response');
+  if ((result.detected_intent === 'clarification_needed' || smartResponse.clarification_used) && !usefulClarification) categories.push('unclear_response');
   if (unsafeReasons.some((reason) => /delivery|channel|availability|booking/i.test(reason))) categories.push('policy_violation');
   if ((result.analysis?.automation_preview || []).length > 0 && result.escalation_required) categories.push('automation_risk');
   if (unsafeReasons.some((reason) => /hours|availability|booking|policy/i.test(reason))) categories.push('fake_information');

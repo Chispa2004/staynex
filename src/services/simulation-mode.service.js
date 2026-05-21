@@ -324,11 +324,16 @@ const buildReservation = ({ hotel, guest, guestType, index }) => {
 const inferOperationalIntent = ({ message, conciergeIntent, risk }) => {
   const text = normalize(message);
 
-  if (risk?.category === 'emergency' || /humo|smoke|fumee|rauch|urgent|emergency/.test(text)) return 'emergency';
+  if (risk?.category === 'emergency' || /\b(humo|smoke|fumee|rauch|urgent|urgente|emergency|notfall|fire|fuego|incendio|brand)\b/.test(text)) return 'emergency';
   if (/aire acondicionado|air conditioning|climatisation|klimaanlage|not working|no funciona|broken/.test(text)) return 'maintenance_issue';
   if (/limpiar|clean|nettoyer|reinigen|toallas|towels|serviettes|handtuecher/.test(text)) return 'housekeeping_request';
   if (/wifi|contrasena|password|breakfast|desayuno|petit-dejeuner|fruehstueck|horario|what time|a que hora/.test(text)) return 'hotel_info';
+  if (/airport transfer|airport|aeropuerto|transfer|traslado|taxi|flight|vuelo|aeroport|transfert|vol|flughafen|flug/.test(text)) return 'airport_transfer_interest';
+  if (/late checkout|leave later|salir mas tarde|checkout tarde|plus tard|partir plus tard|spaeter auschecken|spater auschecken/.test(text)) return 'late_checkout_interest';
+  if (/spa|hammam|massage|masaje|wellness|relax|bienestar|bien-etre|traitement|behandlung/.test(text)) return 'spa_interest';
+  if (/restaurant|restaurante|dinner|cena|mesa|table|diner|dejeuner|abendessen|tisch/.test(text)) return 'restaurant_interest';
   if (/excursion|excursiones|tour|activities|actividades|activites|ausfluege/.test(text)) return 'excursion_interest';
+  if (/upgrade|suite|better room|habitacion mejor|mejor habitacion|chambre superieure|zimmer upgrade/.test(text)) return 'room_upgrade_interest';
   if (/ruido|noise|bruit|laut|dormir|sleep/.test(text)) return 'complaint_noise';
   if (/enfadado|angry|colere|veraergert|verargert|nadie|nobody|personne|niemand/.test(text)) return 'negative_sentiment';
 
@@ -543,7 +548,8 @@ const simulateOneConversation = ({ index, hotelType, scenario }) => {
   const automationSuggestions = generateAutomationSuggestions({
     guestIntelligence,
     revenuePrediction,
-    pmsIntelligenceContext
+    pmsIntelligenceContext,
+    risk: normalizedRisk
   });
   const departmentAction = generateDepartmentAction({
     intentResult: conciergeIntent,

@@ -29,11 +29,11 @@ export const getOfferTypeForIntent = (intent) => offerDefaults[intent]?.offerTyp
 
 const intentRules = [
   { intent: 'room_upgrade_interest', confidence: 0.86, words: ['upgrade', 'suite', 'better room', 'habitacion mejor', 'mejor habitacion', 'premium room'] },
-  { intent: 'late_checkout_interest', confidence: 0.9, words: ['late checkout', 'leave later', 'salir mas tarde', 'salida tarde', 'checkout tarde', 'plus tard demain'] },
-  { intent: 'airport_transfer_interest', confidence: 0.88, words: ['airport transfer', 'transfer', 'taxi aeropuerto', 'traslado', 'aeropuerto', 'flight', 'vuelo'] },
+  { intent: 'late_checkout_interest', confidence: 0.9, words: ['late checkout', 'leave later', 'salir mas tarde', 'salida tarde', 'checkout tarde', 'plus tard demain', 'partir plus tard', 'spaeter auschecken', 'spater auschecken'] },
+  { intent: 'airport_transfer_interest', confidence: 0.9, words: ['airport transfer', 'airport', 'transfer', 'taxi', 'taxi aeropuerto', 'traslado', 'aeropuerto', 'flight', 'vuelo', 'pickup', 'arrival', 'departure', 'aeroport', 'transfert', 'vol', 'flughafen', 'flug'] },
   { intent: 'romantic_package_interest', confidence: 0.9, words: ['anniversary', 'aniversario', 'romantic', 'romantico', 'romantica', 'honeymoon', 'luna de miel'] },
-  { intent: 'spa_interest', confidence: 0.84, words: ['spa', 'massage', 'masaje', 'wellness', 'relax'] },
-  { intent: 'restaurant_interest', confidence: 0.84, words: ['restaurant', 'restaurante', 'dinner', 'cena', 'table', 'mesa'] },
+  { intent: 'spa_interest', confidence: 0.86, words: ['spa', 'hammam', 'massage', 'masaje', 'wellness', 'relax', 'bienestar', 'bien-etre', 'traitement', 'behandlung'] },
+  { intent: 'restaurant_interest', confidence: 0.86, words: ['restaurant', 'restaurante', 'dinner', 'cena', 'table', 'mesa', 'diner', 'dejeuner', 'essen', 'abendessen', 'tisch'] },
   { intent: 'complaint_noise', confidence: 0.88, words: ['noisy', 'noise', 'ruido', 'loud', 'molesto', 'no puedo dormir'] },
   { intent: 'complaint_cleaning', confidence: 0.86, words: ['dirty', 'sucio', 'limpieza mal', 'not clean', 'unclean', 'toallas sucias'] },
   { intent: 'vip_behavior', confidence: 0.72, words: ['vip', 'premium', 'suite', 'private', 'exclusivo'] },
@@ -102,6 +102,15 @@ export const detectRevenueOpportunity = ({ intentResult, context = {} } = {}) =>
 export const detectOperationalRisk = ({ intentResult, message = '' } = {}) => {
   const text = normalize(message);
 
+  if (/\b(smoke|fire|emergency|urgent|humo|fuego|urgente|incendio|fumee|urgence|feu|rauch|brand|notfall)\b/.test(text)) {
+    return {
+      hasRisk: true,
+      category: 'emergency',
+      priority: 'urgent',
+      reason: 'emergency_detected'
+    };
+  }
+
   if (['complaint_noise', 'complaint_cleaning'].includes(intentResult?.intent)) {
     return {
       hasRisk: true,
@@ -120,7 +129,7 @@ export const detectOperationalRisk = ({ intentResult, message = '' } = {}) => {
     };
   }
 
-  if (includesAny(text, ['angry', 'terrible', 'unacceptable', 'refund', 'enfadado', 'muy mal', 'nadie me ayuda'])) {
+  if (includesAny(text, ['angry', 'terrible', 'unacceptable', 'refund', 'enfadado', 'enfadada', 'muy mal', 'nadie me ayuda', 'nobody is helping', 'personne ne m aide', 'niemand hilft'])) {
     return {
       hasRisk: true,
       category: 'complaint',
@@ -150,28 +159,38 @@ export const generateSuggestedOffer = ({ opportunity, language = 'en' } = {}) =>
 
   const messages = {
     late_checkout: {
-      es: `Podemos consultar late checkout hasta las 14:00 por ${price}, sujeto a disponibilidad. Quieres que lo solicite?`,
-      en: `We can check late checkout until 2pm for ${price}, subject to availability. Would you like me to request it?`
+      es: `Podemos consultar late checkout hasta las 14:00 por ${price}, sujeto a disponibilidad. Si te va bien, puedo enviar la solicitud.`,
+      en: `We can check late checkout until 2pm for ${price}, subject to availability. If that works for you, I can send the request.`,
+      fr: `Nous pouvons verifier un late checkout jusqu a 14h pour ${price}, sous reserve de disponibilite. Si cela vous convient, je peux envoyer la demande.`,
+      de: `Wir koennen Late Check-out bis 14 Uhr fuer ${price} pruefen, je nach Verfuegbarkeit. Wenn das passt, kann ich die Anfrage senden.`
     },
     room_upgrade: {
-      es: `Puedo pedir a recepcion que revise una mejora de habitacion desde ${price}, si hay disponibilidad.`,
-      en: `I can ask reception to check a room upgrade from ${price}, if available.`
+      es: `Puedo pedir a recepcion que revise una mejora de habitacion desde ${price}, siempre sujeta a disponibilidad.`,
+      en: `I can ask reception to check a room upgrade from ${price}, always subject to availability.`,
+      fr: `Je peux demander a la reception de verifier une categorie superieure a partir de ${price}, selon disponibilite.`,
+      de: `Ich kann die Rezeption bitten, ein Zimmer-Upgrade ab ${price} zu pruefen, je nach Verfuegbarkeit.`
     },
     airport_transfer: {
-      es: `Podemos ayudarte con transfer desde ${price}. Quieres que recepcion te confirme opciones?`,
-      en: `We can help with a transfer from ${price}. Would you like reception to confirm the options?`
+      es: `Podemos ayudarte con un transfer desde ${price}. Para prepararlo bien, dime hora, numero de vuelo y numero de pasajeros.`,
+      en: `We can help arrange an airport transfer from ${price}. Could you share the flight number, time and number of passengers? Once I have that, I can send the request.`,
+      fr: `Nous pouvons vous aider avec un transfert aeroport a partir de ${price}. Pouvez-vous partager le numero de vol, l heure et le nombre de passagers?`,
+      de: `Wir koennen einen Flughafentransfer ab ${price} organisieren. Koennen Sie Flugnummer, Uhrzeit und Anzahl der Gaeste senden?`
     },
     romantic_package: {
       es: `Felicidades. Si os apetece, puedo pedir a recepcion detalles de un paquete romantico desde ${price}.`,
       en: `Congratulations. If you like, I can ask reception for details about a romantic package from ${price}.`
     },
     spa: {
-      es: `Puedo consultar disponibilidad de spa desde ${price} si te apetece.`,
-      en: `I can check spa availability from ${price} if you like.`
+      es: `Puedo consultar disponibilidad de spa desde ${price}. Si quieres, dime la hora aproximada y el numero de personas.`,
+      en: `I can check spa availability from ${price}. If you like, send me the preferred time and number of guests.`,
+      fr: `Je peux verifier la disponibilite du spa a partir de ${price}. Si vous voulez, indiquez-moi l heure souhaitee et le nombre de personnes.`,
+      de: `Ich kann Spa-Verfuegbarkeit ab ${price} pruefen. Senden Sie mir gern die gewuenschte Uhrzeit und die Anzahl der Gaeste.`
     },
     dinner: {
-      es: `Puedo avisar al restaurante para ayudarte con una reserva; hay opciones desde ${price}.`,
-      en: `I can notify the restaurant team to help with a booking; options start from ${price}.`
+      es: `Puedo ayudar a preparar una solicitud de mesa; hay opciones desde ${price}. Dime hora y numero de personas.`,
+      en: `I can help prepare a table request; options start from ${price}. Please share the preferred time and number of guests.`,
+      fr: `Je peux aider a preparer une demande de table; options a partir de ${price}. Indiquez l heure et le nombre de personnes.`,
+      de: `Ich kann eine Tischanfrage vorbereiten; Optionen beginnen ab ${price}. Bitte senden Sie Uhrzeit und Anzahl der Gaeste.`
     }
   };
 
@@ -211,9 +230,31 @@ export const generateDepartmentAction = ({ intentResult, opportunity, risk } = {
 
 export const generateConciergeResponse = ({ intentResult, opportunity, risk, language = 'en' } = {}) => {
   if (risk?.hasRisk) {
-    return language === 'es'
-      ? 'Lo siento mucho. He informado a recepcion para que podamos ayudarte lo antes posible.'
-      : "I'm sorry about that. I've informed reception so we can assist you as quickly as possible.";
+    const emergency = risk.reason === 'emergency_detected' || risk.category === 'emergency';
+    if (emergency) {
+      return {
+        es: 'Lo tratamos como urgente. Por favor contacta ahora con recepcion o emergencias si hay riesgo inmediato; lo escalo al equipo del hotel.',
+        en: 'We are treating this as urgent. Please contact reception or emergency services now if there is immediate danger; I am escalating it to the hotel team.',
+        fr: 'Nous traitons cela comme urgent. Contactez aussi la reception ou les urgences s il y a un danger immediat; je le transmets a l equipe.',
+        de: 'Wir behandeln dies als dringend. Bitte kontaktieren Sie sofort die Rezeption oder den Notdienst, wenn Gefahr besteht; ich leite es an das Hotelteam weiter.'
+      }[language] || 'We are treating this as urgent and escalating it to the hotel team.';
+    }
+
+    if (risk.category === 'maintenance') {
+      return {
+        es: 'Siento mucho la molestia. Marco la incidencia como prioritaria para que el equipo del hotel revise la habitacion cuanto antes.',
+        en: "I'm sorry for the inconvenience. I am marking this as priority so the hotel team can check the room as soon as possible.",
+        fr: 'Je suis desole pour ce desagrement. Je marque cela comme prioritaire afin que l equipe verifie la chambre au plus vite.',
+        de: 'Es tut mir leid fuer die Unannehmlichkeit. Ich markiere dies als prioritaer, damit das Hotelteam das Zimmer schnell prueft.'
+      }[language] || "I'm sorry for the inconvenience. I am marking this as priority.";
+    }
+
+    return {
+      es: 'Siento mucho la molestia. Lo escalo al equipo del hotel para que puedan ayudarte con prioridad.',
+      en: "I'm sorry about the inconvenience. I am escalating this to the hotel team so they can help with priority.",
+      fr: 'Je suis desole pour ce desagrement. Je transmets cela a l equipe de l hotel pour une aide prioritaire.',
+      de: 'Es tut mir leid fuer die Unannehmlichkeit. Ich leite dies an das Hotelteam weiter, damit es prioritaer behandelt wird.'
+    }[language] || "I'm sorry about the inconvenience. I am escalating this to the hotel team.";
   }
 
   if (intentResult?.intent === 'reservation_change') {
@@ -242,6 +283,15 @@ export const generateConciergeResponse = ({ intentResult, opportunity, risk, lan
     return language === 'es'
       ? 'Felicidades. Si quieres, puedo avisar a recepcion para preparar algun detalle especial durante tu estancia.'
       : 'Congratulations. If you like, I can notify reception to prepare a special touch during your stay.';
+  }
+
+  if (intentResult?.intent === 'vip_behavior') {
+    return {
+      es: 'Claro. Para una experiencia privada, puedo ayudarte a preparar una solicitud discreta con preferencias, horario y numero de personas.',
+      en: 'Of course. For a private experience, I can help prepare a discreet request with your preferences, preferred time and number of guests.',
+      fr: 'Bien sur. Pour une experience privee, je peux preparer une demande discrete avec vos preferences, l horaire souhaite et le nombre de personnes.',
+      de: 'Gerne. Fuer ein privates Erlebnis kann ich eine diskrete Anfrage mit Ihren Wuenschen, der bevorzugten Uhrzeit und der Anzahl der Gaeste vorbereiten.'
+    }[language] || 'Of course. I can help prepare a discreet private experience request with the key details.';
   }
 
   return null;

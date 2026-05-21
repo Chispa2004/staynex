@@ -352,7 +352,7 @@ export const buildClarificationReply = ({
 } = {}) => {
   const text = normalize(message);
   const looksLikeExperience = providerIntent?.intentType
-    || includesAny(text, ['excursion', 'excursiones', 'actividad', 'actividades', 'tour', 'experiencia', 'book', 'reservar']);
+    || includesAny(text, ['excursion', 'excursiones', 'actividad', 'actividades', 'tour', 'experiencia', 'local experience', 'local experiences']);
   const templates = {
     es: looksLikeExperience
       ? [
@@ -370,9 +370,9 @@ export const buildClarificationReply = ({
         'Just to help properly: are you asking for tour details or would you like to start a booking request?'
       ]
       : [
-        'Sorry, I am not completely sure I understood. Do you mean a reservation, an issue, or hotel information?',
-        'Could you share a little more detail so I can help properly?',
-        'I want to help accurately. Is this about your room, a reservation, or a hotel service?'
+        'Could you share one more detail so I can help properly: is it about your room, a reservation, or a hotel service?',
+        'I want to help accurately. Is this about your room, a booking, or general hotel information?',
+        'Could you clarify the service you mean? I can help with the room, reservations, hotel information or local recommendations.'
       ],
     fr: looksLikeExperience
       ? [
@@ -402,10 +402,28 @@ export const buildClarificationReply = ({
 export const buildEscalationReply = ({ language = 'es', reason = null, variantIndex = 0 } = {}) => {
   if (reason === 'emergency_detected') {
     return {
-      es: 'Hemos marcado tu mensaje como urgente. Por favor, contacta tambien inmediatamente con recepcion o emergencias si hay riesgo para tu seguridad. Lo derivo ahora a recepcion.',
-      en: 'We have marked your message as urgent. Please also contact reception or emergency services immediately if there is any risk to your safety. I am forwarding this to reception now.',
-      fr: 'Nous avons marque votre message comme urgent. Veuillez aussi contacter immediatement la reception ou les urgences s il y a un risque pour votre securite. Je le transmets maintenant.',
-      de: 'Wir haben Ihre Nachricht als dringend markiert. Bitte kontaktieren Sie sofort auch die Rezeption oder den Notdienst, falls Gefahr besteht. Ich leite dies jetzt weiter.'
+      es: 'Lo tratamos como urgente. Contacta ahora con recepcion o emergencias si hay riesgo inmediato; lo escalo al equipo del hotel.',
+      en: 'We are treating this as urgent. Please contact reception or emergency services now if there is immediate danger; I am escalating it to the hotel team.',
+      fr: 'Nous traitons cela comme urgent. Contactez la reception ou les urgences s il y a un danger immediat; je transmets cela a l equipe.',
+      de: 'Wir behandeln dies als dringend. Bitte kontaktieren Sie sofort die Rezeption oder den Notdienst, wenn Gefahr besteht; ich leite es an das Hotelteam weiter.'
+    }[language] || null;
+  }
+
+  if (['complaint_noise', 'negative_sentiment', 'complaint_detected'].includes(reason)) {
+    return {
+      es: 'Siento mucho la molestia. Lo escalo al equipo del hotel para que puedan ayudarte con prioridad.',
+      en: "I'm sorry about the inconvenience. I am escalating this to the hotel team so they can help with priority.",
+      fr: 'Je suis desole pour ce desagrement. Je transmets cela a l equipe de l hotel pour une aide prioritaire.',
+      de: 'Es tut mir leid fuer die Unannehmlichkeit. Ich leite dies an das Hotelteam weiter, damit es prioritaer behandelt wird.'
+    }[language] || null;
+  }
+
+  if (['maintenance_issue', 'technical_issue_detected'].includes(reason)) {
+    return {
+      es: 'Siento mucho la molestia. Marco la incidencia como prioritaria para que el equipo revise la habitacion cuanto antes.',
+      en: "I'm sorry for the inconvenience. I am marking this as priority so the team can check the room as soon as possible.",
+      fr: 'Je suis desole pour ce desagrement. Je marque cela comme prioritaire afin que l equipe verifie la chambre au plus vite.',
+      de: 'Es tut mir leid fuer die Unannehmlichkeit. Ich markiere dies als prioritaer, damit das Team das Zimmer schnell prueft.'
     }[language] || null;
   }
 

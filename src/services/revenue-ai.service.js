@@ -161,8 +161,51 @@ export const generateRevenueActions = ({ guestIntelligence = {}, revenuePredicti
   }));
 };
 
-export const generateAutomationSuggestions = ({ guestIntelligence = {}, revenuePrediction = null, pmsIntelligenceContext = null } = {}) => {
-  const recommendations = generateUpsellRecommendations({ guestIntelligence, revenuePrediction, pmsIntelligenceContext });
+const hasOperationalPmsContext = (pmsIntelligenceContext = null) => Boolean(
+  pmsIntelligenceContext
+  && (pmsIntelligenceContext.stayPhase || pmsIntelligenceContext.guestStayContext?.stay_phase)
+);
+
+const shouldUseAutomationPreviewOnly = ({
+  guestIntelligence = {},
+  revenuePrediction = null,
+  pmsIntelligenceContext = null,
+  risk = null
+} = {}) => {
+  const prediction = revenuePrediction || predictLikelyConversions({ guestIntelligence, pmsIntelligenceContext });
+  const reviewRisk = Number(guestIntelligence.reviewRiskScore || guestIntelligence.profile?.review_risk_score || 0);
+  const sentiment = Number(guestIntelligence.sentimentScore || guestIntelligence.profile?.sentiment_score || 62);
+  const profileType = guestIntelligence.profileType || guestIntelligence.profile?.profile_type || null;
+
+  if (risk?.hasRisk || risk?.priority === 'urgent') return 'operational_risk';
+  if (reviewRisk >= 45 || sentiment <= 38 || profileType === 'high_maintenance') return 'guest_needs_recovery';
+  if (!hasOperationalPmsContext(pmsIntelligenceContext)) return 'pms_context_missing';
+
+  return null;
+};
+
+export const generateAutomationSuggestions = ({
+  guestIntelligence = {},
+  revenuePrediction = null,
+  pmsIntelligenceContext = null,
+  risk = null
+} = {}) => {
+  const previewOnlyReason = shouldUseAutomationPreviewOnly({
+    guestIntelligence,
+    revenuePrediction,
+    pmsIntelligenceContext,
+    risk
+  });
+
+  if (previewOnlyReason) {
+    return [];
+  }
+
+  const recommendations = generateUpsellRecommendations({ guestIntelligence, revenuePrediction, pmsIntelligenceContext })
+    .filter((recommendation) => Number(recommendation.probability || 0) >= 0.55);
+  const prediction = revenuePrediction || predictLikelyConversions({ guestIntelligence, pmsIntelligenceContext });
+  const lowConfidence = Number(prediction.predictionConfidence || 0) < 0.75;
+
   return recommendations.map((recommendation) => ({
     automationType: recommendation.type === 'spa'
       ? 'spa_upsell'
@@ -175,7 +218,10 @@ export const generateAutomationSuggestions = ({ guestIntelligence = {}, revenueP
             : 'vip_followup',
     reason: recommendation.reason,
     expectedRevenue: recommendation.estimatedRevenue,
-    conversionProbability: recommendation.probability
+    conversionProbability: recommendation.probability,
+    actionMode: lowConfidence ? 'preview_recommendation' : 'ready_with_soft_confirmation',
+    canRunAutomatically: !lowConfidence,
+    requiresSoftConfirmation: true
   }));
 };
 
