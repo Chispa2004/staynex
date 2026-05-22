@@ -676,7 +676,7 @@ export const buildExperienceProviderLeadEmail = ({
     '',
     `Reference: ${reference}`,
     `Staynex booking request ID: ${normalize(bookingRequest?.id) || 'Not provided'}`,
-    `Source: Staynex`,
+    `Source: Staynex Partner Network`,
     '',
     `Hotel: ${hotelName}`,
     `Provider: ${providerName}`,
@@ -695,7 +695,8 @@ export const buildExperienceProviderLeadEmail = ({
     normalize(bookingRequest?.notes) || 'No notes',
     '',
     'Notes:',
-    'Reception must confirm availability before the guest is told the experience is confirmed.'
+    'This request was generated automatically by Staynex after explicit guest confirmation.',
+    'Please confirm availability before the hotel informs the guest that the booking is confirmed.'
   ];
 
   return {

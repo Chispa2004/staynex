@@ -918,7 +918,7 @@ export const processGuestMessage = async ({
     await createMessage({
       conversationId: conversation.id,
       senderType: 'ai',
-      content: `Experience booking request created: ${experienceBookingRequest.experience_title}. Reception must confirm availability before the guest is told it is confirmed.`,
+      content: `Provider experience request created: ${experienceBookingRequest.experience_title}. Availability is not confirmed until the provider replies.`,
       originalLanguage: 'en',
       metadata: {
         system_event: 'experience_booking_request_created'

@@ -48,7 +48,7 @@ import {
 } from '@/lib/workspace-context';
 import {
   canAccess,
-  canAccessRoute,
+  canAccessRouteForContext,
   filterNavigationByRole,
   getFirstAllowedRoute,
   ROLE_LABELS
@@ -164,8 +164,8 @@ const AppShellContent = ({ children }) => {
   const isOnboardingPage = pathname === '/dashboard/onboarding';
   const activeRole = hotelContext.role || 'owner';
   const allowedNavigationGroups = useMemo(
-    () => filterNavigationByRole(navigationGroups, activeRole),
-    [activeRole]
+    () => filterNavigationByRole(navigationGroups, activeRole, hotelContext.platformRole),
+    [activeRole, hotelContext.platformRole]
   );
   const canAccessPlatformConsole = INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole);
 
@@ -449,7 +449,7 @@ const AppShellContent = ({ children }) => {
       return;
     }
 
-    if (!canAccessRoute(activeRole, pathname)) {
+    if (!canAccessRouteForContext(activeRole, pathname, hotelContext.platformRole)) {
       router.replace(getFirstAllowedRoute(activeRole));
     }
   }, [activeRole, authLoading, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, pathname, router]);

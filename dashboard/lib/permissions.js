@@ -44,9 +44,8 @@ const hotelAdminPermissions = [
   'local_knowledge',
   'local_knowledge_manage',
   'experience_bookings',
-  'experience_bookings_manage',
+  'experience_bookings_notes',
   'analytics',
-  'simulation',
   'automations',
   'knowledge_base',
   'knowledge_base_manage',
@@ -80,9 +79,8 @@ const rolePermissions = {
     'local_knowledge',
     'local_knowledge_manage',
     'experience_bookings',
-    'experience_bookings_manage',
+    'experience_bookings_notes',
     'analytics',
-    'simulation',
     'automations',
     'knowledge_base',
     'knowledge_base_manage',
@@ -99,6 +97,8 @@ const rolePermissions = {
     'knowledge_base_manage',
     'local_knowledge',
     'local_knowledge_manage',
+    'experience_bookings',
+    'experience_bookings_notes',
     'academy'
   ],
   housekeeping: [
@@ -123,19 +123,22 @@ const platformPermissions = {
     'workspace_create',
     'platform_console',
     'tenant_support',
-    'ai_quality'
+    'ai_quality',
+    'simulation'
   ],
   platform_admin: [
     'workspace_switch',
     'workspace_create',
     'platform_console',
     'tenant_support',
-    'ai_quality'
+    'ai_quality',
+    'simulation'
   ],
   internal_only: [
     'workspace_switch',
     'platform_console',
-    'ai_quality'
+    'ai_quality',
+    'simulation'
   ],
   support: [
     'workspace_switch',
@@ -220,10 +223,20 @@ export const getRoutePermission = (pathname = '') => (
 
 export const canAccessRoute = (role, pathname = '') => canAccess(role, getRoutePermission(pathname));
 
-export const filterNavigationByRole = (navigationGroups, role) => navigationGroups
+export const canAccessRouteForContext = (role, pathname = '', platformRole = 'none') => {
+  const permission = getRoutePermission(pathname);
+
+  if (permission === 'simulation') {
+    return canAccessPlatform(platformRole, 'simulation');
+  }
+
+  return canAccess(role, permission);
+};
+
+export const filterNavigationByRole = (navigationGroups, role, platformRole = 'none') => navigationGroups
   .map((group) => ({
     ...group,
-    items: group.items.filter((item) => canAccessRoute(role, item.href))
+    items: group.items.filter((item) => canAccessRouteForContext(role, item.href, platformRole))
   }))
   .filter((group) => group.items.length > 0);
 

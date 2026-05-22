@@ -208,6 +208,7 @@ const buildProviderEmailMetadata = ({
   ...(bookingRequest?.metadata || {}),
   provider_email_to: emailPayload?.to || null,
   provider_email_status: emailResult.status,
+  provider_email_sent: emailResult.status === 'sent',
   provider_email_error: emailResult.status === 'failed'
     ? emailResult.error?.message || emailResult.reason
     : null,
@@ -235,13 +236,19 @@ const updateBookingRequestProviderEmailState = async ({
     emailResult
   });
   const sentAt = metadata.provider_email_sent_at;
+  const externalStatus = emailResult.status === 'sent'
+    ? 'provider_request_sent'
+    : emailResult.status === 'failed'
+      ? 'failed_provider_email'
+      : null;
   const updateWithLeadColumns = {
     metadata,
     lead_status: emailResult.status,
     lead_email_payload: emailPayload,
     lead_email_sent_at: emailResult.status === 'sent' ? sentAt : null,
     lead_error: emailResult.status === 'failed' ? emailResult.reason : null,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    ...(externalStatus ? { status: externalStatus } : {})
   };
 
   let { data, error } = await supabase
@@ -256,6 +263,7 @@ const updateBookingRequestProviderEmailState = async ({
       .from('experience_booking_requests')
       .update({
         metadata,
+        ...(externalStatus ? { status: externalStatus } : {}),
         updated_at: new Date().toISOString()
       })
       .eq('id', bookingRequest.id)
@@ -545,22 +553,24 @@ const providerBookingConfirmationWords = [
   'envia la solicitud',
   'envia solicitud',
   'enviar solicitud',
+  'envialo',
+  'enviarlo',
+  'si envialo',
+  'si enviarlo',
+  'sí envialo',
+  'sí enviarlo',
   'manda la solicitud',
   'mandar la solicitud',
   'mandalo',
+  'confirmo',
   'confirma',
   'confirmar',
   'si confirma',
+  'sí confirma',
   'adelante',
   'ok adelante',
   'vale',
   'vale perfecto',
-  'quiero reservar',
-  'queremos reservar',
-  'reservar',
-  'reserva',
-  'reservad',
-  'reservadme',
   'lo queremos',
   'send request',
   'send the request',
@@ -569,6 +579,8 @@ const providerBookingConfirmationWords = [
   'confirm it',
   'go ahead',
   'yes please',
+  'yes send it',
+  'yes please send it',
   'reserve it',
   'we want to book',
   'je veux reserver',
@@ -580,6 +592,16 @@ const providerBookingConfirmationWords = [
   'bitte bestatigen',
   'anfrage senden'
 ];
+
+const exactProviderBookingConfirmations = new Set([
+  'si',
+  'sí',
+  'ok',
+  'vale',
+  'yes',
+  'oui',
+  'ja'
+]);
 
 const negativeWords = [
   'not now',
@@ -1250,8 +1272,27 @@ export const isProviderBookingConfirmation = (message = '') => {
     .replace(/\s+/g, ' ')
     .trim();
 
-  return includesAny(text, providerBookingConfirmationWords);
+  return exactProviderBookingConfirmations.has(text) || includesAny(text, providerBookingConfirmationWords);
 };
+
+const providerBookingDetailsFromText = (message = '') => ({
+  requestedDate: dateFromMessage(message),
+  requestedTime: timeFromMessage(message),
+  guestsCount: guestsCountFromMessage(message)
+});
+
+const missingProviderBookingDetails = ({ requestedDate, guestsCount }) => [
+  !requestedDate ? 'date' : null,
+  !guestsCount ? 'guests_count' : null
+].filter(Boolean);
+
+const buildBookingDetailsText = ({ message = '', recentMessages = [] } = {}) => [
+  ...(recentMessages || [])
+    .filter((item) => item?.sender_type === 'guest' || item?.senderType === 'guest')
+    .slice(-6)
+    .map((item) => item.content || item.message || ''),
+  message
+].filter(Boolean).join('\n');
 
 export const classifyProviderExperienceConversation = async ({
   message = '',
@@ -1294,6 +1335,36 @@ export const classifyProviderExperienceConversation = async ({
   const hasBookingLanguage = includesAny(text, bookingIntentWords);
   const hasBareConfirmation = includesAny(text, ['yes confirm', 'yes please book', 'yes book', 'si confirmar', 'sí confirmar', 'si reservar', 'sí reservar']);
   const followsExperienceOfferWithAction = Boolean((latestOffer || latestProviderContext) && (hasBookingLanguage || hasBareConfirmation || confirmationOverride));
+  const bookingDetails = providerBookingDetailsFromText(message);
+  const missingDetails = missingProviderBookingDetails(bookingDetails);
+  const buildMissingDetailsResult = ({ intentType, confidence, reason, matched = matchedExperience }) => ({
+    intentType,
+    confidence,
+    reason: 'booking_missing_guest_details',
+    bookingReady: false,
+    latestOffer,
+    latestProviderContext,
+    matchedExperience: matched,
+    requestedDate: bookingDetails.requestedDate,
+    requestedTime: bookingDetails.requestedTime,
+    guestsCount: bookingDetails.guestsCount,
+    missingDetails,
+    previousReason: reason
+  });
+  const buildAwaitingConfirmationResult = ({ intentType, confidence, reason, matched = matchedExperience }) => ({
+    intentType,
+    confidence,
+    reason: 'awaiting_guest_confirmation',
+    bookingReady: false,
+    latestOffer,
+    latestProviderContext,
+    matchedExperience: matched,
+    requestedDate: bookingDetails.requestedDate,
+    requestedTime: bookingDetails.requestedTime,
+    guestsCount: bookingDetails.guestsCount,
+    missingDetails: [],
+    previousReason: reason
+  });
 
   if (latestProviderContext && confirmationOverride && !mentionsExperience) {
     if (!matchedExperience) {
@@ -1308,17 +1379,26 @@ export const classifyProviderExperienceConversation = async ({
       };
     }
 
+    if (missingDetails.length) {
+      return buildMissingDetailsResult({
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+        confidence: 0.86,
+        reason: 'provider_booking_confirmation_override'
+      });
+    }
+
     return {
       intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
       confidence: 0.96,
       reason: 'provider_booking_confirmation_override',
-      bookingReady: true,
+      bookingReady: missingDetails.length === 0,
       latestOffer,
       latestProviderContext,
       matchedExperience,
-      requestedDate: dateFromMessage(message),
-      requestedTime: timeFromMessage(message),
-      guestsCount: guestsCountFromMessage(message)
+      requestedDate: bookingDetails.requestedDate,
+      requestedTime: bookingDetails.requestedTime,
+      guestsCount: bookingDetails.guestsCount,
+      missingDetails
     };
   }
 
@@ -1335,6 +1415,22 @@ export const classifyProviderExperienceConversation = async ({
       };
     }
 
+    if (missingDetails.length) {
+      return buildMissingDetailsResult({
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT,
+        confidence: 0.82,
+        reason: 'explicit_booking_action'
+      });
+    }
+
+    if (!confirmationOverride && !hasBareConfirmation) {
+      return buildAwaitingConfirmationResult({
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT,
+        confidence: 0.84,
+        reason: 'explicit_booking_action'
+      });
+    }
+
     return {
       intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT,
       confidence: 0.9,
@@ -1343,9 +1439,10 @@ export const classifyProviderExperienceConversation = async ({
       latestOffer,
       latestProviderContext,
       matchedExperience,
-      requestedDate: dateFromMessage(message),
-      requestedTime: timeFromMessage(message),
-      guestsCount: guestsCountFromMessage(message)
+      requestedDate: bookingDetails.requestedDate,
+      requestedTime: bookingDetails.requestedTime,
+      guestsCount: bookingDetails.guestsCount,
+      missingDetails
     };
   }
 
@@ -1362,6 +1459,14 @@ export const classifyProviderExperienceConversation = async ({
       };
     }
 
+    if (missingDetails.length) {
+      return buildMissingDetailsResult({
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+        confidence: 0.78,
+        reason: 'confirmed_recent_experience_offer'
+      });
+    }
+
     return {
       intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
       confidence: 0.88,
@@ -1370,9 +1475,10 @@ export const classifyProviderExperienceConversation = async ({
       latestOffer,
       latestProviderContext,
       matchedExperience,
-      requestedDate: dateFromMessage(message),
-      requestedTime: timeFromMessage(message),
-      guestsCount: guestsCountFromMessage(message)
+      requestedDate: bookingDetails.requestedDate,
+      requestedTime: bookingDetails.requestedTime,
+      guestsCount: bookingDetails.guestsCount,
+      missingDetails
     };
   }
 
@@ -1454,28 +1560,72 @@ export const detectExperienceBookingIntent = async ({
     latestProviderContext: resolvedLatestProviderContext
   });
   const matchedExperience = experienceResolution.resolvedExperience || classified.matchedExperience || null;
+  const bookingDetailsText = buildBookingDetailsText({ message, recentMessages });
+  const recoveredDetails = providerBookingDetailsFromText(bookingDetailsText);
+  const requestedDate = classified.requestedDate || recoveredDetails.requestedDate;
+  const requestedTime = classified.requestedTime || recoveredDetails.requestedTime;
+  const guestsCount = classified.guestsCount || recoveredDetails.guestsCount;
+  const missingDetails = missingProviderBookingDetails({ requestedDate, guestsCount });
+  const guestConfirmedProviderRequest = isProviderBookingConfirmation(message) || classified.intentType === PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION;
 
-  if (!classified.bookingReady) {
+  const recoveredConfirmedBooking = !classified.bookingReady
+    && classified.reason === 'booking_missing_guest_details'
+    && missingDetails.length === 0
+    && Boolean(matchedExperience)
+    && guestConfirmedProviderRequest;
+
+  if (!classified.bookingReady && !recoveredConfirmedBooking) {
     return {
       detected: false,
       confidence: classified.confidence || 0,
       reason: classified.reason,
       experienceResolution,
       matchedExperience,
+      requestedDate,
+      requestedTime,
+      guestsCount,
+      missingDetails: classified.missingDetails || missingDetails,
+      guestConfirmedProviderRequest,
       conversationIntent: classified
+    };
+  }
+
+  if (missingDetails.length) {
+    return {
+      detected: false,
+      confidence: classified.confidence || 0,
+      reason: 'booking_missing_guest_details',
+      experienceResolution,
+      matchedExperience,
+      requestedDate,
+      requestedTime,
+      guestsCount,
+      missingDetails,
+      guestConfirmedProviderRequest,
+      conversationIntent: {
+        ...classified,
+        bookingReady: false,
+        reason: 'booking_missing_guest_details',
+        requestedDate,
+        requestedTime,
+        guestsCount,
+        missingDetails
+      }
     };
   }
 
   return {
     detected: true,
     confidence: classified.confidence,
-    reason: classified.reason,
+    reason: recoveredConfirmedBooking ? 'guest_confirmed_provider_request_with_recent_details' : classified.reason,
     latestOffer: classified.latestOffer,
     latestProviderContext: resolvedLatestProviderContext || classified.latestProviderContext,
     matchedExperience,
-    requestedDate: classified.requestedDate,
-    requestedTime: classified.requestedTime,
-    guestsCount: classified.guestsCount,
+    requestedDate,
+    requestedTime,
+    guestsCount,
+    missingDetails,
+    guestConfirmedProviderRequest,
     experienceResolution,
     conversationIntent: classified
   };
@@ -1515,6 +1665,16 @@ export const buildProviderExperienceRecommendationReply = ({
     && !intent?.bookingReady
     && (intent?.reason === 'booking_missing_experience' || intent?.reason === 'provider_booking_confirmation_override_missing_catalog_match')
   );
+  const missingGuestDetailsBooking = (
+    [PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT, PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION].includes(intent?.intentType)
+    && !intent?.bookingReady
+    && intent?.reason === 'booking_missing_guest_details'
+  );
+  const awaitingGuestConfirmation = (
+    [PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT, PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION].includes(intent?.intentType)
+    && !intent?.bookingReady
+    && intent?.reason === 'awaiting_guest_confirmation'
+  );
 
   if (missingExperienceBooking) {
     return {
@@ -1523,6 +1683,45 @@ export const buildProviderExperienceRecommendationReply = ({
       de: 'Gerne, welches Erlebnis moechten Sie genau buchen?',
       en: 'Of course, which experience would you like to book exactly?'
     }[language] || 'Of course, which experience would you like to book exactly?';
+  }
+
+  if (missingGuestDetailsBooking) {
+    const missing = new Set(intent?.missingDetails || []);
+    const parts = {
+      es: [
+        missing.has('date') ? 'la fecha' : null,
+        missing.has('guests_count') ? 'el numero de personas' : null
+      ].filter(Boolean).join(' y '),
+      fr: [
+        missing.has('date') ? 'la date' : null,
+        missing.has('guests_count') ? 'le nombre de personnes' : null
+      ].filter(Boolean).join(' et '),
+      de: [
+        missing.has('date') ? 'das Datum' : null,
+        missing.has('guests_count') ? 'die Personenzahl' : null
+      ].filter(Boolean).join(' und '),
+      en: [
+        missing.has('date') ? 'the date' : null,
+        missing.has('guests_count') ? 'the number of guests' : null
+      ].filter(Boolean).join(' and ')
+    };
+
+    return {
+      es: `Claro. Para enviar la solicitud al proveedor, necesito ${parts.es || 'un poco mas de informacion'}.\n\n¿Para que fecha y para cuantas personas seria?`,
+      fr: `Bien sur. Pour envoyer la demande au prestataire, il me faut ${parts.fr || 'quelques informations'}.\n\nPour quelle date et combien de personnes ?`,
+      de: `Gerne. Um die Anfrage an den Anbieter zu senden, brauche ich noch ${parts.de || 'ein paar Angaben'}.\n\nFuer welches Datum und wie viele Personen waere es?`,
+      en: `Of course. To send the request to the provider, I still need ${parts.en || 'a little more information'}.\n\nWhich date would you like, and for how many guests?`
+    }[language] || `Of course. To send the request to the provider, I still need ${parts.en || 'a little more information'}.\n\nWhich date would you like, and for how many guests?`;
+  }
+
+  if (awaitingGuestConfirmation) {
+    const title = intent?.matchedExperience?.title ? ` ${intent.matchedExperience.title}` : '';
+    return {
+      es: `Perfecto. Tengo los datos para la solicitud${title}.\n\n¿Quieres que la envie al proveedor para confirmar disponibilidad?`,
+      fr: `Parfait. J ai les informations pour la demande${title}.\n\nSouhaitez-vous que je l envoie au prestataire pour confirmer la disponibilite ?`,
+      de: `Perfekt. Ich habe die Angaben fuer die Anfrage${title}.\n\nSoll ich sie an den Anbieter senden, um die Verfuegbarkeit zu pruefen?`,
+      en: `Perfect. I have the details for the request${title}.\n\nWould you like me to send it to the provider to confirm availability?`
+    }[language] || `Perfect. I have the details for the request${title}.\n\nWould you like me to send it to the provider to confirm availability?`;
   }
 
   if (!catalog.length) {
@@ -1660,6 +1859,30 @@ export const createExperienceBookingRequest = async ({
   const providerExperienceId = experience?.provider_experience_id || latestOffer?.metadata?.provider_experience_id || null;
   const providerSource = experience?.provider_source || latestOffer?.metadata?.provider_source || null;
   const providerLeadEmail = experience?.provider_lead_email || latestOffer?.metadata?.provider_lead_email || null;
+  const isProviderRequest = Boolean(providerSource || providerId || providerExperienceId || experience?.metadata?.experience_provider);
+
+  if (Number(intent.confidence || 0) < 0.75) {
+    logger.info('experience_booking_request_blocked_low_confidence', {
+      hotelId: hotel.id,
+      conversationId: conversation.id,
+      confidence: intent.confidence || 0,
+      reason: intent.reason || intent.conversationIntent?.reason || null
+    });
+    return null;
+  }
+
+  if (isProviderRequest && !providerLeadEmail) {
+    logger.warn('experience_booking_request_blocked_missing_provider_email', {
+      hotelId: hotel.id,
+      conversationId: conversation.id,
+      providerId,
+      providerExperienceId,
+      providerSource,
+      experienceTitle: title
+    });
+    return null;
+  }
+
   const partnerRevenue = calculatePartnerRevenue({
     experience,
     estimatedRevenue,
@@ -1685,7 +1908,7 @@ export const createExperienceBookingRequest = async ({
       .select('*')
       .eq('hotel_id', hotel.id)
       .eq('conversation_id', conversation.id)
-      .in('status', ['pending', 'reviewing'])
+      .in('status', ['pending', 'reviewing', 'awaiting_guest_confirmation', 'provider_request_sent'])
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -1757,7 +1980,7 @@ export const createExperienceBookingRequest = async ({
       requested_time: intent.requestedTime,
       guests_count: intent.guestsCount || reservation?.adults || null,
       notes: message,
-      status: 'pending',
+      status: isProviderRequest ? 'provider_request_sent' : 'guest_interested',
       estimated_revenue: estimatedRevenue,
       commission_estimate: partnerRevenue.visibleCommissionEstimate,
       source: 'ai_concierge',
@@ -1780,6 +2003,7 @@ export const createExperienceBookingRequest = async ({
         provider_source: providerSource,
         provider_lead_email: providerLeadEmail,
         provider_lead_required: Boolean(providerLeadEmail),
+        provider_email_sent: false,
         provider_name: providerSource,
         provider_experience_title: experience?.title || title,
         revenue_owner: partnerRevenue.revenueOwner,
@@ -1804,7 +2028,8 @@ export const createExperienceBookingRequest = async ({
         desired_date: intent.requestedDate,
         desired_time: intent.requestedTime,
         guests_count: intent.guestsCount || reservation?.adults || null,
-        reception_confirmation_required: true,
+        guest_confirmed_provider_request: Boolean(intent.guestConfirmedProviderRequest),
+        reception_confirmation_required: false,
         partner_ready: true,
         future_partner_channels: ['email', 'whatsapp', 'api']
       }
@@ -1969,11 +2194,11 @@ export const getExperienceBookingConfirmationReply = ({
 
   if (!sent) {
     return {
-      es: `Perfecto.\n\nHe registrado la solicitud${experienceText}. El equipo la revisara para confirmar disponibilidad y os avisaremos cuando tengamos confirmacion.`,
-      fr: `Parfait.\n\nJ ai enregistre la demande${experienceText}. L equipe la verifiera pour confirmer la disponibilite et vous tiendra informes.`,
-      de: `Perfekt.\n\nIch habe die Anfrage${experienceText} registriert. Das Team prueft die Verfuegbarkeit und informiert Sie, sobald eine Bestaetigung vorliegt.`,
-      en: `Perfect.\n\nI have registered the request${experienceText}. The team will review it to confirm availability and will update you once there is confirmation.`
-    }[language] || `Perfect.\n\nI have registered the request${experienceText}. The team will review it to confirm availability and will update you once there is confirmation.`;
+      es: `Perfecto.\n\nHe registrado la solicitud${experienceText}. La disponibilidad depende del proveedor y os avisaremos cuando tengamos confirmacion.`,
+      fr: `Parfait.\n\nJ ai enregistre la demande${experienceText}. La disponibilite depend du prestataire et nous vous tiendrons informes des que nous aurons une confirmation.`,
+      de: `Perfekt.\n\nIch habe die Anfrage${experienceText} registriert. Die Verfuegbarkeit haengt vom Anbieter ab; wir informieren Sie, sobald eine Bestaetigung vorliegt.`,
+      en: `Perfect.\n\nI have registered the request${experienceText}. Availability depends on the provider, and we will update you once there is confirmation.`
+    }[language] || `Perfect.\n\nI have registered the request${experienceText}. Availability depends on the provider, and we will update you once there is confirmation.`;
   }
 
   return {

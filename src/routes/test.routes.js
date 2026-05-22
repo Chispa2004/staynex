@@ -146,16 +146,22 @@ const verifyPlatformAdminRequest = async (req) => {
 
 router.post('/test-message', handleTestMessage);
 
-router.get('/api/simulation/catalog', (req, res) => {
-  res.status(200).json({
-    ok: true,
-    hotelTypes: SIMULATION_HOTEL_TYPES,
-    scenarios: SIMULATION_SCENARIOS.map(({ id, label }) => ({ id, label }))
-  });
+router.get('/api/simulation/catalog', async (req, res, next) => {
+  try {
+    await verifyPlatformAdminRequest(req);
+    res.status(200).json({
+      ok: true,
+      hotelTypes: SIMULATION_HOTEL_TYPES,
+      scenarios: SIMULATION_SCENARIOS.map(({ id, label }) => ({ id, label }))
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-router.post('/api/simulation/run', (req, res, next) => {
+router.post('/api/simulation/run', async (req, res, next) => {
   try {
+    await verifyPlatformAdminRequest(req);
     const result = runStaynexSimulation({
       count: req.body?.count,
       hotelType: req.body?.hotelType || req.body?.hotel_type || 'all',

@@ -8,7 +8,23 @@ const isMissingBookingsTable = (error) => (
   || error?.hint?.includes('experience_booking_requests')
 );
 
-export const BOOKING_STATUSES = ['pending', 'reviewing', 'confirmed', 'rejected', 'completed', 'cancelled'];
+export const BOOKING_STATUSES = [
+  'guest_interested',
+  'awaiting_guest_details',
+  'awaiting_guest_confirmation',
+  'provider_request_sent',
+  'provider_confirmed',
+  'provider_rejected',
+  'cancelled_by_guest',
+  'failed_provider_email',
+  'pending',
+  'reviewing',
+  'confirmed',
+  'rejected',
+  'completed',
+  'cancelled'
+];
+const INTERNAL_PLATFORM_ROLES = ['platform_admin', 'super_admin', 'internal_only'];
 
 const normalizeBooking = (booking) => {
   const metadata = booking.metadata || {};
@@ -95,7 +111,7 @@ export const getExperienceBookings = async (request) => {
 };
 
 export const updateExperienceBooking = async (request, payload = {}) => {
-  const { supabase, hotel, role, user, platformRole } = await getExperienceBookingContext(request, 'experience_bookings_manage');
+  const { supabase, hotel, role, user, platformRole } = await getExperienceBookingContext(request, 'experience_bookings');
   const id = payload.id;
 
   if (!id) {
@@ -104,11 +120,40 @@ export const updateExperienceBooking = async (request, payload = {}) => {
     throw error;
   }
 
+  const isInternalOperator = INTERNAL_PLATFORM_ROLES.includes(platformRole);
+  const attemptedCriticalFields = [
+    'status',
+    'requested_date',
+    'requested_time',
+    'guests_count',
+    'estimated_revenue',
+    'commission_estimate',
+    'assign_to_me',
+    'assigned_to_user',
+    'revenue_owner',
+    'revenue_type',
+    'provider_id',
+    'provider_experience_id',
+    'provider_source'
+  ].some((field) => payload[field] !== undefined);
+
+  if (!isInternalOperator && attemptedCriticalFields) {
+    const error = new Error('Hotel users can only add operational notes to experience bookings');
+    error.status = 403;
+    throw error;
+  }
+
+  if (payload.notes === undefined && !isInternalOperator) {
+    const error = new Error('No editable fields provided');
+    error.status = 400;
+    throw error;
+  }
+
   const updates = {
     updated_at: new Date().toISOString()
   };
 
-  if (payload.status !== undefined) {
+  if (isInternalOperator && payload.status !== undefined) {
     if (!BOOKING_STATUSES.includes(payload.status)) {
       const error = new Error('Invalid booking status');
       error.status = 400;
@@ -119,13 +164,13 @@ export const updateExperienceBooking = async (request, payload = {}) => {
   }
 
   if (payload.notes !== undefined) updates.notes = String(payload.notes || '').trim() || null;
-  if (payload.requested_date !== undefined) updates.requested_date = payload.requested_date || null;
-  if (payload.requested_time !== undefined) updates.requested_time = payload.requested_time || null;
-  if (payload.guests_count !== undefined) updates.guests_count = payload.guests_count ? Number(payload.guests_count) : null;
-  if (payload.estimated_revenue !== undefined) updates.estimated_revenue = Number(payload.estimated_revenue || 0);
-  if (payload.commission_estimate !== undefined) updates.commission_estimate = Number(payload.commission_estimate || 0);
-  if (payload.assign_to_me) updates.assigned_to_user = user?.id || null;
-  if (payload.assigned_to_user !== undefined && ['owner', 'admin', 'manager'].includes(role)) {
+  if (isInternalOperator && payload.requested_date !== undefined) updates.requested_date = payload.requested_date || null;
+  if (isInternalOperator && payload.requested_time !== undefined) updates.requested_time = payload.requested_time || null;
+  if (isInternalOperator && payload.guests_count !== undefined) updates.guests_count = payload.guests_count ? Number(payload.guests_count) : null;
+  if (isInternalOperator && payload.estimated_revenue !== undefined) updates.estimated_revenue = Number(payload.estimated_revenue || 0);
+  if (isInternalOperator && payload.commission_estimate !== undefined) updates.commission_estimate = Number(payload.commission_estimate || 0);
+  if (isInternalOperator && payload.assign_to_me) updates.assigned_to_user = user?.id || null;
+  if (isInternalOperator && payload.assigned_to_user !== undefined && ['owner', 'admin', 'manager'].includes(role)) {
     updates.assigned_to_user = payload.assigned_to_user || null;
   }
 
@@ -148,15 +193,17 @@ export const updateExperienceBooking = async (request, payload = {}) => {
     throw error;
   }
 
-  await syncRevenueForBooking({ supabase, booking: data }).catch((syncError) => {
-    console.warn('Experience booking revenue sync failed', syncError.message);
-  });
+  if (isInternalOperator) {
+    await syncRevenueForBooking({ supabase, booking: data }).catch((syncError) => {
+      console.warn('Experience booking revenue sync failed', syncError.message);
+    });
+  }
 
   const statusAction = data.status === 'confirmed'
     ? 'experience_booking_confirmed'
     : data.status === 'rejected'
       ? 'experience_booking_rejected'
-      : 'experience_booking_updated';
+      : isInternalOperator ? 'experience_booking_updated' : 'experience_booking_note_updated';
 
   await writeEnterpriseAuditLog({
     supabase,

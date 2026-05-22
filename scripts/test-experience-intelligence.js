@@ -350,18 +350,28 @@ const realBooking = await detectExperienceBookingIntent({
   message: 'Queremos reservar Agafay para manana',
   hotelExperiences: providerCatalog
 });
-assert.equal(realBooking.detected, true);
+assert.equal(realBooking.detected, false);
 assert.equal(realBooking.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
 assert.equal(realBooking.matchedExperience.title, 'Agafay Desert Dinner');
+assert.equal(realBooking.reason, 'booking_missing_guest_details');
 
 const directProviderBooking = await detectExperienceBookingIntent({
   message: 'Quiero reservar Atlas Mountains para manana para 2 personas',
   hotelExperiences: providerCatalog
 });
-assert.equal(directProviderBooking.detected, true);
-assert.equal(directProviderBooking.conversationIntent.bookingReady, true);
+assert.equal(directProviderBooking.detected, false);
+assert.equal(directProviderBooking.conversationIntent.bookingReady, false);
+assert.equal(directProviderBooking.reason, 'awaiting_guest_confirmation');
 assert.equal(directProviderBooking.guestsCount, 2);
 assert.equal(directProviderBooking.matchedExperience.title, 'Atlas Mountains Day Trip');
+
+const confirmedProviderBooking = await detectExperienceBookingIntent({
+  message: 'Si, envia la solicitud para Atlas Mountains manana para 2 personas',
+  hotelExperiences: providerCatalog
+});
+assert.equal(confirmedProviderBooking.detected, true);
+assert.equal(confirmedProviderBooking.guestConfirmedProviderRequest, true);
+assert.equal(confirmedProviderBooking.matchedExperience.title, 'Atlas Mountains Day Trip');
 
 const missingExperienceBooking = await classifyProviderExperienceConversation({
   message: 'Quiero reservar',
@@ -390,6 +400,9 @@ const hammamContext = {
 };
 const contextBooking = await detectExperienceBookingIntent({
   message: 'Vale, envia la solicitud',
+  recentMessages: [
+    { sender_type: 'guest', content: 'Me interesa Agafay Desert Dinner para manana para 2 personas' }
+  ],
   hotelExperiences: providerCatalog,
   latestProviderContext: {
     provider_experience_id: 'provider-agafay-dinner',
@@ -399,11 +412,14 @@ const contextBooking = await detectExperienceBookingIntent({
   }
 });
 assert.equal(contextBooking.detected, true);
-assert.equal(['provider_booking_confirmation_override', 'explicit_booking_action', 'confirmed_recent_experience_offer'].includes(contextBooking.reason), true);
+assert.equal(['provider_booking_confirmation_override', 'explicit_booking_action', 'confirmed_recent_experience_offer', 'guest_confirmed_provider_request_with_recent_details'].includes(contextBooking.reason), true);
 assert.equal(contextBooking.matchedExperience.title, 'Agafay Desert Dinner');
 
 const hammamContextBooking = await detectExperienceBookingIntent({
   message: 'Vale, envia la solicitud',
+  recentMessages: [
+    { sender_type: 'guest', content: 'Marrakech Hammam Experience manana para 2 personas' }
+  ],
   hotelExperiences: providerCatalog,
   latestProviderContext: hammamContext
 });
@@ -412,6 +428,9 @@ assert.equal(hammamContextBooking.matchedExperience.title, 'Marrakech Hammam Exp
 
 const quadContextBooking = await detectExperienceBookingIntent({
   message: 'adelante',
+  recentMessages: [
+    { sender_type: 'guest', content: 'Marrakech Quad Adventure manana para 2 personas' }
+  ],
   hotelExperiences: providerCatalog,
   latestProviderContext: {
     provider_experience_id: 'provider-quad',
@@ -448,7 +467,7 @@ assert.equal(recentAgafayBeatsQuad.resolvedSource, 'recent_guest_message');
 const recentAgafayBookingBeatsLastQuad = await detectExperienceBookingIntent({
   message: 'envia la solicitud',
   recentMessages: [
-    { sender_type: 'guest', content: 'Me interesa Agafay' }
+    { sender_type: 'guest', content: 'Me interesa Agafay para manana para 2 personas' }
   ],
   hotelExperiences: providerCatalog,
   latestProviderContext: {
@@ -461,7 +480,7 @@ assert.equal(recentAgafayBookingBeatsLastQuad.matchedExperience.title, 'Agafay D
 assert.equal(recentAgafayBookingBeatsLastQuad.experienceResolution.resolvedSource, 'recent_guest_message');
 
 const directAgafayBooking = await detectExperienceBookingIntent({
-  message: 'Quiero reservar Agafay Desert Dinner',
+  message: 'Quiero reservar Agafay Desert Dinner manana para 2 personas',
   recentMessages: [
     { sender_type: 'guest', content: 'Me interesa Quad' }
   ],
@@ -471,7 +490,8 @@ const directAgafayBooking = await detectExperienceBookingIntent({
     title: 'Marrakech Quad Adventure'
   }
 });
-assert.equal(directAgafayBooking.detected, true);
+assert.equal(directAgafayBooking.detected, false);
+assert.equal(directAgafayBooking.reason, 'awaiting_guest_confirmation');
 assert.equal(directAgafayBooking.matchedExperience.title, 'Agafay Desert Dinner');
 assert.equal(directAgafayBooking.experienceResolution.resolvedSource, 'current_message');
 
@@ -559,9 +579,10 @@ console.log(JSON.stringify({
     'exact provider experience mention overrides previous last context',
     'last provider experience persists only on explicit experience interest',
     'generic recommendation list does not overwrite last provider experience',
-    'direct provider booking creates booking-ready intent',
+    'direct provider booking asks final confirmation before provider email',
+    'confirmed provider booking with details creates booking-ready intent',
     'booking without exact experience asks follow-up',
-    'provider confirmation override creates booking-ready intent from last context',
+    'provider confirmation override creates booking-ready intent from last context when details exist',
     'provider confirmation without context stays blocked',
     'recent explicit Agafay beats stale Quad context',
     'current explicit experience beats stale context',

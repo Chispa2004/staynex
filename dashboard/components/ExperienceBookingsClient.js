@@ -7,9 +7,7 @@ import {
   ClipboardList,
   Clock3,
   RefreshCw,
-  Search,
-  UserCheck,
-  XCircle
+  Search
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { canAccess } from '@/lib/permissions';
@@ -18,7 +16,23 @@ import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
 
-const statuses = ['all', 'pending', 'reviewing', 'confirmed', 'completed', 'rejected', 'cancelled'];
+const statuses = [
+  'all',
+  'guest_interested',
+  'awaiting_guest_details',
+  'awaiting_guest_confirmation',
+  'provider_request_sent',
+  'provider_confirmed',
+  'provider_rejected',
+  'failed_provider_email',
+  'cancelled_by_guest',
+  'pending',
+  'reviewing',
+  'confirmed',
+  'completed',
+  'rejected',
+  'cancelled'
+];
 
 const formatCurrency = (value) => new Intl.NumberFormat('en', {
   style: 'currency',
@@ -32,6 +46,14 @@ const formatDate = (value) => {
 };
 
 const statusTone = {
+  guest_interested: 'sky',
+  awaiting_guest_details: 'amber',
+  awaiting_guest_confirmation: 'amber',
+  provider_request_sent: 'emerald',
+  provider_confirmed: 'emerald',
+  provider_rejected: 'red',
+  cancelled_by_guest: 'slate',
+  failed_provider_email: 'red',
   pending: 'amber',
   reviewing: 'sky',
   confirmed: 'emerald',
@@ -108,6 +130,7 @@ export const ExperienceBookingsClient = () => {
   const requestIdRef = useRef(0);
 
   const canManage = canAccess(role, 'experience_bookings_manage');
+  const canAddNotes = canAccess(role, 'experience_bookings_notes') || canManage;
   const canViewAnalytics = canAccess(role, 'analytics') || canAccess(role, 'revenue');
 
   const loadBookings = async ({ silent = false } = {}) => {
@@ -161,7 +184,7 @@ export const ExperienceBookingsClient = () => {
   }, []);
 
   const stats = useMemo(() => {
-    const pending = bookings.filter((item) => ['pending', 'reviewing'].includes(item.status));
+    const pending = bookings.filter((item) => ['guest_interested', 'awaiting_guest_details', 'awaiting_guest_confirmation', 'pending', 'reviewing'].includes(item.status));
     const confirmedToday = bookings.filter((item) => {
       if (item.status !== 'confirmed') return false;
       return new Date(item.updated_at).toDateString() === new Date().toDateString();
@@ -239,7 +262,7 @@ export const ExperienceBookingsClient = () => {
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard isLight={isLight} icon={Clock3} label="Pending requests" value={loading ? '...' : stats.pending} helper="Needs reception follow-up" />
+        <StatCard isLight={isLight} icon={Clock3} label="Guest requests" value={loading ? '...' : stats.pending} helper="Awaiting guest details or provider follow-up" />
         <StatCard isLight={isLight} icon={CalendarCheck} label="Potential revenue" value={loading ? '...' : formatCurrency(stats.potentialRevenue)} helper="Pending and reviewing" />
         <StatCard isLight={isLight} icon={CheckCircle2} label="Confirmed today" value={loading ? '...' : stats.confirmedToday} helper={canViewAnalytics ? formatCurrency(stats.confirmedRevenue) : 'Operational view'} />
         <StatCard isLight={isLight} icon={ClipboardList} label="Top experience" value={loading ? '...' : stats.topExperience} helper="Most requested" />
@@ -351,46 +374,32 @@ export const ExperienceBookingsClient = () => {
                       <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Visible hotel benefit {formatCurrency(booking.hotel_visible_commission ?? booking.commission_estimate)}</p>
                     </>
                   )}
-                  <button
-                    type="button"
-                    disabled={busy || !canManage}
-                    onClick={() => updateBooking(booking.id, { assign_to_me: true, status: booking.status === 'pending' ? 'reviewing' : booking.status })}
-                    className={cn('mt-3 w-full', ui.button(isLight, 'secondary'))}
-                  >
-                    <UserCheck className="h-4 w-4" aria-hidden="true" />
-                    Assign to me
-                  </button>
+                  <p className={cn('mt-3 rounded-lg border px-3 py-2 text-xs', isLight ? 'border-slate-200 bg-white text-slate-600' : 'border-white/10 bg-black/20 text-slate-400')}>
+                    Provider requests are sent automatically by Staynex after guest confirmation. Hotel teams can monitor and add notes only.
+                  </p>
                 </div>
 
                 <div className="space-y-3">
-                  <select
-                    value={booking.status}
-                    disabled={busy || !canManage}
-                    onChange={(event) => updateBooking(booking.id, { status: event.target.value })}
-                    className={cn('w-full', ui.input(isLight))}
-                  >
-                    {statuses.filter((status) => status !== 'all').map((status) => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
+                  <div className={cn('rounded-lg border p-3', ui.surface(isLight, 'subtle'))}>
+                    <p className={ui.text.eyebrow(isLight)}>External status</p>
+                    <p className={cn('mt-2 text-sm font-semibold', ui.text.title(isLight))}>{booking.status?.replace(/_/g, ' ') || 'pending'}</p>
+                    {booking.metadata?.provider_email_sent_at || booking.lead_email_sent_at ? (
+                      <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                        Email sent {formatDate(booking.metadata?.provider_email_sent_at || booking.lead_email_sent_at)}
+                      </p>
+                    ) : null}
+                  </div>
                   <textarea
                     value={notesValue}
                     onChange={(event) => setDraftNotes((current) => ({ ...current, [booking.id]: event.target.value }))}
                     rows={3}
-                    disabled={!canManage}
+                    disabled={!canAddNotes}
                     className={cn('w-full resize-none', ui.input(isLight))}
-                    placeholder="Reception notes, partner reply, availability..."
+                    placeholder="Internal operational notes..."
                   />
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" disabled={busy || !canManage} onClick={() => updateBooking(booking.id, { notes: notesValue })} className={ui.button(isLight, 'secondary')}>
+                    <button type="button" disabled={busy || !canAddNotes} onClick={() => updateBooking(booking.id, { notes: notesValue })} className={ui.button(isLight, 'secondary')}>
                       Save notes
-                    </button>
-                    <button type="button" disabled={busy || !canManage} onClick={() => updateBooking(booking.id, { status: 'confirmed', notes: notesValue })} className={ui.button(isLight, 'primary')}>
-                      Confirm
-                    </button>
-                    <button type="button" disabled={busy || !canManage} onClick={() => updateBooking(booking.id, { status: 'rejected', notes: notesValue })} className={ui.button(isLight, 'danger')}>
-                      <XCircle className="h-4 w-4" aria-hidden="true" />
-                      Reject
                     </button>
                   </div>
                 </div>
@@ -403,7 +412,7 @@ export const ExperienceBookingsClient = () => {
           <PremiumEmptyState
             icon={ClipboardList}
             title="No experience booking requests"
-            description="When guests accept an experience recommendation, reception will see the request here before confirming anything."
+            description="When guests confirm an experience request, Staynex sends it to the provider and shows the follow-up status here."
           />
         ) : null}
       </section>

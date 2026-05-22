@@ -6,6 +6,7 @@ import {
   canAccess,
   canAccessPlatform,
   canAccessRoute,
+  canAccessRouteForContext,
   filterNavigationByRole,
   getPermissionsForRole
 } from '../dashboard/lib/permissions.js';
@@ -20,6 +21,7 @@ const receptionistAllowedRoutes = [
   '/dashboard/knowledge',
   '/dashboard/settings/knowledge',
   '/dashboard/local-knowledge',
+  '/dashboard/experience-bookings',
   '/dashboard/settings/academy'
 ];
 
@@ -39,7 +41,6 @@ const receptionistBlockedRoutes = [
   '/dashboard/analytics',
   '/dashboard/upsells',
   '/dashboard/experiences',
-  '/dashboard/experience-bookings',
   '/dashboard/reservations'
 ];
 
@@ -52,16 +53,22 @@ assert.equal(canAccess('receptionist', 'qr_rooms_manage'), false, 'Receptionist 
 assert.equal(canAccess('receptionist', 'knowledge_base'), true, 'Receptionist can view Knowledge Base');
 assert.equal(canAccess('receptionist', 'knowledge_base_manage'), true, 'Receptionist can manage operational Knowledge Base');
 assert.equal(canAccess('receptionist', 'local_knowledge_manage'), true, 'Receptionist can manage operational Local Knowledge');
+assert.equal(canAccess('receptionist', 'experience_bookings'), true, 'Receptionist can view Experience Bookings');
+assert.equal(canAccess('receptionist', 'experience_bookings_manage'), false, 'Receptionist cannot manage critical Experience Booking actions');
 assert.equal(canAccess('receptionist', 'pms_connections'), false, 'Receptionist cannot access PMS setup');
 assert.equal(canAccess('receptionist', 'automations'), false, 'Receptionist cannot access advanced Automations');
 assert.equal(canAccess('receptionist', 'simulation'), false, 'Receptionist cannot access Simulation Mode');
 assert.equal(canAccessPlatform('none', 'platform_console'), false, 'Hotel user cannot access platform console');
 assert.equal(canAccessPlatform('none', 'ai_quality'), false, 'Hotel user cannot access AI Quality');
+assert.equal(canAccessPlatform('platform_admin', 'simulation'), true, 'Platform admin can access Simulation Mode');
 assert.equal(canAccessPlatform('platform_admin', 'ai_quality'), true, 'Platform admin keeps AI Quality access');
+assert.equal(canAccessRouteForContext('admin', '/dashboard/simulation', 'none'), false, 'Hotel admin cannot access Simulation Mode');
+assert.equal(canAccessRouteForContext('receptionist', '/dashboard/simulation', 'none'), false, 'Receptionist cannot access Simulation Mode');
+assert.equal(canAccessRouteForContext('admin', '/dashboard/simulation', 'platform_admin'), true, 'Platform admin can access Simulation Mode through dashboard route');
 
 assert.ok(getPermissionsForRole('admin').includes('qr_rooms_manage'), 'Admin keeps QR Rooms management');
 assert.ok(getPermissionsForRole('admin').includes('pms_connections_manage'), 'Admin keeps PMS management');
-assert.ok(getPermissionsForRole('admin').includes('simulation'), 'Admin keeps Simulation Mode');
+assert.equal(getPermissionsForRole('admin').includes('simulation'), false, 'Hotel admin should not keep Simulation Mode');
 assert.ok(getPermissionsForRole('manager').includes('qr_rooms_manage'), 'Manager keeps QR Rooms management');
 
 const navigationGroups = [
@@ -70,6 +77,7 @@ const navigationGroups = [
     items: [
       { href: '/dashboard/inbox', label: 'Inbox' },
       { href: '/dashboard/tickets', label: 'Tickets' },
+      { href: '/dashboard/experience-bookings', label: 'Experience Bookings' },
       { href: '/dashboard/qr-rooms', label: 'QR Rooms' },
       { href: '/dashboard/settings/pms', label: 'PMS' },
       { href: '/dashboard/automations', label: 'Automations' },
@@ -86,6 +94,7 @@ const receptionistNav = filterNavigationByRole(navigationGroups, 'receptionist')
 assert.deepEqual(receptionistNav, [
   '/dashboard/inbox',
   '/dashboard/tickets',
+  '/dashboard/experience-bookings',
   '/dashboard/qr-rooms',
   '/dashboard/settings/academy',
   '/dashboard/knowledge'
