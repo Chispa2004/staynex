@@ -46,6 +46,9 @@ export const KnowledgeBaseEditor = () => {
   const isLight = theme === 'light';
   const [entries, setEntries] = useState([]);
   const [hotel, setHotel] = useState(null);
+  const [role, setRole] = useState('receptionist');
+  const [canManageKnowledge, setCanManageKnowledge] = useState(false);
+  const [operationalMode, setOperationalMode] = useState(false);
   const [newEntry, setNewEntry] = useState(emptyEntry);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,6 +86,9 @@ export const KnowledgeBaseEditor = () => {
       }
 
       setHotel(body.hotel);
+      setRole(body.role || 'receptionist');
+      setCanManageKnowledge(Boolean(body.canManageKnowledge));
+      setOperationalMode(Boolean(body.operationalMode || body.role === 'receptionist'));
       setEntries(normalizeEntries(body.entries || []));
     } catch (caughtError) {
       setError(caughtError.message);
@@ -243,10 +249,17 @@ export const KnowledgeBaseEditor = () => {
       <div className={panelClass}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className={`text-sm font-semibold ${headingTextClass}`}>{t('knowledge.demoHotel')}</p>
+            <p className={`text-sm font-semibold ${headingTextClass}`}>
+              {operationalMode ? 'Operational Knowledge Base' : t('knowledge.demoHotel')}
+            </p>
             <p className={`mt-1 text-sm ${mutedTextClass}`}>
               {hotel?.name || t('knowledge.loadingHotel')}
             </p>
+            {operationalMode ? (
+              <p className={`mt-2 max-w-2xl text-sm leading-6 ${mutedTextClass}`}>
+                Reception can keep everyday guest information updated here: opening hours, taxis, services, FAQs and temporary operational notes.
+              </p>
+            ) : null}
           </div>
           {loading ? (
             <span className={`inline-flex items-center gap-2 text-sm ${mutedTextClass}`}>
@@ -317,6 +330,7 @@ export const KnowledgeBaseEditor = () => {
         </div>
       ) : null}
 
+      {canManageKnowledge ? (
       <form onSubmit={createEntry} className={panelClass}>
         <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px]">
           <input
@@ -356,6 +370,12 @@ export const KnowledgeBaseEditor = () => {
           </button>
         </div>
       </form>
+      ) : (
+        <div className={panelClass}>
+          <p className={`text-sm font-semibold ${headingTextClass}`}>View only</p>
+          <p className={`mt-1 text-sm ${mutedTextClass}`}>You can search and read hotel knowledge, but only admins can edit this workspace.</p>
+        </div>
+      )}
 
       <div className="grid gap-3">
         {filteredEntries.map((entry) => (
@@ -380,16 +400,19 @@ export const KnowledgeBaseEditor = () => {
               <input
                 value={entry.draftTitle}
                 onChange={(event) => updateDraft({ id: entry.id, field: 'draftTitle', value: event.target.value })}
+                disabled={!canManageKnowledge}
                 className={inputClass}
               />
               <input
                 value={entry.draftKey}
                 onChange={(event) => updateDraft({ id: entry.id, field: 'draftKey', value: event.target.value })}
+                disabled={!canManageKnowledge}
                 className={inputClass}
               />
               <input
                 value={entry.draftCategory}
                 onChange={(event) => updateDraft({ id: entry.id, field: 'draftCategory', value: event.target.value })}
+                disabled={!canManageKnowledge}
                 className={inputClass}
               />
             </div>
@@ -399,12 +422,14 @@ export const KnowledgeBaseEditor = () => {
                 value={entry.draftValue}
                 onChange={(event) => updateDraft({ id: entry.id, field: 'draftValue', value: event.target.value })}
                 rows={3}
+                disabled={!canManageKnowledge}
                 className={inputClass}
               />
               <button
                 type="button"
                 disabled={entry.status === 'saving'}
                 onClick={() => saveEntry(entry)}
+                hidden={!canManageKnowledge}
                 className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60'}
               >
                 {entry.status === 'saving' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Check className="h-4 w-4" aria-hidden="true" />}
@@ -414,6 +439,7 @@ export const KnowledgeBaseEditor = () => {
                 type="button"
                 disabled={entry.status === 'saving'}
                 onClick={() => toggleEntry(entry)}
+                hidden={!canManageKnowledge}
                 className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60'}
               >
                 <Power className="h-4 w-4" aria-hidden="true" />
@@ -423,6 +449,7 @@ export const KnowledgeBaseEditor = () => {
                 type="button"
                 disabled={entry.status === 'saving'}
                 onClick={() => deleteEntry(entry)}
+                hidden={!canManageKnowledge}
                 className={isLight ? 'inline-flex h-11 w-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition hover:bg-red-100 disabled:cursor-wait disabled:opacity-60' : 'inline-flex h-11 w-11 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/10 text-red-200 transition hover:bg-red-500/20 disabled:cursor-wait disabled:opacity-60'}
                 title={t('buttons.delete')}
               >

@@ -42,6 +42,55 @@ const normalizeItem = (item) => ({
   metadata: item.metadata || {}
 });
 
+const ADMIN_LOCAL_KNOWLEDGE_ROLES = ['owner', 'admin', 'manager'];
+const PROTECTED_LOCAL_KNOWLEDGE_SCOPES = [
+  'admin_knowledge',
+  'system_knowledge',
+  'technical',
+  'pms',
+  'whatsapp',
+  'billing',
+  'security',
+  'compliance',
+  'provider_marketplace',
+  'platform',
+  'ai_quality',
+  'failure_intelligence',
+  'automation_rules',
+  'global_prompts'
+];
+
+const normalizeScope = (value = '') => String(value)
+  .trim()
+  .toLowerCase()
+  .replace(/[\s-]+/g, '_');
+
+const isAdminLocalKnowledgeRole = (role) => ADMIN_LOCAL_KNOWLEDGE_ROLES.includes(role);
+
+export const isProtectedLocalKnowledgePayload = (payload = {}) => {
+  const values = [
+    payload.category,
+    payload.scope,
+    payload.knowledge_scope,
+    payload.metadata?.scope,
+    payload.metadata?.knowledge_scope
+  ].map(normalizeScope).filter(Boolean);
+
+  return values.some((value) => PROTECTED_LOCAL_KNOWLEDGE_SCOPES.includes(value));
+};
+
+const assertLocalKnowledgeWriteAllowed = ({ role, payload = {}, existing = null }) => {
+  if (isAdminLocalKnowledgeRole(role)) {
+    return;
+  }
+
+  if (isProtectedLocalKnowledgePayload(payload) || isProtectedLocalKnowledgePayload(existing || {})) {
+    const error = new Error('This local knowledge item is admin-only');
+    error.status = 403;
+    throw error;
+  }
+};
+
 const getLocalKnowledgeContext = async (request, permission = 'local_knowledge') => {
   const { supabase, hotel, role, fallback, user, platformRole } = await getCurrentHotelForRequest(request);
 
@@ -139,12 +188,15 @@ export const getLocalKnowledgeItems = async (request) => {
     hotelId: hotel.id,
     role,
     fallback,
-    items: (data || []).map(normalizeItem)
+    items: (data || [])
+      .map(normalizeItem)
+      .filter((item) => isAdminLocalKnowledgeRole(role) || !isProtectedLocalKnowledgePayload(item))
   };
 };
 
 export const createLocalKnowledgeItem = async (request, payload) => {
   const { supabase, hotel, role, user, platformRole } = await getLocalKnowledgeContext(request, 'local_knowledge_manage');
+  assertLocalKnowledgeWriteAllowed({ role, payload });
   const record = {
     hotel_id: hotel.id,
     ...validateLocalKnowledgePayload(payload)
@@ -183,6 +235,8 @@ export const updateLocalKnowledgeItem = async (request, id, payload) => {
     .eq('id', id)
     .maybeSingle();
 
+  assertLocalKnowledgeWriteAllowed({ role, payload, existing });
+
   const { data, error } = await supabase
     .from('local_knowledge_items')
     .update(validateLocalKnowledgePayload(payload))
@@ -219,6 +273,8 @@ export const deleteLocalKnowledgeItem = async (request, id) => {
     .eq('hotel_id', hotel.id)
     .eq('id', id)
     .maybeSingle();
+
+  assertLocalKnowledgeWriteAllowed({ role, existing });
 
   const { error } = await supabase
     .from('local_knowledge_items')

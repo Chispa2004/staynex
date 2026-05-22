@@ -162,9 +162,7 @@ const getReservationLinkedRooms = async ({ supabase, hotelId }) => {
   });
 };
 
-const assertCanManageRooms = (role) => (
-  canAccess(role, 'qr_rooms') && ['owner', 'admin', 'manager'].includes(role)
-);
+const assertCanManageRooms = (role) => canAccess(role, 'qr_rooms_manage');
 
 export async function GET(request) {
   try {
@@ -213,6 +211,7 @@ export async function GET(request) {
       detectedRooms: uniqueRooms(detectedRooms),
       missingHotelRoomsTable: missingTable,
       canManageRooms: assertCanManageRooms(role),
+      role,
       roomSource,
       officialRoomSource: {
         table: 'hotel_rooms',

@@ -460,6 +460,11 @@ export const QrRoomsClient = () => {
               <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
                 Source: {roomSource === 'none' ? 'No rooms yet' : roomSource.replace(/_/g, ' ')}
               </p>
+              {!canManageRooms ? (
+                <span className={isLight ? 'mt-3 inline-flex rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-800' : 'mt-3 inline-flex rounded-full border border-sky-300/20 bg-sky-300/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-100'}>
+                  View only
+                </span>
+              ) : null}
             </div>
           </div>
         </Card>
@@ -551,8 +556,10 @@ export const QrRoomsClient = () => {
         <PremiumEmptyState
           icon={PlugZap}
           title="No rooms available yet"
-          description="Add rooms to the official hotel room catalog or import detected PMS rooms. Demo rooms are blocked for this workspace."
-          action={(
+          description={canManageRooms
+            ? 'Add rooms to the official hotel room catalog or import detected PMS rooms. Demo rooms are blocked for this workspace.'
+            : 'No QR rooms are available yet. An admin can add rooms, and reception will be able to view, copy and print the QR codes here.'}
+          action={canManageRooms ? (
             <div className="flex flex-wrap justify-center gap-2">
               <Link href="/dashboard/settings/pms" className={isLight ? 'rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}>
                 Connect PMS
@@ -561,7 +568,7 @@ export const QrRoomsClient = () => {
                 Open onboarding
               </Link>
             </div>
-          )}
+          ) : null}
         />
       ) : (
         <>

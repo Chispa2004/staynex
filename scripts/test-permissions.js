@@ -1,0 +1,115 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  canAccess,
+  canAccessPlatform,
+  canAccessRoute,
+  filterNavigationByRole,
+  getPermissionsForRole
+} from '../dashboard/lib/permissions.js';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const root = join(__dirname, '..');
+
+const receptionistAllowedRoutes = [
+  '/dashboard/inbox',
+  '/dashboard/tickets',
+  '/dashboard/qr-rooms',
+  '/dashboard/knowledge',
+  '/dashboard/settings/knowledge',
+  '/dashboard/local-knowledge',
+  '/dashboard/settings/academy'
+];
+
+for (const route of receptionistAllowedRoutes) {
+  assert.equal(canAccessRoute('receptionist', route), true, `Receptionist should access ${route}`);
+}
+
+const receptionistBlockedRoutes = [
+  '/dashboard',
+  '/dashboard/settings/pms',
+  '/dashboard/settings/users',
+  '/dashboard/automations',
+  '/dashboard/simulation',
+  '/dashboard/ai-logs',
+  '/dashboard/onboarding',
+  '/dashboard/guest-memory',
+  '/dashboard/analytics',
+  '/dashboard/upsells',
+  '/dashboard/experiences',
+  '/dashboard/experience-bookings',
+  '/dashboard/reservations'
+];
+
+for (const route of receptionistBlockedRoutes) {
+  assert.equal(canAccessRoute('receptionist', route), false, `Receptionist should not access ${route}`);
+}
+
+assert.equal(canAccess('receptionist', 'qr_rooms'), true, 'Receptionist can view QR Rooms');
+assert.equal(canAccess('receptionist', 'qr_rooms_manage'), false, 'Receptionist cannot manage QR Rooms');
+assert.equal(canAccess('receptionist', 'knowledge_base'), true, 'Receptionist can view Knowledge Base');
+assert.equal(canAccess('receptionist', 'knowledge_base_manage'), true, 'Receptionist can manage operational Knowledge Base');
+assert.equal(canAccess('receptionist', 'local_knowledge_manage'), true, 'Receptionist can manage operational Local Knowledge');
+assert.equal(canAccess('receptionist', 'pms_connections'), false, 'Receptionist cannot access PMS setup');
+assert.equal(canAccess('receptionist', 'automations'), false, 'Receptionist cannot access advanced Automations');
+assert.equal(canAccess('receptionist', 'simulation'), false, 'Receptionist cannot access Simulation Mode');
+assert.equal(canAccessPlatform('none', 'platform_console'), false, 'Hotel user cannot access platform console');
+assert.equal(canAccessPlatform('none', 'ai_quality'), false, 'Hotel user cannot access AI Quality');
+assert.equal(canAccessPlatform('platform_admin', 'ai_quality'), true, 'Platform admin keeps AI Quality access');
+
+assert.ok(getPermissionsForRole('admin').includes('qr_rooms_manage'), 'Admin keeps QR Rooms management');
+assert.ok(getPermissionsForRole('admin').includes('pms_connections_manage'), 'Admin keeps PMS management');
+assert.ok(getPermissionsForRole('admin').includes('simulation'), 'Admin keeps Simulation Mode');
+assert.ok(getPermissionsForRole('manager').includes('qr_rooms_manage'), 'Manager keeps QR Rooms management');
+
+const navigationGroups = [
+  {
+    id: 'ops',
+    items: [
+      { href: '/dashboard/inbox', label: 'Inbox' },
+      { href: '/dashboard/tickets', label: 'Tickets' },
+      { href: '/dashboard/qr-rooms', label: 'QR Rooms' },
+      { href: '/dashboard/settings/pms', label: 'PMS' },
+      { href: '/dashboard/automations', label: 'Automations' },
+      { href: '/dashboard/simulation', label: 'Simulation' },
+      { href: '/dashboard/settings/academy', label: 'Academy' },
+      { href: '/dashboard/knowledge', label: 'Knowledge' }
+    ]
+  }
+];
+
+const receptionistNav = filterNavigationByRole(navigationGroups, 'receptionist')
+  .flatMap((group) => group.items.map((item) => item.href));
+
+assert.deepEqual(receptionistNav, [
+  '/dashboard/inbox',
+  '/dashboard/tickets',
+  '/dashboard/qr-rooms',
+  '/dashboard/settings/academy',
+  '/dashboard/knowledge'
+]);
+
+const academySource = readFileSync(join(root, 'dashboard/components/StaynexAcademyClient.js'), 'utf8');
+const academyBlock = (id) => {
+  const start = academySource.indexOf(`id: '${id}'`);
+  assert.notEqual(start, -1, `Academy module ${id} should exist`);
+  const next = academySource.indexOf("\n  {\n    id: '", start + 1);
+  return academySource.slice(start, next === -1 ? academySource.length : next);
+};
+assert.ok(academySource.includes("title: 'Receptionist Academy'"), 'Receptionist Academy title should be present');
+assert.ok(academySource.includes("id: 'ai-copilot'"), 'Receptionist Academy should cover AI Copilot');
+assert.ok(academySource.includes("id: 'human-control'"), 'Receptionist Academy should cover human takeover');
+assert.ok(academySource.includes("id: 'urgencies'"), 'Receptionist Academy should cover urgencies');
+assert.equal(academyBlock('pms').includes("'receptionist'"), false, 'PMS Academy module must not be receptionist-facing');
+assert.equal(academyBlock('whatsapp-qr').includes("'receptionist'"), false, 'WhatsApp setup Academy module must not be receptionist-facing');
+
+const qrApiSource = readFileSync(join(root, 'dashboard/app/api/qr-rooms/route.js'), 'utf8');
+assert.ok(qrApiSource.includes("canAccess(role, 'qr_rooms_manage')"), 'QR write APIs must require qr_rooms_manage');
+
+const knowledgeSource = readFileSync(join(root, 'dashboard/lib/knowledge.js'), 'utf8');
+assert.ok(knowledgeSource.includes('PROTECTED_KNOWLEDGE_CATEGORIES'), 'Knowledge Base should define protected admin categories');
+assert.ok(knowledgeSource.includes("getKnowledgeContext(request, 'knowledge_base_manage')"), 'Knowledge writes should require knowledge_base_manage');
+
+console.log('Receptionist permission tests passed');

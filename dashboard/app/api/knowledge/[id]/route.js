@@ -18,6 +18,8 @@ const validatePayload = ({ title, key, category, value, is_active }) => {
   };
 };
 
+const statusForError = (error, fallback = 400) => error.status || fallback;
+
 export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
@@ -31,7 +33,7 @@ export async function PATCH(request, { params }) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 400 }
+      { status: statusForError(error) }
     );
   }
 }
@@ -45,7 +47,7 @@ export async function DELETE(request, { params }) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 400 }
+      { status: statusForError(error) }
     );
   }
 }

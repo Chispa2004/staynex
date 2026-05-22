@@ -1,6 +1,24 @@
 import { getCurrentHotelForRequest } from './current-hotel';
 import { canAccess } from './permissions';
 
+export const KNOWLEDGE_ADMIN_ROLES = ['owner', 'admin', 'manager'];
+export const PROTECTED_KNOWLEDGE_CATEGORIES = [
+  'admin_knowledge',
+  'system_knowledge',
+  'technical',
+  'pms',
+  'whatsapp',
+  'billing',
+  'security',
+  'compliance',
+  'provider_marketplace',
+  'platform',
+  'ai_quality',
+  'failure_intelligence',
+  'automation_rules',
+  'global_prompts'
+];
+
 const isMissingKnowledgeMetadataColumns = (error) => (
   error?.message?.includes('title')
   || error?.message?.includes('category')
@@ -19,14 +37,46 @@ const normalizeEntry = (entry) => ({
   is_active: entry.is_active ?? true
 });
 
-export const getKnowledgeContext = async (request) => {
+const normalizeScope = (value = '') => String(value)
+  .trim()
+  .toLowerCase()
+  .replace(/[\s-]+/g, '_');
+
+export const isAdminKnowledgeRole = (role) => KNOWLEDGE_ADMIN_ROLES.includes(role);
+
+export const isProtectedKnowledgeEntry = (entry = {}) => {
+  const values = [
+    entry.category,
+    entry.key,
+    entry.scope,
+    entry.knowledge_scope,
+    entry.metadata?.scope,
+    entry.metadata?.knowledge_scope
+  ].map(normalizeScope).filter(Boolean);
+
+  return values.some((value) => PROTECTED_KNOWLEDGE_CATEGORIES.includes(value));
+};
+
+const assertKnowledgeWriteAllowed = ({ role, entry, existing = null }) => {
+  if (isAdminKnowledgeRole(role)) {
+    return;
+  }
+
+  if (isProtectedKnowledgeEntry(entry) || isProtectedKnowledgeEntry(existing)) {
+    const error = new Error('This knowledge entry is admin-only');
+    error.status = 403;
+    throw error;
+  }
+};
+
+export const getKnowledgeContext = async (request, permission = 'knowledge_base') => {
   const { supabase, hotel, role, fallback } = await getCurrentHotelForRequest(request);
 
   if (!hotel?.id) {
     throw new Error('No hotel available for knowledge base');
   }
 
-  if (!canAccess(role, 'knowledge_base')) {
+  if (!canAccess(role, permission)) {
     const error = new Error('Access denied');
     error.status = 403;
     throw error;
@@ -68,7 +118,11 @@ export const getKnowledgeEntries = async (request) => {
     hotelId: hotel.id,
     role,
     fallback,
-    entries: (data || []).map(normalizeEntry)
+    entries: (data || [])
+      .map(normalizeEntry)
+      .filter((entry) => isAdminKnowledgeRole(role) || !isProtectedKnowledgeEntry(entry)),
+    canManageKnowledge: canAccess(role, 'knowledge_base_manage'),
+    operationalMode: !isAdminKnowledgeRole(role)
   };
 };
 
@@ -79,7 +133,8 @@ export const createKnowledgeEntry = async (request, {
   value,
   is_active = true
 }) => {
-  const { supabase, hotel } = await getKnowledgeContext(request);
+  const { supabase, hotel, role } = await getKnowledgeContext(request, 'knowledge_base_manage');
+  assertKnowledgeWriteAllowed({ role, entry: { title, key, category } });
   const { data, error } = await supabase
     .from('hotel_knowledge')
     .insert({
@@ -109,7 +164,15 @@ export const updateKnowledgeEntry = async (request, {
   value,
   is_active
 }) => {
-  const { supabase, hotel } = await getKnowledgeContext(request);
+  const { supabase, hotel, role } = await getKnowledgeContext(request, 'knowledge_base_manage');
+  const { data: existing } = await supabase
+    .from('hotel_knowledge')
+    .select('id, hotel_id, title, key, category, value, is_active')
+    .eq('id', id)
+    .eq('hotel_id', hotel.id)
+    .maybeSingle();
+
+  assertKnowledgeWriteAllowed({ role, entry: { title, key, category }, existing });
   const updates = {
     updated_at: new Date().toISOString()
   };
@@ -136,7 +199,15 @@ export const updateKnowledgeEntry = async (request, {
 };
 
 export const deleteKnowledgeEntry = async (request, id) => {
-  const { supabase, hotel } = await getKnowledgeContext(request);
+  const { supabase, hotel, role } = await getKnowledgeContext(request, 'knowledge_base_manage');
+  const { data: existing } = await supabase
+    .from('hotel_knowledge')
+    .select('id, hotel_id, title, key, category, value, is_active')
+    .eq('id', id)
+    .eq('hotel_id', hotel.id)
+    .maybeSingle();
+
+  assertKnowledgeWriteAllowed({ role, entry: {}, existing });
   const { error } = await supabase
     .from('hotel_knowledge')
     .delete()

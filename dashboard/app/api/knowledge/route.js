@@ -24,6 +24,8 @@ const jsonOptions = {
   headers: { 'Cache-Control': 'no-store' }
 };
 
+const statusForError = (error, fallback = 400) => error.status || fallback;
+
 export async function GET(request) {
   try {
     const data = await getKnowledgeEntries(request);
@@ -31,7 +33,7 @@ export async function GET(request) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 500, ...jsonOptions }
+      { status: statusForError(error, 500), ...jsonOptions }
     );
   }
 }
@@ -45,7 +47,7 @@ export async function POST(request) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 400, ...jsonOptions }
+      { status: statusForError(error), ...jsonOptions }
     );
   }
 }
@@ -68,7 +70,7 @@ export async function PATCH(request) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 400, ...jsonOptions }
+      { status: statusForError(error), ...jsonOptions }
     );
   }
 }
@@ -91,7 +93,7 @@ export async function DELETE(request) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 400, ...jsonOptions }
+      { status: statusForError(error), ...jsonOptions }
     );
   }
 }

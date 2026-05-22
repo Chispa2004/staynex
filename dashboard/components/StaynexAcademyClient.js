@@ -49,7 +49,8 @@ const roleCopy = {
   },
   receptionist: {
     label: 'Receptionist',
-    description: 'Guia operativa para trabajar rapido con conversaciones, tickets, reservas y experiencias.'
+    title: 'Receptionist Academy',
+    description: 'Guia operativa para trabajar rapido con Inbox, tickets, traducciones, AI Copilot y conocimiento del hotel.'
   }
 };
 
@@ -70,9 +71,8 @@ const receptionistSteps = [
   'Entender badges y Needs human',
   'Usar traduccion',
   'Gestionar tickets',
-  'Revisar reservas',
-  'Confirmar experience bookings',
-  'Anadir recomendaciones locales',
+  'Usar AI Copilot y suggested replies',
+  'Actualizar Knowledge Base operativa',
   'Escalar incidencias'
 ];
 
@@ -158,7 +158,7 @@ const modules = [
   {
     id: 'reservations',
     icon: CalendarDays,
-    roles: ['admin', 'receptionist'],
+    roles: ['admin'],
     title: 'Reservas',
     summary: 'Contexto PMS para entender cada estancia.',
     what: 'Lista reservas, fechas, habitacion, estado y enlace WhatsApp.',
@@ -171,7 +171,7 @@ const modules = [
   {
     id: 'experience-bookings',
     icon: CalendarCheck,
-    roles: ['admin', 'receptionist'],
+    roles: ['admin'],
     title: 'Experience Bookings',
     summary: 'Solicitudes reales de experiencias detectadas por la IA.',
     what: 'Cuando un huesped quiere reservar una experiencia, Staynex crea una solicitud operativa.',
@@ -184,7 +184,7 @@ const modules = [
   {
     id: 'experiences',
     icon: Compass,
-    roles: ['admin', 'receptionist'],
+    roles: ['admin'],
     title: 'Experiences',
     summary: 'Actividades, servicios y experiencias que la IA puede recomendar.',
     what: 'Catalogo propio del hotel con precio, proveedor visible, tags y reglas operativas.',
@@ -208,6 +208,45 @@ const modules = [
     recommendation: 'Escribe como hablaria un concierge local.'
   },
   {
+    id: 'ai-copilot',
+    icon: Sparkles,
+    roles: ['admin', 'receptionist'],
+    title: 'AI Copilot',
+    summary: 'Ayuda interna para entender conversaciones y responder mejor.',
+    what: 'AI Copilot resume la conversacion, detecta sentimiento, prioridad, idioma, tickets abiertos y posibles siguientes pasos.',
+    use: 'Recepcion puede responder mas rapido sin perder contexto, especialmente cuando hay varios mensajes o cambio de turno.',
+    actions: ['Lee el resumen antes de responder.', 'Usa suggested replies como borrador editable.', 'Comprueba prioridad y sentimiento.', 'Escala si Copilot marca riesgo alto.'],
+    example: 'Huesped molesto por ruido: Copilot marca prioridad alta, resume el caso y sugiere una respuesta empatica.',
+    mistakes: ['Enviar una sugerencia sin revisarla.', 'Ignorar riesgo alto en quejas repetidas.'],
+    recommendation: 'Usa Copilot como segunda mirada, no como piloto automatico.'
+  },
+  {
+    id: 'human-control',
+    icon: Users,
+    roles: ['admin', 'receptionist'],
+    title: 'Control humano',
+    summary: 'Cuando recepcion debe tomar la conversacion.',
+    what: 'Staynex marca conversaciones que necesitan intervencion humana por urgencia, queja, sensibilidad o baja confianza repetida.',
+    use: 'Evita que el huesped se quede esperando cuando la IA no debe resolver sola.',
+    actions: ['Abre conversaciones Needs human.', 'Lee original y traduccion.', 'Responde con tono claro.', 'Crea o actualiza ticket si hay accion operativa.'],
+    example: 'Huesped dice que no puede dormir por ruido; recepcion toma control y confirma que el equipo lo revisa.',
+    mistakes: ['Responder demasiado generico.', 'No actualizar ticket despues de actuar.'],
+    recommendation: 'En incidencias, reconoce la molestia y da el siguiente paso concreto.'
+  },
+  {
+    id: 'urgencies',
+    icon: ShieldCheck,
+    roles: ['admin', 'receptionist'],
+    title: 'Urgencias e incidencias',
+    summary: 'Como detectar casos que no deben esperar.',
+    what: 'Incluye emergencias reales, seguridad, salud, problemas graves de habitacion, enfado fuerte o posible mala experiencia.',
+    use: 'Ayuda a priorizar y escalar sin depender solo de la IA.',
+    actions: ['Marca urgencias como high o urgent.', 'Escala a manager si hay riesgo.', 'Evita vender servicios en quejas.', 'Cierra el caso solo cuando este resuelto.'],
+    example: 'Aire acondicionado roto en noche calurosa: ticket urgente y respuesta breve, humana y concreta.',
+    mistakes: ['Ofrecer upsells durante una queja.', 'Pedir demasiados datos en una urgencia.'],
+    recommendation: 'Primero resolver y tranquilizar; despues documentar.'
+  },
+  {
     id: 'translation',
     icon: Languages,
     roles: ['admin', 'receptionist'],
@@ -228,7 +267,7 @@ const modules = [
     summary: 'Asistente que responde, detecta oportunidades y escala incidencias.',
     what: 'La IA contesta preguntas frecuentes, usa contexto del hotel y crea tickets o solicitudes cuando hace falta.',
     use: 'Ahorra tiempo, pero recepcion sigue controlando casos operativos importantes.',
-    actions: ['Revisa AI Logs si algo no cuadra.', 'Corrige conocimiento local.', 'No dependas de la IA para confirmar disponibilidad humana.'],
+    actions: ['Revisa la respuesta antes de tomar control.', 'Corrige Knowledge Base si falta informacion.', 'No dependas de la IA para confirmar disponibilidad humana.'],
     example: 'La IA responde horario de desayuno; para una queja de ruido crea ticket y evita vender.',
     mistakes: ['Tratar la IA como confirmacion final de reservas.', 'No mejorar knowledge tras errores repetidos.'],
     recommendation: 'La IA debe sonar como concierge, no como vendedor.'
@@ -316,7 +355,7 @@ export const StaynexAcademyClient = () => {
     };
   }, []);
 
-  const role = context?.role || 'admin';
+  const role = context?.role || 'receptionist';
   const roleMode = role === 'receptionist' ? 'receptionist' : 'admin';
   const storageKey = `staynex_academy_progress_${context?.user?.id || 'local'}_${roleMode}`;
   const checklist = useMemo(() => getChecklist(roleMode), [roleMode]);
@@ -374,10 +413,8 @@ export const StaynexAcademyClient = () => {
     <section className="space-y-6">
       <PageHeader
         eyebrowKey="sidebar.settings"
-        titleKey="screens.academy"
-        descriptionKey="screens.academyDescription"
-        fallbackTitle="Staynex Academy"
-        fallbackDescription="Guia operativa para configurar y usar Staynex en el dia a dia del hotel."
+        fallbackTitle={activeRoleCopy.title || 'Staynex Academy'}
+        fallbackDescription={activeRoleCopy.description}
       />
 
       <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-5">
