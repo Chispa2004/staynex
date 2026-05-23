@@ -10,6 +10,7 @@ import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
+import { PageHeader } from './PageHeader';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
@@ -1226,11 +1227,17 @@ export const InboxClient = ({ conversations }) => {
 
   if (items.length === 0) {
     return (
-      <PremiumEmptyState
-        icon={Bot}
-        title={t('inbox.noConversations')}
-        description={t('inbox.noConversationsDescription')}
-      />
+      <section className="space-y-6">
+        <PageHeader
+          titleKey="screens.inbox"
+          descriptionKey="screens.inboxDescription"
+        />
+        <PremiumEmptyState
+          icon={Bot}
+          title={t('inbox.noConversations')}
+          description={t('inbox.noConversationsDescription')}
+        />
+      </section>
     );
   }
 
@@ -1263,17 +1270,29 @@ export const InboxClient = ({ conversations }) => {
     { key: 'vip', label: 'VIP', count: items.filter((conversation) => isVipConversation(conversation)).length },
     { key: 'ai', label: 'AI Active', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
+  const inboxHeightClass = chatOpen
+    ? 'h-[calc(100dvh-28px)] min-h-[620px] sm:h-[calc(100dvh-44px)] lg:h-[calc(100vh-104px)] lg:min-h-[640px]'
+    : 'h-[calc(100dvh-92px)] min-h-[520px] sm:h-[calc(100dvh-118px)] lg:h-[calc(100vh-190px)] lg:min-h-[560px]';
 
   return (
-    <div
-      className={[
-        'premium-fade-in relative grid h-[calc(100dvh-92px)] min-h-[520px] overflow-hidden rounded-2xl border shadow-2xl backdrop-blur sm:h-[calc(100dvh-118px)] lg:h-[calc(100vh-190px)] lg:min-h-[560px]',
-        inboxGridColumns,
-        isLight
-          ? 'border-slate-200 bg-white shadow-slate-200/80'
-          : 'border-white/10 bg-gradient-to-br from-[#0b1019]/95 via-[#0b1019]/88 to-[#101827]/90 shadow-black/25'
-      ].join(' ')}
-    >
+    <section className={chatOpen ? 'space-y-0' : 'space-y-6'}>
+      {!chatOpen ? (
+        <PageHeader
+          titleKey="screens.inbox"
+          descriptionKey="screens.inboxDescription"
+        />
+      ) : null}
+
+      <div
+        className={[
+          'premium-fade-in relative grid overflow-hidden rounded-2xl border shadow-2xl backdrop-blur',
+          inboxHeightClass,
+          inboxGridColumns,
+          isLight
+            ? 'border-slate-200 bg-white shadow-slate-200/80'
+            : 'border-white/10 bg-gradient-to-br from-[#0b1019]/95 via-[#0b1019]/88 to-[#101827]/90 shadow-black/25'
+        ].join(' ')}
+      >
       <aside className={[
         chatOpen ? 'hidden' : 'flex',
         'min-h-0 flex-col',
@@ -1666,7 +1685,7 @@ export const InboxClient = ({ conversations }) => {
         </header>
 
         <div className={[
-          'executive-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6',
+          'executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4',
           isLight ? 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_32%),#f8fafc]' : 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#080c14]/70'
         ].join(' ')}
         ref={messagesScrollRef}
@@ -1874,7 +1893,7 @@ export const InboxClient = ({ conversations }) => {
         <form
           onSubmit={sendMessage}
           className={[
-            'sticky bottom-0 z-10 shrink-0 border-t p-2 sm:p-4',
+            'sticky bottom-0 z-10 shrink-0 border-t p-2 sm:p-3',
             isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-[#0b1019]/95'
           ].join(' ')}
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
@@ -1982,6 +2001,7 @@ export const InboxClient = ({ conversations }) => {
           </button>
         </div>
       ) : null}
-    </div>
+      </div>
+    </section>
   );
 };
