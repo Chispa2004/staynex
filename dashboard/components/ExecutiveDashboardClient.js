@@ -39,6 +39,11 @@ const formatCurrency = (value) => new Intl.NumberFormat(undefined, {
   currency: 'EUR',
   maximumFractionDigits: 0
 }).format(Number(value || 0));
+const formatOptionalNumber = (value) => value === null || value === undefined ? 'Not tracked' : formatNumber(value);
+const formatProfileLabel = (value) => String(value || '')
+  .replaceAll('_', ' ')
+  .replace(/\b\w/g, (letter) => letter.toUpperCase());
+const formatProviderLabel = (value) => value ? formatProfileLabel(value) : 'No PMS connected';
 
 const formatDateTime = (value, timezone) => {
   try {
@@ -219,25 +224,29 @@ export const ExecutiveDashboardClient = () => {
 
       <OverviewPanel data={data} loading={loading} permissions={permissions} />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-        <NeedsAttentionPanel items={attentionItems} loading={loading} />
-        <AIOperationsPanel data={data} loading={loading} />
-      </div>
+      <NeedsAttentionPanel items={attentionItems} loading={loading} />
+
+      <HotelIntelligencePanel data={data} loading={loading} />
 
       <div className="grid gap-5 xl:grid-cols-3">
         <GuestCommunicationPanel data={data} loading={loading} />
         <TicketsOperationsPanel data={data} loading={loading} />
-        {permissions.revenue || permissions.experienceBookings ? (
-          <RevenueExperiencesPanel data={data} loading={loading} permissions={permissions} />
-        ) : (
-          <HotelKnowledgePanel data={data} loading={loading} permissions={permissions} compact />
-        )}
+        <PmsSnapshotPanel data={data} loading={loading} permissions={permissions} role={role} />
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        {!permissions.revenue && !permissions.experienceBookings ? null : (
-          <HotelKnowledgePanel data={data} loading={loading} permissions={permissions} />
-        )}
+        <GuestIntelligencePanel data={data} loading={loading} role={role} />
+        <AIOperationsPanel data={data} loading={loading} />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {permissions.revenue || permissions.experienceBookings ? (
+          <RevenueExperiencesPanel data={data} loading={loading} permissions={permissions} />
+        ) : null}
+        <HotelKnowledgePanel data={data} loading={loading} permissions={permissions} compact={!(permissions.revenue || permissions.experienceBookings)} />
+      </div>
+
+      <div>
         <QuickActionsPanel role={role} permissions={permissions} data={data} />
       </div>
     </section>
@@ -352,6 +361,56 @@ const NeedsAttentionPanel = ({ items, loading }) => {
   );
 };
 
+const HotelIntelligencePanel = ({ data, loading }) => {
+  const hotel = data?.hotelIntelligence || {};
+  const occupancy = hotel.occupancyCurrent === null || hotel.occupancyCurrent === undefined
+    ? 'No PMS data'
+    : formatPercent(Math.round(Number(hotel.occupancyCurrent || 0)));
+  const tiles = [
+    { label: 'Occupancy', value: occupancy, tone: hotel.occupancyCurrent === null || hotel.occupancyCurrent === undefined ? 'slate' : 'sky' },
+    { label: 'Occupied rooms', value: hotel.occupiedRooms || 0, tone: 'slate' },
+    { label: 'Free rooms', value: hotel.freeRooms || 0, tone: 'emerald' },
+    { label: 'Rooms with issues', value: hotel.roomsWithIssues || 0, tone: Number(hotel.roomsWithIssues || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Arrivals today', value: hotel.arrivalsToday || 0, tone: 'sky' },
+    { label: 'Departures today', value: hotel.departuresToday || 0, tone: 'violet' },
+    { label: 'Pending check-ins', value: hotel.pendingCheckins || 0, tone: Number(hotel.pendingCheckins || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Pending check-outs', value: hotel.pendingCheckouts || 0, tone: Number(hotel.pendingCheckouts || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'In-house guests', value: hotel.inHouseGuests || 0, tone: 'slate' },
+    { label: 'VIP guests', value: hotel.vipGuests || 0, tone: Number(hotel.vipGuests || 0) > 0 ? 'violet' : 'slate' },
+    { label: 'Guests with alerts', value: hotel.guestsWithAlerts || 0, tone: Number(hotel.guestsWithAlerts || 0) > 0 ? 'red' : 'emerald' }
+  ];
+
+  return (
+    <Panel
+      title="Hotel Intelligence"
+      eyebrow="Operational hotel snapshot"
+      icon={ConciergeBell}
+      badge={hotel.dataState === 'active' ? 'Live context' : 'Limited data'}
+      badgeTone={hotel.dataState === 'active' ? 'emerald' : 'slate'}
+    >
+      {loading ? (
+        <SkeletonGrid />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {tiles.map((tile) => (
+            <DataTile key={tile.label} {...tile} />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.55fr)]">
+        <div className="rounded-xl border border-dashed border-slate-300/60 p-4 dark:border-white/10">
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Today in operation</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Arrivals, departures, room status and guest alerts are grouped here so the team can see how the hotel is running without scanning separate tools.
+          </p>
+        </div>
+        <LanguagePills languages={hotel.topLanguages || []} loading={loading} />
+      </div>
+    </Panel>
+  );
+};
+
 const AIOperationsPanel = ({ data, loading }) => {
   const ai = data?.conversationIntelligence || {};
   const summary = data?.summary || {};
@@ -410,6 +469,138 @@ const TicketsOperationsPanel = ({ data, loading }) => {
   return (
     <Panel title="Tickets & Operations" eyebrow="Operational workload" icon={TicketCheck} action={{ href: '/dashboard/tickets', label: 'View Tickets' }}>
       <BulletList lines={lines} loading={loading} />
+    </Panel>
+  );
+};
+
+const PmsSnapshotPanel = ({ data, loading, permissions, role }) => {
+  const pms = data?.pmsSnapshot || {};
+  const isReceptionist = role === 'receptionist';
+  const statusTone = pms.connected ? (pms.errors ? 'amber' : 'emerald') : 'red';
+  const action = permissions.pms && !isReceptionist
+    ? { href: '/dashboard/settings/pms', label: 'View PMS Status' }
+    : null;
+  const tiles = [
+    { label: 'Connection', value: pms.connected ? 'Connected' : 'Disconnected', tone: statusTone },
+    { label: 'PMS', value: formatProviderLabel(pms.providerName), tone: pms.providerName ? 'sky' : 'slate' },
+    { label: 'Reservations synced', value: pms.reservationsSynced || 0, tone: 'slate' },
+    { label: 'Rooms synced', value: pms.roomsSynced || 0, tone: pms.roomsSynced ? 'emerald' : 'slate' },
+    { label: 'PMS errors', value: pms.errors || 0, tone: Number(pms.errors || 0) > 0 ? 'red' : 'emerald' },
+    { label: 'Webhook', value: formatProfileLabel(pms.webhookStatus || 'not configured'), tone: pms.webhookStatus === 'healthy' ? 'emerald' : 'slate' }
+  ];
+  const operationalWarnings = isReceptionist
+    ? (pms.warnings || []).filter((warning) => !String(warning).toLowerCase().includes('webhook')).slice(0, 3)
+    : pms.warnings || [];
+
+  return (
+    <Panel
+      title="PMS Snapshot"
+      eyebrow="Hotel data health"
+      icon={DatabaseZap}
+      action={action}
+      badge={pms.connected ? 'Connected' : 'Needs review'}
+      badgeTone={statusTone}
+    >
+      {loading ? (
+        <SkeletonList />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {tiles.map((tile) => (
+              <DataTile key={tile.label} {...tile} compact />
+            ))}
+          </div>
+          <div className="mt-4 space-y-3">
+            <StatusLine
+              icon={Clock3}
+              label="Last sync"
+              value={pms.lastSyncAt ? formatDateTime(pms.lastSyncAt, data?.hotel?.timezone) : 'Not synced'}
+              tone={pms.lastSyncAt ? 'emerald' : 'amber'}
+            />
+            <StatusLine
+              icon={AlertTriangle}
+              label="Data warnings"
+              value={operationalWarnings.length ? `${operationalWarnings.length} warnings` : 'None'}
+              tone={operationalWarnings.length ? 'amber' : 'emerald'}
+            />
+          </div>
+          {operationalWarnings.length ? (
+            <WarningList warnings={operationalWarnings} />
+          ) : (
+            <EmptyState
+              icon={CheckCircle2}
+              title="PMS snapshot looks clean."
+              description="No PMS sync errors or operational data warnings are visible right now."
+            />
+          )}
+          {!isReceptionist ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <DataTile label="Invalid phones" value={formatOptionalNumber(pms.invalidPhones)} tone={Number(pms.invalidPhones || 0) > 0 ? 'amber' : 'slate'} compact />
+              <DataTile label="Guests without language" value={pms.guestsWithoutLanguage || 0} tone={Number(pms.guestsWithoutLanguage || 0) > 0 ? 'amber' : 'emerald'} compact />
+              <DataTile label="Stays without room" value={pms.reservationsWithoutRoom || 0} tone={Number(pms.reservationsWithoutRoom || 0) > 0 ? 'amber' : 'emerald'} compact />
+            </div>
+          ) : null}
+        </>
+      )}
+    </Panel>
+  );
+};
+
+const GuestIntelligencePanel = ({ data, loading, role }) => {
+  const intelligence = data?.guestIntelligence || {};
+  const isReceptionist = role === 'receptionist';
+  const topProfiles = intelligence.topProfiles || [];
+  const operationalTiles = [
+    { label: 'Guests needing attention', value: intelligence.guestsNeedingAttention || 0, tone: Number(intelligence.guestsNeedingAttention || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Active VIPs', value: intelligence.vipGuests || 0, tone: Number(intelligence.vipGuests || 0) > 0 ? 'violet' : 'slate' },
+    { label: 'Frustrated conversations', value: intelligence.frustratedConversations || 0, tone: Number(intelligence.frustratedConversations || 0) > 0 ? 'red' : 'emerald' },
+    { label: 'General sentiment', value: intelligence.sentimentLabel || 'Not enough data', tone: intelligence.sentimentLabel === 'Needs attention' ? 'amber' : 'emerald' }
+  ];
+  const adminTiles = [
+    ...operationalTiles,
+    { label: 'Review risk guests', value: intelligence.reviewRiskGuests || 0, tone: Number(intelligence.reviewRiskGuests || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'High revenue potential', value: intelligence.highRevenueGuests || 0, tone: Number(intelligence.highRevenueGuests || 0) > 0 ? 'emerald' : 'slate' },
+    { label: 'Conversion probability', value: formatPercent(intelligence.averageConversionProbability || 0), tone: 'sky' },
+    { label: 'Top affinity', value: intelligence.topAffinity?.type ? formatProfileLabel(intelligence.topAffinity.type.replace('_affinity', '')) : 'Not enough data', tone: 'violet' }
+  ];
+  const tiles = isReceptionist ? operationalTiles : adminTiles;
+
+  return (
+    <Panel
+      title="Guest Intelligence"
+      eyebrow={isReceptionist ? 'Operational guest signals' : 'Guest profiles and revenue signals'}
+      icon={Sparkles}
+      badge={isReceptionist ? 'Reception view' : 'Manager view'}
+      badgeTone="violet"
+    >
+      {loading ? (
+        <SkeletonGrid />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {tiles.map((tile) => (
+              <DataTile key={tile.label} {...tile} compact />
+            ))}
+          </div>
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <LanguagePills languages={intelligence.topLanguages || []} loading={loading} />
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.025]">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Main profiles</p>
+              {topProfiles.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {topProfiles.map((profile) => (
+                    <ExecutiveBadge key={profile.type} tone="sky">
+                      {formatProfileLabel(profile.type)}: {profile.count}
+                    </ExecutiveBadge>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No guest profile pattern yet.</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </Panel>
   );
 };
@@ -510,6 +701,66 @@ const QuickActionsPanel = ({ role, permissions, data }) => {
     </Panel>
   );
 };
+
+const DataTile = ({ label, value, tone = 'slate', compact = false, badge = null }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+
+  return (
+    <div className={cn(
+      'flex min-h-[88px] flex-col justify-center rounded-xl border text-center',
+      compact ? 'p-3' : 'p-4',
+      isLight ? 'border-slate-200 bg-slate-50/85' : 'border-white/10 bg-white/[0.025]'
+    )}
+    >
+      <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em]', isLight ? 'text-slate-500' : 'text-slate-400')}>
+        {label}
+      </p>
+      <p className={cn('mt-2 truncate text-xl font-semibold tracking-tight tabular-nums', ui.text.title(isLight))}>
+        {value}
+      </p>
+      {badge ? (
+        <div className="mt-2 flex justify-center">
+          <ExecutiveBadge tone={tone}>{badge}</ExecutiveBadge>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const LanguagePills = ({ languages = [], loading }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+
+  if (loading) {
+    return <div className={cn('h-28 rounded-xl', ui.skeleton(isLight))} />;
+  }
+
+  return (
+    <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
+      <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>Top languages</p>
+      {languages.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {languages.map((language) => (
+            <ExecutiveBadge key={language.label} tone="sky">
+              {String(language.label).toUpperCase()} {language.count}
+            </ExecutiveBadge>
+          ))}
+        </div>
+      ) : (
+        <p className={cn('mt-2 text-sm', ui.text.muted(isLight))}>No language pattern yet.</p>
+      )}
+    </div>
+  );
+};
+
+const WarningList = ({ warnings = [] }) => (
+  <div className="mt-3 space-y-2">
+    {warnings.map((warning) => (
+      <StatusLine key={warning} icon={AlertTriangle} label={warning} value="Review" tone="amber" compact />
+    ))}
+  </div>
+);
 
 const Panel = ({ title, eyebrow, icon: Icon, children, action = null, actions = [], badge = null, badgeTone = 'slate', compact = false }) => {
   const { theme } = useDashboardTheme();
@@ -683,6 +934,19 @@ const SkeletonList = () => {
     <div className="space-y-3">
       {[0, 1, 2].map((item) => (
         <div key={item} className={cn('h-16 rounded-xl', ui.skeleton(isLight))} />
+      ))}
+    </div>
+  );
+};
+
+const SkeletonGrid = () => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {[0, 1, 2, 3].map((item) => (
+        <div key={item} className={cn('h-24 rounded-xl', ui.skeleton(isLight))} />
       ))}
     </div>
   );

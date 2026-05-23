@@ -212,6 +212,12 @@ const countBy = (rows, field) => rows.reduce((acc, row) => {
   return acc;
 }, {});
 
+const topEntries = (counts, limit = 4) => Object.entries(counts)
+  .filter(([key]) => key && key !== 'unknown')
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, limit)
+  .map(([label, count]) => ({ label, count }));
+
 const buildGuestSignals = ({
   profiles = [],
   guests = [],
@@ -636,6 +642,120 @@ export async function GET(request) {
       topAffinity ? `${topAffinity[0].replace('_affinity', '').replaceAll('_', ' ')} is the strongest affinity` : null,
       avgConversionProbability ? `Average predicted conversion is ${avgConversionProbability}%` : null
     ].filter(Boolean);
+    const arrivalCompleteStatuses = new Set(['checked_in', 'in_house', 'inhouse', 'arrived', 'active']);
+    const departureCompleteStatuses = new Set(['checked_out', 'completed', 'cancelled', 'no_show', 'departed']);
+    const normalizeStatus = (status) => String(status || '').toLowerCase();
+    const pendingCheckins = reservationsToday.filter((item) => (
+      item.arrival_date === todayDate && !arrivalCompleteStatuses.has(normalizeStatus(item.status))
+    )).length;
+    const pendingCheckouts = reservationsToday.filter((item) => (
+      item.departure_date === todayDate && !departureCompleteStatuses.has(normalizeStatus(item.status))
+    )).length;
+    const roomsWithIssues = operationalContext.roomsDirty + operationalContext.roomsMaintenance;
+    const guestAlertCount = activeEscalations.length + repeatedFrustrations.length + urgentTickets;
+    const languageCounts = [
+      ...recentAiLogs.map((item) => item.detected_language),
+      ...guestIntelligenceProfiles.map((item) => item.language),
+      ...guestStayContextRows.map((item) => item.language),
+      ...signalGuests.map((item) => item.preferred_language)
+    ].filter(Boolean).reduce((acc, language) => {
+      const key = String(language).toUpperCase();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const topLanguages = topEntries(languageCounts, 5);
+    const primaryPmsConnection = pmsConnections.find((item) => item.enabled) || pmsConnections[0] || null;
+    const reservationsSynced = pmsConnections.reduce((total, item) => (
+      total + Number(item.metadata?.last_sync_summary?.synced || item.metadata?.last_sync_summary?.fetched || 0)
+    ), 0);
+    const invalidPhones = signalGuests.length
+      ? signalGuests.filter((guest) => {
+        const digits = String(guest.phone_number || '').replace(/\D/g, '');
+        return guest.phone_number && digits.length < 7;
+      }).length
+      : null;
+    const guestsWithoutLanguage = [
+      ...guestStayContextRows.filter((context) => !context.language),
+      ...signalGuests.filter((guest) => !guest.preferred_language)
+    ].length;
+    const reservationsWithoutRoom = guestStayContextRows.filter((context) => !context.room_number).length;
+    const pmsWarnings = [
+      pmsConnections.some((item) => item.last_sync_error) ? 'PMS sync errors detected' : null,
+      guestsWithoutLanguage ? `${guestsWithoutLanguage} guests without language` : null,
+      reservationsWithoutRoom ? `${reservationsWithoutRoom} active stays without room` : null,
+      invalidPhones ? `${invalidPhones} guest phones need review` : null,
+      primaryPmsConnection?.webhook_enabled && primaryPmsConnection?.webhook_status && primaryPmsConnection.webhook_status !== 'healthy'
+        ? 'PMS webhook needs review'
+        : null
+    ].filter(Boolean);
+    const sentimentValues = guestIntelligenceProfiles
+      .map((profile) => Number(profile.sentiment_score))
+      .filter(Number.isFinite);
+    const avgSentimentScore = sentimentValues.length
+      ? Math.round(sentimentValues.reduce((total, value) => total + value, 0) / sentimentValues.length)
+      : null;
+    const sentimentLabel = repeatedFrustrations.length || reviewRiskGuests
+      ? 'Needs attention'
+      : avgSentimentScore === null
+        ? 'Not enough data'
+        : avgSentimentScore >= 70
+          ? 'Positive'
+          : avgSentimentScore >= 45
+            ? 'Stable'
+            : 'Sensitive';
+    const importantProfileOrder = ['family_guest', 'business_guest', 'wellness_traveler', 'luxury_guest', 'experience_seeker'];
+    const topProfiles = importantProfileOrder.map((type) => ({
+      type,
+      count: profileCounts[type] || 0
+    })).filter((item) => item.count > 0);
+    const hotelIntelligence = {
+      occupancyCurrent: operationalContext.occupancyToday,
+      occupiedRooms: operationalContext.occupiedRooms,
+      freeRooms: operationalContext.availableRooms,
+      roomsWithIssues,
+      arrivalsToday: operationalContext.arrivalsToday,
+      departuresToday: operationalContext.departuresToday,
+      pendingCheckins,
+      pendingCheckouts,
+      inHouseGuests: guestStayContextRows.filter((context) => context.stay_phase === 'in_house').length || activeGuests,
+      vipGuests: operationalContext.vipGuests,
+      guestsWithAlerts: guestAlertCount,
+      topLanguages,
+      lastUpdatedAt: operationalContext.lastUpdatedAt,
+      dataState: operationalContext.health
+    };
+    const pmsSnapshot = {
+      connected: pmsConnections.some((item) => item.enabled),
+      providerName: primaryPmsConnection?.provider || null,
+      lastSyncAt: primaryPmsConnection?.last_sync_at || null,
+      reservationsSynced,
+      roomsSynced: roomStatusRows.length,
+      errors: pmsConnections.filter((item) => item.last_sync_error).length,
+      warnings: pmsWarnings,
+      invalidPhones,
+      guestsWithoutLanguage,
+      reservationsWithoutRoom,
+      webhookStatus: primaryPmsConnection?.webhook_status || (primaryPmsConnection?.webhook_enabled ? 'unknown' : 'not_configured'),
+      webhookEnabled: Boolean(primaryPmsConnection?.webhook_enabled),
+      dataCompleteness: {
+        roomsAvailable: roomStatusRows.length > 0,
+        occupancyAvailable: Boolean(latestOccupancy),
+        guestStayContextAvailable: guestStayContextRows.length > 0
+      }
+    };
+    const guestIntelligence = {
+      sentimentLabel,
+      sentimentScore: avgSentimentScore,
+      vipGuests: operationalContext.vipGuests,
+      topProfiles,
+      reviewRiskGuests,
+      highRevenueGuests,
+      topLanguages,
+      frustratedConversations: repeatedFrustrations.length,
+      guestsNeedingAttention: activeEscalations.length + repeatedFrustrations.length,
+      averageConversionProbability: avgConversionProbability,
+      topAffinity: topAffinity ? { type: topAffinity[0], score: Math.round(topAffinity[1]) } : null
+    };
 
     return NextResponse.json({
       hotel,
@@ -681,6 +801,9 @@ export async function GET(request) {
         }
       },
       operationalContext,
+      hotelIntelligence,
+      pmsSnapshot,
+      guestIntelligence,
       guestIntelligenceInsights: {
         profiles: guestIntelligenceProfiles.length,
         highRevenueGuests,
