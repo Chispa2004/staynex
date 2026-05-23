@@ -373,6 +373,53 @@ assert.equal(essaouiraReply.includes('personas'), true);
 assert.equal(essaouiraReply.includes('recepcion'), false);
 assert.equal(essaouiraReply.includes('lo reviso'), false);
 
+const essaouiraContext = {
+  provider_experience_id: 'provider-essaouira',
+  provider_id: 'luxotour',
+  provider_name: 'Luxotour Morocco',
+  provider_source: 'Luxotour Morocco',
+  title: 'Essaouira Coastal Excursion'
+};
+const essaouiraDetailsCollected = await detectExperienceBookingIntent({
+  message: 'la fecha seria el 29/06 y somos 2 personas',
+  recentMessages: [
+    { sender_type: 'guest', content: 'que excursiones teneis?' },
+    { sender_type: 'ai', content: 'A traves de Luxotour Morocco podemos organizar varias experiencias.' },
+    { sender_type: 'guest', content: 'me interesa Essaouira Coastal excursion' }
+  ],
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext
+});
+assert.equal(essaouiraDetailsCollected.detected, false);
+assert.equal(essaouiraDetailsCollected.reason, 'awaiting_guest_confirmation');
+assert.equal(essaouiraDetailsCollected.requestedDate, '2026-06-29');
+assert.equal(essaouiraDetailsCollected.guestsCount, 2);
+assert.equal(essaouiraDetailsCollected.matchedExperience.title, 'Essaouira Coastal Excursion');
+const essaouiraConfirmationReply = buildProviderExperienceRecommendationReply({
+  intent: essaouiraDetailsCollected.conversationIntent,
+  hotelExperiences: providerCatalog,
+  language: 'es'
+});
+assert.equal(essaouiraConfirmationReply.includes('Luxotour Morocco'), true);
+assert.equal(essaouiraConfirmationReply.includes('confirmar disponibilidad'), true);
+assert.equal(essaouiraConfirmationReply.includes('lo reviso'), false);
+assert.equal(essaouiraConfirmationReply.includes('recepcion'), false);
+
+const essaouiraFinalConfirmation = await detectExperienceBookingIntent({
+  message: 'vale',
+  recentMessages: [
+    { sender_type: 'guest', content: 'me interesa Essaouira Coastal excursion' },
+    { sender_type: 'guest', content: 'la fecha seria el 29/06 y somos 2 personas' }
+  ],
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext
+});
+assert.equal(essaouiraFinalConfirmation.detected, true);
+assert.equal(essaouiraFinalConfirmation.guestConfirmedProviderRequest, true);
+assert.equal(essaouiraFinalConfirmation.requestedDate, '2026-06-29');
+assert.equal(essaouiraFinalConfirmation.guestsCount, 2);
+assert.equal(essaouiraFinalConfirmation.matchedExperience.title, 'Essaouira Coastal Excursion');
+
 for (const phrase of ['me interesa Essaouira', 'quiero la excursion de Essaouira', 'Atlas', 'Agafay', 'Hammam Marrakech', 'Marrakech Hammam']) {
   const flexibleInterest = await detectExperienceBookingIntent({
     message: phrase,

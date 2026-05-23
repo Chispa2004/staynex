@@ -402,6 +402,16 @@ const deliverProviderLeadEmailForBookingRequest = async ({
     reason: 'experience_booking_request_created',
     to: emailPayload.to
   });
+  logger.info('provider_email_sending', {
+    hotelId: hotel.id,
+    conversationId: conversation?.id || bookingRequest.conversation_id || null,
+    bookingRequestId: bookingRequest.id,
+    providerId: providerId || bookingRequest.provider_id || bookingRequest.metadata?.provider_id || null,
+    providerExperienceId: providerExperience?.provider_experience_id || bookingRequest.provider_experience_id || bookingRequest.metadata?.provider_experience_id || null,
+    provider: providerSource || bookingRequest.provider_source || bookingRequest.metadata?.provider_source || null,
+    to: emailPayload.to,
+    guestConfirmedProviderRequest: Boolean(bookingRequest.metadata?.guest_confirmed_provider_request)
+  });
   const resolvedProviderId = providerId || bookingRequest.provider_id || bookingRequest.metadata?.provider_id || null;
   const resolvedProviderExperienceId = providerExperience?.provider_experience_id
     || bookingRequest.provider_experience_id
@@ -434,6 +444,25 @@ const deliverProviderLeadEmailForBookingRequest = async ({
     reason: emailResult.reason,
     status: emailResult.status
   });
+  logger[emailResult.status === 'failed' ? 'warn' : 'info'](
+    emailResult.status === 'failed'
+      ? 'provider_email_failed'
+      : emailResult.status === 'sent'
+        ? 'provider_email_success'
+        : 'provider_email_prepared',
+    {
+      hotelId: hotel.id,
+      conversationId: conversation?.id || bookingRequest.conversation_id || null,
+      bookingRequestId: bookingRequest.id,
+      providerId: resolvedProviderId,
+      providerExperienceId: resolvedProviderExperienceId,
+      provider: providerSource || bookingRequest.provider_source || bookingRequest.metadata?.provider_source || null,
+      status: emailResult.status,
+      resendMessageId: emailResult.transport?.provider === 'resend' ? emailResult.transport?.messageId || null : null,
+      messageId: emailResult.transport?.messageId || null,
+      error: emailResult.error?.message || emailResult.reason || null
+    }
+  );
 
   return updateBookingRequestProviderEmailState({
     supabase,
@@ -640,6 +669,9 @@ const providerBookingConfirmationWords = [
   'manda la solicitud',
   'mandar la solicitud',
   'mandalo',
+  'enviala',
+  'enviarla',
+  'envÃ­ala',
   'confirmo',
   'confirma',
   'confirmar',
@@ -649,6 +681,7 @@ const providerBookingConfirmationWords = [
   'ok adelante',
   'vale',
   'vale perfecto',
+  'perfecto',
   'lo queremos',
   'send request',
   'send the request',
@@ -737,6 +770,28 @@ const dateFromMessage = (message = '') => {
   const isoMatch = message.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
   if (isoMatch) {
     return isoMatch[1];
+  }
+
+  const dayMonthMatch = message.match(/\b([0-3]?\d)[\/\-]([01]?\d)(?:[\/\-](20\d{2}|\d{2}))?\b/);
+  if (dayMonthMatch) {
+    const day = Number(dayMonthMatch[1]);
+    const month = Number(dayMonthMatch[2]);
+    const rawYear = dayMonthMatch[3];
+    const year = rawYear
+      ? Number(rawYear.length === 2 ? `20${rawYear}` : rawYear)
+      : today.getFullYear();
+
+    if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+      const parsed = new Date(Date.UTC(year, month - 1, day));
+
+      if (parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day) {
+        if (!rawYear && parsed.getTime() < Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) {
+          parsed.setUTCFullYear(parsed.getUTCFullYear() + 1);
+        }
+
+        return parsed.toISOString().slice(0, 10);
+      }
+    }
   }
 
   return null;

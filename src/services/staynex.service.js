@@ -987,6 +987,79 @@ export const processGuestMessage = async ({
     latestProviderContext: providerExperienceConversation.latestProviderContext || null,
     recentMessages: conversationContext.recentMessages
   });
+  const providerBookingFlowActive = Boolean(
+    experienceBookingIntent.matchedExperience
+    && experienceBookingIntent.conversationIntent?.intentType
+  );
+  const providerBookingFlowReply = providerBookingFlowActive && !experienceBookingIntent.detected
+    ? buildProviderExperienceRecommendationReply({
+      intent: {
+        ...experienceBookingIntent.conversationIntent,
+        matchedExperience: experienceBookingIntent.matchedExperience,
+        requestedDate: experienceBookingIntent.requestedDate,
+        requestedTime: experienceBookingIntent.requestedTime,
+        guestsCount: experienceBookingIntent.guestsCount,
+        missingDetails: experienceBookingIntent.missingDetails,
+        reason: experienceBookingIntent.reason,
+        latestProviderContext: experienceBookingIntent.latestProviderContext
+          || experienceBookingIntent.conversationIntent?.latestProviderContext
+          || null
+      },
+      hotelExperiences: experienceCatalog,
+      language: conversationContext.language
+    })
+    : null;
+
+  if (providerBookingFlowActive) {
+    logger.info('provider_flow_active', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
+      provider: experienceBookingIntent.matchedExperience?.provider_source || null,
+      reason: experienceBookingIntent.reason,
+      requestedDate: experienceBookingIntent.requestedDate || null,
+      guestsCount: experienceBookingIntent.guestsCount || null,
+      awaitingGuestDetails: experienceBookingIntent.reason === 'booking_missing_guest_details',
+      awaitingGuestConfirmation: experienceBookingIntent.reason === 'awaiting_guest_confirmation',
+      confirmationDetected: Boolean(experienceBookingIntent.guestConfirmedProviderRequest)
+    });
+  }
+
+  if (providerBookingFlowActive && enhancedRisk?.hasRisk && providerSafeEscalationReasons.has(enhancedRisk.reason)) {
+    logger.info('fallback_blocked_because_provider_flow_active', {
+      hotelId: activeHotel.id,
+      conversationId: conversation.id,
+      fallbackReason: enhancedRisk.reason,
+      source: 'enhanced_risk',
+      experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
+      provider: experienceBookingIntent.matchedExperience?.provider_source || null
+    });
+    enhancedRisk = {
+      hasRisk: false,
+      category: null,
+      priority: 'normal',
+      reason: 'provider_booking_flow_overrides_fallback'
+    };
+  }
+
+  if (
+    providerBookingFlowActive
+    && ['low_confidence', 'fallback_response'].includes(humanEscalation.humanReason)
+  ) {
+    logger.info('fallback_blocked_because_provider_flow_active', {
+      hotelId: activeHotel.id,
+      conversationId: conversation.id,
+      humanReason: humanEscalation.humanReason,
+      experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
+      provider: experienceBookingIntent.matchedExperience?.provider_source || null
+    });
+    humanEscalation = {
+      needsHuman: false,
+      humanReason: null
+    };
+  }
+
   const bookingResolvedFromRecentExplicitExperience = ['current_message', 'recent_guest_message'].includes(
     experienceBookingIntent.experienceResolution?.resolvedSource
   );
@@ -1036,6 +1109,30 @@ export const processGuestMessage = async ({
         system_event: 'experience_booking_request_created'
       }
     });
+  } else if (providerBookingFlowReply) {
+    aiResponseWithUpsell = {
+      ...aiResponseWithUpsell,
+      reply: providerBookingFlowReply,
+      intent: experienceBookingIntent.conversationIntent?.intentType || aiResponseWithUpsell.intent,
+      concierge_intent: experienceBookingIntent.conversationIntent?.intentType || aiResponseWithUpsell.concierge_intent,
+      confidence: Math.max(Number(aiResponseWithUpsell.confidence || 0), Number(experienceBookingIntent.confidence || 0.8)),
+      escalate_to_human: false
+    };
+
+    logger.info(
+      experienceBookingIntent.reason === 'awaiting_guest_confirmation'
+        ? 'awaiting_guest_confirmation'
+        : 'awaiting_guest_details',
+      {
+        hotelId: activeHotel.id,
+        conversationId: conversation.id,
+        experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
+        provider: experienceBookingIntent.matchedExperience?.provider_source || null,
+        requestedDate: experienceBookingIntent.requestedDate || null,
+        guestsCount: experienceBookingIntent.guestsCount || null,
+        missingDetails: experienceBookingIntent.missingDetails || []
+      }
+    );
   }
 
   const smarterResponse = chooseSmarterConciergeResponse({
@@ -1046,7 +1143,7 @@ export const processGuestMessage = async ({
     humanEscalation,
     enhancedRisk,
     providerIntent: providerExperienceConversation,
-    knowledgeUsed: Boolean(knowledgeResult || providerRecommendationReply || experienceBookingRequest),
+    knowledgeUsed: Boolean(knowledgeResult || providerRecommendationReply || providerBookingFlowReply || experienceBookingRequest),
     recentMessages: conversationContext.recentMessages
   });
   aiResponseWithUpsell = smarterResponse.aiResponse;
@@ -1132,7 +1229,10 @@ export const processGuestMessage = async ({
   const lastProviderWriteReason = effectiveProviderExperienceForState
     ? effectiveProviderIntentForState.bookingReady
       ? 'explicit_guest_booking_intent'
-      : effectiveProviderIntentForState.reason === 'soft_interest_or_detail_request'
+      : ['booking_missing_guest_details', 'awaiting_guest_confirmation'].includes(effectiveProviderIntentForState.reason)
+        || ['excursion_booking_intent', 'excursion_booking_confirmation'].includes(effectiveProviderIntentForState.intentType)
+        ? 'explicit_guest_booking_intent'
+        : effectiveProviderIntentForState.reason === 'soft_interest_or_detail_request'
         ? 'explicit_guest_detail_request'
         : effectiveProviderIntentForState.intentType === 'excursion_interest'
           ? 'explicit_guest_interest'
@@ -1191,6 +1291,17 @@ export const processGuestMessage = async ({
           provider_lead_status: experienceBookingRequest?.lead_status || null,
           provider_email_status: experienceBookingRequest?.metadata?.provider_email_status || experienceBookingRequest?.lead_status || null
         },
+        experience_booking_state: providerBookingFlowActive || experienceBookingRequest ? {
+          detected_experience: experienceBookingIntent.matchedExperience?.title || experienceBookingRequest?.experience_title || null,
+          provider: experienceBookingIntent.matchedExperience?.provider_source || experienceBookingRequest?.provider_source || null,
+          requested_date: experienceBookingIntent.requestedDate || experienceBookingRequest?.requested_date || null,
+          guest_count: experienceBookingIntent.guestsCount || experienceBookingRequest?.guests_count || null,
+          awaiting_confirmation: experienceBookingIntent.reason === 'awaiting_guest_confirmation' && !experienceBookingRequest,
+          awaiting_guest_details: experienceBookingIntent.reason === 'booking_missing_guest_details' && !experienceBookingRequest,
+          provider_request_sent: Boolean(experienceBookingRequest),
+          guest_confirmed_provider_request: Boolean(experienceBookingIntent.guestConfirmedProviderRequest),
+          last_message: message
+        } : conversationState.previousState?.state_metadata?.experience_booking_state || null,
         last_provider_experience: nextLastProviderExperience
       }
     },
