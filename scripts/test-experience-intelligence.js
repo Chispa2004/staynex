@@ -170,6 +170,25 @@ const providerCatalog = [
     metadata: { experience_provider: true }
   },
   {
+    id: 'provider-essaouira',
+    hotel_id: 'hotel-morocco',
+    provider_assignment_hotel_id: 'hotel-morocco',
+    provider_experience_id: 'provider-essaouira',
+    provider_id: 'luxotour',
+    provider_source: 'Luxotour Morocco',
+    title: 'Essaouira Coastal Excursion',
+    slug: 'essaouira-coastal-excursion',
+    category: 'culture',
+    short_description: 'Coastal day excursion to Essaouira.',
+    price: 85,
+    currency: 'EUR',
+    duration: 'Full day',
+    active: true,
+    tags: ['essaouira', 'coastal', 'excursion'],
+    target_guest_types: ['culture'],
+    metadata: { experience_provider: true }
+  },
+  {
     id: 'provider-quad',
     hotel_id: 'hotel-morocco',
     provider_assignment_hotel_id: 'hotel-morocco',
@@ -210,7 +229,7 @@ const strictMoroccoCatalog = buildStrictHotelExperienceCatalog({
     }
   ]
 });
-assert.equal(strictMoroccoCatalog.providerExperiences.length, 5);
+assert.equal(strictMoroccoCatalog.providerExperiences.length, 6);
 assert.equal(strictMoroccoCatalog.hotelExperiences.length, 0);
 assert.equal(strictMoroccoCatalog.blockedCrossTenantExperiences, true);
 assert.equal(strictMoroccoCatalog.providerNames.includes('Luxotour Morocco'), true);
@@ -294,11 +313,12 @@ const exactAgafayInterest = await classifyProviderExperienceConversation({
     title: 'Marrakech Quad Adventure'
   }
 });
-assert.equal(exactAgafayInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
+assert.equal(exactAgafayInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
+assert.equal(exactAgafayInterest.reason, 'booking_missing_guest_details');
 assert.equal(exactAgafayInterest.matchedExperience.title, 'Agafay Desert Dinner');
 const lastAgafay = buildLastProviderExperienceState({
   providerExperience: exactAgafayInterest.matchedExperience,
-  reason: 'explicit_guest_detail_request',
+  reason: 'explicit_guest_booking_intent',
   message: 'Me interesa Agafay Desert Dinner',
   callsite: 'test'
 });
@@ -315,11 +335,12 @@ const exactQuadInterest = await classifyProviderExperienceConversation({
     title: 'Agafay Desert Dinner'
   }
 });
-assert.equal(exactQuadInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
+assert.equal(exactQuadInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
+assert.equal(exactQuadInterest.reason, 'booking_missing_guest_details');
 assert.equal(exactQuadInterest.matchedExperience.title, 'Marrakech Quad Adventure');
 const lastQuad = buildLastProviderExperienceState({
   providerExperience: exactQuadInterest.matchedExperience,
-  reason: 'explicit_guest_detail_request',
+  reason: 'explicit_guest_booking_intent',
   message: 'Me interesa Marrakech Quad Adventure',
   callsite: 'test'
 });
@@ -329,7 +350,38 @@ const hammamInterest = await classifyProviderExperienceConversation({
   message: 'Me interesa Hammam',
   hotelExperiences: providerCatalog
 });
+assert.equal(hammamInterest.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
+assert.equal(hammamInterest.reason, 'booking_missing_guest_details');
 assert.equal(hammamInterest.matchedExperience.title, 'Marrakech Hammam Experience');
+
+const essaouiraInterest = await detectExperienceBookingIntent({
+  message: 'me interesa Essaouira Coastal excursion',
+  hotelExperiences: providerCatalog
+});
+assert.equal(essaouiraInterest.detected, false);
+assert.equal(essaouiraInterest.reason, 'booking_missing_guest_details');
+assert.equal(essaouiraInterest.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
+assert.equal(essaouiraInterest.matchedExperience.title, 'Essaouira Coastal Excursion');
+const essaouiraReply = buildProviderExperienceRecommendationReply({
+  intent: essaouiraInterest.conversationIntent,
+  hotelExperiences: providerCatalog,
+  language: 'es'
+});
+assert.equal(essaouiraReply.includes('Luxotour Morocco'), true);
+assert.equal(essaouiraReply.includes('fecha'), true);
+assert.equal(essaouiraReply.includes('personas'), true);
+assert.equal(essaouiraReply.includes('recepcion'), false);
+assert.equal(essaouiraReply.includes('lo reviso'), false);
+
+for (const phrase of ['me interesa Essaouira', 'quiero la excursion de Essaouira', 'Atlas', 'Agafay', 'Hammam Marrakech', 'Marrakech Hammam']) {
+  const flexibleInterest = await detectExperienceBookingIntent({
+    message: phrase,
+    hotelExperiences: providerCatalog
+  });
+  assert.equal(flexibleInterest.detected, false);
+  assert.equal(flexibleInterest.reason, 'booking_missing_guest_details');
+  assert.equal(Boolean(flexibleInterest.matchedExperience), true);
+}
 
 const recommendationListWrite = buildLastProviderExperienceState({
   providerExperience: providerCatalog[0],
@@ -344,7 +396,8 @@ const prematureBooking = await detectExperienceBookingIntent({
   hotelExperiences: providerCatalog
 });
 assert.equal(prematureBooking.detected, false);
-assert.equal(prematureBooking.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.INTEREST);
+assert.equal(prematureBooking.reason, 'booking_missing_guest_details');
+assert.equal(prematureBooking.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
 
 const realBooking = await detectExperienceBookingIntent({
   message: 'Queremos reservar Agafay para manana',
@@ -446,7 +499,7 @@ const contextualAtlasInterest = await detectExperienceBookingIntent({
 });
 assert.equal(contextualAtlasInterest.detected, false);
 assert.equal(contextualAtlasInterest.reason, 'booking_missing_guest_details');
-assert.equal(contextualAtlasInterest.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION);
+assert.equal(contextualAtlasInterest.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT);
 assert.equal(contextualAtlasInterest.matchedExperience.title, 'Atlas Mountains Day Trip');
 const contextualAtlasMissingDetailsReply = buildProviderExperienceRecommendationReply({
   intent: contextualAtlasInterest.conversationIntent,

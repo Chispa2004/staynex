@@ -520,6 +520,48 @@ const softInterestWords = [
   'cuánto cuesta'
 ];
 
+const providerRequestInterestWords = [
+  'me interesa',
+  'nos interesa',
+  'interested in',
+  'i am interested',
+  'we are interested',
+  'quiero la excursion',
+  'quiero la excursiÃ³n',
+  'quiero el tour',
+  'queremos la excursion',
+  'queremos la excursiÃ³n',
+  'esa excursion',
+  'esa excursiÃ³n',
+  'that excursion',
+  'that tour',
+  'je suis interesse',
+  'je suis intÃ©ressÃ©',
+  'nous sommes interesses',
+  'nous sommes intÃ©ressÃ©s',
+  'ich bin interessiert',
+  'wir sind interessiert'
+];
+
+const providerDetailOnlyWords = [
+  'tell me more',
+  'more details',
+  'what does it include',
+  'how long',
+  'how much',
+  'cuentame mas',
+  'cuÃ©ntame mÃ¡s',
+  'dame mas detalles',
+  'mas detalles',
+  'mÃ¡s detalles',
+  'que incluye',
+  'quÃ© incluye',
+  'cuanto dura',
+  'cuÃ¡nto dura',
+  'cuanto cuesta',
+  'cuÃ¡nto cuesta'
+];
+
 const bookingIntentWords = [
   'i want to book',
   'can we book',
@@ -543,6 +585,11 @@ const bookingIntentWords = [
   'queremos reservar',
   'quiero reservar',
   'queremos reservarlo',
+  'quiero la excursion',
+  'quiero la excursiÃ³n',
+  'quiero el tour',
+  'queremos la excursion',
+  'queremos la excursiÃ³n',
   'queremos confirmar',
   'quiero confirmar',
   'nos interesa reservar',
@@ -749,7 +796,7 @@ const aliasMap = {
   quad: ['quad', 'quad adventure'],
   hammam: ['hammam', 'spa hammam'],
   atlas: ['atlas', 'atlas mountains'],
-  essaouira: ['essaouira', 'essaouira coastal'],
+  essaouira: ['essaouira', 'essaouira coastal', 'essaouira coastal excursion', 'essaouira excursion', 'excursion essaouira', 'excursiÃ³n essaouira', 'excursion de essaouira', 'excursiÃ³n de essaouira'],
   tanger: ['tanger', 'tangier'],
   tangier: ['tangier', 'tanger']
 };
@@ -1372,6 +1419,17 @@ export const classifyProviderExperienceConversation = async ({
   const followsExperienceOfferWithAction = Boolean((latestOffer || latestProviderContext) && (hasBookingLanguage || hasBareConfirmation || confirmationOverride));
   const bookingDetails = providerBookingDetailsFromText(message);
   const missingDetails = missingProviderBookingDetails(bookingDetails);
+  const tokenCount = tokenize(message).length;
+  const hasProviderRequestInterest = Boolean(matchedExperience && includesAny(text, providerRequestInterestWords));
+  const hasDetailOnlyLanguage = includesAny(text, providerDetailOnlyWords) || hasQuestionShape(message);
+  const hasBareProviderSelection = Boolean(
+    matchedExperience
+    && tokenCount > 0
+    && tokenCount <= 4
+    && !hasDetailOnlyLanguage
+    && !hasBookingLanguage
+    && !confirmationOverride
+  );
   const contextualProviderInterest = Boolean(
     latestProviderContext
     && matchedExperience
@@ -1425,6 +1483,22 @@ export const classifyProviderExperienceConversation = async ({
     missingDetails: [],
     previousReason: reason
   });
+
+  if ((hasProviderRequestInterest || hasBareProviderSelection) && matchedExperience) {
+    if (missingDetails.length) {
+      return buildMissingDetailsResult({
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT,
+        confidence: hasBareProviderSelection ? 0.8 : 0.86,
+        reason: hasBareProviderSelection ? 'bare_provider_experience_selection' : 'explicit_provider_interest'
+      });
+    }
+
+    return buildAwaitingConfirmationResult({
+      intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_INTENT,
+      confidence: hasBareProviderSelection ? 0.82 : 0.88,
+      reason: hasBareProviderSelection ? 'bare_provider_experience_selection' : 'explicit_provider_interest'
+    });
+  }
 
   if (contextualProviderInterest) {
     if (missingDetails.length) {

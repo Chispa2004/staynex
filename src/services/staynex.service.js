@@ -789,7 +789,7 @@ export const processGuestMessage = async ({
       triggerIntent: openAiResult.primary_intent || primaryConciergeIntent.intent
     }
     : conciergeRevenueOpportunity;
-  const enhancedRisk = openAiResult?.should_escalate
+  let enhancedRisk = openAiResult?.should_escalate
     ? {
       hasRisk: true,
       category: openAiResult.escalation_level === 'urgent' ? 'emergency' : 'reception',
@@ -797,6 +797,26 @@ export const processGuestMessage = async ({
       reason: openAiResult.risk_flags?.[0] || openAiResult.escalation_level || 'openai_escalation'
     }
     : conciergeRisk;
+  const providerExperienceOwnsResponse = Boolean(
+    providerExperienceConversation.intentType
+    && providerExperienceConversation.matchedExperience
+    && !conciergeRisk.hasRisk
+  );
+  const providerSafeEscalationReasons = new Set([
+    'low_confidence',
+    'fallback_response',
+    'openai_escalation',
+    'reception'
+  ]);
+
+  if (providerExperienceOwnsResponse && enhancedRisk?.hasRisk && providerSafeEscalationReasons.has(enhancedRisk.reason)) {
+    enhancedRisk = {
+      hasRisk: false,
+      category: null,
+      priority: 'normal',
+      reason: 'provider_experience_catalog_match_overrides_fallback'
+    };
+  }
   const finalOfferSuppression = shouldSuppressOfferForNaturalConversation({
     message,
     offerType: enhancedRevenueOpportunity?.offerType || null,
@@ -813,6 +833,15 @@ export const processGuestMessage = async ({
     aiResponse: rawAiResponse,
     knowledgeUsed: Boolean(knowledgeResult)
   });
+  if (
+    providerExperienceOwnsResponse
+    && ['low_confidence', 'fallback_response'].includes(humanEscalation.humanReason)
+  ) {
+    humanEscalation = {
+      needsHuman: false,
+      humanReason: null
+    };
+  }
   const aiResponse = humanEscalation.needsHuman && shouldReplaceReplyForHumanEscalation({
     aiResponse: rawAiResponse,
     reason: humanEscalation.humanReason
