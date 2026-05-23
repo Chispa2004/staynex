@@ -62,6 +62,11 @@ assert.equal(canAccessPlatform('none', 'platform_console'), false, 'Hotel user c
 assert.equal(canAccessPlatform('none', 'ai_quality'), false, 'Hotel user cannot access AI Quality');
 assert.equal(canAccessPlatform('platform_admin', 'simulation'), true, 'Platform admin can access Simulation Mode');
 assert.equal(canAccessPlatform('platform_admin', 'ai_quality'), true, 'Platform admin keeps AI Quality access');
+assert.equal(canAccessRouteForContext('admin', '/platform', 'none'), false, 'Hotel admin cannot access platform root');
+assert.equal(canAccessRouteForContext('admin', '/platform/hotels', 'none'), false, 'Hotel admin cannot access platform hotels');
+assert.equal(canAccessRouteForContext('admin', '/platform/providers', 'none'), false, 'Hotel admin cannot access platform providers');
+assert.equal(canAccessRouteForContext('admin', '/platform/hotels', 'platform_admin'), true, 'Platform admin can access platform hotels');
+assert.equal(canAccessRouteForContext('admin', '/platform/providers', 'platform_admin'), true, 'Platform admin can access platform providers');
 assert.equal(canAccessRouteForContext('admin', '/dashboard/simulation', 'none'), false, 'Hotel admin cannot access Simulation Mode');
 assert.equal(canAccessRouteForContext('receptionist', '/dashboard/simulation', 'none'), false, 'Receptionist cannot access Simulation Mode');
 assert.equal(canAccessRouteForContext('admin', '/dashboard/simulation', 'platform_admin'), true, 'Platform admin can access Simulation Mode through dashboard route');
@@ -120,5 +125,11 @@ assert.ok(qrApiSource.includes("canAccess(role, 'qr_rooms_manage')"), 'QR write 
 const knowledgeSource = readFileSync(join(root, 'dashboard/lib/knowledge.js'), 'utf8');
 assert.ok(knowledgeSource.includes('PROTECTED_KNOWLEDGE_CATEGORIES'), 'Knowledge Base should define protected admin categories');
 assert.ok(knowledgeSource.includes("getKnowledgeContext(request, 'knowledge_base_manage')"), 'Knowledge writes should require knowledge_base_manage');
+
+const appShellSource = readFileSync(join(root, 'dashboard/components/AppShell.js'), 'utf8');
+assert.ok(appShellSource.includes('platformNavigationItems'), 'Platform sidebar should use a dedicated platform navigation set');
+assert.ok(appShellSource.includes('/platform/hotels'), 'Platform sidebar should expose Hotels');
+assert.ok(appShellSource.includes('/platform/providers'), 'Platform sidebar should expose Experience Providers');
+assert.ok(appShellSource.includes('!isPlatformContext ? allowedNavigationGroups.map'), 'Hotel workspace navigation should be hidden in platform context');
 
 console.log('Receptionist permission tests passed');

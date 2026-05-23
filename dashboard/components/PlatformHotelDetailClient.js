@@ -397,7 +397,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
         <div className="flex min-w-0 items-start gap-4">
           <WorkspaceMark hotel={hotel} />
           <div className="min-w-0">
-            <Link href="/platform" className={cn('inline-flex items-center gap-2 text-sm font-semibold', ui.text.muted(isLight))}>
+            <Link href="/platform/hotels" className={cn('inline-flex items-center gap-2 text-sm font-semibold', ui.text.muted(isLight))}>
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               Platform console
             </Link>

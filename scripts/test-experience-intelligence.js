@@ -7,6 +7,7 @@ import {
   buildProviderExperienceRecommendationReply,
   buildLastProviderExperienceState,
   classifyProviderExperienceConversation,
+  classifyExperienceBookingError,
   detectExperienceBookingIntent,
   isProviderBookingConfirmation,
   resolveCurrentProviderExperienceForBooking,
@@ -345,6 +346,25 @@ const lastQuad = buildLastProviderExperienceState({
   callsite: 'test'
 });
 assert.equal(lastQuad.last_provider_experience_title, 'Marrakech Quad Adventure');
+
+assert.equal(classifyExperienceBookingError({
+  code: 'PGRST204',
+  message: "Could not find the 'provider_id' column of 'experience_booking_requests' in the schema cache",
+  details: null,
+  hint: null
+}), 'column_missing');
+assert.equal(classifyExperienceBookingError({
+  code: '23514',
+  message: 'new row for relation "experience_booking_requests" violates check constraint "experience_booking_requests_status_check"',
+  details: 'Failing row contains status provider_request_sent.',
+  hint: null
+}), 'constraint_error');
+assert.equal(classifyExperienceBookingError({
+  code: 'PGRST205',
+  message: "Could not find the table 'public.experience_booking_requests' in the schema cache",
+  details: null,
+  hint: null
+}), 'table_missing');
 
 const hammamInterest = await classifyProviderExperienceConversation({
   message: 'Me interesa Hammam',

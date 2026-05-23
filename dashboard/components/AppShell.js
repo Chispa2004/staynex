@@ -108,6 +108,12 @@ const navigationGroups = [
   }
 ];
 
+const platformNavigationItems = [
+  { href: '/platform', label: 'Staynex Platform', icon: ShieldCheck },
+  { href: '/platform/hotels', label: 'Hotels', icon: Building2 },
+  { href: '/platform/providers', label: 'Experience Providers', icon: Compass }
+];
+
 const defaultOpenGroups = navigationGroups.reduce((groups, group) => ({
   ...groups,
   [group.id]: group.defaultOpen
@@ -748,8 +754,14 @@ const AppShellContent = ({ children }) => {
   const workspaceBrandColor = currentHotel?.brand_color || '#34d399';
   const workspaceSecondaryColor = currentHotel?.secondary_color || '#0f766e';
   const sidebarHotelName = currentHotel?.name || 'Staynex';
+  const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
+  const sidebarTitle = isPlatformContext ? 'Staynex Platform' : sidebarHotelName;
+  const sidebarSubtitle = isPlatformContext ? 'Internal command center' : (ROLE_LABELS[activeRole] || activeRole);
   const isNavItemActive = (item) => item.href === '/dashboard'
     ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const isPlatformNavItemActive = (item) => item.href === '/platform'
+    ? pathname === '/platform'
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
   const groupHasActiveRoute = (group) => group.items.some(isNavItemActive);
   const availableHotels = hotelContext.availableHotels || [];
@@ -837,10 +849,10 @@ const AppShellContent = ({ children }) => {
                 style={{ backgroundColor: workspaceBrandColor }}
                 aria-hidden="true"
               />
-              <p className="truncate text-sm font-semibold">{sidebarHotelName}</p>
+              <p className="truncate text-sm font-semibold">{sidebarTitle}</p>
             </div>
             <p className={isLight ? 'truncate text-xs text-slate-500' : 'truncate text-xs text-slate-500'}>
-              {ROLE_LABELS[activeRole] || activeRole}
+              {sidebarSubtitle}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -886,87 +898,127 @@ const AppShellContent = ({ children }) => {
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
-          <HotelWorkspaceSwitcher
-            currentHotel={currentHotel}
-            availableHotels={availableHotels}
-            activeRole={activeRole}
-            switching={switchingHotel}
-            canSwitchWorkspaces={hotelContext.canSwitchWorkspaces}
-            canCreateWorkspaces={hotelContext.canCreateWorkspaces}
-            onSwitch={handleHotelSwitch}
-            accessToken={sessionAccessToken}
-            onWorkspaceCreated={handleHotelSwitch}
-          />
-
-          {urgentCount > 0 ? (
-            <div className="px-4 pb-5 pt-1">
+          {isPlatformContext ? (
+            <div className="px-4 pb-5 pt-4">
               <div className={[
-                'flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs font-semibold uppercase shadow-lg',
+                'rounded-xl border p-4',
                 isLight
-                  ? 'border-red-200 bg-red-50 text-red-800 shadow-red-100/70'
-                  : 'border-red-400/25 bg-red-500/[0.08] text-red-100 shadow-red-500/10'
+                  ? 'border-slate-200 bg-slate-50 text-slate-800'
+                  : 'border-white/10 bg-white/[0.035] text-slate-200'
               ].join(' ')}
               >
-                <span className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 animate-pulse" aria-hidden="true" />
-                  {t('app.urgent')}
-                </span>
-                <span className={isLight ? 'rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-black text-white' : 'rounded-full bg-red-400 px-2 py-0.5 text-[11px] font-black text-red-950'}>
-                  {urgentCount}
-                </span>
-              </div>
-            </div>
-          ) : null}
-
-          {!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding') ? (
-            <div className="px-4 pb-5">
-              <Link
-                href="/dashboard/onboarding"
-                className={isLight ? 'flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800' : 'flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2.5 text-xs font-semibold text-emerald-100'}
-              >
-                <Rocket className="h-4 w-4" />
-                Finish onboarding
-              </Link>
-            </div>
-          ) : null}
-
-          <nav className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
-            {canAccessPlatformConsole ? (
-              <section className="space-y-1.5">
-                <Link
-                  href="/platform"
-                  className={[
-                    'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition',
-                    pathname.startsWith('/platform')
-                      ? isLight
-                        ? 'bg-emerald-50 text-slate-950 shadow-sm shadow-emerald-100'
-                        : 'bg-white/[0.075] text-white shadow-lg shadow-black/10'
-                      : isLight
-                        ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
-                        : 'text-slate-300 hover:bg-white/[0.045] hover:text-slate-100'
-                  ].join(' ')}
-                >
-                  {pathname.startsWith('/platform') ? (
-                    <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-emerald-300" />
-                  ) : null}
+                <div className="flex items-center gap-3">
                   <span className={[
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
-                    pathname.startsWith('/platform')
-                      ? isLight
-                        ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-                        : 'border-emerald-300/20 bg-emerald-300/15 text-emerald-200'
-                      : isLight
-                        ? 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-900'
-                        : 'border-white/5 bg-white/[0.025] text-slate-500 group-hover:text-slate-200'
+                    'flex h-10 w-10 items-center justify-center rounded-xl border',
+                    isLight
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200'
                   ].join(' ')}
                   >
-                    <Building2 className="h-4 w-4" aria-hidden="true" />
+                    <ShieldCheck className="h-5 w-5" aria-hidden="true" />
                   </span>
-                  <span className="min-w-0 flex-1 truncate">Staynex Platform</span>
-                </Link>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">Platform context</p>
+                    <p className={isLight ? 'mt-0.5 text-xs text-slate-500' : 'mt-0.5 text-xs text-slate-500'}>
+                      Global multi-hotel operations
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <HotelWorkspaceSwitcher
+                currentHotel={currentHotel}
+                availableHotels={availableHotels}
+                activeRole={activeRole}
+                switching={switchingHotel}
+                canSwitchWorkspaces={hotelContext.canSwitchWorkspaces}
+                canCreateWorkspaces={hotelContext.canCreateWorkspaces}
+                onSwitch={handleHotelSwitch}
+                accessToken={sessionAccessToken}
+                onWorkspaceCreated={handleHotelSwitch}
+              />
+
+              {urgentCount > 0 ? (
+                <div className="px-4 pb-5 pt-1">
+                  <div className={[
+                    'flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs font-semibold uppercase shadow-lg',
+                    isLight
+                      ? 'border-red-200 bg-red-50 text-red-800 shadow-red-100/70'
+                      : 'border-red-400/25 bg-red-500/[0.08] text-red-100 shadow-red-500/10'
+                  ].join(' ')}
+                  >
+                    <span className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 animate-pulse" aria-hidden="true" />
+                      {t('app.urgent')}
+                    </span>
+                    <span className={isLight ? 'rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-black text-white' : 'rounded-full bg-red-400 px-2 py-0.5 text-[11px] font-black text-red-950'}>
+                      {urgentCount}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
+              {!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding') ? (
+                <div className="px-4 pb-5">
+                  <Link
+                    href="/dashboard/onboarding"
+                    className={isLight ? 'flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800' : 'flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2.5 text-xs font-semibold text-emerald-100'}
+                  >
+                    <Rocket className="h-4 w-4" />
+                    Finish onboarding
+                  </Link>
+                </div>
+              ) : null}
+            </>
+          )}
+
+          <nav className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+            {isPlatformContext ? (
+              <section className="space-y-1.5">
+                {platformNavigationItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isPlatformNavItemActive(item);
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={[
+                        'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition',
+                        active
+                          ? isLight
+                            ? 'bg-emerald-50 text-slate-950 shadow-sm shadow-emerald-100'
+                            : 'bg-white/[0.075] text-white shadow-lg shadow-black/10'
+                          : isLight
+                            ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                            : 'text-slate-300 hover:bg-white/[0.045] hover:text-slate-100'
+                      ].join(' ')}
+                    >
+                      {active ? (
+                        <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-emerald-300" />
+                      ) : null}
+                      <span className={[
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
+                        active
+                          ? isLight
+                            ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
+                            : 'border-emerald-300/20 bg-emerald-300/15 text-emerald-200'
+                          : isLight
+                            ? 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-900'
+                            : 'border-white/5 bg-white/[0.025] text-slate-500 group-hover:text-slate-200'
+                      ].join(' ')}
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    </Link>
+                  );
+                })}
               </section>
             ) : null}
-            {allowedNavigationGroups.map((group) => {
+            {!isPlatformContext ? allowedNavigationGroups.map((group) => {
               const isOpen = openGroups[group.id];
               const activeGroup = groupHasActiveRoute(group);
 
@@ -1057,7 +1109,7 @@ const AppShellContent = ({ children }) => {
                   ) : null}
                 </section>
               );
-            })}
+            }) : null}
           </nav>
 
           <div className="mt-auto px-4 pb-5 pt-3">

@@ -225,6 +225,10 @@ export const getRoutePermission = (pathname = '') => (
 export const canAccessRoute = (role, pathname = '') => canAccess(role, getRoutePermission(pathname));
 
 export const canAccessRouteForContext = (role, pathname = '', platformRole = 'none') => {
+  if (pathname.startsWith('/platform')) {
+    return canAccessPlatform(platformRole, 'platform_console');
+  }
+
   const permission = getRoutePermission(pathname);
 
   if (permission === 'simulation') {
