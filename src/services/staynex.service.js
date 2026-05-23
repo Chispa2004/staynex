@@ -14,6 +14,10 @@ import { findOrCreateGuest } from './guest.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
 import {
   buildConversationContext,
+  getConversationContext,
+  getConversationAiMode,
+  getHumanTakeoverState,
+  isHumanControlledConversation,
   buildConversationState,
   generateContextualResponse,
   upsertConversationAiState
@@ -336,6 +340,13 @@ export const processGuestMessage = async ({
     }
   });
 
+  const existingAiState = await getConversationContext({
+    hotelId: activeHotel.id,
+    conversationId: conversation.id
+  });
+  const takeoverState = getHumanTakeoverState(existingAiState);
+  const humanControlled = isHumanControlledConversation(existingAiState);
+
   const conversationContext = await buildConversationContext({
     hotel: activeHotel,
     guest,
@@ -411,6 +422,78 @@ export const processGuestMessage = async ({
       }
     })
   ]);
+
+  if (humanControlled) {
+    logger.info('human_takeover_ai_response_suppressed', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      mode: takeoverState.mode,
+      activatedBy: takeoverState.activatedBy,
+      activatedAt: takeoverState.activatedAt,
+      reason: takeoverState.reason
+    });
+
+    await createAiLog({
+      messageId: guestMessage.id,
+      hotelId: activeHotel.id,
+      hotelName: activeHotel.name || activeHotel.brand_name || null,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      detectedLanguage: conversationContext.language,
+      detectedIntent: 'human_takeover_active',
+      detectedRoom: guest.current_room || conversationContext.knownRoom || null,
+      confidenceScore: 1,
+      generatedResponse: null,
+      rawGuestMessage: message,
+      needsHuman: true,
+      humanReason: 'human_takeover_active',
+      aiProvider: 'system',
+      aiModel: 'human-takeover-guard',
+      fallbackUsed: false,
+      translatedForStaff: Boolean(staffTranslation.translatedText),
+      translatedForGuest: false,
+      translationProvider: staffTranslation.provider,
+      responseLanguage: conversationContext.language,
+      aiReasoning: `conversation_ai_mode=${getConversationAiMode(existingAiState)}; automatic_ai_reply=false; human_takeover_active=true`
+    });
+
+    const silentAi = {
+      intent: 'human_takeover_active',
+      confidence: 1,
+      reply: null,
+      fallbackUsed: false,
+      aiProvider: 'system',
+      aiModel: 'human-takeover-guard',
+      silent: true
+    };
+
+    return {
+      ai: silentAi,
+      hotel: activeHotel,
+      guest,
+      conversation,
+      messages: {
+        guest: guestMessage,
+        ai: null
+      },
+      ticket: null,
+      upsells: [],
+      memories: [],
+      reservation: conversationContext.reservation,
+      human: {
+        needsHuman: true,
+        humanReason: 'human_takeover_active',
+        takeover: takeoverState
+      },
+      delivery: {
+        channel,
+        sent_via_twilio: false,
+        twilio_sid: null,
+        ai_suppressed_by_human_takeover: true
+      }
+    };
+  }
 
   const knowledgeResult = await findKnowledgeAnswerWithMetadata(
     activeHotel.id,

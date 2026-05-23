@@ -16,6 +16,7 @@ dashboard/.env.*
 dashboard/.next/
 dashboard/.next-onedrive-broken-*/
 dashboard/.next_corrupt_*/
+dashboard/.next_onedrive_reparse_*/
 dist/
 build/
 coverage/

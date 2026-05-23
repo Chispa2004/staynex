@@ -1,4 +1,5 @@
 import { createAiLog } from './ai-log.service.js';
+import { getConversationContext, isHumanControlledConversation } from './conversation-context.service.js';
 import { getSupabase } from './supabase.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
 import { logger } from '../utils/logger.js';
@@ -73,6 +74,27 @@ export const processScheduledMessage = async (scheduledMessage) => {
       failed_at: new Date().toISOString(),
       error_message: 'Missing send_to'
     });
+  }
+
+  if (scheduledMessage.conversation_id && scheduledMessage.hotel_id) {
+    const aiState = await getConversationContext({
+      hotelId: scheduledMessage.hotel_id,
+      conversationId: scheduledMessage.conversation_id
+    });
+
+    if (isHumanControlledConversation(aiState)) {
+      logger.info('automation_blocked_by_human_takeover', {
+        scheduledMessageId: scheduledMessage.id,
+        hotelId: scheduledMessage.hotel_id,
+        conversationId: scheduledMessage.conversation_id,
+        automationType: scheduledMessage.automation_type
+      });
+
+      return updateScheduledMessageStatus(scheduledMessage.id, {
+        status: 'failed',
+        error_message: 'Human takeover active for conversation'
+      });
+    }
   }
 
   try {

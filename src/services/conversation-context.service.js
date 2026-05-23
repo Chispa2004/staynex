@@ -10,6 +10,19 @@ import { getHotelProfileForPrompt } from './hotel.service.js';
 import { getGuestMemory } from './guest-memory.service.js';
 
 const DEFAULT_OFFER_COOLDOWN_HOURS = 12;
+export const CONVERSATION_AI_MODES = {
+  AI_ACTIVE: 'ai_active',
+  HUMAN_TAKEOVER: 'human_takeover',
+  AI_PAUSED: 'ai_paused',
+  ESCALATION_LOCK: 'escalation_lock'
+};
+
+const HUMAN_CONTROLLED_AI_MODES = new Set([
+  CONVERSATION_AI_MODES.HUMAN_TAKEOVER,
+  CONVERSATION_AI_MODES.AI_PAUSED,
+  CONVERSATION_AI_MODES.ESCALATION_LOCK
+]);
+
 const OFFER_COOLDOWN_HOURS_BY_TYPE = {
   romantic_package: 24,
   late_checkout: 12,
@@ -59,6 +72,23 @@ const isMissingStateTable = (error) => (
   || error?.details?.includes('conversation_ai_state')
   || error?.hint?.includes('conversation_ai_state')
 );
+
+export const getConversationAiMode = (state = null) => (
+  state?.state_metadata?.conversation_ai_mode
+  || state?.conversation_ai_mode
+  || CONVERSATION_AI_MODES.AI_ACTIVE
+);
+
+export const getHumanTakeoverState = (state = null) => ({
+  mode: getConversationAiMode(state),
+  activatedBy: state?.state_metadata?.human_takeover?.activated_by || null,
+  activatedAt: state?.state_metadata?.human_takeover?.activated_at || null,
+  resumedBy: state?.state_metadata?.human_takeover?.resumed_by || null,
+  resumedAt: state?.state_metadata?.human_takeover?.resumed_at || null,
+  reason: state?.state_metadata?.human_takeover?.reason || null
+});
+
+export const isHumanControlledConversation = (state = null) => HUMAN_CONTROLLED_AI_MODES.has(getConversationAiMode(state));
 
 const hoursSince = (value) => {
   if (!value) return Infinity;
@@ -249,6 +279,10 @@ export const upsertConversationAiState = async ({
   try {
     const supabase = getSupabase();
     const now = new Date().toISOString();
+    const previousMetadata = state.previousState?.state_metadata && typeof state.previousState.state_metadata === 'object'
+      ? state.previousState.state_metadata
+      : {};
+    const nextMetadata = state.metadata || {};
     const record = {
       hotel_id: hotelId,
       conversation_id: conversationId,
@@ -263,7 +297,12 @@ export const upsertConversationAiState = async ({
       openai_enhanced: Boolean(openAiEnhanced),
       sentiment: state.sentiment || 'neutral',
       escalation_level: state.escalationLevel || 'ai_handled',
-      state_metadata: state.metadata || {},
+      state_metadata: {
+        ...previousMetadata,
+        ...nextMetadata,
+        human_takeover: nextMetadata.human_takeover || previousMetadata.human_takeover || null,
+        conversation_ai_mode: nextMetadata.conversation_ai_mode || previousMetadata.conversation_ai_mode || CONVERSATION_AI_MODES.AI_ACTIVE
+      },
       updated_at: now
     };
     const { data, error } = await supabase

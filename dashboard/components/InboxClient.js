@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Clock3, Eye, EyeOff, Languages, MessageSquareText, RefreshCw, Send, Sparkles, UserRound, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Clock3, Eye, EyeOff, Languages, MessageSquareText, PauseCircle, PlayCircle, RefreshCw, Send, ShieldCheck, Sparkles, UserRound, X, Zap } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -129,6 +129,25 @@ const quickReplyTemplates = [
   { label: 'Create ticket', text: 'I will create a ticket so the team can follow up.' }
 ];
 
+const AI_MODE = {
+  ACTIVE: 'ai_active',
+  HUMAN_TAKEOVER: 'human_takeover',
+  AI_PAUSED: 'ai_paused',
+  ESCALATION_LOCK: 'escalation_lock'
+};
+
+const getConversationAiMode = (conversation) => (
+  conversation?.aiState?.state_metadata?.conversation_ai_mode || AI_MODE.ACTIVE
+);
+
+const getHumanTakeoverMetadata = (conversation) => (
+  conversation?.aiState?.state_metadata?.human_takeover || null
+);
+
+const isHumanTakeoverActive = (conversation) => (
+  [AI_MODE.HUMAN_TAKEOVER, AI_MODE.AI_PAUSED, AI_MODE.ESCALATION_LOCK].includes(getConversationAiMode(conversation))
+);
+
 const normalizeTranslationLanguage = (value) => {
   const language = String(value || '').trim().toLowerCase();
   return TRANSLATION_LANGUAGES.some((item) => item.code === language) ? language : 'es';
@@ -245,6 +264,13 @@ const attentionPattern = new RegExp(
 );
 
 const getHumanEscalation = (conversation) => {
+  if (isHumanTakeoverActive(conversation)) {
+    return {
+      needsHuman: true,
+      reason: 'human_takeover_active'
+    };
+  }
+
   const aiLog = conversation.aiLog;
 
   if (aiLog?.needs_human) {
@@ -346,6 +372,24 @@ const updateConversationWithMessage = ({ conversations, conversationId, message 
   })
 );
 
+const updateConversationAiState = ({ conversations, conversationId, aiState }) => sortConversations(
+  conversations.map((conversation) => {
+    if (conversation.id !== conversationId) {
+      return conversation;
+    }
+
+    const nextConversation = {
+      ...conversation,
+      aiState
+    };
+
+    return {
+      ...nextConversation,
+      copilot: buildConversationCopilot(nextConversation)
+    };
+  })
+);
+
 const getConversationMessageCount = (conversations, conversationId) => (
   conversations.find((conversation) => conversation.id === conversationId)?.messages?.length || 0
 );
@@ -363,6 +407,7 @@ export const InboxClient = ({ conversations }) => {
   );
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [takeoverUpdating, setTakeoverUpdating] = useState(false);
   const [hiddenTranslations, setHiddenTranslations] = useState({});
   const [readState, setReadState] = useState({});
   const [readStateLoaded, setReadStateLoaded] = useState(false);
@@ -393,6 +438,9 @@ export const InboxClient = ({ conversations }) => {
   const selectedHumanEscalation = selectedConversation
     ? getHumanEscalation(selectedConversation)
     : { needsHuman: false, reason: null };
+  const selectedAiMode = getConversationAiMode(selectedConversation);
+  const selectedHumanTakeoverActive = isHumanTakeoverActive(selectedConversation);
+  const selectedTakeoverMetadata = getHumanTakeoverMetadata(selectedConversation);
   const visibleItems = useMemo(() => (
     activeFilter === 'needsHuman'
       ? items.filter((conversation) => getHumanEscalation(conversation).needsHuman)
@@ -854,6 +902,47 @@ export const InboxClient = ({ conversations }) => {
     }
   };
 
+  const updateHumanTakeover = async (action) => {
+    if (!selectedConversation?.id || takeoverUpdating) {
+      return;
+    }
+
+    setTakeoverUpdating(true);
+
+    try {
+      const response = await fetch('/api/inbox/takeover', {
+        method: 'POST',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          conversationId: selectedConversation.id,
+          action
+        })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not update AI control mode');
+      }
+
+      if (body.aiState) {
+        setItems((current) => updateConversationAiState({
+          conversations: current,
+          conversationId: selectedConversation.id,
+          aiState: body.aiState
+        }));
+      }
+
+      await refreshInboxSilently({ reason: `human_takeover_${action}` });
+    } catch (error) {
+      console.error('Human takeover update failed', error);
+    } finally {
+      setTakeoverUpdating(false);
+    }
+  };
+
   const updateOfferAction = async ({ offerId, action }) => {
     try {
       const response = await fetch('/api/ai-offers', {
@@ -1193,6 +1282,7 @@ export const InboxClient = ({ conversations }) => {
             const hasOffer = (conversation.offers || []).length > 0;
             const hasExperienceBooking = (conversation.experienceBookings || []).length > 0;
             const aiState = conversation.aiState;
+            const humanTakeoverActive = isHumanTakeoverActive(conversation);
 
             return (
               <button
@@ -1251,6 +1341,18 @@ export const InboxClient = ({ conversations }) => {
                       >
                         <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                         {humanEscalation.needsHuman ? t('inbox.needsHuman') : t('inbox.needsAttention')}
+                      </span>
+                    ) : null}
+                    {humanTakeoverActive ? (
+                      <span className={[
+                        'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold',
+                        isLight
+                          ? 'border-orange-200 bg-white text-orange-800'
+                          : 'border-orange-300/20 bg-orange-400/15 text-orange-100'
+                      ].join(' ')}
+                      >
+                        <PauseCircle className="h-3 w-3" aria-hidden="true" />
+                        Human
                       </span>
                     ) : null}
                     {unread ? (
@@ -1379,6 +1481,46 @@ export const InboxClient = ({ conversations }) => {
                   ? t('inbox.needsHuman')
                   : t(`status.${selectedConversation?.status || 'unknown'}`)}
               </span>
+              <span className={[
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
+                selectedHumanTakeoverActive
+                  ? isLight
+                    ? 'border-orange-200 bg-orange-50 text-orange-800'
+                    : 'border-orange-300/20 bg-orange-400/10 text-orange-100'
+                  : isLight
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+              ].join(' ')}
+              >
+                {selectedHumanTakeoverActive ? (
+                  <PauseCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {selectedHumanTakeoverActive ? 'Human takeover active' : 'AI Active'}
+              </span>
+              <button
+                type="button"
+                onClick={() => updateHumanTakeover(selectedHumanTakeoverActive ? 'resume' : 'takeover')}
+                disabled={takeoverUpdating || !selectedConversation?.id}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
+                  selectedHumanTakeoverActive
+                    ? isLight
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15'
+                    : isLight
+                      ? 'border-orange-200 bg-orange-50 text-orange-800 hover:bg-orange-100'
+                      : 'border-orange-300/20 bg-orange-400/10 text-orange-100 hover:bg-orange-400/15'
+                )}
+              >
+                {selectedHumanTakeoverActive ? (
+                  <PlayCircle className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <PauseCircle className="h-4 w-4" aria-hidden="true" />
+                )}
+                {selectedHumanTakeoverActive ? 'Resume AI' : 'Take over'}
+              </button>
               <button
                 type="button"
                 onClick={() => setCopilotOpen((current) => !current)}
@@ -1424,6 +1566,35 @@ export const InboxClient = ({ conversations }) => {
         ].join(' ')}
         ref={messagesScrollRef}
         >
+          {selectedHumanTakeoverActive ? (
+            <div className={cn(
+              'premium-fade-in rounded-xl border px-4 py-3 shadow-sm',
+              isLight
+                ? 'border-orange-200 bg-orange-50 text-orange-900 shadow-orange-100'
+                : 'border-orange-300/20 bg-orange-400/10 text-orange-50 shadow-black/10'
+            )}
+            >
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="inline-flex items-center gap-2 text-sm font-semibold">
+                    <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                    AI paused - conversation currently handled by reception.
+                  </p>
+                  <p className={cn('mt-1 text-xs leading-5', isLight ? 'text-orange-800/80' : 'text-orange-100/75')}>
+                    Staynex Copilot still analyses sentiment, urgency and suggested replies, but no automatic guest reply, automation or provider action will be sent.
+                  </p>
+                </div>
+                <div className={cn('shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold', isLight ? 'border-orange-200 bg-white/80 text-orange-800' : 'border-orange-300/20 bg-black/15 text-orange-100')}>
+                  <div>{selectedTakeoverMetadata?.activated_at ? `Since ${formatDate(selectedTakeoverMetadata.activated_at)}` : selectedAiMode}</div>
+                  {selectedTakeoverMetadata?.activated_by?.email || selectedTakeoverMetadata?.activated_by?.role ? (
+                    <div className="mt-0.5 opacity-75">
+                      By {selectedTakeoverMetadata.activated_by.email || selectedTakeoverMetadata.activated_by.role}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
           {(selectedConversation?.messages || []).map((item) => {
             const isStaff = item.sender_type === 'staff';
             const translationKey = `${item.id}:${staffLanguage}`;
