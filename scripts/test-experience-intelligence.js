@@ -426,6 +426,73 @@ const hammamContextBooking = await detectExperienceBookingIntent({
 assert.equal(hammamContextBooking.detected, true);
 assert.equal(hammamContextBooking.matchedExperience.title, 'Marrakech Hammam Experience');
 
+const atlasContext = {
+  provider_experience_id: 'provider-atlas',
+  provider_id: 'luxotour',
+  provider_name: 'Luxotour Morocco',
+  provider_source: 'Luxotour Morocco',
+  title: 'Atlas Mountains Day Trip'
+};
+const contextualAtlasInterest = await detectExperienceBookingIntent({
+  message: 'me interesa',
+  recentMessages: [
+    {
+      sender_type: 'ai',
+      content: 'Day trip to the Atlas Mountains. Si os encaja, puedo ayudaros a enviar la solicitud para confirmar disponibilidad.'
+    }
+  ],
+  hotelExperiences: providerCatalog,
+  latestProviderContext: atlasContext
+});
+assert.equal(contextualAtlasInterest.detected, false);
+assert.equal(contextualAtlasInterest.reason, 'booking_missing_guest_details');
+assert.equal(contextualAtlasInterest.conversationIntent.intentType, PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION);
+assert.equal(contextualAtlasInterest.matchedExperience.title, 'Atlas Mountains Day Trip');
+const contextualAtlasMissingDetailsReply = buildProviderExperienceRecommendationReply({
+  intent: contextualAtlasInterest.conversationIntent,
+  hotelExperiences: providerCatalog,
+  language: 'es'
+});
+assert.equal(contextualAtlasMissingDetailsReply.includes('Luxotour Morocco'), true);
+assert.equal(contextualAtlasMissingDetailsReply.includes('fecha'), true);
+assert.equal(contextualAtlasMissingDetailsReply.includes('personas'), true);
+assert.equal(contextualAtlasMissingDetailsReply.includes('lo reviso'), false);
+
+const contextualAtlasDetails = await detectExperienceBookingIntent({
+  message: 'manana para 2 personas',
+  recentMessages: [
+    { sender_type: 'guest', content: 'me interesa' }
+  ],
+  hotelExperiences: providerCatalog,
+  latestProviderContext: atlasContext
+});
+assert.equal(contextualAtlasDetails.detected, false);
+assert.equal(contextualAtlasDetails.reason, 'awaiting_guest_confirmation');
+assert.equal(contextualAtlasDetails.guestsCount, 2);
+assert.equal(contextualAtlasDetails.matchedExperience.title, 'Atlas Mountains Day Trip');
+const contextualAtlasConfirmationReply = buildProviderExperienceRecommendationReply({
+  intent: contextualAtlasDetails.conversationIntent,
+  hotelExperiences: providerCatalog,
+  language: 'es'
+});
+assert.equal(contextualAtlasConfirmationReply.includes('Luxotour Morocco'), true);
+assert.equal(contextualAtlasConfirmationReply.includes('confirmar disponibilidad'), true);
+
+const contextualAtlasFinalConfirmation = await detectExperienceBookingIntent({
+  message: 'si',
+  recentMessages: [
+    { sender_type: 'guest', content: 'me interesa' },
+    { sender_type: 'guest', content: 'manana para 2 personas' }
+  ],
+  hotelExperiences: providerCatalog,
+  latestProviderContext: atlasContext
+});
+assert.equal(contextualAtlasFinalConfirmation.detected, true);
+assert.equal(contextualAtlasFinalConfirmation.guestConfirmedProviderRequest, true);
+assert.equal(contextualAtlasFinalConfirmation.matchedExperience.title, 'Atlas Mountains Day Trip');
+assert.equal(contextualAtlasFinalConfirmation.requestedDate !== null, true);
+assert.equal(contextualAtlasFinalConfirmation.guestsCount, 2);
+
 const quadContextBooking = await detectExperienceBookingIntent({
   message: 'adelante',
   recentMessages: [

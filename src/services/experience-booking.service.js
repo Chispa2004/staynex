@@ -43,6 +43,7 @@ const providerEmailAlreadySent = (bookingRequest = {}) => Boolean(
 );
 
 const BOOKING_DEDUPE_WINDOW_MS = 10 * 60 * 1000;
+const LUXOTOUR_TEST_PROVIDER_EMAIL = process.env.LUXOTOUR_PROVIDER_EMAIL || 'chimichu0604@gmail.com';
 
 const isSameBookingExperience = ({ booking = {}, providerExperienceId = null, title = '' }) => {
   const bookingProviderExperienceId = booking.provider_experience_id
@@ -56,9 +57,39 @@ const isSameBookingExperience = ({ booking = {}, providerExperienceId = null, ti
   return normalize(booking.experience_title || '') === normalize(title || '');
 };
 
+const resolveProviderLeadEmail = ({ experience = {}, latestOffer = null, providerSource = null } = {}) => {
+  const configuredEmail = experience?.provider_lead_email
+    || experience?.metadata?.provider_lead_email
+    || latestOffer?.metadata?.provider_lead_email
+    || null;
+
+  if (configuredEmail) {
+    return configuredEmail;
+  }
+
+  const providerText = normalize([
+    providerSource,
+    experience?.provider_source,
+    experience?.partner_name,
+    experience?.metadata?.provider_source,
+    experience?.metadata?.provider_name
+  ].filter(Boolean).join(' '));
+
+  return providerText.includes('luxotour') ? LUXOTOUR_TEST_PROVIDER_EMAIL : null;
+};
+
 const isWithinBookingDedupeWindow = (booking = {}) => {
   const createdAt = new Date(booking.created_at || 0).getTime();
   return Number.isFinite(createdAt) && Date.now() - createdAt <= BOOKING_DEDUPE_WINDOW_MS;
+};
+
+const isSameBookingDetails = ({ booking = {}, requestedDate = null, guestsCount = null } = {}) => {
+  const bookingDate = booking.requested_date || booking.metadata?.desired_date || null;
+  const bookingGuests = Number(booking.guests_count || booking.metadata?.guests_count || 0) || null;
+  const nextGuests = Number(guestsCount || 0) || null;
+
+  return (!requestedDate || !bookingDate || bookingDate === requestedDate)
+    && (!nextGuests || !bookingGuests || bookingGuests === nextGuests);
 };
 
 const isMissingLeadColumns = (error) => (
@@ -1324,6 +1355,10 @@ export const classifyProviderExperienceConversation = async ({
     latestOffer,
     latestProviderContext
   });
+  const currentExplicitExperienceMatch = matchExplicitProviderExperience({
+    message,
+    providerExperiences: hotelExperiences
+  });
   const confirmationOverride = isProviderBookingConfirmation(message);
   const mentionsExperience = includesAny(text, experienceWords) || Boolean(matchedExperience);
   const asksForRecommendations = includesAny(text, inquiryWords) || (
@@ -1337,6 +1372,31 @@ export const classifyProviderExperienceConversation = async ({
   const followsExperienceOfferWithAction = Boolean((latestOffer || latestProviderContext) && (hasBookingLanguage || hasBareConfirmation || confirmationOverride));
   const bookingDetails = providerBookingDetailsFromText(message);
   const missingDetails = missingProviderBookingDetails(bookingDetails);
+  const contextualProviderInterest = Boolean(
+    latestProviderContext
+    && matchedExperience
+    && !currentExplicitExperienceMatch
+    && includesAny(text, [
+      'me interesa',
+      'nos interesa',
+      'interested',
+      'i am interested',
+      'we are interested',
+      'sounds interesting',
+      'ca m interesse',
+      'cela m interesse',
+      'je suis interesse',
+      'ich bin interessiert'
+    ])
+  );
+  const contextualProviderDetailsProvided = Boolean(
+    latestProviderContext
+    && matchedExperience
+    && !currentExplicitExperienceMatch
+    && (bookingDetails.requestedDate || bookingDetails.guestsCount)
+    && !confirmationOverride
+    && !hasBookingLanguage
+  );
   const buildMissingDetailsResult = ({ intentType, confidence, reason, matched = matchedExperience }) => ({
     intentType,
     confidence,
@@ -1365,6 +1425,38 @@ export const classifyProviderExperienceConversation = async ({
     missingDetails: [],
     previousReason: reason
   });
+
+  if (contextualProviderInterest) {
+    if (missingDetails.length) {
+      return buildMissingDetailsResult({
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+        confidence: 0.82,
+        reason: 'contextual_provider_interest_missing_details'
+      });
+    }
+
+    return buildAwaitingConfirmationResult({
+      intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+      confidence: 0.84,
+      reason: 'contextual_provider_interest_details_complete'
+    });
+  }
+
+  if (contextualProviderDetailsProvided) {
+    if (missingDetails.length) {
+      return buildMissingDetailsResult({
+        intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+        confidence: 0.82,
+        reason: 'contextual_provider_booking_details_partial'
+      });
+    }
+
+    return buildAwaitingConfirmationResult({
+      intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+      confidence: 0.86,
+      reason: 'contextual_provider_booking_details_complete'
+    });
+  }
 
   if (latestProviderContext && confirmationOverride && !mentionsExperience) {
     if (!matchedExperience) {
@@ -1687,6 +1779,17 @@ export const buildProviderExperienceRecommendationReply = ({
 
   if (missingGuestDetailsBooking) {
     const missing = new Set(intent?.missingDetails || []);
+    const providerName = intent?.matchedExperience?.provider_source
+      || intent?.matchedExperience?.provider_name
+      || intent?.latestProviderContext?.provider_name
+      || intent?.latestProviderContext?.provider_source
+      || null;
+    const providerDestination = {
+      es: providerName ? `a ${providerName}` : 'al proveedor',
+      fr: providerName ? `a ${providerName}` : 'au prestataire',
+      de: providerName ? `an ${providerName}` : 'an den Anbieter',
+      en: providerName ? `to ${providerName}` : 'to the provider'
+    };
     const parts = {
       es: [
         missing.has('date') ? 'la fecha' : null,
@@ -1707,21 +1810,35 @@ export const buildProviderExperienceRecommendationReply = ({
     };
 
     return {
-      es: `Claro. Para enviar la solicitud al proveedor, necesito ${parts.es || 'un poco mas de informacion'}.\n\n¿Para que fecha y para cuantas personas seria?`,
-      fr: `Bien sur. Pour envoyer la demande au prestataire, il me faut ${parts.fr || 'quelques informations'}.\n\nPour quelle date et combien de personnes ?`,
-      de: `Gerne. Um die Anfrage an den Anbieter zu senden, brauche ich noch ${parts.de || 'ein paar Angaben'}.\n\nFuer welches Datum und wie viele Personen waere es?`,
-      en: `Of course. To send the request to the provider, I still need ${parts.en || 'a little more information'}.\n\nWhich date would you like, and for how many guests?`
-    }[language] || `Of course. To send the request to the provider, I still need ${parts.en || 'a little more information'}.\n\nWhich date would you like, and for how many guests?`;
+      es: `Perfecto. Para enviar la solicitud ${providerDestination.es}, necesito ${parts.es || 'un poco mas de informacion'}.\n\nPara que fecha y para cuantas personas seria?`,
+      fr: `Parfait. Pour envoyer la demande ${providerDestination.fr}, il me faut ${parts.fr || 'quelques informations'}.\n\nPour quelle date et combien de personnes ?`,
+      de: `Perfekt. Um die Anfrage ${providerDestination.de} zu senden, brauche ich noch ${parts.de || 'ein paar Angaben'}.\n\nFuer welches Datum und wie viele Personen waere es?`,
+      en: `Perfect. To send the request ${providerDestination.en}, I still need ${parts.en || 'a little more information'}.\n\nWhich date would you like, and for how many guests?`
+    }[language] || `Perfect. To send the request ${providerDestination.en}, I still need ${parts.en || 'a little more information'}.\n\nWhich date would you like, and for how many guests?`;
+
   }
 
   if (awaitingGuestConfirmation) {
     const title = intent?.matchedExperience?.title ? ` ${intent.matchedExperience.title}` : '';
+    const providerName = intent?.matchedExperience?.provider_source
+      || intent?.matchedExperience?.provider_name
+      || intent?.latestProviderContext?.provider_name
+      || intent?.latestProviderContext?.provider_source
+      || null;
+    const providerDestination = {
+      es: providerName ? `a ${providerName}` : 'al proveedor',
+      fr: providerName ? `au prestataire ${providerName}` : 'au prestataire',
+      de: providerName ? `an ${providerName}` : 'an den Anbieter',
+      en: providerName ? `to ${providerName}` : 'to the provider'
+    };
+
     return {
-      es: `Perfecto. Tengo los datos para la solicitud${title}.\n\n¿Quieres que la envie al proveedor para confirmar disponibilidad?`,
-      fr: `Parfait. J ai les informations pour la demande${title}.\n\nSouhaitez-vous que je l envoie au prestataire pour confirmer la disponibilite ?`,
-      de: `Perfekt. Ich habe die Angaben fuer die Anfrage${title}.\n\nSoll ich sie an den Anbieter senden, um die Verfuegbarkeit zu pruefen?`,
-      en: `Perfect. I have the details for the request${title}.\n\nWould you like me to send it to the provider to confirm availability?`
-    }[language] || `Perfect. I have the details for the request${title}.\n\nWould you like me to send it to the provider to confirm availability?`;
+      es: `Perfecto. Tengo los datos para la solicitud${title}.\n\nQuieres que envie ahora la solicitud ${providerDestination.es} para confirmar disponibilidad?`,
+      fr: `Parfait. J ai les informations pour la demande${title}.\n\nSouhaitez-vous que je l envoie maintenant ${providerDestination.fr} pour confirmer la disponibilite ?`,
+      de: `Perfekt. Ich habe die Angaben fuer die Anfrage${title}.\n\nSoll ich sie jetzt ${providerDestination.de} senden, um die Verfuegbarkeit zu pruefen?`,
+      en: `Perfect. I have the details for the request${title}.\n\nWould you like me to send it now ${providerDestination.en} to confirm availability?`
+    }[language] || `Perfect. I have the details for the request${title}.\n\nWould you like me to send it now ${providerDestination.en} to confirm availability?`;
+
   }
 
   if (!catalog.length) {
@@ -1858,7 +1975,11 @@ export const createExperienceBookingRequest = async ({
   const providerId = experience?.provider_id || latestOffer?.metadata?.provider_id || null;
   const providerExperienceId = experience?.provider_experience_id || latestOffer?.metadata?.provider_experience_id || null;
   const providerSource = experience?.provider_source || latestOffer?.metadata?.provider_source || null;
-  const providerLeadEmail = experience?.provider_lead_email || latestOffer?.metadata?.provider_lead_email || null;
+  const providerLeadEmail = resolveProviderLeadEmail({
+    experience,
+    latestOffer,
+    providerSource
+  });
   const isProviderRequest = Boolean(providerSource || providerId || providerExperienceId || experience?.metadata?.experience_provider);
 
   if (Number(intent.confidence || 0) < 0.75) {
@@ -1918,6 +2039,11 @@ export const createExperienceBookingRequest = async ({
 
     const existing = (existingCandidates || []).find((booking) => (
       isSameBookingExperience({ booking, providerExperienceId, title })
+      && isSameBookingDetails({
+        booking,
+        requestedDate: intent.requestedDate,
+        guestsCount: intent.guestsCount
+      })
       && isWithinBookingDedupeWindow(booking)
     ));
 
