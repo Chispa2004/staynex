@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Clock3, Eye, EyeOff, Languages, MessageSquareText, PauseCircle, PlayCircle, RefreshCw, Send, ShieldCheck, Sparkles, UserRound, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Clock3, Eye, EyeOff, Languages, MessageSquareText, PauseCircle, PlayCircle, RefreshCw, Search, Send, ShieldCheck, Sparkles, UserRound, X, Zap } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -394,6 +394,67 @@ const getConversationMessageCount = (conversations, conversationId) => (
   conversations.find((conversation) => conversation.id === conversationId)?.messages?.length || 0
 );
 
+const getConversationGuestLabel = (conversation) => (
+  conversation?.guest?.name
+  || conversation?.guest?.full_name
+  || conversation?.guest?.phone_number
+  || 'Guest'
+);
+
+const getConversationInitials = (conversation) => {
+  const label = getConversationGuestLabel(conversation);
+  const cleanLabel = String(label || 'Guest').replace(/[^A-Za-z0-9\s+]/g, ' ').trim();
+  const words = cleanLabel.split(/\s+/).filter(Boolean);
+
+  if (!words.length) {
+    return 'G';
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase();
+};
+
+const getConversationLanguage = (conversation) => (
+  conversation?.guest?.preferred_language
+  || [...(conversation?.messages || [])].reverse().find((item) => item.sender_type === 'guest')?.original_language
+  || conversation?.aiState?.state_metadata?.conversation_language
+  || null
+);
+
+const isVipConversation = (conversation) => (
+  Number(conversation?.guestIntelligence?.profile?.vip_score || 0) >= 70
+  || Number(conversation?.pmsIntelligenceContext?.vipScore || 0) >= 70
+  || Number(conversation?.copilot?.vipProbability?.probability || 0) >= 0.65
+);
+
+const isAngryConversation = (conversation) => (
+  ['angry', 'frustrated', 'urgent'].includes(conversation?.copilot?.sentiment?.label)
+  || conversation?.aiState?.sentiment === 'negative'
+);
+
+const isUrgentConversation = (conversation, unreadCount) => (
+  getHumanEscalation(conversation).needsHuman
+  || getNeedsAttention(conversation, unreadCount)
+  || ['high', 'urgent'].includes(conversation?.copilot?.priority?.level)
+  || ['medium', 'high'].includes(conversation?.copilot?.escalationRisk?.level)
+);
+
+const getConversationPriorityScore = (conversation, readState) => {
+  const unreadCount = getUnreadCount(conversation, readState);
+  const recentTime = new Date(conversation.last_message_at || conversation.created_at || 0).getTime();
+
+  return [
+    isHumanTakeoverActive(conversation) ? 100000000000000 : 0,
+    isUrgentConversation(conversation, unreadCount) ? 10000000000000 : 0,
+    unreadCount > 0 ? 1000000000000 : 0,
+    isAngryConversation(conversation) ? 100000000000 : 0,
+    Number.isFinite(recentTime) ? recentTime : 0
+  ].reduce((total, value) => total + value, 0);
+};
+
 export const InboxClient = ({ conversations }) => {
   const searchParams = useSearchParams();
   const { language, t } = useDashboardLanguage();
@@ -403,7 +464,7 @@ export const InboxClient = ({ conversations }) => {
   const requestedConversationId = searchParams.get('conversationId');
   const [items, setItems] = useState(sortedConversations);
   const [selectedId, setSelectedId] = useState(
-    requestedConversationId || sortedConversations[0]?.id || null
+    requestedConversationId || null
   );
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -412,6 +473,7 @@ export const InboxClient = ({ conversations }) => {
   const [readState, setReadState] = useState({});
   const [readStateLoaded, setReadStateLoaded] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [currentHotel, setCurrentHotel] = useState(null);
   const [staffLanguage, setStaffLanguage] = useState(normalizeTranslationLanguage(language || 'es'));
   const [translationOverrides, setTranslationOverrides] = useState({});
@@ -441,11 +503,36 @@ export const InboxClient = ({ conversations }) => {
   const selectedAiMode = getConversationAiMode(selectedConversation);
   const selectedHumanTakeoverActive = isHumanTakeoverActive(selectedConversation);
   const selectedTakeoverMetadata = getHumanTakeoverMetadata(selectedConversation);
-  const visibleItems = useMemo(() => (
-    activeFilter === 'needsHuman'
-      ? items.filter((conversation) => getHumanEscalation(conversation).needsHuman)
-      : items
-  ), [activeFilter, items]);
+  const visibleItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return items
+      .filter((conversation) => {
+        const unreadCount = getUnreadCount(conversation, readState);
+        const language = getConversationLanguage(conversation);
+        const searchable = [
+          getConversationGuestLabel(conversation),
+          conversation.guest?.phone_number,
+          conversation.guest?.current_room,
+          conversation.lastMessage?.content,
+          conversation.aiState?.current_intent,
+          language
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        if (query && !searchable.includes(query)) {
+          return false;
+        }
+
+        if (activeFilter === 'unread') return unreadCount > 0;
+        if (activeFilter === 'human') return isHumanTakeoverActive(conversation);
+        if (activeFilter === 'urgent') return isUrgentConversation(conversation, unreadCount);
+        if (activeFilter === 'vip') return isVipConversation(conversation);
+        if (activeFilter === 'ai') return !isHumanTakeoverActive(conversation);
+
+        return true;
+      })
+      .sort((a, b) => getConversationPriorityScore(b, readState) - getConversationPriorityScore(a, readState));
+  }, [activeFilter, items, readState, searchQuery]);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -544,6 +631,7 @@ export const InboxClient = ({ conversations }) => {
         setMessage('');
         setCopilotOpen(false);
         setMobileChatOpen(false);
+        setSearchQuery('');
       }
 
       setCurrentHotel(body.hotel || null);
@@ -566,7 +654,7 @@ export const InboxClient = ({ conversations }) => {
           return current;
         }
 
-        return requestedConversationId || nextItems[0]?.id || null;
+        return requestedConversationId || null;
       });
 
       return nextItems;
@@ -606,6 +694,7 @@ export const InboxClient = ({ conversations }) => {
       setStaffLanguage(normalizeTranslationLanguage(language || 'es'));
       setTranslationOverrides({});
       setTranslatingMessages({});
+      setSearchQuery('');
     };
 
     window.addEventListener('staynex:tenant-changed', handleTenantChanged);
@@ -1155,13 +1244,25 @@ export const InboxClient = ({ conversations }) => {
     (selectedConversation?.experienceBookings || []).length > 0,
     selectedConversation?.aiState?.escalation_level && selectedConversation.aiState.escalation_level !== 'ai_handled'
   ].filter(Boolean).length;
-  const inboxGridColumns = copilotOpen
-    ? 'lg:grid-cols-[360px_minmax(0,1fr)_360px]'
-    : 'lg:grid-cols-[360px_minmax(0,1fr)]';
+  const chatOpen = Boolean(selectedConversation && mobileChatOpen);
+  const inboxGridColumns = chatOpen
+    ? copilotOpen
+      ? 'lg:grid-cols-[minmax(0,1fr)_380px]'
+      : 'lg:grid-cols-[minmax(0,1fr)]'
+    : 'grid-cols-1';
   const selectedGuestLanguage = selectedConversation?.guest?.preferred_language
     || [...(selectedConversation?.messages || [])].reverse().find((item) => item.sender_type === 'guest')?.original_language
     || null;
   const replyWillTranslate = Boolean(selectedGuestLanguage && selectedGuestLanguage !== staffLanguage);
+  const humanTakeoverTotal = items.filter((conversation) => isHumanTakeoverActive(conversation)).length;
+  const filterItems = [
+    { key: 'all', label: 'All', count: items.length },
+    { key: 'unread', label: 'Unread', count: items.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
+    { key: 'human', label: 'Human takeover', count: humanTakeoverTotal },
+    { key: 'urgent', label: 'Urgent', count: items.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
+    { key: 'vip', label: 'VIP', count: items.filter((conversation) => isVipConversation(conversation)).length },
+    { key: 'ai', label: 'AI Active', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
+  ];
 
   return (
     <div
@@ -1174,65 +1275,80 @@ export const InboxClient = ({ conversations }) => {
       ].join(' ')}
     >
       <aside className={[
-        mobileChatOpen ? 'hidden lg:flex' : 'flex',
-        'min-h-0 flex-col border-b lg:border-b-0 lg:border-r',
+        chatOpen ? 'hidden' : 'flex',
+        'min-h-0 flex-col',
         isLight ? 'border-slate-200 bg-slate-50/80' : 'border-white/10 bg-black/10'
       ].join(' ')}
       >
         <div className={[
-          'flex shrink-0 items-center justify-between border-b px-5 py-4',
+          'shrink-0 border-b px-4 py-4 sm:px-6',
           isLight ? 'border-slate-200 bg-white' : 'border-white/10'
         ].join(' ')}
         >
-          <div>
-            <p className={isLight ? 'text-sm font-semibold text-slate-900' : 'text-sm font-semibold text-white'}>{t('inbox.conversations')}</p>
-            <p className={isLight ? 'text-xs text-slate-600' : 'text-xs text-slate-500'}>
-              {t('inbox.activeThreads', { count: items.length })}
-              {unreadTotal > 0 ? ` - ${t('inbox.unreadTotal', { count: unreadTotal })}` : ''}
-              {humanTotal > 0 ? ` - ${t('inbox.humanTotal', { count: humanTotal })}` : ''}
-            </p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Inbox</p>
+              <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
+                {items.length} conversations
+                {unreadTotal > 0 ? ` / ${unreadTotal} unread` : ''}
+                {humanTakeoverTotal > 0 ? ` / ${humanTakeoverTotal} human controlled` : ''}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className={[
+                  'hidden rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] sm:inline-flex',
+                  realtimeStatus === 'connected'
+                    ? isLight
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+                    : isLight
+                      ? 'border-amber-200 bg-amber-50 text-amber-800'
+                      : 'border-amber-300/20 bg-amber-300/10 text-amber-100'
+                ].join(' ')}
+              >
+                {realtimeStatus === 'connected' ? 'Live' : 'Fallback'}
+              </span>
+              <button
+                type="button"
+                onClick={() => loadInbox()}
+                className={cn(
+                  'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition',
+                  isLight
+                    ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    : 'border-white/10 bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-100'
+                )}
+                title={t('buttons.refresh')}
+              >
+                <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
+                <span className="sr-only">{t('buttons.refresh')}</span>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span
-              className={[
-                'hidden rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] sm:inline-flex',
-                realtimeStatus === 'connected'
-                  ? isLight
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                    : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
-                  : isLight
-                    ? 'border-amber-200 bg-amber-50 text-amber-800'
-                    : 'border-amber-300/20 bg-amber-300/10 text-amber-100'
-              ].join(' ')}
-            >
-              {realtimeStatus === 'connected' ? 'Live' : 'Fallback'}
-            </span>
-            <button
-              type="button"
-              onClick={() => loadInbox()}
+          <div className={cn(
+            'mt-4 flex items-center gap-2 rounded-xl border px-3 py-2',
+            isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-black/15 text-slate-200'
+          )}
+          >
+            <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search guest, room, message or language"
               className={cn(
-                'inline-flex h-9 w-9 items-center justify-center rounded-lg border transition',
-                isLight
-                  ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  : 'border-white/10 bg-white/[0.04] text-slate-400 hover:bg-white/[0.08] hover:text-slate-100'
+                'min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400',
+                isLight ? 'text-slate-900' : 'text-white'
               )}
-              title={t('buttons.refresh')}
-            >
-              <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-              <span className="sr-only">{t('buttons.refresh')}</span>
-            </button>
+            />
           </div>
         </div>
 
         <div className={[
-          'flex shrink-0 gap-2 border-b p-3',
+          'executive-scroll flex shrink-0 gap-2 overflow-x-auto border-b p-3 sm:px-6',
           isLight ? 'border-slate-200 bg-white/80' : 'border-white/10 bg-black/10'
         ].join(' ')}
         >
-          {[
-            { key: 'all', label: t('filters.all'), count: items.length },
-            { key: 'needsHuman', label: t('inbox.needsHumanFilter'), count: humanTotal }
-          ].map((filter) => {
+          {filterItems.map((filter) => {
             const active = activeFilter === filter.key;
 
             return (
@@ -1241,7 +1357,7 @@ export const InboxClient = ({ conversations }) => {
                 type="button"
                 onClick={() => setActiveFilter(filter.key)}
                 className={[
-                  'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition',
+                  'inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition',
                   isLight
                     ? active
                       ? 'border-orange-200 bg-orange-50 text-orange-800'
@@ -1262,11 +1378,12 @@ export const InboxClient = ({ conversations }) => {
           })}
         </div>
 
-        <div className="executive-scroll min-h-0 flex-1 overflow-y-auto p-2">
+        <div className="executive-scroll min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           {visibleItems.length === 0 ? (
             <PremiumEmptyState
               icon={AlertTriangle}
-              title={t('inbox.noNeedsHuman')}
+              title="No conversations match this view"
+              description="Try another filter or search term."
               className="min-h-32 px-4 py-8"
             />
           ) : null}
@@ -1283,6 +1400,20 @@ export const InboxClient = ({ conversations }) => {
             const hasExperienceBooking = (conversation.experienceBookings || []).length > 0;
             const aiState = conversation.aiState;
             const humanTakeoverActive = isHumanTakeoverActive(conversation);
+            const displayName = getConversationGuestLabel(conversation);
+            const roomNumber = conversation.guest?.current_room || conversation.pmsIntelligenceContext?.roomStatus?.roomNumber || null;
+            const languageBadge = getConversationLanguage(conversation);
+            const sentiment = conversation.copilot?.sentiment?.label || aiState?.sentiment || 'neutral';
+            const priority = conversation.copilot?.priority?.level || (needsAttention ? 'high' : 'normal');
+            const vip = isVipConversation(conversation);
+            const badgeItems = [
+              humanTakeoverActive ? { label: 'Human takeover', tone: 'orange', icon: PauseCircle } : { label: 'AI Active', tone: 'emerald', icon: Bot },
+              needsAttention ? { label: 'Urgent', tone: 'red', icon: AlertTriangle } : null,
+              vip ? { label: 'VIP', tone: 'violet' } : null,
+              languageBadge ? { label: String(languageBadge).toUpperCase(), tone: 'sky' } : null,
+              hasExperienceBooking ? { label: 'Experience', tone: 'amber' } : null,
+              hasOffer || hasUpsell ? { label: 'Revenue', tone: 'emerald' } : null
+            ].filter(Boolean).slice(0, 5);
 
             return (
               <button
@@ -1312,95 +1443,69 @@ export const InboxClient = ({ conversations }) => {
                           : 'border-transparent hover:border-white/10 hover:bg-white/[0.04]'
                 ].join(' ')}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      {unread ? (
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-300 shadow-lg shadow-emerald-400/60" />
-                      ) : null}
-                      <p className={isLight ? `truncate text-sm ${unread ? 'font-bold text-slate-950' : 'font-semibold text-slate-900'}` : `truncate text-sm ${unread ? 'font-bold text-white' : 'font-semibold text-slate-100'}`}>
-                        {t('table.room')} {conversation.guest?.current_room || t('status.unknown').toLowerCase()}
-                      </p>
+                <div className="flex items-start gap-4">
+                  <span className={cn(
+                    'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-sm font-bold shadow-sm',
+                    isLight ? 'border-slate-200 bg-white text-slate-700' : 'border-white/10 bg-white/[0.06] text-slate-200'
+                  )}
+                  >
+                    {getConversationInitials(conversation)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {unread ? (
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-300 shadow-lg shadow-emerald-400/60" />
+                          ) : null}
+                          <p className={isLight ? `truncate text-sm ${unread ? 'font-bold text-slate-950' : 'font-semibold text-slate-900'}` : `truncate text-sm ${unread ? 'font-bold text-white' : 'font-semibold text-slate-100'}`}>
+                            {displayName}
+                          </p>
+                        </div>
+                        <p className={isLight ? 'mt-0.5 text-xs text-slate-500' : 'mt-0.5 text-xs text-slate-500'}>
+                          {roomNumber ? `Room ${roomNumber}` : 'Room not assigned'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className={isLight ? 'text-xs font-medium text-slate-500' : 'text-xs font-medium text-slate-500'}>
+                          {formatTime(conversation.last_message_at || conversation.created_at)}
+                        </span>
+                        {unread ? (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-300 px-1.5 text-[10px] font-black text-slate-950 shadow-lg shadow-emerald-500/20">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
-                    <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
-                      {formatTime(conversation.last_message_at || conversation.created_at)}
+                    <p className={isLight ? `mt-2 line-clamp-2 text-sm ${unread ? 'font-semibold text-slate-800' : 'text-slate-600'}` : `mt-2 line-clamp-2 text-sm ${unread ? 'font-semibold text-slate-200' : 'text-slate-400'}`}>
+                      {lastMessage?.content || t('inbox.noMessages')}
                     </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {needsAttention ? (
-                      <span className={[
-                        'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold',
-                        isLight
-                          ? humanEscalation.needsHuman
-                            ? 'border-orange-200 bg-white text-orange-800'
-                            : 'border-red-200 bg-white text-red-700'
-                          : humanEscalation.needsHuman
-                            ? 'border-orange-300/20 bg-orange-400/15 text-orange-100'
-                            : 'border-red-300/20 bg-red-500/15 text-red-100'
-                      ].join(' ')}
-                      >
-                        <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-                        {humanEscalation.needsHuman ? t('inbox.needsHuman') : t('inbox.needsAttention')}
-                      </span>
-                    ) : null}
-                    {humanTakeoverActive ? (
-                      <span className={[
-                        'inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold',
-                        isLight
-                          ? 'border-orange-200 bg-white text-orange-800'
-                          : 'border-orange-300/20 bg-orange-400/15 text-orange-100'
-                      ].join(' ')}
-                      >
-                        <PauseCircle className="h-3 w-3" aria-hidden="true" />
-                        Human
-                      </span>
-                    ) : null}
-                    {unread ? (
-                      <span className="rounded-full bg-emerald-300 px-2 py-1 text-[11px] font-black text-slate-950 shadow-lg shadow-emerald-500/20">
-                        {unreadCount > 9 ? '9+' : t('inbox.newCount', { count: unreadCount })}
-                      </span>
-                    ) : hasExperienceBooking ? (
-                      <span className={isLight ? 'rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800' : 'rounded-full border border-amber-300/20 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold text-amber-100'}>
-                        Experience request
-                      </span>
-                    ) : hasOffer ? (
-                      <span className={isLight ? 'rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-1 text-[11px] font-semibold text-emerald-100'}>
-                        AI Offer
-                      </span>
-                    ) : hasUpsell ? (
-                      <span className={isLight ? 'rounded-full border border-violet-200 bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-800' : 'rounded-full border border-violet-300/20 bg-violet-400/10 px-2 py-1 text-[11px] font-semibold text-violet-100'}>
-                        Upsell opportunity
-                      </span>
-                    ) : isNew ? (
-                      <span className={isLight ? 'rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-800' : 'rounded-full border border-sky-300/20 bg-sky-400/10 px-2 py-1 text-[11px] font-semibold text-sky-100'}>
-                        {t('inbox.newConversation')}
-                      </span>
-                    ) : (
-                      <span className={[
-                        'rounded-full border px-2.5 py-1 text-xs capitalize',
-                        isLight
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                          : 'border-emerald-300/15 bg-emerald-300/[0.06] text-emerald-100'
-                      ].join(' ')}
-                      >
-                        {t(`status.${conversation.status || 'unknown'}`)}
-                      </span>
-                    )}
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      {badgeItems.map((badge) => {
+                        const Icon = badge.icon;
+                        return (
+                          <span key={badge.label} className={ui.badge(isLight, badge.tone, true)}>
+                            {Icon ? <Icon className="h-3 w-3" aria-hidden="true" /> : null}
+                            {badge.label}
+                          </span>
+                        );
+                      })}
+                      {isNew ? (
+                        <span className={ui.badge(isLight, 'sky', true)}>{t('inbox.newConversation')}</span>
+                      ) : null}
+                      {sentiment && sentiment !== 'neutral' ? (
+                        <span className={ui.badge(isLight, sentiment === 'angry' || sentiment === 'frustrated' ? 'red' : 'slate', true)}>
+                          {sentiment}
+                        </span>
+                      ) : null}
+                      {priority && priority !== 'normal' ? (
+                        <span className={ui.badge(isLight, priority === 'urgent' || priority === 'high' ? 'amber' : 'slate', true)}>
+                          {priority}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-                <p className={isLight ? `mt-2 line-clamp-2 text-sm ${unread ? 'font-semibold text-slate-800' : 'text-slate-600'}` : `mt-2 line-clamp-2 text-sm ${unread ? 'font-semibold text-slate-200' : 'text-slate-400'}`}>
-                  {lastMessage?.content || t('inbox.noMessages')}
-                </p>
-                {aiState?.current_intent ? (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    <span className={ui.badge(isLight, 'violet', true)}>
-                      {aiState.current_intent}
-                    </span>
-                  </div>
-                ) : null}
-                <p className={isLight ? 'mt-3 text-xs text-slate-500' : 'mt-3 text-xs text-slate-600'}>
-                  {formatDate(conversation.last_message_at || conversation.created_at)}
-                </p>
               </button>
             );
           })}
@@ -1408,7 +1513,7 @@ export const InboxClient = ({ conversations }) => {
       </aside>
 
       <section className={[
-        !mobileChatOpen ? 'hidden lg:flex' : 'flex',
+        chatOpen ? 'flex' : 'hidden',
         'min-h-0 flex-col overflow-hidden'
       ].join(' ')}
       >
@@ -1423,7 +1528,7 @@ export const InboxClient = ({ conversations }) => {
                 type="button"
                 onClick={() => setMobileChatOpen(false)}
                 className={cn(
-                  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition lg:hidden',
+                  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition',
                   isLight
                     ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     : 'border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
