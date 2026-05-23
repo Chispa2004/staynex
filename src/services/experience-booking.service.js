@@ -12,11 +12,56 @@ const normalize = (value = '') => String(value)
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '');
 
-const isMissingBookingTable = (error) => (
-  error?.message?.includes('experience_booking_requests')
-  || error?.details?.includes('experience_booking_requests')
-  || error?.hint?.includes('experience_booking_requests')
-);
+const getSupabaseErrorInfo = (error = {}) => ({
+  code: error?.code || null,
+  message: error?.message || null,
+  details: error?.details || null,
+  hint: error?.hint || null,
+  status: error?.status || null,
+  name: error?.name || null
+});
+
+export const classifyExperienceBookingError = (error = {}) => {
+  const info = getSupabaseErrorInfo(error);
+  const text = normalize([
+    info.code,
+    info.message,
+    info.details,
+    info.hint
+  ].filter(Boolean).join(' '));
+
+  if (info.code === '42P01' || info.code === 'PGRST205' || text.includes('could not find the table')) {
+    return 'table_missing';
+  }
+
+  if (info.code === '42703' || info.code === 'PGRST204' || text.includes('could not find the') && text.includes('column')) {
+    return 'column_missing';
+  }
+
+  if (info.code === '42501' || text.includes('row level security') || text.includes('permission denied')) {
+    return 'permission_denied';
+  }
+
+  if (text.includes('schema cache')) {
+    return 'schema_cache_error';
+  }
+
+  if (info.code === '23514' || text.includes('check constraint')) {
+    return 'constraint_error';
+  }
+
+  if (info.code === '23502') {
+    return 'not_null_violation';
+  }
+
+  if (info.code === '23503') {
+    return 'foreign_key_error';
+  }
+
+  return 'insert_error';
+};
+
+const isMissingBookingTable = (error) => classifyExperienceBookingError(error) === 'table_missing';
 
 const includesAny = (text, words) => words.some((word) => text.includes(normalize(word)));
 
@@ -116,6 +161,11 @@ const isMissingProviderRevenueColumns = (error) => (
   || error?.details?.includes('hotel_commission_')
   || error?.details?.includes('partner_')
   || error?.details?.includes('attribution_source')
+);
+
+const isStatusConstraintError = (error = {}) => (
+  classifyExperienceBookingError(error) === 'constraint_error'
+  && normalize([error?.message, error?.details, error?.hint].filter(Boolean).join(' ')).includes('status')
 );
 
 const stripPartnerRevenueColumns = (record = {}) => {
@@ -306,10 +356,43 @@ const updateBookingRequestProviderEmailState = async ({
   }
 
   if (error) {
+    const errorType = classifyExperienceBookingError(error);
     logger.warn('Experience provider lead status update failed', {
       bookingRequestId: bookingRequest.id,
-      message: error.message
+      errorType,
+      ...getSupabaseErrorInfo(error)
     });
+
+    if (isStatusConstraintError(error)) {
+      const fallback = await supabase
+        .from('experience_booking_requests')
+        .update({
+          metadata,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', bookingRequest.id)
+        .select('*')
+        .single();
+
+      if (!fallback.error) {
+        logger.warn('Experience provider lead status update retried without status column because status constraint is outdated', {
+          bookingRequestId: bookingRequest.id,
+          intendedStatus: externalStatus,
+          providerEmailStatus: emailResult.status
+        });
+        return fallback.data || {
+          ...bookingRequest,
+          metadata
+        };
+      }
+
+      logger.warn('Experience provider lead metadata-only fallback failed', {
+        bookingRequestId: bookingRequest.id,
+        errorType: classifyExperienceBookingError(fallback.error),
+        ...getSupabaseErrorInfo(fallback.error)
+      });
+    }
+
     return {
       ...bookingRequest,
       metadata
@@ -2401,6 +2484,12 @@ export const createExperienceBookingRequest = async ({
       .limit(20);
 
     if (existingError) {
+      logger.error('experience_booking_requests_select_failed', {
+        hotelId: hotel.id,
+        conversationId: conversation.id,
+        errorType: classifyExperienceBookingError(existingError),
+        ...getSupabaseErrorInfo(existingError)
+      });
       throw existingError;
     }
 
@@ -2556,6 +2645,18 @@ export const createExperienceBookingRequest = async ({
       .select('*')
       .single();
 
+    if (error) {
+      logger.error('experience_booking_requests_insert_failed', {
+        hotelId: hotel.id,
+        conversationId: conversation.id,
+        providerId,
+        providerExperienceId,
+        attemptedStatus: baseRecord.status,
+        errorType: classifyExperienceBookingError(error),
+        ...getSupabaseErrorInfo(error)
+      });
+    }
+
     if (error && (
       error.message?.includes('provider_')
       || error.message?.includes('lead_')
@@ -2564,7 +2665,8 @@ export const createExperienceBookingRequest = async ({
       || error.details?.includes('lead_')
     )) {
       logger.warn('Provider lead or partner revenue columns missing; retrying booking request without newer columns', {
-        message: error.message
+        errorType: classifyExperienceBookingError(error),
+        ...getSupabaseErrorInfo(error)
       });
       const fallback = await supabase
         .from('experience_booking_requests')
@@ -2574,6 +2676,57 @@ export const createExperienceBookingRequest = async ({
 
       data = fallback.data;
       error = fallback.error;
+
+      if (error) {
+        logger.error('experience_booking_requests_insert_fallback_failed', {
+          hotelId: hotel.id,
+          conversationId: conversation.id,
+          fallbackType: 'strip_partner_revenue_columns',
+          attemptedStatus: baseRecord.status,
+          errorType: classifyExperienceBookingError(error),
+          ...getSupabaseErrorInfo(error)
+        });
+      }
+    }
+
+    if (error && isStatusConstraintError(error)) {
+      logger.warn('Experience booking status constraint is outdated; retrying insert with legacy pending status', {
+        hotelId: hotel.id,
+        conversationId: conversation.id,
+        intendedStatus: baseRecord.status,
+        errorType: classifyExperienceBookingError(error),
+        ...getSupabaseErrorInfo(error)
+      });
+      const legacyBaseRecord = {
+        ...stripPartnerRevenueColumns(baseRecord),
+        status: 'pending',
+        metadata: {
+          ...baseRecord.metadata,
+          intended_status: baseRecord.status,
+          provider_request_status_fallback: true,
+          provider_request_sent: isProviderRequest,
+          provider_request_sent_pending_schema_patch: true
+        }
+      };
+      const legacy = await supabase
+        .from('experience_booking_requests')
+        .insert(legacyBaseRecord)
+        .select('*')
+        .single();
+
+      data = legacy.data;
+      error = legacy.error;
+
+      if (error) {
+        logger.error('experience_booking_requests_insert_fallback_failed', {
+          hotelId: hotel.id,
+          conversationId: conversation.id,
+          fallbackType: 'legacy_pending_status',
+          attemptedStatus: 'pending',
+          errorType: classifyExperienceBookingError(error),
+          ...getSupabaseErrorInfo(error)
+        });
+      }
     }
 
     if (error) {
@@ -2661,8 +2814,25 @@ export const createExperienceBookingRequest = async ({
 
     return data;
   } catch (error) {
+    logger.error('experience_booking_requests_workflow_error', {
+      hotelId: hotel?.id || null,
+      conversationId: conversation?.id || null,
+      providerId,
+      providerExperienceId,
+      errorType: classifyExperienceBookingError(error),
+      ...getSupabaseErrorInfo(error),
+      stack: error.stack
+    });
+
     if (isMissingBookingTable(error)) {
-      logger.warn('experience_booking_requests table missing; booking workflow skipped');
+      logger.warn('experience_booking_requests table missing; booking workflow skipped', {
+        hotelId: hotel?.id || null,
+        conversationId: conversation?.id || null,
+        providerId,
+        providerExperienceId,
+        errorType: 'table_missing',
+        ...getSupabaseErrorInfo(error)
+      });
       return null;
     }
 
@@ -2673,6 +2843,10 @@ export const createExperienceBookingRequest = async ({
       providerExperienceId,
       message,
       reason: intent.reason || intent.conversationIntent?.reason || null,
+      errorType: classifyExperienceBookingError(error),
+      code: error.code || null,
+      details: error.details || null,
+      hint: error.hint || null,
       errorMessage: error.message,
       stack: error.stack
     });
@@ -2683,6 +2857,10 @@ export const createExperienceBookingRequest = async ({
       providerExperienceId,
       message,
       reason: intent.reason || intent.conversationIntent?.reason || null,
+      errorType: classifyExperienceBookingError(error),
+      code: error.code || null,
+      details: error.details || null,
+      hint: error.hint || null,
       errorMessage: error.message,
       stack: error.stack
     });
