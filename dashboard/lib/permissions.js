@@ -90,6 +90,7 @@ const rolePermissions = {
     'pms_connections'
   ],
   receptionist: [
+    'dashboard',
     'inbox',
     'tickets',
     'qr_rooms',

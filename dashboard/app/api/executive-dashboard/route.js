@@ -87,6 +87,7 @@ const isMissingOptionalTable = (error) => (
   || error?.message?.includes('guest_revenue_predictions')
   || error?.message?.includes('guest_interest_affinities')
   || error?.message?.includes('revenue_ai_events')
+  || error?.message?.includes('experience_booking_requests')
   || error?.details?.includes('guest_ai_profiles')
   || error?.details?.includes('ai_offers')
   || error?.details?.includes('conversation_ai_state')
@@ -99,6 +100,7 @@ const isMissingOptionalTable = (error) => (
   || error?.details?.includes('guest_revenue_predictions')
   || error?.details?.includes('guest_interest_affinities')
   || error?.details?.includes('revenue_ai_events')
+  || error?.details?.includes('experience_booking_requests')
   || error?.hint?.includes('guest_ai_profiles')
   || error?.hint?.includes('ai_offers')
   || error?.hint?.includes('conversation_ai_state')
@@ -111,6 +113,7 @@ const isMissingOptionalTable = (error) => (
   || error?.hint?.includes('guest_revenue_predictions')
   || error?.hint?.includes('guest_interest_affinities')
   || error?.hint?.includes('revenue_ai_events')
+  || error?.hint?.includes('experience_booking_requests')
 );
 
 const formatActivity = ({ type, title, description, createdAt, tone = 'slate', href = null }) => ({
@@ -330,7 +333,7 @@ const buildInsights = ({ guestMemory, upsells, aiLogs, conversations, scheduledM
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, fallback, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, fallback, role, permissions = [] } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'dashboard')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
@@ -367,7 +370,8 @@ export async function GET(request) {
       guestIntelligenceProfiles,
       guestRevenuePredictions,
       guestInterestAffinities,
-      revenueAiEvents
+      revenueAiEvents,
+      experienceBookingRequests
     ] = await Promise.all([
       safeCount(withHotel(
         supabase.from('conversations').select('id', { count: 'exact', head: true }),
@@ -422,7 +426,7 @@ export async function GET(request) {
         hotelId
       ).order('updated_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
-        supabase.from('conversation_ai_state').select('id, conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, openai_enhanced, updated_at'),
+        supabase.from('conversation_ai_state').select('id, conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, openai_enhanced, state_metadata, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(100)),
       safeRows(withHotel(
@@ -484,7 +488,11 @@ export async function GET(request) {
       safeRows(withHotel(
         supabase.from('revenue_ai_events').select('*'),
         hotelId
-      ).order('created_at', { ascending: false }).limit(500))
+      ).order('created_at', { ascending: false }).limit(500)),
+      safeRows(withHotel(
+        supabase.from('experience_booking_requests').select('id, conversation_id, experience_title, provider_source, partner_name, status, lead_status, estimated_revenue, commission_estimate, metadata, created_at, updated_at'),
+        hotelId
+      ).order('created_at', { ascending: false }).limit(200))
     ]);
 
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
@@ -570,6 +578,7 @@ export async function GET(request) {
       return acc;
     }, {});
     const activeEscalations = recentConversationStates.filter((item) => ['reception_required', 'manager_required', 'urgent'].includes(item.escalation_level));
+    const humanTakeoverStates = recentConversationStates.filter((item) => ['human_takeover', 'ai_paused', 'escalation_lock'].includes(item.state_metadata?.conversation_ai_mode));
     const unresolvedComplaints = recentConversationStates.filter((item) => String(item.current_intent || '').startsWith('complaint_'));
     const repeatedFrustrations = recentConversationStates.filter((item) => item.sentiment === 'negative');
     const highValueConversations = recentConversationStates.filter((item) => ['room_upgrade_interest', 'late_checkout_interest', 'airport_transfer_interest'].includes(item.current_intent));
@@ -630,6 +639,8 @@ export async function GET(request) {
 
     return NextResponse.json({
       hotel,
+      role,
+      permissions,
       fallback,
       refreshedAt: new Date().toISOString(),
       kpis: {
@@ -646,7 +657,13 @@ export async function GET(request) {
       summary: {
         activeConversations: recentConversations.filter((item) => item.status === 'active').length,
         upsellsDetected: recentUpsells.length,
-        urgentTickets
+        urgentTickets,
+        experienceRequests: experienceBookingRequests.length,
+        providerEmailFailures: experienceBookingRequests.filter((item) => ['failed', 'failed_provider_email'].includes(item.lead_status || item.metadata?.provider_email_status || item.status)).length,
+        humanTakeovers: humanTakeoverStates.length,
+        averageAiConfidence: openAiConfidenceValues.length
+          ? Math.round((openAiConfidenceValues.reduce((total, value) => total + value, 0) / openAiConfidenceValues.length) * 100)
+          : 0
       },
       operations: {
         reception: {
@@ -777,6 +794,7 @@ export async function GET(request) {
       },
       conversationIntelligence: {
         activeEscalations: activeEscalations.length,
+        humanTakeovers: humanTakeoverStates.length,
         unresolvedComplaints: unresolvedComplaints.length,
         repeatedFrustrations: repeatedFrustrations.length,
         highValueConversations: highValueConversations.length,
@@ -794,6 +812,15 @@ export async function GET(request) {
           : 0,
         aiRevenueGenerated: offerRevenueGenerated || acceptedRevenue,
         states: recentConversationStates.slice(0, 8)
+      },
+      experienceBookings: {
+        total: experienceBookingRequests.length,
+        active: experienceBookingRequests.filter((item) => !['completed', 'cancelled', 'cancelled_by_guest', 'provider_rejected'].includes(item.status)).length,
+        pending: experienceBookingRequests.filter((item) => ['guest_interested', 'awaiting_guest_details', 'awaiting_guest_confirmation', 'pending', 'reviewing'].includes(item.status)).length,
+        providerRequestsSent: experienceBookingRequests.filter((item) => item.status === 'provider_request_sent' || item.lead_status === 'sent' || item.metadata?.provider_email_status === 'sent').length,
+        failedProviderEmails: experienceBookingRequests.filter((item) => item.status === 'failed_provider_email' || item.lead_status === 'failed' || item.metadata?.provider_email_status === 'failed').length,
+        estimatedRevenue: experienceBookingRequests.reduce((total, item) => total + Number(item.estimated_revenue || 0), 0),
+        recent: experienceBookingRequests.slice(0, 6)
       },
       pmsStatus: {
         connected: pmsConnections.filter((item) => item.enabled).length,

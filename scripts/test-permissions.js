@@ -15,6 +15,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const root = join(__dirname, '..');
 
 const receptionistAllowedRoutes = [
+  '/dashboard',
   '/dashboard/inbox',
   '/dashboard/tickets',
   '/dashboard/qr-rooms',
@@ -30,7 +31,6 @@ for (const route of receptionistAllowedRoutes) {
 }
 
 const receptionistBlockedRoutes = [
-  '/dashboard',
   '/dashboard/settings/pms',
   '/dashboard/settings/users',
   '/dashboard/automations',
