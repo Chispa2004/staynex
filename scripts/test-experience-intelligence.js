@@ -420,6 +420,44 @@ assert.equal(essaouiraFinalConfirmation.requestedDate, '2026-06-29');
 assert.equal(essaouiraFinalConfirmation.guestsCount, 2);
 assert.equal(essaouiraFinalConfirmation.matchedExperience.title, 'Essaouira Coastal Excursion');
 
+const awaitingEssaouiraState = {
+  conversation_id: 'conversation-essaouira',
+  provider_experience_id: 'provider-essaouira',
+  provider_id: 'luxotour',
+  provider: 'Luxotour Morocco',
+  detected_experience: 'Essaouira Coastal Excursion',
+  requested_date: '2026-06-29',
+  guest_count: 3,
+  awaiting_confirmation: true,
+  awaiting_guest_confirmation: true,
+  provider_request_sent: false,
+  last_message: 'para el 29/06 y somos 3 personas'
+};
+const finalConfirmationFromState = await detectExperienceBookingIntent({
+  message: 'si',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext,
+  experienceBookingState: awaitingEssaouiraState
+});
+assert.equal(finalConfirmationFromState.detected, true);
+assert.equal(finalConfirmationFromState.reason, 'final_guest_confirmation_from_state');
+assert.equal(finalConfirmationFromState.guestConfirmedProviderRequest, true);
+assert.equal(finalConfirmationFromState.requestedDate, '2026-06-29');
+assert.equal(finalConfirmationFromState.guestsCount, 3);
+assert.equal(finalConfirmationFromState.matchedExperience.title, 'Essaouira Coastal Excursion');
+
+for (const finalPhrase of ['sí', 'vale', 'ok', 'adelante']) {
+  const variantConfirmation = await detectExperienceBookingIntent({
+    message: finalPhrase,
+    hotelExperiences: providerCatalog,
+    latestProviderContext: essaouiraContext,
+    experienceBookingState: awaitingEssaouiraState
+  });
+  assert.equal(variantConfirmation.detected, true);
+  assert.equal(variantConfirmation.reason, 'final_guest_confirmation_from_state');
+  assert.equal(variantConfirmation.guestConfirmedProviderRequest, true);
+}
+
 for (const phrase of ['me interesa Essaouira', 'quiero la excursion de Essaouira', 'Atlas', 'Agafay', 'Hammam Marrakech', 'Marrakech Hammam']) {
   const flexibleInterest = await detectExperienceBookingIntent({
     message: phrase,

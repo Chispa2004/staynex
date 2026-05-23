@@ -985,7 +985,8 @@ export const processGuestMessage = async ({
     conversationId: conversation.id,
     hotelExperiences: experienceCatalog,
     latestProviderContext: providerExperienceConversation.latestProviderContext || null,
-    recentMessages: conversationContext.recentMessages
+    recentMessages: conversationContext.recentMessages,
+    experienceBookingState: conversationState.previousState?.state_metadata?.experience_booking_state || null
   });
   const providerBookingFlowActive = Boolean(
     experienceBookingIntent.matchedExperience
@@ -1035,6 +1036,14 @@ export const processGuestMessage = async ({
       experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
       provider: experienceBookingIntent.matchedExperience?.provider_source || null
     });
+    logger.info('provider_booking_fallback_blocked', {
+      hotelId: activeHotel.id,
+      conversationId: conversation.id,
+      fallbackReason: enhancedRisk.reason,
+      source: 'enhanced_risk',
+      experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
+      provider: experienceBookingIntent.matchedExperience?.provider_source || null
+    });
     enhancedRisk = {
       hasRisk: false,
       category: null,
@@ -1051,6 +1060,14 @@ export const processGuestMessage = async ({
       hotelId: activeHotel.id,
       conversationId: conversation.id,
       humanReason: humanEscalation.humanReason,
+      experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
+      provider: experienceBookingIntent.matchedExperience?.provider_source || null
+    });
+    logger.info('provider_booking_fallback_blocked', {
+      hotelId: activeHotel.id,
+      conversationId: conversation.id,
+      humanReason: humanEscalation.humanReason,
+      source: 'human_escalation',
       experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
       provider: experienceBookingIntent.matchedExperience?.provider_source || null
     });
@@ -1109,6 +1126,32 @@ export const processGuestMessage = async ({
         system_event: 'experience_booking_request_created'
       }
     });
+  } else if (experienceBookingIntent.detected) {
+    const providerName = experienceBookingIntent.matchedExperience?.provider_source || 'el proveedor';
+    const failureReply = {
+      es: `He recogido la confirmacion, pero ahora mismo no he podido enviar la solicitud a ${providerName}. La disponibilidad no esta confirmada todavia; lo intentaremos de nuevo para no duplicar la peticion.`,
+      fr: `J ai bien recu la confirmation, mais je n ai pas pu envoyer la demande a ${providerName} pour le moment. La disponibilite n est pas encore confirmee; nous reessaierons sans dupliquer la demande.`,
+      de: `Ich habe die Bestaetigung erhalten, konnte die Anfrage an ${providerName} aber gerade nicht senden. Die Verfuegbarkeit ist noch nicht bestaetigt; wir versuchen es erneut, ohne die Anfrage zu duplizieren.`,
+      en: `I have the confirmation, but I could not send the request to ${providerName} right now. Availability is not confirmed yet; we will retry without duplicating the request.`
+    }[conversationContext.language] || `I have the confirmation, but I could not send the request to ${providerName} right now. Availability is not confirmed yet; we will retry without duplicating the request.`;
+
+    logger.warn('provider_booking_request_create_failed', {
+      hotelId: activeHotel.id,
+      conversationId: conversation.id,
+      experienceTitle: experienceBookingIntent.matchedExperience?.title || null,
+      provider: providerName,
+      reason: experienceBookingIntent.reason || experienceBookingIntent.conversationIntent?.reason || null,
+      requestedDate: experienceBookingIntent.requestedDate || null,
+      guestsCount: experienceBookingIntent.guestsCount || null
+    });
+
+    aiResponseWithUpsell = {
+      ...aiResponseWithUpsell,
+      reply: failureReply,
+      concierge_intent: 'experience_booking_request_failed',
+      intent: 'experience_booking_request_failed',
+      escalate_to_human: false
+    };
   } else if (providerBookingFlowReply) {
     aiResponseWithUpsell = {
       ...aiResponseWithUpsell,
@@ -1143,7 +1186,7 @@ export const processGuestMessage = async ({
     humanEscalation,
     enhancedRisk,
     providerIntent: providerExperienceConversation,
-    knowledgeUsed: Boolean(knowledgeResult || providerRecommendationReply || providerBookingFlowReply || experienceBookingRequest),
+    knowledgeUsed: Boolean(knowledgeResult || providerRecommendationReply || providerBookingFlowReply || experienceBookingRequest || experienceBookingIntent.detected),
     recentMessages: conversationContext.recentMessages
   });
   aiResponseWithUpsell = smarterResponse.aiResponse;
@@ -1292,10 +1335,21 @@ export const processGuestMessage = async ({
           provider_email_status: experienceBookingRequest?.metadata?.provider_email_status || experienceBookingRequest?.lead_status || null
         },
         experience_booking_state: providerBookingFlowActive || experienceBookingRequest ? {
+          conversation_id: conversation.id,
+          provider_experience_id: experienceBookingIntent.matchedExperience?.provider_experience_id
+            || experienceBookingIntent.matchedExperience?.metadata?.provider_experience_id
+            || experienceBookingRequest?.provider_experience_id
+            || null,
+          provider_id: experienceBookingIntent.matchedExperience?.provider_id
+            || experienceBookingIntent.matchedExperience?.metadata?.provider_id
+            || experienceBookingRequest?.provider_id
+            || null,
           detected_experience: experienceBookingIntent.matchedExperience?.title || experienceBookingRequest?.experience_title || null,
           provider: experienceBookingIntent.matchedExperience?.provider_source || experienceBookingRequest?.provider_source || null,
           requested_date: experienceBookingIntent.requestedDate || experienceBookingRequest?.requested_date || null,
+          requested_time: experienceBookingIntent.requestedTime || experienceBookingRequest?.requested_time || null,
           guest_count: experienceBookingIntent.guestsCount || experienceBookingRequest?.guests_count || null,
+          awaiting_guest_confirmation: experienceBookingIntent.reason === 'awaiting_guest_confirmation' && !experienceBookingRequest,
           awaiting_confirmation: experienceBookingIntent.reason === 'awaiting_guest_confirmation' && !experienceBookingRequest,
           awaiting_guest_details: experienceBookingIntent.reason === 'booking_missing_guest_details' && !experienceBookingRequest,
           provider_request_sent: Boolean(experienceBookingRequest),

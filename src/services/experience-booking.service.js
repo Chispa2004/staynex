@@ -347,11 +347,30 @@ const deliverProviderLeadEmailForBookingRequest = async ({
     return bookingRequest;
   }
 
-  const assignment = await verifyProviderConnectedToHotel({
+  let assignment = await verifyProviderConnectedToHotel({
     supabase,
     hotelId: hotel.id,
     providerId: providerId || bookingRequest.provider_id || bookingRequest.metadata?.provider_id
   });
+
+  if (!assignment && providerLeadEmail) {
+    logger.warn('experience_provider_assignment_missing_but_email_configured', {
+      bookingRequestId: bookingRequest.id,
+      hotelId: hotel.id,
+      providerId,
+      providerSource,
+      to: providerLeadEmail
+    });
+    assignment = {
+      lead_email: providerLeadEmail,
+      provider: {
+        id: providerId || null,
+        name: providerSource || bookingRequest.provider_source || bookingRequest.metadata?.provider_source || null,
+        contact_email: providerLeadEmail,
+        active: true
+      }
+    };
+  }
 
   if (!assignment) {
     logger.warn('experience_provider_lead_email_skipped_unassigned_provider', {
@@ -680,6 +699,11 @@ const providerBookingConfirmationWords = [
   'adelante',
   'ok adelante',
   'vale',
+  'adelante',
+  'confirmo',
+  'enviala',
+  'enviarla',
+  'perfecto',
   'vale perfecto',
   'perfecto',
   'lo queremos',
@@ -708,6 +732,7 @@ const exactProviderBookingConfirmations = new Set([
   'si',
   'sí',
   'ok',
+  'okay',
   'vale',
   'yes',
   'oui',
@@ -1145,6 +1170,37 @@ const getLatestProviderExperienceContext = async ({ conversationId }) => {
   }
 };
 
+const getLatestExperienceBookingState = async ({ conversationId }) => {
+  if (!conversationId) {
+    return null;
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('conversation_ai_state')
+      .select('state_metadata')
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingStateTable(error)) {
+        return null;
+      }
+
+      throw error;
+    }
+
+    return data?.state_metadata?.experience_booking_state || null;
+  } catch (error) {
+    logger.warn('Experience booking state lookup failed', {
+      conversationId,
+      message: error.message
+    });
+    return null;
+  }
+};
+
 const allowedLastProviderExperienceReasons = new Set([
   'explicit_guest_interest',
   'explicit_guest_detail_request',
@@ -1426,6 +1482,56 @@ const buildBookingDetailsText = ({ message = '', recentMessages = [] } = {}) => 
     .map((item) => item.content || item.message || ''),
   message
 ].filter(Boolean).join('\n');
+
+const normalizeExperienceBookingState = (state = null) => {
+  if (!state || typeof state !== 'object') {
+    return null;
+  }
+
+  return {
+    providerExperienceId: state.provider_experience_id
+      || state.providerExperienceId
+      || state.provider_experience?.provider_experience_id
+      || null,
+    providerId: state.provider_id || state.providerId || null,
+    experienceTitle: state.detected_experience
+      || state.experience_title
+      || state.experienceTitle
+      || state.provider_experience_title
+      || null,
+    provider: state.provider || state.provider_source || state.providerName || null,
+    requestedDate: state.requested_date || state.requestedDate || state.desired_date || null,
+    requestedTime: state.requested_time || state.requestedTime || state.desired_time || null,
+    guestsCount: Number(state.guest_count || state.guests_count || state.guestsCount || 0) || null,
+    awaitingGuestConfirmation: Boolean(
+      state.awaiting_confirmation
+      || state.awaitingGuestConfirmation
+      || state.awaiting_guest_confirmation
+    ),
+    awaitingGuestDetails: Boolean(state.awaiting_guest_details || state.awaitingGuestDetails),
+    providerRequestSent: Boolean(state.provider_request_sent || state.providerRequestSent)
+  };
+};
+
+const experienceFromBookingState = ({ state = null, providerExperiences = [] } = {}) => {
+  const normalizedState = normalizeExperienceBookingState(state);
+
+  if (!normalizedState) {
+    return null;
+  }
+
+  return (providerExperiences || []).find((experience) => {
+    const providerExperienceId = experience.provider_experience_id || experience.metadata?.provider_experience_id || experience.id || null;
+    const providerId = experience.provider_id || experience.metadata?.provider_id || null;
+    const title = normalize(experience.title || '');
+
+    return (
+      (normalizedState.providerExperienceId && providerExperienceId === normalizedState.providerExperienceId)
+      || (normalizedState.providerId && providerId === normalizedState.providerId && title === normalize(normalizedState.experienceTitle || ''))
+      || (normalizedState.experienceTitle && title === normalize(normalizedState.experienceTitle))
+    );
+  }) || null;
+};
 
 export const classifyProviderExperienceConversation = async ({
   message = '',
@@ -1755,9 +1861,128 @@ export const detectExperienceBookingIntent = async ({
   conversationId = null,
   hotelExperiences = [],
   latestProviderContext = null,
-  recentMessages = []
+  recentMessages = [],
+  experienceBookingState = null
 } = {}) => {
   const loadedLatestProviderContext = latestProviderContext || await getLatestProviderExperienceContext({ conversationId });
+  const loadedExperienceBookingState = experienceBookingState || await getLatestExperienceBookingState({ conversationId });
+  const awaitingConfirmationState = normalizeExperienceBookingState(loadedExperienceBookingState);
+  const stateMatchedExperience = experienceFromBookingState({
+    state: awaitingConfirmationState,
+    providerExperiences: hotelExperiences
+  });
+  const stateFinalConfirmation = Boolean(
+    awaitingConfirmationState?.awaitingGuestConfirmation
+    && !awaitingConfirmationState.providerRequestSent
+  );
+  const finalConfirmationDetected = isProviderBookingConfirmation(message);
+
+  if (stateFinalConfirmation) {
+    safeProviderLog('info', 'awaiting_confirmation_state_loaded', {
+      conversationId,
+      experienceTitle: awaitingConfirmationState.experienceTitle,
+      providerExperienceId: awaitingConfirmationState.providerExperienceId,
+      provider: awaitingConfirmationState.provider,
+      requestedDate: awaitingConfirmationState.requestedDate,
+      guestsCount: awaitingConfirmationState.guestsCount,
+      finalConfirmationDetected,
+      matchedExperienceTitle: stateMatchedExperience?.title || null
+    });
+
+    if (finalConfirmationDetected) {
+      const currentDetails = providerBookingDetailsFromText(message);
+      const requestedDate = currentDetails.requestedDate || awaitingConfirmationState.requestedDate;
+      const requestedTime = currentDetails.requestedTime || awaitingConfirmationState.requestedTime;
+      const guestsCount = currentDetails.guestsCount || awaitingConfirmationState.guestsCount;
+      const missingDetails = missingProviderBookingDetails({ requestedDate, guestsCount });
+
+      safeProviderLog('info', 'final_confirmation_detected', {
+        conversationId,
+        experienceTitle: stateMatchedExperience?.title || awaitingConfirmationState.experienceTitle || null,
+        provider: stateMatchedExperience?.provider_source || awaitingConfirmationState.provider || null,
+        requestedDate,
+        guestsCount,
+        missingDetails
+      });
+
+      if (stateMatchedExperience && missingDetails.length === 0) {
+        const stateProviderContext = buildLastProviderExperienceState({
+          providerExperience: stateMatchedExperience,
+          reason: 'explicit_guest_booking_intent',
+          message: loadedExperienceBookingState?.last_message || awaitingConfirmationState.experienceTitle || message,
+          callsite: 'detectExperienceBookingIntent.awaiting_confirmation_state'
+        }) || loadedLatestProviderContext;
+        const conversationIntent = {
+          intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+          confidence: 0.98,
+          reason: 'final_guest_confirmation_from_state',
+          bookingReady: true,
+          latestOffer: null,
+          latestProviderContext: stateProviderContext,
+          matchedExperience: stateMatchedExperience,
+          requestedDate,
+          requestedTime,
+          guestsCount,
+          missingDetails
+        };
+
+        return {
+          detected: true,
+          confidence: 0.98,
+          reason: 'final_guest_confirmation_from_state',
+          latestOffer: null,
+          latestProviderContext: stateProviderContext,
+          matchedExperience: stateMatchedExperience,
+          requestedDate,
+          requestedTime,
+          guestsCount,
+          missingDetails,
+          guestConfirmedProviderRequest: true,
+          experienceResolution: {
+            resolvedExperience: stateMatchedExperience,
+            resolvedSource: 'awaiting_confirmation_state',
+            resolvedFromMessage: loadedExperienceBookingState?.last_message || null,
+            matchScore: 1,
+            matchReason: 'stored_experience_booking_state',
+            previousLastTitle: loadedLatestProviderContext?.title || loadedLatestProviderContext?.last_provider_experience_title || null
+          },
+          conversationIntent
+        };
+      }
+
+      return {
+        detected: false,
+        confidence: 0.92,
+        reason: stateMatchedExperience ? 'booking_missing_guest_details' : 'booking_missing_experience',
+        matchedExperience: stateMatchedExperience,
+        requestedDate,
+        requestedTime,
+        guestsCount,
+        missingDetails,
+        guestConfirmedProviderRequest: true,
+        conversationIntent: {
+          intentType: PROVIDER_EXPERIENCE_INTENTS.BOOKING_CONFIRMATION,
+          confidence: 0.92,
+          reason: stateMatchedExperience ? 'booking_missing_guest_details' : 'booking_missing_experience',
+          bookingReady: false,
+          latestProviderContext: loadedLatestProviderContext,
+          matchedExperience: stateMatchedExperience,
+          requestedDate,
+          requestedTime,
+          guestsCount,
+          missingDetails
+        }
+      };
+    }
+
+    safeProviderLog('info', 'final_confirmation_not_detected', {
+      conversationId,
+      message,
+      experienceTitle: awaitingConfirmationState.experienceTitle,
+      provider: awaitingConfirmationState.provider
+    });
+  }
+
   const experienceResolution = resolveCurrentProviderExperienceForBooking({
     message,
     recentMessages,
@@ -2145,6 +2370,19 @@ export const createExperienceBookingRequest = async ({
 
   try {
     const supabase = getSupabase();
+    logger.info('provider_booking_request_create_start', {
+      hotelId: hotel.id,
+      conversationId: conversation.id,
+      providerId,
+      providerExperienceId,
+      message,
+      experienceTitle: title,
+      providerSource,
+      requestedDate: intent.requestedDate || null,
+      guestsCount: intent.guestsCount || null,
+      guestConfirmedProviderRequest: Boolean(intent.guestConfirmedProviderRequest),
+      reason: intent.reason || intent.conversationIntent?.reason || null
+    });
     logger.info('provider_booking_request_creation_attempt', {
       hotelId: hotel.id,
       conversationId: conversation.id,
@@ -2408,6 +2646,18 @@ export const createExperienceBookingRequest = async ({
       experienceTitle: title,
       providerSource
     });
+    logger.info('provider_booking_request_create_success', {
+      hotelId: hotel.id,
+      conversationId: conversation.id,
+      bookingRequestId: data.id,
+      providerId,
+      providerExperienceId,
+      experienceTitle: title,
+      providerSource,
+      leadStatus: data.lead_status || null,
+      providerEmailStatus: data.metadata?.provider_email_status || data.metadata?.provider_email_sent || null,
+      providerEmailSent: Boolean(data.metadata?.provider_email_sent || data.metadata?.provider_email_status === 'sent')
+    });
 
     return data;
   } catch (error) {
@@ -2417,6 +2667,16 @@ export const createExperienceBookingRequest = async ({
     }
 
     logger.error('provider_booking_request_creation_failed', {
+      hotelId: hotel?.id || null,
+      conversationId: conversation?.id || null,
+      providerId,
+      providerExperienceId,
+      message,
+      reason: intent.reason || intent.conversationIntent?.reason || null,
+      errorMessage: error.message,
+      stack: error.stack
+    });
+    logger.error('provider_booking_request_create_failed', {
       hotelId: hotel?.id || null,
       conversationId: conversation?.id || null,
       providerId,
