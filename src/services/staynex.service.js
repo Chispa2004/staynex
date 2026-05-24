@@ -85,6 +85,8 @@ import {
   createExperienceBookingRequest,
   detectExperienceBookingIntent,
   getExperienceBookingConfirmationReply,
+  isClosedProviderBookingCasualMessage,
+  isExperienceBookingStateClosed,
   isProviderBookingConfirmation,
   setLastProviderExperience
 } from './experience-booking.service.js';
@@ -575,6 +577,9 @@ export const processGuestMessage = async ({
     message,
     detectedIntents: detectedConciergeIntents
   });
+  const previousExperienceBookingState = preliminaryConversationState.previousState?.state_metadata?.experience_booking_state || null;
+  const completedProviderBookingFlow = isExperienceBookingStateClosed(previousExperienceBookingState);
+  const closedProviderCasualMessage = completedProviderBookingFlow && isClosedProviderBookingCasualMessage(message);
   const primaryConciergeIntent = preliminaryConversationState.primaryIntent?.intent
     ? preliminaryConversationState.primaryIntent
     : conciergeIntent;
@@ -610,8 +615,22 @@ export const processGuestMessage = async ({
   const providerExperienceConversation = await classifyProviderExperienceConversation({
     message,
     conversationId: conversation.id,
-    hotelExperiences: experienceCatalog
+    hotelExperiences: experienceCatalog,
+    ignoreStoredContext: completedProviderBookingFlow
   });
+
+  if (closedProviderCasualMessage && !providerExperienceConversation.intentType) {
+    logger.info('closed_provider_flow_not_reopened', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      message,
+      experienceTitle: previousExperienceBookingState?.detected_experience || null,
+      provider: previousExperienceBookingState?.provider || null,
+      requestedDate: previousExperienceBookingState?.requested_date || null,
+      guestCount: previousExperienceBookingState?.guest_count || null
+    });
+  }
   const providerConfirmationMessage = isProviderBookingConfirmation(message);
   const providerBookingConfirmationOverride = (
     providerExperienceConversation.reason === 'provider_booking_confirmation_override'
@@ -988,6 +1007,22 @@ export const processGuestMessage = async ({
     recentMessages: conversationContext.recentMessages,
     experienceBookingState: conversationState.previousState?.state_metadata?.experience_booking_state || null
   });
+
+  if (
+    completedProviderBookingFlow
+    && experienceBookingIntent.matchedExperience
+    && !closedProviderCasualMessage
+  ) {
+    logger.info('new_provider_flow_started_after_completed_booking', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      previousExperienceTitle: previousExperienceBookingState?.detected_experience || null,
+      newExperienceTitle: experienceBookingIntent.matchedExperience?.title || null,
+      reason: experienceBookingIntent.reason || experienceBookingIntent.conversationIntent?.reason || null
+    });
+  }
+
   const providerBookingFlowActive = Boolean(
     experienceBookingIntent.matchedExperience
     && experienceBookingIntent.conversationIntent?.intentType
@@ -1104,6 +1139,28 @@ export const processGuestMessage = async ({
   });
 
   if (experienceBookingRequest) {
+    logger.info('provider_booking_flow_closed', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      bookingRequestId: experienceBookingRequest.id,
+      experienceTitle: experienceBookingRequest.experience_title || null,
+      provider: experienceBookingRequest.provider_source || null,
+      providerRequestSent: experienceBookingRequest.status === 'provider_request_sent',
+      providerEmailSent: Boolean(
+        experienceBookingRequest.metadata?.provider_email_sent
+        || experienceBookingRequest.metadata?.provider_email_status === 'sent'
+        || experienceBookingRequest.lead_status === 'sent'
+      )
+    });
+    logger.info('provider_booking_state_cleared', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      bookingRequestId: experienceBookingRequest.id,
+      providerFlowActive: false
+    });
+
     aiResponseWithUpsell = {
       ...aiResponseWithUpsell,
       reply: getExperienceBookingConfirmationReply({
@@ -1238,6 +1295,18 @@ export const processGuestMessage = async ({
       conversationId: conversation.id,
       repairIntent: smarterResponse.metadata.repair_intent || null
     });
+
+    if (smarterResponse.metadata.repair_intent === 'completed_booking_fallback') {
+      logger.info('provider_booking_summary_used', {
+        hotelId: activeHotel.id,
+        guestId: guest.id,
+        conversationId: conversation.id,
+        experienceTitle: previousExperienceBookingState?.detected_experience || null,
+        provider: previousExperienceBookingState?.provider || null,
+        requestedDate: previousExperienceBookingState?.requested_date || null,
+        guestCount: previousExperienceBookingState?.guest_count || null
+      });
+    }
   }
 
   if (smarterResponse.metadata.fallback_blocked_due_to_repetition) {
@@ -1388,6 +1457,10 @@ export const processGuestMessage = async ({
         },
         experience_booking_state: providerBookingFlowActive || experienceBookingRequest ? {
           conversation_id: conversation.id,
+          status: experienceBookingRequest ? 'completed' : experienceBookingIntent.reason || 'active',
+          provider_flow_active: !experienceBookingRequest,
+          closed_at: experienceBookingRequest ? new Date().toISOString() : null,
+          booking_request_id: experienceBookingRequest?.id || null,
           provider_experience_id: experienceBookingIntent.matchedExperience?.provider_experience_id
             || experienceBookingIntent.matchedExperience?.metadata?.provider_experience_id
             || experienceBookingRequest?.provider_experience_id
@@ -1405,6 +1478,17 @@ export const processGuestMessage = async ({
           awaiting_confirmation: experienceBookingIntent.reason === 'awaiting_guest_confirmation' && !experienceBookingRequest,
           awaiting_guest_details: experienceBookingIntent.reason === 'booking_missing_guest_details' && !experienceBookingRequest,
           provider_request_sent: Boolean(experienceBookingRequest),
+          provider_email_sent: Boolean(
+            experienceBookingRequest?.metadata?.provider_email_sent
+            || experienceBookingRequest?.metadata?.provider_email_status === 'sent'
+            || experienceBookingRequest?.lead_status === 'sent'
+          ),
+          provider_email_sent_at: experienceBookingRequest?.metadata?.provider_email_sent_at
+            || experienceBookingRequest?.lead_email_sent_at
+            || null,
+          provider_email_status: experienceBookingRequest?.metadata?.provider_email_status
+            || experienceBookingRequest?.lead_status
+            || null,
           guest_confirmed_provider_request: Boolean(experienceBookingIntent.guestConfirmedProviderRequest),
           last_message: message
         } : conversationState.previousState?.state_metadata?.experience_booking_state || null,

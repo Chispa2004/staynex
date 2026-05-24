@@ -1572,6 +1572,7 @@ const normalizeExperienceBookingState = (state = null) => {
   }
 
   return {
+    status: state.status || state.flow_status || state.flowStatus || null,
     providerExperienceId: state.provider_experience_id
       || state.providerExperienceId
       || state.provider_experience?.provider_experience_id
@@ -1592,8 +1593,70 @@ const normalizeExperienceBookingState = (state = null) => {
       || state.awaiting_guest_confirmation
     ),
     awaitingGuestDetails: Boolean(state.awaiting_guest_details || state.awaitingGuestDetails),
-    providerRequestSent: Boolean(state.provider_request_sent || state.providerRequestSent)
+    providerRequestSent: Boolean(state.provider_request_sent || state.providerRequestSent),
+    providerEmailSent: Boolean(
+      state.provider_email_sent
+      || state.providerEmailSent
+      || state.provider_email_status === 'sent'
+      || state.lead_status === 'sent'
+      || state.provider_email_sent_at
+    ),
+    providerFlowActive: state.provider_flow_active ?? state.providerFlowActive ?? null,
+    closedAt: state.closed_at || state.closedAt || null,
+    bookingRequestId: state.booking_request_id || state.bookingRequestId || null
   };
+};
+
+export const isExperienceBookingStateClosed = (state = null) => {
+  const normalizedState = normalizeExperienceBookingState(state);
+
+  if (!normalizedState) {
+    return false;
+  }
+
+  return Boolean(
+    normalizedState.status === 'completed'
+    || normalizedState.providerFlowActive === false
+    || normalizedState.providerRequestSent
+    || normalizedState.providerEmailSent
+    || normalizedState.closedAt
+  );
+};
+
+export const isClosedProviderBookingCasualMessage = (message = '') => {
+  const text = normalize(message)
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) {
+    return false;
+  }
+
+  return exactProviderBookingConfirmations.has(text)
+    || includesAny(text, [
+      'hola',
+      'hello',
+      'hi',
+      'hey',
+      'bonjour',
+      'salut',
+      'hallo',
+      'buenas',
+      'gracias',
+      'merci',
+      'thanks',
+      'thank you',
+      'danke',
+      'ok',
+      'okay',
+      'vale',
+      'perfecto',
+      'perfect',
+      'bien',
+      'genial',
+      'super'
+    ]);
 };
 
 const experienceFromBookingState = ({ state = null, providerExperiences = [] } = {}) => {
@@ -1620,7 +1683,8 @@ export const classifyProviderExperienceConversation = async ({
   message = '',
   conversationId = null,
   hotelExperiences = [],
-  latestProviderContext: providedLatestProviderContext = null
+  latestProviderContext: providedLatestProviderContext = null,
+  ignoreStoredContext = false
 } = {}) => {
   const text = normalize(message);
 
@@ -1634,9 +1698,11 @@ export const classifyProviderExperienceConversation = async ({
   }
 
   const [latestOffer, loadedLatestProviderContext] = await Promise.all([
-    getLatestExperienceOffer({ conversationId }),
+    ignoreStoredContext ? Promise.resolve(null) : getLatestExperienceOffer({ conversationId }),
     providedLatestProviderContext
       ? Promise.resolve(providedLatestProviderContext)
+      : ignoreStoredContext
+      ? Promise.resolve(null)
       : getLatestProviderExperienceContext({ conversationId })
   ]);
   const latestProviderContext = providedLatestProviderContext || loadedLatestProviderContext;
@@ -1950,6 +2016,48 @@ export const detectExperienceBookingIntent = async ({
   const loadedLatestProviderContext = latestProviderContext || await getLatestProviderExperienceContext({ conversationId });
   const loadedExperienceBookingState = experienceBookingState || await getLatestExperienceBookingState({ conversationId });
   const awaitingConfirmationState = normalizeExperienceBookingState(loadedExperienceBookingState);
+  const completedBookingState = isExperienceBookingStateClosed(awaitingConfirmationState);
+  const explicitNewExperienceMatch = matchExplicitProviderExperience({
+    message,
+    providerExperiences: hotelExperiences
+  });
+  const activeLatestProviderContext = completedBookingState ? null : loadedLatestProviderContext;
+
+  if (completedBookingState && isClosedProviderBookingCasualMessage(message) && !explicitNewExperienceMatch) {
+    safeProviderLog('info', 'closed_provider_flow_not_reopened', {
+      conversationId,
+      message,
+      experienceTitle: awaitingConfirmationState?.experienceTitle || null,
+      provider: awaitingConfirmationState?.provider || null,
+      requestedDate: awaitingConfirmationState?.requestedDate || null,
+      guestsCount: awaitingConfirmationState?.guestsCount || null,
+      status: awaitingConfirmationState?.status || null,
+      providerRequestSent: awaitingConfirmationState?.providerRequestSent || false,
+      providerEmailSent: awaitingConfirmationState?.providerEmailSent || false
+    });
+
+    return {
+      detected: false,
+      confidence: 0,
+      reason: 'completed_provider_flow_not_reopened',
+      matchedExperience: null,
+      requestedDate: null,
+      requestedTime: null,
+      guestsCount: null,
+      missingDetails: [],
+      guestConfirmedProviderRequest: false,
+      completedProviderBookingState: awaitingConfirmationState,
+      conversationIntent: {
+        intentType: null,
+        confidence: 0,
+        reason: 'completed_provider_flow_not_reopened',
+        bookingReady: false,
+        matchedExperience: null,
+        completedProviderBookingState: awaitingConfirmationState
+      }
+    };
+  }
+
   const stateMatchedExperience = experienceFromBookingState({
     state: awaitingConfirmationState,
     providerExperiences: hotelExperiences
@@ -1957,6 +2065,7 @@ export const detectExperienceBookingIntent = async ({
   const stateFinalConfirmation = Boolean(
     awaitingConfirmationState?.awaitingGuestConfirmation
     && !awaitingConfirmationState.providerRequestSent
+    && !completedBookingState
   );
   const finalConfirmationDetected = isProviderBookingConfirmation(message);
 
@@ -2027,7 +2136,7 @@ export const detectExperienceBookingIntent = async ({
             resolvedFromMessage: loadedExperienceBookingState?.last_message || null,
             matchScore: 1,
             matchReason: 'stored_experience_booking_state',
-            previousLastTitle: loadedLatestProviderContext?.title || loadedLatestProviderContext?.last_provider_experience_title || null
+            previousLastTitle: activeLatestProviderContext?.title || activeLatestProviderContext?.last_provider_experience_title || null
           },
           conversationIntent
         };
@@ -2070,7 +2179,7 @@ export const detectExperienceBookingIntent = async ({
     message,
     recentMessages,
     providerExperiences: hotelExperiences,
-    lastProviderExperience: loadedLatestProviderContext
+    lastProviderExperience: activeLatestProviderContext
   });
   const resolvedLatestProviderContext = experienceResolution.resolvedExperience
     ? buildLastProviderExperienceState({
@@ -2081,12 +2190,13 @@ export const detectExperienceBookingIntent = async ({
       message: experienceResolution.resolvedFromMessage || message,
       callsite: `detectExperienceBookingIntent.${experienceResolution.resolvedSource || 'none'}`
     })
-    : loadedLatestProviderContext;
+    : activeLatestProviderContext;
   const classified = await classifyProviderExperienceConversation({
     message,
     conversationId,
     hotelExperiences,
-    latestProviderContext: resolvedLatestProviderContext
+    latestProviderContext: resolvedLatestProviderContext,
+    ignoreStoredContext: completedBookingState
   });
   const matchedExperience = experienceResolution.resolvedExperience || classified.matchedExperience || null;
   const bookingDetailsText = buildBookingDetailsText({ message, recentMessages });

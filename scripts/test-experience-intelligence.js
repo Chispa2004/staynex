@@ -477,6 +477,47 @@ assert.equal(finalConfirmationFromState.requestedDate, '2026-06-29');
 assert.equal(finalConfirmationFromState.guestsCount, 3);
 assert.equal(finalConfirmationFromState.matchedExperience.title, 'Essaouira Coastal Excursion');
 
+const completedEssaouiraState = {
+  ...awaitingEssaouiraState,
+  status: 'completed',
+  awaiting_confirmation: false,
+  awaiting_guest_confirmation: false,
+  awaiting_guest_details: false,
+  provider_flow_active: false,
+  provider_request_sent: true,
+  provider_email_sent: true,
+  provider_email_status: 'sent',
+  closed_at: '2026-06-28T10:00:00.000Z'
+};
+const completedFlowGreeting = await detectExperienceBookingIntent({
+  message: 'hola',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext,
+  experienceBookingState: completedEssaouiraState
+});
+assert.equal(completedFlowGreeting.detected, false);
+assert.equal(completedFlowGreeting.reason, 'completed_provider_flow_not_reopened');
+assert.equal(completedFlowGreeting.conversationIntent.intentType, null);
+
+const completedFlowConfirmation = await detectExperienceBookingIntent({
+  message: 'si',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext,
+  experienceBookingState: completedEssaouiraState
+});
+assert.equal(completedFlowConfirmation.detected, false);
+assert.equal(completedFlowConfirmation.reason, 'completed_provider_flow_not_reopened');
+
+const newFlowAfterCompletedBooking = await detectExperienceBookingIntent({
+  message: 'quiero reservar Agafay',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext,
+  experienceBookingState: completedEssaouiraState
+});
+assert.equal(newFlowAfterCompletedBooking.detected, false);
+assert.equal(newFlowAfterCompletedBooking.reason, 'booking_missing_guest_details');
+assert.equal(newFlowAfterCompletedBooking.matchedExperience.title, 'Agafay Desert Dinner');
+
 for (const finalPhrase of ['sí', 'vale', 'ok', 'adelante']) {
   const variantConfirmation = await detectExperienceBookingIntent({
     message: finalPhrase,

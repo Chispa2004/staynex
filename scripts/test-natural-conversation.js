@@ -280,6 +280,46 @@ assert(
   'Greeting after fallback should get useful greeting repair'
 );
 
+const completedBookingAfterFallback = chooseSmarterConciergeResponse({
+  message: 'hola',
+  aiResponse: {
+    intent: 'unknown',
+    confidence: 0.8,
+    reply: badFallback,
+    create_ticket: false
+  },
+  language: 'es',
+  conversationState: {
+    previousState: {
+      last_ai_response: badFallback,
+      state_metadata: {
+        experience_booking_state: {
+          status: 'completed',
+          detected_experience: 'Essaouira Coastal Excursion',
+          provider: 'Luxotour Morocco',
+          requested_date: '2026-06-29',
+          guest_count: 3,
+          provider_request_sent: true,
+          provider_email_sent: true,
+          provider_flow_active: false,
+          closed_at: '2026-06-28T10:00:00.000Z'
+        }
+      }
+    }
+  },
+  humanEscalation: { needsHuman: false, humanReason: null },
+  enhancedRisk: { hasRisk: false },
+  recentMessages: []
+});
+
+assert(
+  completedBookingAfterFallback.metadata.repair_intent === 'completed_booking_fallback'
+  && completedBookingAfterFallback.aiResponse.reply.includes('ya ha sido enviada')
+  && !completedBookingAfterFallback.aiResponse.reply.includes('necesito la fecha')
+  && !completedBookingAfterFallback.aiResponse.reply.includes('numero de personas'),
+  'Repair mode must summarize completed provider request instead of reviving booking details'
+);
+
 const loopResponse = chooseSmarterConciergeResponse({
   message: 'no entiendo',
   aiResponse: {
@@ -450,6 +490,7 @@ console.log(JSON.stringify({
     'repeated fallback is blocked',
     'repair mode handles excursion question after fallback',
     'repair mode handles greeting after fallback',
+    'completed provider booking is summarized after fallback',
     'conversation loop activates repair options',
     'experience ambiguity asks info vs booking',
     'emergency still escalates',

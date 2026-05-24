@@ -508,12 +508,27 @@ export const countRecentFallbackResponses = ({ recentMessages = [], previousResp
 export const detectGuestRepairIntent = ({ message = '', providerIntent = null, conversationState = {} } = {}) => {
   const text = normalize(message);
   const bookingState = conversationState?.previousState?.state_metadata?.experience_booking_state || {};
+  const providerBookingCompleted = Boolean(
+    bookingState.status === 'completed'
+    || bookingState.provider_flow_active === false
+    || bookingState.provider_request_sent
+    || bookingState.provider_email_sent
+    || bookingState.provider_email_status === 'sent'
+    || bookingState.closed_at
+  );
+
+  if (providerBookingCompleted && /^(hola|hello|hi|hey|bonjour|salut|hallo|ola|buenas|gracias|merci|thanks|thank you|danke|ok|okay|vale|perfecto)[\s!.?]*$/i.test(message.trim())) {
+    return 'completed_booking_fallback';
+  }
 
   if (includesAny(text, ['excursion', 'excursiones', 'tour', 'tours', 'experiencia', 'experiencias', 'actividad', 'actividades', 'recomendais', 'recomiendas', 'recommend', 'things to do'])) {
     return 'experience_fallback';
   }
 
-  if (providerIntent?.matchedExperience || bookingState?.detected_experience || bookingState?.awaiting_guest_confirmation || bookingState?.awaiting_guest_details) {
+  if (
+    !providerBookingCompleted
+    && (providerIntent?.matchedExperience || bookingState?.detected_experience || bookingState?.awaiting_guest_confirmation || bookingState?.awaiting_guest_details)
+  ) {
     return 'booking_fallback';
   }
 
@@ -544,7 +559,28 @@ export const buildRepairModeReply = ({
   variantIndex = 0
 } = {}) => {
   const repairIntent = detectGuestRepairIntent({ message, providerIntent, conversationState });
+  const bookingState = conversationState?.previousState?.state_metadata?.experience_booking_state || {};
+  const completedExperienceTitle = bookingState.detected_experience || bookingState.experience_title || 'la experiencia';
+  const completedProvider = bookingState.provider || bookingState.provider_source || 'el proveedor';
+  const completedDate = bookingState.requested_date ? ` para ${bookingState.requested_date}` : '';
+  const completedGuests = bookingState.guest_count || bookingState.guests_count
+    ? ` para ${bookingState.guest_count || bookingState.guests_count} personas`
+    : '';
   const templates = {
+    completed_booking_fallback: {
+      es: [
+        `Hola, te ayudo. La solicitud de ${completedExperienceTitle}${completedDate}${completedGuests} ya ha sido enviada a ${completedProvider}. Te avisaremos cuando tengamos confirmacion. Quieres consultar otra experiencia o necesitas ayuda con otra cosa?`
+      ],
+      en: [
+        `Hello, I can help. The request for ${completedExperienceTitle}${completedDate}${completedGuests} has already been sent to ${completedProvider}. We will let you know when availability is confirmed. Would you like another experience or help with something else?`
+      ],
+      fr: [
+        `Bonjour, je peux vous aider. La demande pour ${completedExperienceTitle}${completedDate}${completedGuests} a deja ete envoyee a ${completedProvider}. Nous vous informerons des que la disponibilite sera confirmee.`
+      ],
+      de: [
+        `Hallo, ich helfe gern. Die Anfrage fuer ${completedExperienceTitle}${completedDate}${completedGuests} wurde bereits an ${completedProvider} gesendet. Wir informieren Sie, sobald die Verfuegbarkeit bestaetigt ist.`
+      ]
+    },
     experience_fallback: {
       es: [
         'Te ayudo con excursiones. Puedo mostrarte opciones disponibles o, si ya tienes una en mente, dime la excursion, fecha y numero de personas.',
