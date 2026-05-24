@@ -173,6 +173,23 @@ const complaintKeywords = [
   'enfadada'
 ];
 
+const genericFallbackPatterns = [
+  /de acuerdo.*lo reviso.*siguiente paso/,
+  /lo reviso.*te indico/,
+  /para no darte.*respuesta incorrecta/,
+  /paso esta consulta.*recepcion/,
+  /recepcion.*te ayudara/,
+  /recepcion.*se pondra en contacto/,
+  /he avisado.*recepcion/,
+  /lo consulto internamente/,
+  /paso nota/,
+  /i will check.*next step/,
+  /forwarding.*reception/,
+  /pass this.*reception/,
+  /reception.*will help/,
+  /to avoid giving.*wrong answer/
+];
+
 const hoursSince = (value) => {
   if (!value) return Infinity;
   const time = new Date(value).getTime();
@@ -472,6 +489,152 @@ export const detectRepeatedResponse = ({ response = '', recentMessages = [], pre
   return candidates.some((candidate) => areResponsesSimilar(response, candidate));
 };
 
+export const isGenericFallbackResponse = (response = '') => {
+  const text = normalize(response);
+  return genericFallbackPatterns.some((pattern) => pattern.test(text));
+};
+
+export const countRecentFallbackResponses = ({ recentMessages = [], previousResponse = null } = {}) => {
+  const candidates = [
+    previousResponse,
+    ...(recentMessages || [])
+      .filter((item) => ['ai', 'assistant'].includes(item.sender_type || item.senderType))
+      .map((item) => item.content)
+  ].filter(Boolean);
+
+  return candidates.filter(isGenericFallbackResponse).length;
+};
+
+export const detectGuestRepairIntent = ({ message = '', providerIntent = null, conversationState = {} } = {}) => {
+  const text = normalize(message);
+  const bookingState = conversationState?.previousState?.state_metadata?.experience_booking_state || {};
+
+  if (includesAny(text, ['excursion', 'excursiones', 'tour', 'tours', 'experiencia', 'experiencias', 'actividad', 'actividades', 'recomendais', 'recomiendas', 'recommend', 'things to do'])) {
+    return 'experience_fallback';
+  }
+
+  if (providerIntent?.matchedExperience || bookingState?.detected_experience || bookingState?.awaiting_guest_confirmation || bookingState?.awaiting_guest_details) {
+    return 'booking_fallback';
+  }
+
+  if (/^(hola|hello|hi|hey|bonjour|salut|hallo|ola|buenas)[\s!.?]*$/i.test(message.trim())) {
+    return 'greeting_fallback';
+  }
+
+  if (includesAny(text, ['emergencia', 'urgent', 'urgente', 'emergency', 'peligro', 'danger'])) {
+    return 'emergency_fallback';
+  }
+
+  if (includesAny(text, ['aire acondicionado', 'ac', 'ruido', 'noise', 'limpieza', 'cleaning', 'roto', 'broken', 'maintenance', 'mantenimiento'])) {
+    return 'maintenance_fallback';
+  }
+
+  if (includesAny(text, informationalKeywords)) {
+    return 'hotel_info_fallback';
+  }
+
+  return 'unknown_fallback';
+};
+
+export const buildRepairModeReply = ({
+  language = 'es',
+  message = '',
+  providerIntent = null,
+  conversationState = {},
+  variantIndex = 0
+} = {}) => {
+  const repairIntent = detectGuestRepairIntent({ message, providerIntent, conversationState });
+  const templates = {
+    experience_fallback: {
+      es: [
+        'Te ayudo con excursiones. Puedo mostrarte opciones disponibles o, si ya tienes una en mente, dime la excursion, fecha y numero de personas.',
+        'Ahora te explico las opciones de experiencias. Si quieres reservar alguna, necesito excursion, fecha y numero de personas.'
+      ],
+      en: [
+        'I can help with local experiences. I can show available options, or if you already have one in mind, send me the tour, date and number of people.',
+        'Let me help with the experience options. To request one, I need the experience, preferred date and number of people.'
+      ],
+      fr: [
+        'Je peux vous aider avec les experiences. Je peux montrer les options ou, si vous en avez une en tete, envoyez-moi experience, date et nombre de personnes.'
+      ],
+      de: [
+        'Ich helfe gern mit Erlebnissen. Ich kann Optionen zeigen oder, wenn Sie schon eines im Kopf haben, brauche ich Erlebnis, Datum und Personenzahl.'
+      ]
+    },
+    booking_fallback: {
+      es: [
+        'Perdona, no quiero repetirme. Para enviar la solicitud al proveedor necesito tener claro: excursion, fecha y numero de personas. Lo intentamos de nuevo con esos datos.',
+        'Vamos paso a paso: dime la excursion, fecha y numero de personas, y preparo de nuevo la solicitud al proveedor.'
+      ],
+      en: [
+        'Sorry, I do not want to repeat myself. To send the provider request, I need the experience, date and number of people. We can try again with those details.',
+        'Let us go step by step: send me the experience, date and number of people, and I will prepare the provider request again.'
+      ],
+      fr: [
+        'Pardon, je ne veux pas me repeter. Pour envoyer la demande au prestataire, il me faut experience, date et nombre de personnes.'
+      ],
+      de: [
+        'Entschuldigung, ich moechte mich nicht wiederholen. Fuer die Anfrage brauche ich Erlebnis, Datum und Personenzahl.'
+      ]
+    },
+    greeting_fallback: {
+      es: [
+        'Hola, estoy aqui para ayudarte. Quieres informacion sobre experiencias, restaurante, late checkout o algun servicio del hotel?',
+        'Hola, te ayudo. Puedes pedirme excursiones, restaurante, late checkout, tickets o informacion del hotel.'
+      ],
+      en: [
+        'Hello, I am here to help. Would you like information about experiences, restaurant, late checkout or a hotel service?',
+        'Hi, I can help. You can ask me about experiences, restaurant, late checkout, tickets or hotel information.'
+      ],
+      fr: [
+        'Bonjour, je suis la pour vous aider. Souhaitez-vous des informations sur experiences, restaurant, late checkout ou un service de l hotel?'
+      ],
+      de: [
+        'Hallo, ich helfe gern. Moechten Sie Informationen zu Erlebnissen, Restaurant, Late Check-out oder einem Hotelservice?'
+      ]
+    },
+    maintenance_fallback: {
+      es: ['Entiendo. Si es una incidencia de habitacion, dime que ocurre y tu habitacion para crear o actualizar el aviso al equipo.'],
+      en: ['I understand. If this is a room issue, please tell me what happened and your room number so the team can follow it up.'],
+      fr: ['Je comprends. Si c est un probleme de chambre, indiquez-moi ce qui se passe et votre numero de chambre.'],
+      de: ['Ich verstehe. Wenn es ein Zimmerproblem ist, sagen Sie mir bitte, was passiert ist und Ihre Zimmernummer.']
+    },
+    hotel_info_fallback: {
+      es: ['Te ayudo con informacion del hotel. Dime si buscas horarios, servicios, reservas, transporte o recomendaciones locales.'],
+      en: ['I can help with hotel information. Tell me if you need opening hours, services, bookings, transport or local recommendations.'],
+      fr: ['Je peux vous aider avec les informations hotel: horaires, services, reservations, transport ou recommandations locales.'],
+      de: ['Ich helfe mit Hotelinformationen: Oeffnungszeiten, Services, Buchungen, Transfer oder lokale Empfehlungen.']
+    },
+    emergency_fallback: {
+      es: ['Si es urgente o hay riesgo inmediato, contacta ahora con recepcion o emergencias. Tambien puedo avisar al equipo del hotel con prioridad.'],
+      en: ['If this is urgent or there is immediate danger, please contact reception or emergency services now. I can also alert the hotel team with priority.'],
+      fr: ['Si c est urgent ou dangereux, contactez maintenant la reception ou les urgences. Je peux aussi prevenir l equipe en priorite.'],
+      de: ['Wenn es dringend ist oder Gefahr besteht, kontaktieren Sie bitte sofort Rezeption oder Notdienst. Ich kann auch das Hotelteam priorisieren.']
+    },
+    unknown_fallback: {
+      es: [
+        'Perdona, no quiero repetirme. Para ayudarte mejor, elige una opcion: excursiones, restaurante, late checkout, informacion del hotel o hablar con recepcion.',
+        'Vamos a aclararlo: te refieres a reservar una excursion, pedir informacion del hotel o hablar con recepcion?'
+      ],
+      en: [
+        'Sorry, I do not want to repeat myself. To help better, choose one option: experiences, restaurant, late checkout, hotel information or reception.',
+        'Let us clarify it: do you mean booking an experience, hotel information, or speaking with reception?'
+      ],
+      fr: [
+        'Pardon, je ne veux pas me repeter. Choisissez une option: experiences, restaurant, late checkout, information hotel ou reception.'
+      ],
+      de: [
+        'Entschuldigung, ich moechte mich nicht wiederholen. Waehlen Sie bitte: Erlebnisse, Restaurant, Late Check-out, Hotelinfo oder Rezeption.'
+      ]
+    }
+  };
+
+  return {
+    reply: chooseVariant(templates[repairIntent]?.[language] || templates[repairIntent]?.es || templates.unknown_fallback.es, variantIndex),
+    repairIntent
+  };
+};
+
 export const improveRepeatedResponse = ({
   response = '',
   language = 'es',
@@ -492,10 +655,10 @@ export const improveRepeatedResponse = ({
       de: ['Ich gebe das an das Team weiter, damit es sorgfaeltig geprueft wird.']
     },
     confirmation: {
-      es: ['De acuerdo, lo reviso y te indico el siguiente paso.'],
-      en: ['Understood, I will check this and guide you with the next step.'],
-      fr: ['Tres bien, je verifie cela et vous indique la prochaine etape.'],
-      de: ['Verstanden, ich pruefe das und sage Ihnen den naechsten Schritt.']
+      es: ['Te ayudo. Dime el dato concreto que falta y avanzamos desde aqui.'],
+      en: ['I can help. Send me the missing detail and we will move forward from here.'],
+      fr: ['Je peux vous aider. Envoyez-moi le detail manquant et nous avancerons ensuite.'],
+      de: ['Ich helfe gern. Senden Sie mir das fehlende Detail, dann machen wir weiter.']
     }
   };
 
@@ -515,6 +678,8 @@ export const chooseSmarterConciergeResponse = ({
 } = {}) => {
   const confidence = Number(aiResponse?.confidence || 0);
   const intent = aiResponse?.intent || null;
+  const originalReply = aiResponse?.reply || '';
+  const originalIsGenericFallback = isGenericFallbackResponse(originalReply);
   const previousClarifications = getClarificationCount(conversationState);
   const variantIndex = previousClarifications + (recentMessages?.length || 0);
   const explicitHuman = humanEscalation.humanReason === 'human_requested';
@@ -579,8 +744,40 @@ export const chooseSmarterConciergeResponse = ({
     recentMessages,
     previousResponse: conversationState?.previousState?.last_ai_response
   });
+  const recentFallbackCount = countRecentFallbackResponses({
+    recentMessages,
+    previousResponse: conversationState?.previousState?.last_ai_response
+  });
+  const currentIsGenericFallback = isGenericFallbackResponse(reply);
+  const fallbackLikeTurn = currentIsGenericFallback
+    || originalIsGenericFallback
+    || ['low_confidence', 'fallback_response'].includes(humanEscalation.humanReason);
+  const repeatedFallbackDetected = fallbackLikeTurn && recentFallbackCount >= 1;
+  const conversationLoopDetected = recentFallbackCount >= 2 || (repeated && fallbackLikeTurn);
+  let repairModeActivated = false;
+  let fallbackBlockedDueToRepetition = false;
+  let alternativeResponseUsed = false;
+  let repairIntent = null;
 
-  if (repeated) {
+  if (!seriousEscalation && (repeatedFallbackDetected || conversationLoopDetected)) {
+    const repaired = buildRepairModeReply({
+      language,
+      message,
+      providerIntent,
+      conversationState,
+      variantIndex: variantIndex + recentFallbackCount + 1
+    });
+    reply = repaired.reply;
+    repairIntent = repaired.repairIntent;
+    responseStrategy = 'repair_mode';
+    needsHuman = false;
+    humanReason = null;
+    escalationReason = null;
+    clarificationUsed = false;
+    repairModeActivated = true;
+    fallbackBlockedDueToRepetition = true;
+    alternativeResponseUsed = true;
+  } else if (repeated || repeatedFallbackDetected) {
     reply = improveRepeatedResponse({
       response: reply,
       language,
@@ -591,6 +788,7 @@ export const chooseSmarterConciergeResponse = ({
           : 'confirmation',
       variantIndex: variantIndex + 1
     });
+    alternativeResponseUsed = true;
   }
 
   const nextClarificationCount = clarificationUsed
@@ -621,6 +819,13 @@ export const chooseSmarterConciergeResponse = ({
       clarification_count: nextClarificationCount,
       escalation_reason: escalationReason,
       repeated_response_detected: repeated,
+      repeated_fallback_detected: repeatedFallbackDetected,
+      conversation_loop_detected: conversationLoopDetected,
+      repair_mode_activated: repairModeActivated,
+      fallback_blocked_due_to_repetition: fallbackBlockedDueToRepetition,
+      alternative_response_used: alternativeResponseUsed,
+      recent_fallback_count: recentFallbackCount,
+      repair_intent: repairIntent,
       response_variant: variantIndex,
       confidence,
       language

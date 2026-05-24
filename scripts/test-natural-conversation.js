@@ -1,9 +1,13 @@
 import {
   areResponsesSimilar,
   buildClarificationReply,
+  buildRepairModeReply,
   chooseSmarterConciergeResponse,
   chooseNaturalConciergeResponse,
+  countRecentFallbackResponses,
+  detectGuestRepairIntent,
   detectRepeatedResponse,
+  isGenericFallbackResponse,
   shouldSuppressOfferForNaturalConversation
 } from '../src/services/natural-conversation.service.js';
 import { detectUpsellOpportunities, UPSELL_TYPES } from '../src/services/upsell.service.js';
@@ -189,6 +193,140 @@ assert(
   'Different replies should not be treated as repeated'
 );
 
+const badFallback = 'De acuerdo, lo reviso y te indico el siguiente paso.';
+assert(isGenericFallbackResponse(badFallback), 'Generic fallback phrase should be classified');
+
+const blockedRepeatedFallback = chooseSmarterConciergeResponse({
+  message: 'hola',
+  aiResponse: {
+    intent: 'unknown',
+    confidence: 0.78,
+    reply: badFallback,
+    create_ticket: false
+  },
+  language: 'es',
+  conversationState: {
+    previousState: {
+      last_ai_response: badFallback,
+      state_metadata: {}
+    }
+  },
+  humanEscalation: {
+    needsHuman: false,
+    humanReason: null
+  },
+  enhancedRisk: {
+    hasRisk: false
+  },
+  recentMessages: []
+});
+
+assert(
+  blockedRepeatedFallback.aiResponse.reply !== badFallback
+  && blockedRepeatedFallback.metadata.fallback_blocked_due_to_repetition
+  && blockedRepeatedFallback.metadata.repair_mode_activated,
+  'If fallback was used once, it must not repeat the same fallback on the next turn'
+);
+
+const excursionsAfterFallback = chooseSmarterConciergeResponse({
+  message: 'hola, que excursiones teneis?',
+  aiResponse: {
+    intent: 'unknown',
+    confidence: 0.8,
+    reply: badFallback,
+    create_ticket: false
+  },
+  language: 'es',
+  conversationState: {
+    previousState: {
+      last_ai_response: badFallback,
+      state_metadata: {}
+    }
+  },
+  humanEscalation: { needsHuman: false, humanReason: null },
+  enhancedRisk: { hasRisk: false },
+  recentMessages: []
+});
+
+assert(
+  /excursiones|experiencias|opciones/.test(excursionsAfterFallback.aiResponse.reply)
+  && !isGenericFallbackResponse(excursionsAfterFallback.aiResponse.reply),
+  'Excursion question after fallback should move to experience help, not repeat fallback'
+);
+
+const greetingAfterFallback = chooseSmarterConciergeResponse({
+  message: 'hola',
+  aiResponse: {
+    intent: 'unknown',
+    confidence: 0.8,
+    reply: badFallback,
+    create_ticket: false
+  },
+  language: 'es',
+  conversationState: {
+    previousState: {
+      last_ai_response: badFallback,
+      state_metadata: {}
+    }
+  },
+  humanEscalation: { needsHuman: false, humanReason: null },
+  enhancedRisk: { hasRisk: false },
+  recentMessages: []
+});
+
+assert(
+  greetingAfterFallback.aiResponse.reply.includes('Hola')
+  && greetingAfterFallback.aiResponse.reply.includes('ayud'),
+  'Greeting after fallback should get useful greeting repair'
+);
+
+const loopResponse = chooseSmarterConciergeResponse({
+  message: 'no entiendo',
+  aiResponse: {
+    intent: 'unknown',
+    confidence: 0.8,
+    reply: badFallback,
+    create_ticket: false
+  },
+  language: 'es',
+  conversationState: {
+    previousState: {
+      last_ai_response: badFallback,
+      state_metadata: {}
+    }
+  },
+  humanEscalation: { needsHuman: false, humanReason: null },
+  enhancedRisk: { hasRisk: false },
+  recentMessages: [
+    { sender_type: 'ai', content: badFallback }
+  ]
+});
+
+assert(
+  loopResponse.metadata.conversation_loop_detected
+  && loopResponse.metadata.repair_mode_activated
+  && /excursiones|restaurante|late checkout|informacion|recepcion/.test(loopResponse.aiResponse.reply),
+  'Two repeated fallbacks should activate repair mode with clear options'
+);
+
+assert(
+  countRecentFallbackResponses({
+    previousResponse: badFallback,
+    recentMessages: [{ sender_type: 'ai', content: badFallback }]
+  }) === 2,
+  'Recent fallback counter should count repeated generic fallbacks'
+);
+
+assert(
+  detectGuestRepairIntent({ message: 'hola, que excursiones recomendais?' }) === 'experience_fallback',
+  'Repair intent should classify excursion questions'
+);
+
+assert(
+  buildRepairModeReply({ language: 'es', message: 'hola', variantIndex: 0 }).repairIntent === 'greeting_fallback',
+  'Repair mode should classify simple greetings'
+);
+
 const spanishClarification = buildClarificationReply({
   language: 'es',
   message: 'algo de excursion',
@@ -309,6 +447,10 @@ console.log(JSON.stringify({
     'ambiguous low confidence asks clarification',
     'second unclear request escalates',
     'repeated response is detected',
+    'repeated fallback is blocked',
+    'repair mode handles excursion question after fallback',
+    'repair mode handles greeting after fallback',
+    'conversation loop activates repair options',
     'experience ambiguity asks info vs booking',
     'emergency still escalates',
     'copilot detects angry guests and escalation risk',

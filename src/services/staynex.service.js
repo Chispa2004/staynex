@@ -1202,8 +1202,60 @@ export const processGuestMessage = async ({
     repeated_response_detected: smarterResponse.metadata.repeated_response_detected,
     response_variant: smarterResponse.metadata.response_variant,
     confidence: smarterResponse.metadata.confidence,
-    language: smarterResponse.metadata.language
+    language: smarterResponse.metadata.language,
+    repeated_fallback_detected: smarterResponse.metadata.repeated_fallback_detected,
+    conversation_loop_detected: smarterResponse.metadata.conversation_loop_detected,
+    repair_mode_activated: smarterResponse.metadata.repair_mode_activated,
+    fallback_blocked_due_to_repetition: smarterResponse.metadata.fallback_blocked_due_to_repetition,
+    alternative_response_used: smarterResponse.metadata.alternative_response_used,
+    repair_intent: smarterResponse.metadata.repair_intent || null
   });
+
+  if (smarterResponse.metadata.repeated_fallback_detected) {
+    logger.warn('repeated_fallback_detected', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      repairIntent: smarterResponse.metadata.repair_intent || null,
+      recentFallbackCount: smarterResponse.metadata.recent_fallback_count
+    });
+  }
+
+  if (smarterResponse.metadata.conversation_loop_detected) {
+    logger.warn('conversation_loop_detected', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      repairIntent: smarterResponse.metadata.repair_intent || null,
+      recentFallbackCount: smarterResponse.metadata.recent_fallback_count
+    });
+  }
+
+  if (smarterResponse.metadata.repair_mode_activated) {
+    logger.info('repair_mode_activated', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      repairIntent: smarterResponse.metadata.repair_intent || null
+    });
+  }
+
+  if (smarterResponse.metadata.fallback_blocked_due_to_repetition) {
+    logger.info('fallback_blocked_due_to_repetition', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id
+    });
+  }
+
+  if (smarterResponse.metadata.alternative_response_used) {
+    logger.info('alternative_response_used', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      responseStrategy: smarterResponse.metadata.response_strategy
+    });
+  }
 
   const conciergeMemories = await persistConciergeMemory({
     hotel: activeHotel,
