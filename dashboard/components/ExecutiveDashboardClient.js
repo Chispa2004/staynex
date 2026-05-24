@@ -172,6 +172,7 @@ export const ExecutiveDashboardClient = () => {
     knowledge: canAccess(role, 'knowledge_base'),
     localKnowledge: canAccess(role, 'local_knowledge'),
     experienceBookings: canAccess(role, 'experience_bookings'),
+    reception: canAccess(role, 'reception'),
     tickets: canAccess(role, 'tickets'),
     inbox: canAccess(role, 'inbox')
   }), [role]);
@@ -375,6 +376,7 @@ const HotelIntelligencePanel = ({ data, loading }) => {
     { label: 'Departures today', value: hotel.departuresToday || 0, tone: 'violet' },
     { label: 'Pending check-ins', value: hotel.pendingCheckins || 0, tone: Number(hotel.pendingCheckins || 0) > 0 ? 'amber' : 'emerald' },
     { label: 'Pending check-outs', value: hotel.pendingCheckouts || 0, tone: Number(hotel.pendingCheckouts || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Reservations needing attention', value: hotel.reservationsNeedingAttention || hotel.guestsWithAlerts || 0, tone: Number(hotel.reservationsNeedingAttention || hotel.guestsWithAlerts || 0) > 0 ? 'amber' : 'emerald' },
     { label: 'In-house guests', value: hotel.inHouseGuests || 0, tone: 'slate' },
     { label: 'VIP guests', value: hotel.vipGuests || 0, tone: Number(hotel.vipGuests || 0) > 0 ? 'violet' : 'slate' },
     { label: 'Guests with alerts', value: hotel.guestsWithAlerts || 0, tone: Number(hotel.guestsWithAlerts || 0) > 0 ? 'red' : 'emerald' }
@@ -662,6 +664,7 @@ const QuickActionsPanel = ({ role, permissions, data }) => {
   const adminActions = [
     permissions.inbox ? { label: 'Inbox', href: '/dashboard/inbox', icon: Inbox } : null,
     permissions.tickets ? { label: 'Tickets', href: '/dashboard/tickets', icon: TicketCheck } : null,
+    permissions.reception ? { label: 'Reception / Pre Check-in', href: '/dashboard/reception', icon: ConciergeBell } : null,
     permissions.automations ? { label: 'Automations', href: '/dashboard/automations', icon: Zap } : null,
     permissions.revenue ? { label: 'Revenue', href: '/dashboard/upsells', icon: TrendingUp } : null,
     permissions.experienceBookings ? { label: 'Experience Bookings', href: '/dashboard/experience-bookings', icon: CalendarCheck } : null,
@@ -673,6 +676,7 @@ const QuickActionsPanel = ({ role, permissions, data }) => {
   const receptionistActions = [
     permissions.inbox ? { label: 'Open Inbox', href: '/dashboard/inbox', icon: Inbox } : null,
     permissions.tickets ? { label: 'View Tickets', href: '/dashboard/tickets', icon: TicketCheck } : null,
+    permissions.reception ? { label: 'Reception / Pre Check-in', href: '/dashboard/reception', icon: ConciergeBell } : null,
     permissions.qrRooms ? { label: 'QR Rooms', href: '/dashboard/qr-rooms', icon: QrCode } : null,
     permissions.knowledge ? { label: 'Knowledge Base', href: '/dashboard/settings/knowledge', icon: BookOpen } : null,
     permissions.localKnowledge ? { label: 'Local Knowledge', href: '/dashboard/local-knowledge', icon: Map } : null,

@@ -64,6 +64,7 @@ const navigationGroups = [
       { href: '/dashboard', labelKey: 'screens.dashboard', icon: LayoutDashboard },
       { href: '/dashboard/inbox', labelKey: 'sidebar.inbox', icon: Inbox },
       { href: '/dashboard/tickets', labelKey: 'sidebar.tickets', icon: TicketCheck },
+      { href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell },
       { href: '/dashboard/experience-bookings', labelKey: 'sidebar.experienceBookings', icon: CalendarCheck }
     ]
   },
@@ -73,8 +74,7 @@ const navigationGroups = [
     defaultOpen: false,
     items: [
       { href: '/dashboard/housekeeping', labelKey: 'sidebar.housekeeping', icon: Sparkles },
-      { href: '/dashboard/maintenance', labelKey: 'sidebar.maintenance', icon: Wrench },
-      { href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell }
+      { href: '/dashboard/maintenance', labelKey: 'sidebar.maintenance', icon: Wrench }
     ]
   },
   {

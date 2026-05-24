@@ -25,6 +25,12 @@ import {
   getGuestFolioSummary,
   normalizeFolioSummary
 } from '../src/services/pms-folio.service.js';
+import {
+  buildReceptionReservation,
+  calculateCheckinReadiness,
+  filterReceptionReservations,
+  maskDocumentNumber
+} from '../dashboard/lib/reception.js';
 
 const assert = (condition, message) => {
   if (!condition) {
@@ -228,6 +234,57 @@ assert(
   'PMS folio abstraction should read sandbox folios from PMS connection metadata'
 );
 
+const receptionReservation = buildReceptionReservation({
+  reservation: {
+    ...baseReservation,
+    guest_email: 'maria@example.com',
+    guest_phone: '+34600111222',
+    metadata: { document_number: 'AA1234567' }
+  },
+  guest: { id: 'guest-1', preferred_language: 'es', country: 'ES' },
+  stayContext,
+  roomStatus: {
+    room_number: '208',
+    housekeeping_status: 'clean',
+    maintenance_status: 'ok',
+    occupancy_status: 'occupied'
+  },
+  tickets: [],
+  folioMessage: null,
+  nowKey: '2026-05-19'
+});
+
+assert(
+  receptionReservation.readiness.score >= 80
+  && receptionReservation.document.masked === maskDocumentNumber('AA1234567'),
+  'Reception Pre Check-in should calculate readiness and mask sensitive documents'
+);
+
+assert(
+  receptionReservation.checkout.folioAvailable === false
+  && receptionReservation.checkout.folioWarnings.includes('folio_not_available_from_pms'),
+  'Reception Pre Check-in should fail closed when folio is unavailable'
+);
+
+const missingDataReadiness = calculateCheckinReadiness({
+  reservation: { status: 'confirmed' },
+  guest: {},
+  stayContext: {},
+  roomStatus: null,
+  openTickets: [],
+  folio: null
+});
+
+assert(
+  missingDataReadiness.status === 'missing_data',
+  'Reception readiness should mark incomplete PMS data as missing data'
+);
+
+assert(
+  filterReceptionReservations([receptionReservation], { query: 'AA1234567', filter: 'all' }).length === 1,
+  'Reception search should include document/passport values without exposing them unmasked'
+);
+
 const missingFolio = await getGuestFolioSummary({
   hotelId: 'hotel-1',
   reservationId: 'missing-reservation',
@@ -280,6 +337,9 @@ console.log(JSON.stringify({
     'fallback PMS missing data does not break',
     'PMS folio summary normalizes real line items',
     'PMS folio missing data fails closed',
+    'Reception Pre Check-in readiness calculates safely',
+    'Reception Pre Check-in masks DNI/passport values',
+    'Reception Pre Check-in folio unavailable fallback does not break',
     'AI context accepts pmsIntelligenceContext',
     'automation trigger checkout_tomorrow works in preview mode'
   ]

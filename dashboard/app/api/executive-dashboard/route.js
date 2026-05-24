@@ -717,6 +717,7 @@ export async function GET(request) {
       departuresToday: operationalContext.departuresToday,
       pendingCheckins,
       pendingCheckouts,
+      reservationsNeedingAttention: guestAlertCount + pendingCheckins + roomsWithIssues,
       inHouseGuests: guestStayContextRows.filter((context) => context.stay_phase === 'in_house').length || activeGuests,
       vipGuests: operationalContext.vipGuests,
       guestsWithAlerts: guestAlertCount,

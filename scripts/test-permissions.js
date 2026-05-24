@@ -16,6 +16,7 @@ const root = join(__dirname, '..');
 
 const receptionistAllowedRoutes = [
   '/dashboard',
+  '/dashboard/reception',
   '/dashboard/inbox',
   '/dashboard/tickets',
   '/dashboard/qr-rooms',
@@ -54,6 +55,7 @@ assert.equal(canAccess('receptionist', 'knowledge_base'), true, 'Receptionist ca
 assert.equal(canAccess('receptionist', 'knowledge_base_manage'), true, 'Receptionist can manage operational Knowledge Base');
 assert.equal(canAccess('receptionist', 'local_knowledge_manage'), true, 'Receptionist can manage operational Local Knowledge');
 assert.equal(canAccess('receptionist', 'experience_bookings'), true, 'Receptionist can view Experience Bookings');
+assert.equal(canAccess('receptionist', 'reception'), true, 'Receptionist can access Reception / Pre Check-in');
 assert.equal(canAccess('receptionist', 'experience_bookings_manage'), false, 'Receptionist cannot manage critical Experience Booking actions');
 assert.equal(canAccess('receptionist', 'pms_connections'), false, 'Receptionist cannot access PMS setup');
 assert.equal(canAccess('receptionist', 'automations'), false, 'Receptionist cannot access advanced Automations');
@@ -82,6 +84,7 @@ const navigationGroups = [
     items: [
       { href: '/dashboard/inbox', label: 'Inbox' },
       { href: '/dashboard/tickets', label: 'Tickets' },
+      { href: '/dashboard/reception', label: 'Reception / Pre Check-in' },
       { href: '/dashboard/experience-bookings', label: 'Experience Bookings' },
       { href: '/dashboard/qr-rooms', label: 'QR Rooms' },
       { href: '/dashboard/settings/pms', label: 'PMS' },
@@ -99,6 +102,7 @@ const receptionistNav = filterNavigationByRole(navigationGroups, 'receptionist')
 assert.deepEqual(receptionistNav, [
   '/dashboard/inbox',
   '/dashboard/tickets',
+  '/dashboard/reception',
   '/dashboard/experience-bookings',
   '/dashboard/qr-rooms',
   '/dashboard/settings/academy',
@@ -127,6 +131,7 @@ assert.ok(knowledgeSource.includes('PROTECTED_KNOWLEDGE_CATEGORIES'), 'Knowledge
 assert.ok(knowledgeSource.includes("getKnowledgeContext(request, 'knowledge_base_manage')"), 'Knowledge writes should require knowledge_base_manage');
 
 const appShellSource = readFileSync(join(root, 'dashboard/components/AppShell.js'), 'utf8');
+assert.ok(appShellSource.includes("{ href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell },\n      { href: '/dashboard/experience-bookings'"), 'Reception should sit in the main Operations sidebar before Experience Bookings');
 assert.ok(appShellSource.includes('platformNavigationItems'), 'Platform sidebar should use a dedicated platform navigation set');
 assert.ok(appShellSource.includes('/platform/hotels'), 'Platform sidebar should expose Hotels');
 assert.ok(appShellSource.includes('/platform/providers'), 'Platform sidebar should expose Experience Providers');

@@ -1,16 +1,18 @@
-import { DepartmentTicketsView } from '@/components/DepartmentTicketsView';
+import { PageHeader } from '@/components/PageHeader';
+import { ReceptionPreCheckinClient } from '@/components/ReceptionPreCheckinClient';
 
 export const dynamic = 'force-dynamic';
 
 export default function ReceptionPage() {
   return (
-    <DepartmentTicketsView
-      eyebrow="Department"
-      title="Reception"
-      titleKey="sidebar.reception"
-      descriptionKey="screens.departmentDescription"
-      description="Guest-facing operations for transport, restaurant, spa, room service, complaints, emergencies and general support."
-      categories={['transport', 'restaurant', 'spa', 'room_service', 'reception', 'complaint', 'emergency']}
-    />
+    <section className="space-y-6">
+      <PageHeader
+        eyebrowKey="screens.operations"
+        fallbackTitle="Reception / Pre Check-in"
+        fallbackDescription="Search reservations and guests, review operational readiness and prepare arrivals or checkouts without editing PMS data."
+      />
+
+      <ReceptionPreCheckinClient />
+    </section>
   );
 }
