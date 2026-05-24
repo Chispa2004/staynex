@@ -1160,6 +1160,22 @@ export const processGuestMessage = async ({
       bookingRequestId: experienceBookingRequest.id,
       providerFlowActive: false
     });
+    logger.info('provider_booking_flow_cleanup_completed', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      bookingRequestId: experienceBookingRequest.id,
+      cleared: [
+        'escalation_reason',
+        'fallback_reason',
+        'repair_mode',
+        'low_confidence_recovery',
+        'provider_booking_repair_mode',
+        'pending_handoff',
+        'fallback_context',
+        'soft_escalation_flags'
+      ]
+    });
 
     aiResponseWithUpsell = {
       ...aiResponseWithUpsell,
@@ -1263,6 +1279,10 @@ export const processGuestMessage = async ({
     repeated_fallback_detected: smarterResponse.metadata.repeated_fallback_detected,
     conversation_loop_detected: smarterResponse.metadata.conversation_loop_detected,
     repair_mode_activated: smarterResponse.metadata.repair_mode_activated,
+    repair_mode_expired: smarterResponse.metadata.repair_mode_expired,
+    concierge_mode_restored: smarterResponse.metadata.concierge_mode_restored,
+    fallback_state_cleared_after_booking: smarterResponse.metadata.fallback_state_cleared_after_booking,
+    provider_booking_summary_used: smarterResponse.metadata.provider_booking_summary_used,
     fallback_blocked_due_to_repetition: smarterResponse.metadata.fallback_blocked_due_to_repetition,
     alternative_response_used: smarterResponse.metadata.alternative_response_used,
     repair_intent: smarterResponse.metadata.repair_intent || null
@@ -1296,17 +1316,45 @@ export const processGuestMessage = async ({
       repairIntent: smarterResponse.metadata.repair_intent || null
     });
 
-    if (smarterResponse.metadata.repair_intent === 'completed_booking_fallback') {
-      logger.info('provider_booking_summary_used', {
-        hotelId: activeHotel.id,
-        guestId: guest.id,
-        conversationId: conversation.id,
-        experienceTitle: previousExperienceBookingState?.detected_experience || null,
-        provider: previousExperienceBookingState?.provider || null,
-        requestedDate: previousExperienceBookingState?.requested_date || null,
-        guestCount: previousExperienceBookingState?.guest_count || null
-      });
-    }
+  }
+
+  if (smarterResponse.metadata.repair_mode_expired) {
+    logger.info('repair_mode_expired', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      reason: 'completed_provider_booking'
+    });
+  }
+
+  if (smarterResponse.metadata.concierge_mode_restored) {
+    logger.info('concierge_mode_restored', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      experienceTitle: previousExperienceBookingState?.detected_experience || null,
+      provider: previousExperienceBookingState?.provider || null
+    });
+  }
+
+  if (smarterResponse.metadata.fallback_state_cleared_after_booking) {
+    logger.info('fallback_state_cleared_after_booking', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id
+    });
+  }
+
+  if (smarterResponse.metadata.provider_booking_summary_used) {
+    logger.info('provider_booking_summary_used', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      experienceTitle: previousExperienceBookingState?.detected_experience || null,
+      provider: previousExperienceBookingState?.provider || null,
+      requestedDate: previousExperienceBookingState?.requested_date || null,
+      guestCount: previousExperienceBookingState?.guest_count || null
+    });
   }
 
   if (smarterResponse.metadata.fallback_blocked_due_to_repetition) {
@@ -1441,6 +1489,15 @@ export const processGuestMessage = async ({
         natural_response_guidance: responseGuidance,
         smart_response: smarterResponse.metadata,
         final_offer_suppression: finalOfferSuppression,
+        escalation_reason: (experienceBookingRequest || completedProviderBookingFlow) ? null : conversationState.previousState?.state_metadata?.escalation_reason || null,
+        fallback_reason: (experienceBookingRequest || completedProviderBookingFlow) ? null : conversationState.previousState?.state_metadata?.fallback_reason || null,
+        repair_mode: (experienceBookingRequest || completedProviderBookingFlow) ? null : conversationState.previousState?.state_metadata?.repair_mode || null,
+        repair_mode_expires_at: (experienceBookingRequest || completedProviderBookingFlow) ? new Date().toISOString() : conversationState.previousState?.state_metadata?.repair_mode_expires_at || null,
+        low_confidence_recovery: (experienceBookingRequest || completedProviderBookingFlow) ? null : conversationState.previousState?.state_metadata?.low_confidence_recovery || null,
+        provider_booking_repair_mode: (experienceBookingRequest || completedProviderBookingFlow) ? null : conversationState.previousState?.state_metadata?.provider_booking_repair_mode || null,
+        pending_handoff: (experienceBookingRequest || completedProviderBookingFlow) ? null : conversationState.previousState?.state_metadata?.pending_handoff || null,
+        fallback_context: (experienceBookingRequest || completedProviderBookingFlow) ? null : conversationState.previousState?.state_metadata?.fallback_context || null,
+        soft_escalation_flags: (experienceBookingRequest || completedProviderBookingFlow) ? null : conversationState.previousState?.state_metadata?.soft_escalation_flags || null,
         provider_experience_conversation: {
           intent: providerExperienceConversation.intentType || null,
           confidence: providerExperienceConversation.confidence || 0,

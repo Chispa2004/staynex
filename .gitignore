@@ -14,7 +14,7 @@ dashboard/.env.*
 # build/cache output
 .next/
 dashboard/.next/
-dashboard/.next-codex-build/
+dashboard/.next-codex-build*/
 dashboard/.next-onedrive-broken-*/
 dashboard/.next_corrupt_*/
 dashboard/.next_onedrive_reparse_*/

@@ -182,6 +182,8 @@ const genericFallbackPatterns = [
   /recepcion.*se pondra en contacto/,
   /he avisado.*recepcion/,
   /lo consulto internamente/,
+  /lo paso.*equipo/,
+  /equipo.*revisarlo/,
   /paso nota/,
   /i will check.*next step/,
   /forwarding.*reception/,
@@ -517,8 +519,12 @@ export const detectGuestRepairIntent = ({ message = '', providerIntent = null, c
     || bookingState.closed_at
   );
 
-  if (providerBookingCompleted && /^(hola|hello|hi|hey|bonjour|salut|hallo|ola|buenas|gracias|merci|thanks|thank you|danke|ok|okay|vale|perfecto)[\s!.?]*$/i.test(message.trim())) {
-    return 'completed_booking_fallback';
+  if (providerBookingCompleted && isProviderBookingStatusQuestion(message)) {
+    return 'completed_booking_status';
+  }
+
+  if (providerBookingCompleted && providerIntent?.matchedExperience) {
+    return 'experience_fallback';
   }
 
   if (includesAny(text, ['excursion', 'excursiones', 'tour', 'tours', 'experiencia', 'experiencias', 'actividad', 'actividades', 'recomendais', 'recomiendas', 'recommend', 'things to do'])) {
@@ -551,6 +557,90 @@ export const detectGuestRepairIntent = ({ message = '', providerIntent = null, c
   return 'unknown_fallback';
 };
 
+export const isProviderBookingStatusQuestion = (message = '') => {
+  const text = normalize(message);
+
+  return includesAny(text, [
+    'como va',
+    'como sigue',
+    'que paso',
+    'hay respuesta',
+    'han confirmado',
+    'confirmacion',
+    'disponibilidad',
+    'estado',
+    'status',
+    'solicitud',
+    'request',
+    'booking',
+    'reserva',
+    'excursion enviada',
+    'excursion',
+    'tour'
+  ]) && includesAny(text, [
+    'va',
+    'estado',
+    'status',
+    'confirm',
+    'respuesta',
+    'respondido',
+    'sent',
+    'enviada',
+    'solicitud',
+    'request',
+    'reserva'
+  ]);
+};
+
+const getCompletedProviderBookingState = (conversationState = {}) => {
+  const bookingState = conversationState?.previousState?.state_metadata?.experience_booking_state || {};
+  const completed = Boolean(
+    bookingState.status === 'completed'
+    || bookingState.provider_flow_active === false
+    || bookingState.provider_request_sent
+    || bookingState.provider_email_sent
+    || bookingState.provider_email_status === 'sent'
+    || bookingState.closed_at
+  );
+
+  return completed ? bookingState : null;
+};
+
+const buildCompletedBookingSummaryReply = ({ language = 'es', bookingState = {} } = {}) => {
+  const experienceTitle = bookingState.detected_experience || bookingState.experience_title || 'la experiencia';
+  const provider = bookingState.provider || bookingState.provider_source || 'el proveedor';
+  const requestedDate = bookingState.requested_date ? ` para ${bookingState.requested_date}` : '';
+  const guests = bookingState.guest_count || bookingState.guests_count
+    ? ` para ${bookingState.guest_count || bookingState.guests_count} personas`
+    : '';
+
+  return {
+    es: `La solicitud de ${experienceTitle}${requestedDate}${guests} ya fue enviada a ${provider}. Te avisaremos cuando tengamos confirmacion de disponibilidad.`,
+    en: `The request for ${experienceTitle}${requestedDate}${guests} has already been sent to ${provider}. We will let you know when availability is confirmed.`,
+    fr: `La demande pour ${experienceTitle}${requestedDate}${guests} a deja ete envoyee a ${provider}. Nous vous informerons des que la disponibilite sera confirmee.`,
+    de: `Die Anfrage fuer ${experienceTitle}${requestedDate}${guests} wurde bereits an ${provider} gesendet. Wir informieren Sie, sobald die Verfuegbarkeit bestaetigt ist.`
+  }[language] || `The request for ${experienceTitle}${requestedDate}${guests} has already been sent to ${provider}. We will let you know when availability is confirmed.`;
+};
+
+const buildRestoredConciergeReply = ({ language = 'es' } = {}) => ({
+  es: 'Hola, te ayudo. Quieres informacion sobre experiencias, restaurante, transfer o algun servicio del hotel?',
+  en: 'Hello, I can help. Would you like information about experiences, restaurant, transfer or another hotel service?',
+  fr: 'Bonjour, je peux vous aider. Souhaitez-vous des informations sur experiences, restaurant, transfer ou un autre service de l hotel?',
+  de: 'Hallo, ich helfe gern. Moechten Sie Informationen zu Erlebnissen, Restaurant, Transfer oder einem anderen Hotelservice?'
+}[language] || 'Hello, I can help. Would you like information about experiences, restaurant, transfer or another hotel service?');
+
+const buildPostBookingConciergeReply = ({ language = 'es', message = '', bookingState = {} } = {}) => (
+  isProviderBookingStatusQuestion(message)
+    ? {
+      reply: buildCompletedBookingSummaryReply({ language, bookingState }),
+      intent: 'completed_booking_status'
+    }
+    : {
+      reply: buildRestoredConciergeReply({ language }),
+      intent: 'concierge_mode_restored'
+    }
+);
+
 export const buildRepairModeReply = ({
   language = 'es',
   message = '',
@@ -567,12 +657,12 @@ export const buildRepairModeReply = ({
     ? ` para ${bookingState.guest_count || bookingState.guests_count} personas`
     : '';
   const templates = {
-    completed_booking_fallback: {
+    completed_booking_status: {
       es: [
-        `Hola, te ayudo. La solicitud de ${completedExperienceTitle}${completedDate}${completedGuests} ya ha sido enviada a ${completedProvider}. Te avisaremos cuando tengamos confirmacion. Quieres consultar otra experiencia o necesitas ayuda con otra cosa?`
+        `La solicitud de ${completedExperienceTitle}${completedDate}${completedGuests} ya ha sido enviada a ${completedProvider}. Te avisaremos cuando tengamos confirmacion de disponibilidad.`
       ],
       en: [
-        `Hello, I can help. The request for ${completedExperienceTitle}${completedDate}${completedGuests} has already been sent to ${completedProvider}. We will let you know when availability is confirmed. Would you like another experience or help with something else?`
+        `The request for ${completedExperienceTitle}${completedDate}${completedGuests} has already been sent to ${completedProvider}. We will let you know when availability is confirmed.`
       ],
       fr: [
         `Bonjour, je peux vous aider. La demande pour ${completedExperienceTitle}${completedDate}${completedGuests} a deja ete envoyee a ${completedProvider}. Nous vous informerons des que la disponibilite sera confirmee.`
@@ -790,12 +880,39 @@ export const chooseSmarterConciergeResponse = ({
     || ['low_confidence', 'fallback_response'].includes(humanEscalation.humanReason);
   const repeatedFallbackDetected = fallbackLikeTurn && recentFallbackCount >= 1;
   const conversationLoopDetected = recentFallbackCount >= 2 || (repeated && fallbackLikeTurn);
+  const completedProviderBookingState = getCompletedProviderBookingState(conversationState);
+  const completedBookingFallbackState = Boolean(completedProviderBookingState && fallbackLikeTurn);
   let repairModeActivated = false;
   let fallbackBlockedDueToRepetition = false;
   let alternativeResponseUsed = false;
   let repairIntent = null;
+  let repairModeExpired = false;
+  let conciergeModeRestored = false;
+  let fallbackStateClearedAfterBooking = false;
+  let providerBookingSummaryUsed = false;
 
-  if (!seriousEscalation && (repeatedFallbackDetected || conversationLoopDetected)) {
+  if (!seriousEscalation && completedBookingFallbackState && !providerIntent?.matchedExperience) {
+    const restored = buildPostBookingConciergeReply({
+      language,
+      message,
+      bookingState: completedProviderBookingState
+    });
+    reply = restored.reply;
+    repairIntent = restored.intent;
+    responseStrategy = restored.intent === 'completed_booking_status'
+      ? 'provider_booking_summary'
+      : 'concierge_mode_restored';
+    needsHuman = false;
+    humanReason = null;
+    escalationReason = null;
+    clarificationUsed = false;
+    repairModeExpired = true;
+    conciergeModeRestored = restored.intent === 'concierge_mode_restored';
+    providerBookingSummaryUsed = restored.intent === 'completed_booking_status';
+    fallbackBlockedDueToRepetition = true;
+    fallbackStateClearedAfterBooking = true;
+    alternativeResponseUsed = true;
+  } else if (!seriousEscalation && (repeatedFallbackDetected || conversationLoopDetected)) {
     const repaired = buildRepairModeReply({
       language,
       message,
@@ -858,6 +975,10 @@ export const chooseSmarterConciergeResponse = ({
       repeated_fallback_detected: repeatedFallbackDetected,
       conversation_loop_detected: conversationLoopDetected,
       repair_mode_activated: repairModeActivated,
+      repair_mode_expired: repairModeExpired,
+      concierge_mode_restored: conciergeModeRestored,
+      fallback_state_cleared_after_booking: fallbackStateClearedAfterBooking,
+      provider_booking_summary_used: providerBookingSummaryUsed,
       fallback_blocked_due_to_repetition: fallbackBlockedDueToRepetition,
       alternative_response_used: alternativeResponseUsed,
       recent_fallback_count: recentFallbackCount,

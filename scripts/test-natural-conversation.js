@@ -313,11 +313,56 @@ const completedBookingAfterFallback = chooseSmarterConciergeResponse({
 });
 
 assert(
-  completedBookingAfterFallback.metadata.repair_intent === 'completed_booking_fallback'
-  && completedBookingAfterFallback.aiResponse.reply.includes('ya ha sido enviada')
+  completedBookingAfterFallback.metadata.concierge_mode_restored
+  && completedBookingAfterFallback.metadata.repair_mode_expired
+  && completedBookingAfterFallback.metadata.fallback_state_cleared_after_booking
+  && completedBookingAfterFallback.aiResponse.reply.includes('Hola')
+  && completedBookingAfterFallback.aiResponse.reply.includes('experiencias')
+  && !completedBookingAfterFallback.aiResponse.reply.includes('ya ha sido enviada')
   && !completedBookingAfterFallback.aiResponse.reply.includes('necesito la fecha')
   && !completedBookingAfterFallback.aiResponse.reply.includes('numero de personas'),
-  'Repair mode must summarize completed provider request instead of reviving booking details'
+  'Completed provider request greeting should restore normal concierge mode'
+);
+
+const completedBookingStatusQuestion = chooseSmarterConciergeResponse({
+  message: 'como va la excursion?',
+  aiResponse: {
+    intent: 'unknown',
+    confidence: 0.8,
+    reply: badFallback,
+    create_ticket: false
+  },
+  language: 'es',
+  conversationState: completedBookingAfterFallback.metadata ? {
+    previousState: {
+      last_ai_response: badFallback,
+      state_metadata: {
+        experience_booking_state: {
+          status: 'completed',
+          detected_experience: 'Essaouira Coastal Excursion',
+          provider: 'Luxotour Morocco',
+          requested_date: '2026-06-29',
+          guest_count: 3,
+          provider_request_sent: true,
+          provider_email_sent: true,
+          provider_flow_active: false,
+          closed_at: '2026-06-28T10:00:00.000Z'
+        }
+      }
+    }
+  } : {},
+  humanEscalation: { needsHuman: false, humanReason: null },
+  enhancedRisk: { hasRisk: false },
+  recentMessages: []
+});
+
+assert(
+  completedBookingStatusQuestion.metadata.provider_booking_summary_used
+  && completedBookingStatusQuestion.aiResponse.reply.includes('Essaouira Coastal Excursion')
+  && completedBookingStatusQuestion.aiResponse.reply.includes('Luxotour Morocco')
+  && !completedBookingStatusQuestion.aiResponse.reply.includes('lo reviso')
+  && !completedBookingStatusQuestion.aiResponse.reply.includes('equipo'),
+  'Completed provider request status question should use provider booking summary'
 );
 
 const loopResponse = chooseSmarterConciergeResponse({
@@ -490,7 +535,8 @@ console.log(JSON.stringify({
     'repeated fallback is blocked',
     'repair mode handles excursion question after fallback',
     'repair mode handles greeting after fallback',
-    'completed provider booking is summarized after fallback',
+    'completed provider booking restores concierge greeting after fallback',
+    'completed provider booking status question uses summary',
     'conversation loop activates repair options',
     'experience ambiguity asks info vs booking',
     'emergency still escalates',
