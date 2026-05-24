@@ -87,6 +87,7 @@ import {
   getExperienceBookingConfirmationReply,
   isClosedProviderBookingCasualMessage,
   isExperienceBookingStateClosed,
+  isSimpleGreetingMessage,
   isProviderBookingConfirmation,
   setLastProviderExperience
 } from './experience-booking.service.js';
@@ -580,6 +581,20 @@ export const processGuestMessage = async ({
   const previousExperienceBookingState = preliminaryConversationState.previousState?.state_metadata?.experience_booking_state || null;
   const completedProviderBookingFlow = isExperienceBookingStateClosed(previousExperienceBookingState);
   const closedProviderCasualMessage = completedProviderBookingFlow && isClosedProviderBookingCasualMessage(message);
+  const simpleGreetingMessage = isSimpleGreetingMessage(message);
+  const residualProviderStateForGreeting = Boolean(
+    simpleGreetingMessage
+    && (
+      previousExperienceBookingState
+      || preliminaryConversationState.previousState?.state_metadata?.provider_booking_repair_mode
+      || preliminaryConversationState.previousState?.state_metadata?.fallback_context
+      || preliminaryConversationState.previousState?.state_metadata?.pending_provider_flow
+      || preliminaryConversationState.previousState?.state_metadata?.repair_mode
+      || preliminaryConversationState.previousState?.state_metadata?.low_confidence_recovery
+      || preliminaryConversationState.previousState?.state_metadata?.pending_handoff
+      || preliminaryConversationState.previousState?.state_metadata?.soft_handoff
+    )
+  );
   const primaryConciergeIntent = preliminaryConversationState.primaryIntent?.intent
     ? preliminaryConversationState.primaryIntent
     : conciergeIntent;
@@ -629,6 +644,27 @@ export const processGuestMessage = async ({
       provider: previousExperienceBookingState?.provider || null,
       requestedDate: previousExperienceBookingState?.requested_date || null,
       guestCount: previousExperienceBookingState?.guest_count || null
+    });
+  }
+
+  if (residualProviderStateForGreeting) {
+    logger.info('greeting_intent_overrode_provider_state', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      message
+    });
+    logger.info('residual_provider_state_ignored_for_greeting', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      experienceTitle: previousExperienceBookingState?.detected_experience || null,
+      provider: previousExperienceBookingState?.provider || null
+    });
+    logger.info('provider_repair_mode_suppressed_for_greeting', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id
     });
   }
   const providerConfirmationMessage = isProviderBookingConfirmation(message);
@@ -1283,6 +1319,9 @@ export const processGuestMessage = async ({
     concierge_mode_restored: smarterResponse.metadata.concierge_mode_restored,
     fallback_state_cleared_after_booking: smarterResponse.metadata.fallback_state_cleared_after_booking,
     provider_booking_summary_used: smarterResponse.metadata.provider_booking_summary_used,
+    residual_provider_state_ignored_for_greeting: smarterResponse.metadata.residual_provider_state_ignored_for_greeting,
+    provider_repair_mode_suppressed_for_greeting: smarterResponse.metadata.provider_repair_mode_suppressed_for_greeting,
+    concierge_greeting_returned: smarterResponse.metadata.concierge_greeting_returned,
     fallback_blocked_due_to_repetition: smarterResponse.metadata.fallback_blocked_due_to_repetition,
     alternative_response_used: smarterResponse.metadata.alternative_response_used,
     repair_intent: smarterResponse.metadata.repair_intent || null
@@ -1354,6 +1393,14 @@ export const processGuestMessage = async ({
       provider: previousExperienceBookingState?.provider || null,
       requestedDate: previousExperienceBookingState?.requested_date || null,
       guestCount: previousExperienceBookingState?.guest_count || null
+    });
+  }
+
+  if (smarterResponse.metadata.concierge_greeting_returned) {
+    logger.info('concierge_greeting_returned', {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id
     });
   }
 

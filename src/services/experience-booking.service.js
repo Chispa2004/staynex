@@ -1623,6 +1623,35 @@ export const isExperienceBookingStateClosed = (state = null) => {
   );
 };
 
+export const isSimpleGreetingMessage = (message = '') => {
+  const text = normalize(message)
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) {
+    return false;
+  }
+
+  return new Set([
+    'hola',
+    'buenas',
+    'buenos dias',
+    'buenas tardes',
+    'buenas noches',
+    'hello',
+    'hi',
+    'hey',
+    'good morning',
+    'good afternoon',
+    'good evening',
+    'bonjour',
+    'salut',
+    'hallo',
+    'guten tag'
+  ]).has(text);
+};
+
 export const isClosedProviderBookingCasualMessage = (message = '') => {
   const text = normalize(message)
     .replace(/[^a-z0-9\s]+/g, ' ')
@@ -1634,15 +1663,8 @@ export const isClosedProviderBookingCasualMessage = (message = '') => {
   }
 
   return exactProviderBookingConfirmations.has(text)
-    || includesAny(text, [
-      'hola',
-      'hello',
-      'hi',
-      'hey',
-      'bonjour',
-      'salut',
-      'hallo',
-      'buenas',
+    || isSimpleGreetingMessage(message)
+    || new Set([
       'gracias',
       'merci',
       'thanks',
@@ -1656,7 +1678,7 @@ export const isClosedProviderBookingCasualMessage = (message = '') => {
       'bien',
       'genial',
       'super'
-    ]);
+    ]).has(text);
 };
 
 const experienceFromBookingState = ({ state = null, providerExperiences = [] } = {}) => {
@@ -1693,6 +1715,21 @@ export const classifyProviderExperienceConversation = async ({
       intentType: null,
       confidence: 0,
       reason: 'negative_or_empty',
+      bookingReady: false
+    };
+  }
+
+  if (isSimpleGreetingMessage(message)) {
+    safeProviderLog('info', 'greeting_intent_overrode_provider_state', {
+      conversationId,
+      message,
+      source: 'classify_provider_experience_conversation'
+    });
+
+    return {
+      intentType: null,
+      confidence: 0.98,
+      reason: 'simple_greeting_provider_state_ignored',
       bookingReady: false
     };
   }
@@ -2013,6 +2050,33 @@ export const detectExperienceBookingIntent = async ({
   recentMessages = [],
   experienceBookingState = null
 } = {}) => {
+  if (isSimpleGreetingMessage(message)) {
+    safeProviderLog('info', 'greeting_intent_overrode_provider_state', {
+      conversationId,
+      message,
+      source: 'detect_experience_booking_intent'
+    });
+
+    return {
+      detected: false,
+      confidence: 0.98,
+      reason: 'simple_greeting_provider_flow_ignored',
+      matchedExperience: null,
+      requestedDate: null,
+      requestedTime: null,
+      guestsCount: null,
+      missingDetails: [],
+      guestConfirmedProviderRequest: false,
+      conversationIntent: {
+        intentType: null,
+        confidence: 0.98,
+        reason: 'simple_greeting_provider_flow_ignored',
+        bookingReady: false,
+        matchedExperience: null
+      }
+    };
+  }
+
   const loadedLatestProviderContext = latestProviderContext || await getLatestProviderExperienceContext({ conversationId });
   const loadedExperienceBookingState = experienceBookingState || await getLatestExperienceBookingState({ conversationId });
   const awaitingConfirmationState = normalizeExperienceBookingState(loadedExperienceBookingState);

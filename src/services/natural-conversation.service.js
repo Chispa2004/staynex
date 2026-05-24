@@ -184,6 +184,8 @@ const genericFallbackPatterns = [
   /lo consulto internamente/,
   /lo paso.*equipo/,
   /equipo.*revisarlo/,
+  /vamos paso.*solicitud.*proveedor/,
+  /preparo.*solicitud.*proveedor/,
   /paso nota/,
   /i will check.*next step/,
   /forwarding.*reception/,
@@ -507,6 +509,35 @@ export const countRecentFallbackResponses = ({ recentMessages = [], previousResp
   return candidates.filter(isGenericFallbackResponse).length;
 };
 
+export const isSimpleGreetingMessage = (message = '') => {
+  const text = normalize(message)
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text) {
+    return false;
+  }
+
+  return new Set([
+    'hola',
+    'buenas',
+    'buenos dias',
+    'buenas tardes',
+    'buenas noches',
+    'hello',
+    'hi',
+    'hey',
+    'good morning',
+    'good afternoon',
+    'good evening',
+    'bonjour',
+    'salut',
+    'hallo',
+    'guten tag'
+  ]).has(text);
+};
+
 export const detectGuestRepairIntent = ({ message = '', providerIntent = null, conversationState = {} } = {}) => {
   const text = normalize(message);
   const bookingState = conversationState?.previousState?.state_metadata?.experience_booking_state || {};
@@ -518,6 +549,10 @@ export const detectGuestRepairIntent = ({ message = '', providerIntent = null, c
     || bookingState.provider_email_status === 'sent'
     || bookingState.closed_at
   );
+
+  if (isSimpleGreetingMessage(message)) {
+    return 'greeting_fallback';
+  }
 
   if (providerBookingCompleted && isProviderBookingStatusQuestion(message)) {
     return 'completed_booking_status';
@@ -536,10 +571,6 @@ export const detectGuestRepairIntent = ({ message = '', providerIntent = null, c
     && (providerIntent?.matchedExperience || bookingState?.detected_experience || bookingState?.awaiting_guest_confirmation || bookingState?.awaiting_guest_details)
   ) {
     return 'booking_fallback';
-  }
-
-  if (/^(hola|hello|hi|hey|bonjour|salut|hallo|ola|buenas)[\s!.?]*$/i.test(message.trim())) {
-    return 'greeting_fallback';
   }
 
   if (includesAny(text, ['emergencia', 'urgent', 'urgente', 'emergency', 'peligro', 'danger'])) {
@@ -640,6 +671,26 @@ const buildPostBookingConciergeReply = ({ language = 'es', message = '', booking
       intent: 'concierge_mode_restored'
     }
 );
+
+const hasResidualProviderState = (conversationState = {}) => {
+  const metadata = conversationState?.previousState?.state_metadata || {};
+  const bookingState = metadata.experience_booking_state || {};
+
+  return Boolean(
+    bookingState.detected_experience
+    || bookingState.awaiting_guest_details
+    || bookingState.awaiting_guest_confirmation
+    || bookingState.awaiting_confirmation
+    || bookingState.provider_flow_active
+    || metadata.provider_booking_repair_mode
+    || metadata.fallback_context
+    || metadata.pending_provider_flow
+    || metadata.pending_handoff
+    || metadata.soft_handoff
+    || metadata.low_confidence_recovery
+    || metadata.repair_mode
+  );
+};
 
 export const buildRepairModeReply = ({
   language = 'es',
@@ -808,6 +859,7 @@ export const chooseSmarterConciergeResponse = ({
   const originalIsGenericFallback = isGenericFallbackResponse(originalReply);
   const previousClarifications = getClarificationCount(conversationState);
   const variantIndex = previousClarifications + (recentMessages?.length || 0);
+  const simpleGreeting = isSimpleGreetingMessage(message);
   const explicitHuman = humanEscalation.humanReason === 'human_requested';
   const seriousEscalation = Boolean(
     explicitHuman
@@ -815,6 +867,8 @@ export const chooseSmarterConciergeResponse = ({
     || ['emergency_detected', 'complaint_detected', 'technical_issue_detected'].includes(humanEscalation.humanReason)
   );
   const unclear = Boolean(
+    !simpleGreeting
+    && (
     !knowledgeUsed
     && !seriousEscalation
     && (
@@ -822,6 +876,7 @@ export const chooseSmarterConciergeResponse = ({
       || intent === 'unknown'
       || humanEscalation.humanReason === 'low_confidence'
       || humanEscalation.humanReason === 'fallback_response'
+    )
     )
   );
 
@@ -882,6 +937,7 @@ export const chooseSmarterConciergeResponse = ({
   const conversationLoopDetected = recentFallbackCount >= 2 || (repeated && fallbackLikeTurn);
   const completedProviderBookingState = getCompletedProviderBookingState(conversationState);
   const completedBookingFallbackState = Boolean(completedProviderBookingState && fallbackLikeTurn);
+  const residualProviderState = hasResidualProviderState(conversationState);
   let repairModeActivated = false;
   let fallbackBlockedDueToRepetition = false;
   let alternativeResponseUsed = false;
@@ -890,8 +946,27 @@ export const chooseSmarterConciergeResponse = ({
   let conciergeModeRestored = false;
   let fallbackStateClearedAfterBooking = false;
   let providerBookingSummaryUsed = false;
+  let residualProviderStateIgnoredForGreeting = false;
+  let providerRepairModeSuppressedForGreeting = false;
+  let conciergeGreetingReturned = false;
 
-  if (!seriousEscalation && completedBookingFallbackState && !providerIntent?.matchedExperience) {
+  if (!seriousEscalation && simpleGreeting && fallbackLikeTurn) {
+    reply = buildRestoredConciergeReply({ language });
+    repairIntent = 'greeting_fallback';
+    responseStrategy = 'greeting';
+    needsHuman = false;
+    humanReason = null;
+    escalationReason = null;
+    clarificationUsed = false;
+    repairModeExpired = true;
+    conciergeModeRestored = true;
+    conciergeGreetingReturned = true;
+    fallbackBlockedDueToRepetition = true;
+    fallbackStateClearedAfterBooking = residualProviderState;
+    residualProviderStateIgnoredForGreeting = residualProviderState;
+    providerRepairModeSuppressedForGreeting = residualProviderState;
+    alternativeResponseUsed = true;
+  } else if (!seriousEscalation && completedBookingFallbackState && !providerIntent?.matchedExperience) {
     const restored = buildPostBookingConciergeReply({
       language,
       message,
@@ -979,6 +1054,9 @@ export const chooseSmarterConciergeResponse = ({
       concierge_mode_restored: conciergeModeRestored,
       fallback_state_cleared_after_booking: fallbackStateClearedAfterBooking,
       provider_booking_summary_used: providerBookingSummaryUsed,
+      residual_provider_state_ignored_for_greeting: residualProviderStateIgnoredForGreeting,
+      provider_repair_mode_suppressed_for_greeting: providerRepairModeSuppressedForGreeting,
+      concierge_greeting_returned: conciergeGreetingReturned,
       fallback_blocked_due_to_repetition: fallbackBlockedDueToRepetition,
       alternative_response_used: alternativeResponseUsed,
       recent_fallback_count: recentFallbackCount,

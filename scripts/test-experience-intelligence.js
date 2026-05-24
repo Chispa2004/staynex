@@ -13,6 +13,7 @@ import {
   classifyExperienceBookingError,
   detectExperienceBookingIntent,
   isProviderBookingConfirmation,
+  isSimpleGreetingMessage,
   resolveCurrentProviderExperienceForBooking,
   calculatePartnerRevenue,
   PROVIDER_EXPERIENCE_INTENTS
@@ -496,8 +497,22 @@ const completedFlowGreeting = await detectExperienceBookingIntent({
   experienceBookingState: completedEssaouiraState
 });
 assert.equal(completedFlowGreeting.detected, false);
-assert.equal(completedFlowGreeting.reason, 'completed_provider_flow_not_reopened');
+assert.equal(completedFlowGreeting.reason, 'simple_greeting_provider_flow_ignored');
 assert.equal(completedFlowGreeting.conversationIntent.intentType, null);
+
+const residualAwaitingGreeting = await detectExperienceBookingIntent({
+  message: 'buenas',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext,
+  experienceBookingState: {
+    ...awaitingEssaouiraState,
+    provider_booking_repair_mode: true,
+    fallback_context: { reason: 'old_provider_flow' }
+  }
+});
+assert.equal(residualAwaitingGreeting.detected, false);
+assert.equal(residualAwaitingGreeting.reason, 'simple_greeting_provider_flow_ignored');
+assert.equal(residualAwaitingGreeting.matchedExperience, null);
 
 const completedFlowConfirmation = await detectExperienceBookingIntent({
   message: 'si',
@@ -517,6 +532,30 @@ const newFlowAfterCompletedBooking = await detectExperienceBookingIntent({
 assert.equal(newFlowAfterCompletedBooking.detected, false);
 assert.equal(newFlowAfterCompletedBooking.reason, 'booking_missing_guest_details');
 assert.equal(newFlowAfterCompletedBooking.matchedExperience.title, 'Agafay Desert Dinner');
+
+const greetingCatalogRequestAfterCompletedBooking = await classifyProviderExperienceConversation({
+  message: 'hola, que excursiones teneis?',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext,
+  ignoreStoredContext: true
+});
+assert.equal(greetingCatalogRequestAfterCompletedBooking.intentType, PROVIDER_EXPERIENCE_INTENTS.INQUIRY);
+
+const greetingBookingRequestAfterCompletedBooking = await detectExperienceBookingIntent({
+  message: 'hola, quiero reservar Agafay',
+  hotelExperiences: providerCatalog,
+  latestProviderContext: essaouiraContext,
+  experienceBookingState: completedEssaouiraState
+});
+assert.equal(greetingBookingRequestAfterCompletedBooking.detected, false);
+assert.equal(greetingBookingRequestAfterCompletedBooking.reason, 'booking_missing_guest_details');
+assert.equal(greetingBookingRequestAfterCompletedBooking.matchedExperience.title, 'Agafay Desert Dinner');
+
+assert.equal(isSimpleGreetingMessage('hola'), true);
+assert.equal(isSimpleGreetingMessage('buenas tardes'), true);
+assert.equal(isSimpleGreetingMessage('hello'), true);
+assert.equal(isSimpleGreetingMessage('hola, que excursiones teneis?'), false);
+assert.equal(isSimpleGreetingMessage('hola, quiero reservar Agafay'), false);
 
 for (const finalPhrase of ['sí', 'vale', 'ok', 'adelante']) {
   const variantConfirmation = await detectExperienceBookingIntent({

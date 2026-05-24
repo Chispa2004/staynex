@@ -8,6 +8,7 @@ import {
   detectGuestRepairIntent,
   detectRepeatedResponse,
   isGenericFallbackResponse,
+  isSimpleGreetingMessage,
   shouldSuppressOfferForNaturalConversation
 } from '../src/services/natural-conversation.service.js';
 import { detectUpsellOpportunities, UPSELL_TYPES } from '../src/services/upsell.service.js';
@@ -224,8 +225,9 @@ const blockedRepeatedFallback = chooseSmarterConciergeResponse({
 assert(
   blockedRepeatedFallback.aiResponse.reply !== badFallback
   && blockedRepeatedFallback.metadata.fallback_blocked_due_to_repetition
-  && blockedRepeatedFallback.metadata.repair_mode_activated,
-  'If fallback was used once, it must not repeat the same fallback on the next turn'
+  && blockedRepeatedFallback.metadata.concierge_greeting_returned
+  && !blockedRepeatedFallback.metadata.repair_mode_activated,
+  'If fallback was used once, a simple greeting must return normal concierge greeting'
 );
 
 const excursionsAfterFallback = chooseSmarterConciergeResponse({
@@ -279,6 +281,82 @@ assert(
   && greetingAfterFallback.aiResponse.reply.includes('ayud'),
   'Greeting after fallback should get useful greeting repair'
 );
+
+const residualProviderGreeting = chooseSmarterConciergeResponse({
+  message: 'hola',
+  aiResponse: {
+    intent: 'unknown',
+    confidence: 0.8,
+    reply: 'Vamos paso a paso: dime la excursion, fecha y numero de personas, y preparo de nuevo la solicitud al proveedor.',
+    create_ticket: false
+  },
+  language: 'es',
+  conversationState: {
+    previousState: {
+      last_ai_response: badFallback,
+      state_metadata: {
+        provider_booking_repair_mode: true,
+        fallback_context: { reason: 'old_provider_flow' },
+        experience_booking_state: {
+          detected_experience: 'Essaouira Coastal Excursion',
+          provider: 'Luxotour Morocco',
+          awaiting_guest_details: true,
+          awaiting_guest_confirmation: true
+        }
+      }
+    }
+  },
+  humanEscalation: { needsHuman: false, humanReason: null },
+  enhancedRisk: { hasRisk: false },
+  recentMessages: []
+});
+
+assert(
+  residualProviderGreeting.metadata.response_strategy === 'greeting'
+  && residualProviderGreeting.metadata.concierge_greeting_returned
+  && residualProviderGreeting.metadata.residual_provider_state_ignored_for_greeting
+  && residualProviderGreeting.metadata.provider_repair_mode_suppressed_for_greeting
+  && !residualProviderGreeting.metadata.repair_mode_activated
+  && residualProviderGreeting.aiResponse.reply.includes('experiencias')
+  && !residualProviderGreeting.aiResponse.reply.includes('excursion, fecha y numero de personas')
+  && !residualProviderGreeting.aiResponse.reply.includes('Vamos paso a paso')
+  && !residualProviderGreeting.aiResponse.reply.includes('solicitud al proveedor'),
+  'Simple greeting must override residual provider booking state'
+);
+
+for (const greetingPhrase of ['buenas', 'hello']) {
+  const greetingResult = chooseSmarterConciergeResponse({
+    message: greetingPhrase,
+    aiResponse: {
+      intent: 'unknown',
+      confidence: 0.8,
+      reply: badFallback,
+      create_ticket: false
+    },
+    language: greetingPhrase === 'hello' ? 'en' : 'es',
+    conversationState: {
+      previousState: {
+        last_ai_response: badFallback,
+        state_metadata: {
+          repair_mode: true,
+          experience_booking_state: {
+            detected_experience: 'Essaouira Coastal Excursion',
+            awaiting_guest_details: true
+          }
+        }
+      }
+    },
+    humanEscalation: { needsHuman: false, humanReason: null },
+    enhancedRisk: { hasRisk: false },
+    recentMessages: []
+  });
+  assert(
+    greetingResult.metadata.response_strategy === 'greeting'
+    && greetingResult.metadata.concierge_greeting_returned
+    && !greetingResult.aiResponse.reply.includes('solicitud al proveedor'),
+    `${greetingPhrase} should return a normal concierge greeting`
+  );
+}
 
 const completedBookingAfterFallback = chooseSmarterConciergeResponse({
   message: 'hola',
@@ -405,6 +483,15 @@ assert(
 assert(
   detectGuestRepairIntent({ message: 'hola, que excursiones recomendais?' }) === 'experience_fallback',
   'Repair intent should classify excursion questions'
+);
+
+assert(
+  isSimpleGreetingMessage('hola')
+  && isSimpleGreetingMessage('buenas tardes')
+  && isSimpleGreetingMessage('hello')
+  && !isSimpleGreetingMessage('hola, que excursiones teneis?')
+  && !isSimpleGreetingMessage('hola, quiero reservar Agafay'),
+  'Simple greeting detector should not swallow explicit guest intents'
 );
 
 assert(
@@ -535,6 +622,8 @@ console.log(JSON.stringify({
     'repeated fallback is blocked',
     'repair mode handles excursion question after fallback',
     'repair mode handles greeting after fallback',
+    'simple greeting overrides residual provider state',
+    'simple greeting detector preserves explicit intents',
     'completed provider booking restores concierge greeting after fallback',
     'completed provider booking status question uses summary',
     'conversation loop activates repair options',
