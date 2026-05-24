@@ -19,7 +19,7 @@ import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
-const statusOptions = ['all', 'scheduled', 'sent', 'failed'];
+const statusOptions = ['all', 'preview', 'scheduled', 'sent', 'failed'];
 const typeOptions = [
   'all',
   'welcome_message',
@@ -32,6 +32,7 @@ const typeOptions = [
   'vip_followup',
   'birthday_message',
   'abandoned_interest_followup',
+  'pre_checkout_folio_reminder',
   'pre_arrival_7d',
   'pre_arrival_1d',
   'in_stay_upsell',
@@ -255,6 +256,27 @@ export const AutomationsClient = () => {
     aiSuggestions: metrics?.aiSuggestions || []
   }), [automations, messages, metrics, rules]);
 
+  const folioStats = useMemo(() => {
+    const folioMessages = messages.filter((message) => message.automation_type === 'pre_checkout_folio_reminder');
+    const folioRuns = (metrics?.runs || []).filter((run) => run.automation_type === 'pre_checkout_folio_reminder');
+    const skippedReasons = folioRuns.reduce((acc, run) => {
+      const reason = run.metadata?.skipped_reason;
+      if (reason) {
+        acc[reason] = (acc[reason] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    return {
+      previewsGenerated: folioMessages.filter((message) => message.status === 'preview').length,
+      sentCount: folioMessages.filter((message) => message.status === 'sent').length,
+      pmsFolioErrors: folioMessages.filter((message) => message.metadata?.source === 'pms_folio_error' || message.error_message).length,
+      eligibleGuests: folioRuns.filter((run) => run.status === 'preview').length || folioMessages.filter((message) => message.metadata?.source === 'pre_checkout_folio_reminder').length,
+      skippedCount: folioRuns.filter((run) => run.status === 'skipped').length,
+      skippedReasons
+    };
+  }, [messages, metrics]);
+
   const automationCards = useMemo(() => automations.map((automation) => {
     const relatedRuns = (metrics?.runs || []).filter((run) => run.automation_type === automation.type);
     const relatedMessages = messages.filter((message) => message.automation_type === automation.type);
@@ -333,11 +355,47 @@ export const AutomationsClient = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {['check-in', 'checkout', 'room ready', 'occupancy', 'VIP'].map((trigger) => (
+            {['check-in', 'checkout', 'folio preview', 'room ready', 'occupancy', 'VIP'].map((trigger) => (
               <Badge key={trigger} tone="emerald">{trigger}</Badge>
             ))}
           </div>
         </div>
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="sky">Preview only</Badge>
+              <Badge tone="emerald">PMS folio required</Badge>
+            </div>
+            <p className="mt-3 text-sm font-semibold">Pre-checkout Folio Reminder</p>
+            <p className={isLight ? 'mt-1 text-sm leading-6 text-slate-500' : 'mt-1 text-sm leading-6 text-slate-500'}>
+              Safe 24-hour checkout reminders are generated only when the PMS returns a reliable room folio with a real outstanding balance. WhatsApp sending is disabled until a live hotel validates folio quality.
+            </p>
+          </div>
+          <div className="grid w-full gap-2 text-xs sm:grid-cols-2 lg:w-auto lg:min-w-[520px] lg:grid-cols-5">
+            {[
+              ['Eligible guests', folioStats.eligibleGuests],
+              ['Previews generated', folioStats.previewsGenerated],
+              ['Skipped count', folioStats.skippedCount],
+              ['Sent count', folioStats.sentCount],
+              ['PMS folio errors', folioStats.pmsFolioErrors]
+            ].map(([label, value]) => (
+              <div key={label} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.04] p-3 text-slate-300'}>
+                <p className="font-semibold">{label}</p>
+                <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        {Object.keys(folioStats.skippedReasons).length > 0 ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {Object.entries(folioStats.skippedReasons).map(([reason, count]) => (
+              <Badge key={reason} tone="amber">{formatAutomationLabel(reason)}: {count}</Badge>
+            ))}
+          </div>
+        ) : null}
       </Card>
 
       {migrationRequired ? (

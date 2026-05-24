@@ -12,6 +12,7 @@ const dashboardRoot = dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  ...(process.env.STAYNEX_NEXT_DIST_DIR ? { distDir: process.env.STAYNEX_NEXT_DIST_DIR } : {}),
   outputFileTracingRoot: dashboardRoot,
   async headers() {
     return [

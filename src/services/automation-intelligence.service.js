@@ -8,7 +8,8 @@ export const INTELLIGENT_AUTOMATION_TYPES = {
   WEATHER_TRIGGER: 'weather_trigger',
   VIP_FOLLOWUP: 'vip_followup',
   BIRTHDAY_MESSAGE: 'birthday_message',
-  ABANDONED_INTEREST_FOLLOWUP: 'abandoned_interest_followup'
+  ABANDONED_INTEREST_FOLLOWUP: 'abandoned_interest_followup',
+  PRE_CHECKOUT_FOLIO_REMINDER: 'pre_checkout_folio_reminder'
 };
 
 export const DEFAULT_INTELLIGENT_AUTOMATIONS = [
@@ -101,6 +102,15 @@ export const DEFAULT_INTELLIGENT_AUTOMATIONS = [
     cooldownMinutes: 720,
     maxPerGuest: 1,
     revenueEstimate: 80
+  },
+  {
+    type: INTELLIGENT_AUTOMATION_TYPES.PRE_CHECKOUT_FOLIO_REMINDER,
+    name: 'Pre-checkout Folio Reminder',
+    triggerType: 'pre_checkout_folio',
+    audienceType: 'departing_guests_with_balance',
+    cooldownMinutes: 1440,
+    maxPerGuest: 1,
+    revenueEstimate: 0
   }
 ];
 
@@ -255,6 +265,12 @@ export const buildAutomationMessagePreview = ({
       en: `${prefix}if you are still interested, I can pick this back up and help confirm the details.`,
       fr: `${prefix}si cela vous interesse toujours, je peux reprendre la recommandation et confirmer les details.`,
       de: `${prefix}wenn Sie weiterhin interessiert sind, kann ich die Empfehlung aufgreifen und Details klaeren.`
+    },
+    [INTELLIGENT_AUTOMATION_TYPES.PRE_CHECKOUT_FOLIO_REMINDER]: {
+      es: `${prefix}manana esta previsto tu check-out. Staynex preparara solo un resumen en preview si el PMS confirma cargos pendientes reales.`,
+      en: `${prefix}your check-out is scheduled for tomorrow. Staynex will only prepare a preview summary when the PMS confirms real pending folio items.`,
+      fr: `${prefix}votre check-out est prevu demain. Staynex prepare uniquement un apercu si le PMS confirme des elements reels en attente.`,
+      de: `${prefix}Ihr Check-out ist morgen geplant. Staynex erstellt nur eine Vorschau, wenn das PMS echte offene Posten bestaetigt.`
     }
   };
 
@@ -337,7 +353,8 @@ export const evaluateAutomationOpportunity = ({
     [INTELLIGENT_AUTOMATION_TYPES.WEATHER_TRIGGER]: ['rain', 'rainy', 'storm', 'wind'].includes(String(weather?.condition || '').toLowerCase()),
     [INTELLIGENT_AUTOMATION_TYPES.VIP_FOLLOWUP]: Number(guestProfile.vipScore || guestProfile.vip_score || 0) >= 70 || Number(pmsIntelligenceContext?.vipScore || pmsIntelligenceContext?.vip_score || 0) >= 70 || guest?.vip || Number(guest?.score || 0) >= 80 || /vip|premium|luxury|suite|anniversary|honeymoon/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.BIRTHDAY_MESSAGE]: /birthday|cumple|anniversary|honeymoon|celebration|celebramos/.test(combinedSignals),
-    [INTELLIGENT_AUTOMATION_TYPES.ABANDONED_INTEREST_FOLLOWUP]: /interested|me interesa|tell me more|cuentame|details|availability/.test(combinedSignals)
+    [INTELLIGENT_AUTOMATION_TYPES.ABANDONED_INTEREST_FOLLOWUP]: /interested|me interesa|tell me more|cuentame|details|availability/.test(combinedSignals),
+    [INTELLIGENT_AUTOMATION_TYPES.PRE_CHECKOUT_FOLIO_REMINDER]: false
   };
 
   return {

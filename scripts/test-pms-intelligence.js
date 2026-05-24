@@ -21,6 +21,10 @@ import {
 } from '../src/services/pms-intelligence.service.js';
 import { evaluateAutomationOpportunity, INTELLIGENT_AUTOMATION_TYPES } from '../src/services/automation-intelligence.service.js';
 import { enhanceConciergeIntelligence } from '../src/services/openai-concierge.service.js';
+import {
+  getGuestFolioSummary,
+  normalizeFolioSummary
+} from '../src/services/pms-folio.service.js';
 
 const assert = (condition, message) => {
   if (!condition) {
@@ -180,6 +184,67 @@ assert(
   'Automation engine should accept PMS-powered checkout tomorrow trigger in preview mode'
 );
 
+const normalizedFolio = normalizeFolioSummary({
+  currency: 'EUR',
+  lineItems: [
+    { description: 'Minibar', amount: 18 },
+    { description: 'Hamacas', amount: 24 }
+  ],
+  totalCharges: 42,
+  totalPaid: 0
+});
+
+assert(
+  normalizedFolio.available
+  && normalizedFolio.outstandingBalance === 42
+  && normalizedFolio.dataQuality === 'high',
+  'PMS folio summary should normalize only real PMS line items'
+);
+
+const metadataFolio = await getGuestFolioSummary({
+  hotelId: 'hotel-1',
+  reservationId: 'reservation-1',
+  roomNumber: '208',
+  connection: {
+    provider: 'apaleo',
+    enabled: true,
+    metadata: {
+      reservation_folios: {
+        'reservation-1': {
+          currency: 'EUR',
+          charges: [{ description: 'Spa', category: 'spa', amount: 60 }],
+          totalCharges: 60,
+          outstandingBalance: 60
+        }
+      }
+    }
+  }
+});
+
+assert(
+  metadataFolio.provider === 'apaleo'
+  && metadataFolio.lineItems[0].description === 'Spa'
+  && metadataFolio.outstandingBalance === 60,
+  'PMS folio abstraction should read sandbox folios from PMS connection metadata'
+);
+
+const missingFolio = await getGuestFolioSummary({
+  hotelId: 'hotel-1',
+  reservationId: 'missing-reservation',
+  roomNumber: '999',
+  connection: {
+    provider: 'apaleo',
+    enabled: true,
+    metadata: {}
+  }
+});
+
+assert(
+  !missingFolio.available
+  && missingFolio.warnings.includes('folio_not_supported'),
+  'PMS folio abstraction should fail closed when the connector has no folio support'
+);
+
 const openAiFallback = await enhanceConciergeIntelligence({
   hotel: { id: 'hotel-1', name: 'Staynex Hotel' },
   guest: { id: 'guest-1' },
@@ -213,6 +278,8 @@ console.log(JSON.stringify({
     'VIP guest crosses threshold',
     'upgrade eligible when occupancy allows',
     'fallback PMS missing data does not break',
+    'PMS folio summary normalizes real line items',
+    'PMS folio missing data fails closed',
     'AI context accepts pmsIntelligenceContext',
     'automation trigger checkout_tomorrow works in preview mode'
   ]

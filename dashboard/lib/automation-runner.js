@@ -21,6 +21,8 @@ const AUTOMATION_TYPES = [
   ...INTELLIGENT_AUTOMATION_TYPES
 ];
 
+const PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE = 'pre_checkout_folio_reminder';
+
 const addDays = (dateValue, days) => {
   if (!dateValue) {
     return null;
@@ -355,6 +357,10 @@ export const runDashboardAutomationScheduler = async ({
 
   for (const reservation of reservations || []) {
     for (const automationType of AUTOMATION_TYPES) {
+      if (automationType === PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE) {
+        continue;
+      }
+
       const engineAutomation = engineAutomationsByType.get(automationType);
       const isIntelligent = INTELLIGENT_AUTOMATION_TYPES.includes(automationType);
       const rule = rulesByType.get(automationType);

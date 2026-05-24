@@ -8,7 +8,8 @@ export const INTELLIGENT_AUTOMATION_TYPES = [
   'weather_trigger',
   'vip_followup',
   'birthday_message',
-  'abandoned_interest_followup'
+  'abandoned_interest_followup',
+  'pre_checkout_folio_reminder'
 ];
 
 export const LEGACY_AUTOMATION_TYPES = [
@@ -33,7 +34,8 @@ export const DEFAULT_INTELLIGENT_AUTOMATIONS = [
   ['weather_trigger', 'Rainy day indoor recommendation', 'weather', 'in_house_guests', 720, 1, 70],
   ['vip_followup', 'VIP follow-up', 'vip_high_value', 'vip_guests', 1440, 2, 120],
   ['birthday_message', 'Birthday message', 'birthday', 'celebration_guests', 1440, 1, 35],
-  ['abandoned_interest_followup', 'Abandoned interest follow-up', 'abandoned_interest', 'interested_guests', 720, 1, 80]
+  ['abandoned_interest_followup', 'Abandoned interest follow-up', 'abandoned_interest', 'interested_guests', 720, 1, 80],
+  ['pre_checkout_folio_reminder', 'Pre-checkout Folio Reminder', 'pre_checkout_folio', 'departing_guests_with_balance', 1440, 1, 0]
 ].map(([type, name, triggerType, audienceType, cooldownMinutes, maxPerGuest, revenueEstimate]) => ({
   id: `default-${type}`,
   name,
@@ -155,6 +157,10 @@ export const buildAutomationPreview = ({ automationType, hotel, reservation, lan
     abandoned_interest_followup: {
       es: `${prefix}si sigues interesado/a, puedo retomar la recomendacion y ayudarte a confirmar los detalles.`,
       en: `${prefix}if you are still interested, I can pick this back up and help confirm the details.`
+    },
+    pre_checkout_folio_reminder: {
+      es: `${prefix}manana esta previsto tu check-out. Staynex preparara solo un resumen en preview si el PMS confirma cargos pendientes reales.`,
+      en: `${prefix}your check-out is scheduled for tomorrow. Staynex will only prepare a preview summary when the PMS confirms real pending folio items.`
     }
   };
 
@@ -167,6 +173,7 @@ export const scheduledForAutomation = ({ automationType, reservation }) => {
 
   if (automationType === 'welcome_message') return arrival;
   if (automationType === 'late_checkout_offer') return departure ? addHours(departure, -20) : null;
+  if (automationType === 'pre_checkout_folio_reminder') return departure ? addHours(departure, -24) : null;
   if (automationType === 'transfer_offer') return arrival ? addHours(arrival, -24) : null;
   if (automationType === 'post_stay_review') return departure ? addHours(departure, 24) : null;
   if (automationType === 'pre_arrival_7d') return arrival ? addHours(arrival, -24 * 7) : null;

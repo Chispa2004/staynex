@@ -25,6 +25,15 @@ export class BasePmsConnector {
     throw new Error(`${this.provider} syncOccupancy is not implemented yet`);
   }
 
+  async getGuestFolioSummary() {
+    return {
+      available: false,
+      provider: this.provider,
+      dataQuality: 'missing',
+      warnings: ['folio_not_supported']
+    };
+  }
+
   async healthCheck() {
     return {
       ok: false,
