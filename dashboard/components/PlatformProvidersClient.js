@@ -5,13 +5,17 @@ import {
   BadgeEuro,
   Building2,
   CheckCircle2,
+  Copy,
+  Edit3,
   Mail,
   Plus,
+  Power,
   RefreshCw,
   Route,
   Search,
   Sparkles,
   Store,
+  Trash2,
   Users
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -52,9 +56,13 @@ const initialExperience = {
   title: '',
   category: 'tour',
   price: '',
+  currency: 'EUR',
   duration: '',
   tags: '',
   aliases: '',
+  languages: 'es,en,fr',
+  provider_email: '',
+  internal_notes: '',
   description: ''
 };
 
@@ -84,7 +92,33 @@ const Field = ({ label, children, isLight }) => (
   </label>
 );
 
-const ProviderCard = ({ provider, isLight }) => {
+const experienceToForm = (experience = {}) => ({
+  id: experience.id || '',
+  provider_id: experience.provider_id || '',
+  title: experience.title || '',
+  category: experience.category || 'tour',
+  price: experience.price ?? '',
+  currency: experience.currency || 'EUR',
+  duration: experience.duration || '',
+  tags: (experience.tags || []).join(', '),
+  aliases: (experience.metadata?.ai_aliases || []).join(', '),
+  languages: (experience.metadata?.languages || []).join(', '),
+  provider_email: experience.metadata?.provider_email || '',
+  internal_notes: experience.metadata?.internal_notes || '',
+  description: experience.description || '',
+  active: experience.active !== false
+});
+
+const ProviderCard = ({
+  provider,
+  isLight,
+  saving,
+  onAddExperience,
+  onEditExperience,
+  onToggleExperience,
+  onDuplicateExperience,
+  onDeleteExperience
+}) => {
   const assignments = provider.assignments || [];
   const experiences = provider.experiences || [];
 
@@ -154,15 +188,68 @@ const ProviderCard = ({ provider, isLight }) => {
           )}
         </div>
         <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
-          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>Experiences</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>Experiences</p>
+              <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Manage AI matching, availability and provider request data.</p>
+            </div>
+            <button type="button" onClick={() => onAddExperience(provider)} className={ui.button(isLight, 'secondary')}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Add experience
+            </button>
+          </div>
           {experiences.length ? (
-            <div className="mt-3 space-y-2">
-              {experiences.slice(0, 5).map((experience) => (
-                <div key={experience.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className={cn('min-w-0 truncate', ui.text.body(isLight))}>{experience.title}</span>
-                  <span className={ui.badge(isLight, experience.active !== false ? 'emerald' : 'slate', true)}>
-                    {experience.price ? formatCurrency(experience.price) : experience.category}
-                  </span>
+            <div className="mt-4 space-y-3">
+              {experiences.map((experience) => (
+                <div key={experience.id} className={cn('rounded-lg border p-3', isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-black/10')}>
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className={cn('font-semibold', ui.text.title(isLight))}>{experience.title}</p>
+                        <span className={ui.badge(isLight, experience.active !== false ? 'emerald' : 'slate', true)}>
+                          {experience.active !== false ? 'Active' : 'Inactive'}
+                        </span>
+                        <span className={ui.badge(isLight, 'slate', true)}>
+                          {experience.price ? formatCurrency(experience.price) : experience.category}
+                        </span>
+                      </div>
+                      <p className={cn('mt-2 line-clamp-2 text-sm', ui.text.body(isLight))}>
+                        {experience.description || experience.short_description || 'No description yet.'}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {experience.duration ? <span className={ui.badge(isLight, 'sky', true)}>{experience.duration}</span> : null}
+                        {(experience.tags || []).slice(0, 4).map((tag) => (
+                          <span key={tag} className={ui.badge(isLight, 'slate', true)}>{tag}</span>
+                        ))}
+                        {(experience.metadata?.ai_aliases || []).slice(0, 3).map((alias) => (
+                          <span key={alias} className={ui.badge(isLight, 'violet', true)}>{alias}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <button type="button" onClick={() => onEditExperience(experience)} className={ui.button(isLight, 'secondary')}>
+                        <Edit3 className="h-4 w-4" aria-hidden="true" />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => onToggleExperience(experience)}
+                        className={ui.button(isLight, experience.active !== false ? 'secondary' : 'primary')}
+                      >
+                        <Power className="h-4 w-4" aria-hidden="true" />
+                        {experience.active !== false ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button type="button" disabled={saving} onClick={() => onDuplicateExperience(experience)} className={ui.button(isLight, 'secondary')}>
+                        <Copy className="h-4 w-4" aria-hidden="true" />
+                        Duplicate
+                      </button>
+                      <button type="button" disabled={saving} onClick={() => onDeleteExperience(experience)} className={ui.button(isLight, 'danger')}>
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Delete
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -184,6 +271,8 @@ export const PlatformProvidersClient = () => {
   const [providerForm, setProviderForm] = useState(initialProvider);
   const [experienceForm, setExperienceForm] = useState(initialExperience);
   const [assignmentForm, setAssignmentForm] = useState(initialAssignment);
+  const [editingExperience, setEditingExperience] = useState(null);
+  const [editExperienceForm, setEditExperienceForm] = useState(initialExperience);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -241,6 +330,104 @@ export const PlatformProvidersClient = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const patchAction = async (action, payload) => {
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch('/api/platform/providers', {
+        method: 'PATCH',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action, ...payload })
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not update provider marketplace');
+      }
+      setNotice('Provider marketplace updated.');
+      await loadProviders();
+      return body;
+    } catch (caughtError) {
+      setError(caughtError.message);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteExperience = async (experience) => {
+    const confirmed = window.confirm('This will hide the experience from AI recommendations and keep historical booking references safe. Continue?');
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch('/api/platform/providers', {
+        method: 'DELETE',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ type: 'experience', experience_id: experience.id })
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not delete experience');
+      }
+      setNotice('Experience removed from the active provider catalog.');
+      await loadProviders();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startAddExperience = (provider) => {
+    setActiveForm('experience');
+    setExperienceForm({
+      ...initialExperience,
+      provider_id: provider.id,
+      provider_email: provider.contact_email || ''
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const startEditExperience = (experience) => {
+    setEditingExperience(experience);
+    setEditExperienceForm(experienceToForm(experience));
+  };
+
+  const saveExperienceChanges = async () => {
+    if (!editingExperience?.id) return;
+    const result = await patchAction('update_experience', {
+      ...editExperienceForm,
+      experience_id: editingExperience.id
+    });
+    if (result?.ok) {
+      setEditingExperience(null);
+      setEditExperienceForm(initialExperience);
+    }
+  };
+
+  const toggleExperience = (experience) => {
+    patchAction('set_experience_active', {
+      experience_id: experience.id,
+      active: experience.active === false
+    });
+  };
+
+  const duplicateExperience = (experience) => {
+    submitAction('duplicate_experience', {
+      experience_id: experience.id,
+      title: `${experience.title} copy`
+    });
   };
 
   const filteredProviders = useMemo(() => {
@@ -379,11 +566,20 @@ export const PlatformProvidersClient = () => {
             <Field label="Experience" isLight={isLight}>
               <input className={cn('w-full', ui.input(isLight))} value={experienceForm.title} onChange={(event) => setExperienceForm({ ...experienceForm, title: event.target.value })} placeholder="Coastal excursion" />
             </Field>
+            <Field label="Category" isLight={isLight}>
+              <input className={cn('w-full', ui.input(isLight))} value={experienceForm.category} onChange={(event) => setExperienceForm({ ...experienceForm, category: event.target.value })} placeholder="tour" />
+            </Field>
             <Field label="Price" isLight={isLight}>
               <input className={cn('w-full', ui.input(isLight))} value={experienceForm.price} onChange={(event) => setExperienceForm({ ...experienceForm, price: event.target.value })} placeholder="95" />
             </Field>
+            <Field label="Currency" isLight={isLight}>
+              <input className={cn('w-full', ui.input(isLight))} value={experienceForm.currency} onChange={(event) => setExperienceForm({ ...experienceForm, currency: event.target.value })} placeholder="EUR" />
+            </Field>
             <Field label="Duration" isLight={isLight}>
               <input className={cn('w-full', ui.input(isLight))} value={experienceForm.duration} onChange={(event) => setExperienceForm({ ...experienceForm, duration: event.target.value })} placeholder="Full day" />
+            </Field>
+            <Field label="Languages" isLight={isLight}>
+              <input className={cn('w-full', ui.input(isLight))} value={experienceForm.languages} onChange={(event) => setExperienceForm({ ...experienceForm, languages: event.target.value })} placeholder="es,en,fr" />
             </Field>
             <Field label="Tags" isLight={isLight}>
               <input className={cn('w-full', ui.input(isLight))} value={experienceForm.tags} onChange={(event) => setExperienceForm({ ...experienceForm, tags: event.target.value })} placeholder="culture,coast,day-trip" />
@@ -391,8 +587,14 @@ export const PlatformProvidersClient = () => {
             <Field label="AI aliases" isLight={isLight}>
               <input className={cn('w-full', ui.input(isLight))} value={experienceForm.aliases} onChange={(event) => setExperienceForm({ ...experienceForm, aliases: event.target.value })} placeholder="essaouira,coastal excursion" />
             </Field>
+            <Field label="Provider email" isLight={isLight}>
+              <input className={cn('w-full', ui.input(isLight))} value={experienceForm.provider_email} onChange={(event) => setExperienceForm({ ...experienceForm, provider_email: event.target.value })} placeholder="Optional override" />
+            </Field>
             <Field label="Description" isLight={isLight}>
               <input className={cn('w-full', ui.input(isLight))} value={experienceForm.description} onChange={(event) => setExperienceForm({ ...experienceForm, description: event.target.value })} />
+            </Field>
+            <Field label="Internal notes" isLight={isLight}>
+              <input className={cn('w-full', ui.input(isLight))} value={experienceForm.internal_notes} onChange={(event) => setExperienceForm({ ...experienceForm, internal_notes: event.target.value })} />
             </Field>
             <div className="flex items-end">
               <button type="submit" disabled={saving} className={cn('w-full', ui.button(isLight, 'primary'))}>
@@ -459,7 +661,17 @@ export const PlatformProvidersClient = () => {
       ) : filteredProviders.length ? (
         <div className="grid gap-4">
           {filteredProviders.map((provider) => (
-            <ProviderCard key={provider.id} provider={provider} isLight={isLight} />
+            <ProviderCard
+              key={provider.id}
+              provider={provider}
+              isLight={isLight}
+              saving={saving}
+              onAddExperience={startAddExperience}
+              onEditExperience={startEditExperience}
+              onToggleExperience={toggleExperience}
+              onDuplicateExperience={duplicateExperience}
+              onDeleteExperience={deleteExperience}
+            />
           ))}
         </div>
       ) : (
@@ -475,6 +687,103 @@ export const PlatformProvidersClient = () => {
           )}
         />
       )}
+
+      {editingExperience ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-sm">
+          <section className={cn('max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl border p-5 shadow-2xl', ui.surface(isLight))}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className={ui.text.eyebrow(isLight)}>Edit provider experience</p>
+                <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>{editingExperience.title}</h2>
+                <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>
+                  Changes update the provider catalog used by AI matching. Inactive experiences are not recommended or bookable.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingExperience(null);
+                  setEditExperienceForm(initialExperience);
+                }}
+                className={ui.button(isLight, 'secondary')}
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <Field label="Name" isLight={isLight}>
+                <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.title} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, title: event.target.value })} />
+              </Field>
+              <Field label="Category" isLight={isLight}>
+                <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.category} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, category: event.target.value })} />
+              </Field>
+              <Field label="Duration" isLight={isLight}>
+                <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.duration} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, duration: event.target.value })} />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Base price" isLight={isLight}>
+                  <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.price} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, price: event.target.value })} />
+                </Field>
+                <Field label="Currency" isLight={isLight}>
+                  <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.currency} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, currency: event.target.value })} />
+                </Field>
+              </div>
+              <Field label="Languages" isLight={isLight}>
+                <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.languages} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, languages: event.target.value })} placeholder="es,en,fr" />
+              </Field>
+              <Field label="Provider email override" isLight={isLight}>
+                <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.provider_email} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, provider_email: event.target.value })} />
+              </Field>
+              <Field label="Tags" isLight={isLight}>
+                <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.tags} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, tags: event.target.value })} placeholder="culture,coast,day-trip" />
+              </Field>
+              <Field label="AI aliases / matching keywords" isLight={isLight}>
+                <input className={cn('w-full', ui.input(isLight))} value={editExperienceForm.aliases} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, aliases: event.target.value })} placeholder="essaouira, coastal excursion" />
+              </Field>
+              <div className="md:col-span-2">
+                <Field label="Description" isLight={isLight}>
+                  <textarea className={cn('min-h-28 w-full resize-y', ui.input(isLight))} value={editExperienceForm.description} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, description: event.target.value })} />
+                </Field>
+              </div>
+              <div className="md:col-span-2">
+                <Field label="Internal notes" isLight={isLight}>
+                  <textarea className={cn('min-h-20 w-full resize-y', ui.input(isLight))} value={editExperienceForm.internal_notes} onChange={(event) => setEditExperienceForm({ ...editExperienceForm, internal_notes: event.target.value })} />
+                </Field>
+              </div>
+              <label className={cn('flex items-center justify-between gap-3 rounded-xl border p-3 md:col-span-2', ui.surface(isLight, 'subtle'))}>
+                <span>
+                  <span className={cn('block text-sm font-semibold', ui.text.title(isLight))}>Active in AI catalog</span>
+                  <span className={cn('mt-1 block text-xs', ui.text.muted(isLight))}>When off, the AI will not recommend or book this experience.</span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={editExperienceForm.active !== false}
+                  onChange={(event) => setEditExperienceForm({ ...editExperienceForm, active: event.target.checked })}
+                  className="h-5 w-5 accent-emerald-500"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingExperience(null);
+                  setEditExperienceForm(initialExperience);
+                }}
+                className={ui.button(isLight, 'secondary')}
+              >
+                Cancel
+              </button>
+              <button type="button" disabled={saving} onClick={saveExperienceChanges} className={ui.button(isLight, 'primary')}>
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                Save changes
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 };

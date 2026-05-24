@@ -32,6 +32,7 @@ export const normalizeProviderExperience = ({ experience, provider, hotelProvide
   const revenueType = experience.revenue_type || hotelProvider.revenue_type || 'partner_marketplace';
   const staynexCommissionPercent = experience.platform_commission_percent ?? hotelProvider.staynex_commission_percent ?? experience.commission_percent ?? null;
   const hotelCommissionPercent = experience.hotel_commission_percent ?? hotelProvider.hotel_commission_percent ?? 0;
+  const providerLeadEmail = experience.metadata?.provider_email || hotelProvider.lead_email || provider.contact_email || null;
 
   return {
     id: experience.id,
@@ -43,7 +44,7 @@ export const normalizeProviderExperience = ({ experience, provider, hotelProvide
     provider_source: provider.name,
     provider_slug: provider.slug,
     provider_type: provider.provider_type,
-    provider_lead_email: hotelProvider.lead_email || provider.contact_email || null,
+    provider_lead_email: providerLeadEmail,
     revenue_owner: revenueOwner,
     revenue_type: revenueType,
     hotel_visible_revenue: experience.hotel_visible_revenue ?? (revenueOwner !== 'staynex'),
@@ -74,7 +75,7 @@ export const normalizeProviderExperience = ({ experience, provider, hotelProvide
     target_guest_types: audienceTags,
     audience_tags: audienceTags,
     partner_name: provider.name,
-    partner_contact: hotelProvider.lead_email || provider.contact_email || null,
+    partner_contact: providerLeadEmail,
     booking_url: provider.website_url || null,
     image_url: experience.image_url || null,
     destination_city: experience.destination_city || provider.destination_city || null,
@@ -93,7 +94,7 @@ export const normalizeProviderExperience = ({ experience, provider, hotelProvide
       provider_slug: provider.slug,
       provider_name: provider.name,
       provider_experience_id: experience.id,
-      provider_lead_email: hotelProvider.lead_email || provider.contact_email || null,
+      provider_lead_email: providerLeadEmail,
       revenue_owner: revenueOwner,
       revenue_type: revenueType,
       hotel_visible_revenue: experience.hotel_visible_revenue ?? (revenueOwner !== 'staynex'),

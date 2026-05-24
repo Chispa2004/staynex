@@ -91,9 +91,49 @@ const experiencePayload = (body = {}) => {
     metadata: {
       ...(body.metadata || {}),
       ai_aliases: normalizeTags(body.aliases || body.ai_aliases || body.aiAliases),
+      languages: normalizeTags(body.languages),
+      provider_email: normalizeOptional(body.provider_email || body.providerEmail),
+      internal_notes: normalizeOptional(body.internal_notes || body.internalNotes),
       provider_marketplace_managed: true
     },
     updated_at: new Date().toISOString()
+  };
+};
+
+const mergeProviderPayload = (provider, body = {}) => {
+  const payload = providerPayload({
+    ...provider,
+    ...body,
+    name: body.name || provider.name
+  });
+
+  return {
+    ...payload,
+    metadata: {
+      ...(provider.metadata || {}),
+      ...(payload.metadata || {})
+    }
+  };
+};
+
+const mergeExperiencePayload = (experience, body = {}) => {
+  const payload = experiencePayload({
+    ...experience,
+    ...body,
+    provider_id: body.provider_id || body.providerId || experience.provider_id,
+    title: body.title || experience.title,
+    aliases: body.aliases || body.ai_aliases || body.aiAliases || experience.metadata?.ai_aliases || [],
+    languages: body.languages || experience.metadata?.languages || [],
+    provider_email: body.provider_email || body.providerEmail || experience.metadata?.provider_email || null,
+    internal_notes: body.internal_notes || body.internalNotes || experience.metadata?.internal_notes || null
+  });
+
+  return {
+    ...payload,
+    metadata: {
+      ...(experience.metadata || {}),
+      ...(payload.metadata || {})
+    }
   };
 };
 
@@ -135,7 +175,8 @@ const buildProviderMarketplace = async (supabase) => {
 
   const activeHotels = hotels.filter((hotel) => !hotel.deleted_at && !hotel.archived_at);
   const hotelsById = activeHotels.reduce((acc, hotel) => ({ ...acc, [hotel.id]: hotel }), {});
-  const experiencesByProvider = experiences.reduce((acc, experience) => {
+  const visibleExperiences = experiences.filter((experience) => !experience.metadata?.deleted_at);
+  const experiencesByProvider = visibleExperiences.reduce((acc, experience) => {
     acc[experience.provider_id] = acc[experience.provider_id] || [];
     acc[experience.provider_id].push(experience);
     return acc;
@@ -192,7 +233,7 @@ const buildProviderMarketplace = async (supabase) => {
     metrics: {
       totalProviders: providerRows.length,
       activeProviders: providerRows.filter((provider) => provider.active !== false).length,
-      activeExperiences: experiences.filter((experience) => experience.active !== false).length,
+      activeExperiences: visibleExperiences.filter((experience) => experience.active !== false).length,
       assignedHotels: new Set(assignments.filter((assignment) => assignment.active !== false).map((assignment) => assignment.hotel_id)).size,
       totalLeads: providerBookings.length,
       grossRevenue: providerBookings.reduce((sum, row) => sum + Number(row.estimated_revenue || 0), 0),
@@ -287,6 +328,63 @@ export async function POST(request) {
       return NextResponse.json({ ok: true, experience: data }, { status: 201 });
     }
 
+    if (action === 'duplicate_experience') {
+      const sourceId = normalizeOptional(body.experience_id || body.experienceId || body.id);
+
+      if (!sourceId) {
+        return NextResponse.json({ error: 'Experience id is required' }, { status: 400 });
+      }
+
+      const { data: source, error: sourceError } = await supabase
+        .from('provider_experiences')
+        .select('*')
+        .eq('id', sourceId)
+        .single();
+
+      if (sourceError) throw sourceError;
+
+      const title = normalizeOptional(body.title) || `${source.title} copy`;
+      const { data, error } = await supabase
+        .from('provider_experiences')
+        .insert({
+          provider_id: source.provider_id,
+          title,
+          slug: `${slugify(title)}-${Date.now().toString(36)}`,
+          category: source.category,
+          description: source.description,
+          short_description: source.short_description,
+          price: source.price,
+          commission_percent: source.commission_percent,
+          currency: source.currency,
+          tags: source.tags || [],
+          audience_tags: source.audience_tags || [],
+          destination_city: source.destination_city,
+          duration: source.duration,
+          active: false,
+          metadata: {
+            ...(source.metadata || {}),
+            duplicated_from: source.id,
+            provider_marketplace_managed: true
+          },
+          created_at: now,
+          updated_at: now
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'provider_experience_duplicated',
+        metadata: { source_experience_id: source.id, provider_experience_id: data.id, provider_id: data.provider_id }
+      });
+
+      return NextResponse.json({ ok: true, experience: data }, { status: 201 });
+    }
+
     if (action === 'assign_provider') {
       const payload = assignmentPayload(body);
       const { data, error } = await supabase
@@ -322,6 +420,251 @@ export async function POST(request) {
 
     return NextResponse.json({
       error: error.message || 'Could not update provider marketplace'
+    }, { status: error.status || 500 });
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
+    const body = await request.json();
+    const action = body.action || 'update_experience';
+    const now = new Date().toISOString();
+
+    if (action === 'update_provider') {
+      const providerId = normalizeOptional(body.provider_id || body.providerId || body.id);
+      if (!providerId) {
+        return NextResponse.json({ error: 'Provider id is required' }, { status: 400 });
+      }
+
+      const { data: provider, error: lookupError } = await supabase
+        .from('experience_providers')
+        .select('*')
+        .eq('id', providerId)
+        .single();
+
+      if (lookupError) throw lookupError;
+
+      const payload = mergeProviderPayload(provider, body);
+      const { data, error } = await supabase
+        .from('experience_providers')
+        .update(payload)
+        .eq('id', providerId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'experience_provider_updated',
+        metadata: { provider_id: data.id, provider_name: data.name }
+      });
+
+      return NextResponse.json({ ok: true, provider: data });
+    }
+
+    if (action === 'update_experience') {
+      const experienceId = normalizeOptional(body.experience_id || body.experienceId || body.id);
+      if (!experienceId) {
+        return NextResponse.json({ error: 'Experience id is required' }, { status: 400 });
+      }
+
+      const { data: experience, error: lookupError } = await supabase
+        .from('provider_experiences')
+        .select('*')
+        .eq('id', experienceId)
+        .single();
+
+      if (lookupError) throw lookupError;
+
+      const payload = mergeExperiencePayload(experience, body);
+      const { data, error } = await supabase
+        .from('provider_experiences')
+        .update(payload)
+        .eq('id', experienceId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'provider_experience_updated',
+        metadata: { provider_id: data.provider_id, provider_experience_id: data.id, title: data.title }
+      });
+
+      return NextResponse.json({ ok: true, experience: data });
+    }
+
+    if (action === 'set_experience_active') {
+      const experienceId = normalizeOptional(body.experience_id || body.experienceId || body.id);
+      if (!experienceId) {
+        return NextResponse.json({ error: 'Experience id is required' }, { status: 400 });
+      }
+
+      const active = Boolean(body.active);
+      const { data, error } = await supabase
+        .from('provider_experiences')
+        .update({
+          active,
+          updated_at: now
+        })
+        .eq('id', experienceId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: active ? 'provider_experience_activated' : 'provider_experience_deactivated',
+        metadata: { provider_id: data.provider_id, provider_experience_id: data.id, title: data.title }
+      });
+
+      return NextResponse.json({ ok: true, experience: data });
+    }
+
+    if (action === 'unassign_provider') {
+      const assignmentId = normalizeOptional(body.assignment_id || body.assignmentId || body.id);
+      if (!assignmentId) {
+        return NextResponse.json({ error: 'Assignment id is required' }, { status: 400 });
+      }
+
+      const { data, error } = await supabase
+        .from('hotel_experience_providers')
+        .update({
+          active: false,
+          updated_at: now
+        })
+        .eq('id', assignmentId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'experience_provider_unassigned_from_hotel',
+        hotelId: data.hotel_id,
+        metadata: { provider_id: data.provider_id, assignment_id: data.id }
+      });
+
+      return NextResponse.json({ ok: true, assignment: data });
+    }
+
+    return NextResponse.json({ error: 'Unsupported provider marketplace action' }, { status: 400 });
+  } catch (error) {
+    if (isProviderTableMissing(error)) {
+      return NextResponse.json({
+        error: 'Provider marketplace SQL migration required.'
+      }, { status: 409 });
+    }
+
+    return NextResponse.json({
+      error: error.message || 'Could not update provider marketplace'
+    }, { status: error.status || 500 });
+  }
+}
+
+export async function DELETE(request) {
+  try {
+    const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
+    const body = await request.json();
+    const type = body.type || 'experience';
+    const now = new Date().toISOString();
+
+    if (type === 'experience') {
+      const experienceId = normalizeOptional(body.experience_id || body.experienceId || body.id);
+      if (!experienceId) {
+        return NextResponse.json({ error: 'Experience id is required' }, { status: 400 });
+      }
+
+      const { data: experience, error: lookupError } = await supabase
+        .from('provider_experiences')
+        .select('*')
+        .eq('id', experienceId)
+        .single();
+
+      if (lookupError) throw lookupError;
+
+      const { data, error } = await supabase
+        .from('provider_experiences')
+        .update({
+          active: false,
+          metadata: {
+            ...(experience.metadata || {}),
+            deleted_at: now,
+            soft_deleted: true,
+            deleted_reason: normalizeOptional(body.reason) || 'platform_provider_management'
+          },
+          updated_at: now
+        })
+        .eq('id', experienceId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'provider_experience_soft_deleted',
+        metadata: { provider_id: data.provider_id, provider_experience_id: data.id, title: data.title }
+      });
+
+      return NextResponse.json({ ok: true, experience: data, mode: 'soft_delete' });
+    }
+
+    if (type === 'assignment') {
+      const assignmentId = normalizeOptional(body.assignment_id || body.assignmentId || body.id);
+      if (!assignmentId) {
+        return NextResponse.json({ error: 'Assignment id is required' }, { status: 400 });
+      }
+
+      const { data, error } = await supabase
+        .from('hotel_experience_providers')
+        .update({
+          active: false,
+          updated_at: now
+        })
+        .eq('id', assignmentId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'experience_provider_unassigned_from_hotel',
+        hotelId: data.hotel_id,
+        metadata: { provider_id: data.provider_id, assignment_id: data.id, delete_method: 'soft_unassign' }
+      });
+
+      return NextResponse.json({ ok: true, assignment: data, mode: 'soft_unassign' });
+    }
+
+    return NextResponse.json({ error: 'Unsupported delete type' }, { status: 400 });
+  } catch (error) {
+    if (isProviderTableMissing(error)) {
+      return NextResponse.json({
+        error: 'Provider marketplace SQL migration required.'
+      }, { status: 409 });
+    }
+
+    return NextResponse.json({
+      error: error.message || 'Could not delete provider marketplace item'
     }, { status: error.status || 500 });
   }
 }

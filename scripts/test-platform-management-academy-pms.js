@@ -68,4 +68,19 @@ assert.ok(scopedOps.length >= 5);
 assert.ok(scopedOps.every((operation) => operation.matchColumn === 'hotel_id'));
 assert.ok(scopedOps.every((operation) => operation.matchValue === 'hotel-a'));
 
+const providerApiSource = readFileSync(join(root, 'dashboard/app/api/platform/providers/route.js'), 'utf8');
+assert.ok(providerApiSource.includes("action === 'create_experience'"), 'Platform providers API should create experiences');
+assert.ok(providerApiSource.includes("action === 'update_experience'"), 'Platform providers API should update experiences');
+assert.ok(providerApiSource.includes("action === 'set_experience_active'"), 'Platform providers API should activate and deactivate experiences');
+assert.ok(providerApiSource.includes('provider_experience_soft_deleted'), 'Provider experience delete should be soft-delete/audit logged');
+assert.ok(providerApiSource.includes("action === 'duplicate_experience'"), 'Platform providers API should duplicate experiences');
+assert.ok(providerApiSource.includes("action === 'unassign_provider'"), 'Platform providers API should support provider unassignment');
+
+const providerUiSource = readFileSync(join(root, 'dashboard/components/PlatformProvidersClient.js'), 'utf8');
+assert.ok(providerUiSource.includes('Add experience'), 'Provider cards should expose Add experience');
+assert.ok(providerUiSource.includes('Save changes'), 'Provider experience edit modal should save changes');
+assert.ok(providerUiSource.includes('Deactivate'), 'Provider experience UI should expose deactivation');
+assert.ok(providerUiSource.includes('Delete'), 'Provider experience UI should expose delete');
+assert.ok(providerUiSource.includes('AI aliases / matching keywords'), 'Provider experience edit modal should manage AI aliases');
+
 console.log('Platform management, Academy and PMS connector tests passed');

@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   detectExperienceOpportunities,
   evaluateExperienceTiming
@@ -15,6 +18,9 @@ import {
   PROVIDER_EXPERIENCE_INTENTS
 } from '../src/services/experience-booking.service.js';
 import { buildStrictHotelExperienceCatalog } from '../src/services/experience-catalog-isolation.service.js';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const root = join(__dirname, '..');
 
 const base = {
   hotel: {
@@ -234,6 +240,11 @@ assert.equal(strictMoroccoCatalog.providerExperiences.length, 6);
 assert.equal(strictMoroccoCatalog.hotelExperiences.length, 0);
 assert.equal(strictMoroccoCatalog.blockedCrossTenantExperiences, true);
 assert.equal(strictMoroccoCatalog.providerNames.includes('Luxotour Morocco'), true);
+
+const providerServiceSource = readFileSync(join(root, 'src/services/experience-provider.service.js'), 'utf8');
+assert.ok(providerServiceSource.includes("experiencesQuery = experiencesQuery.eq('active', true)"), 'AI provider catalog must filter inactive provider experiences');
+assert.ok(providerServiceSource.includes('experience.active !== false && hotelProvider.active !== false && provider.active !== false'), 'Normalized provider experiences must carry active assignment/provider state');
+assert.ok(providerServiceSource.includes('experience.metadata?.provider_email'), 'Provider-specific experience email overrides must be available to booking emails');
 
 const duplicateProviderCatalog = [
   ...providerCatalog,
