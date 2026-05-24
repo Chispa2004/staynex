@@ -131,5 +131,9 @@ assert.ok(appShellSource.includes('platformNavigationItems'), 'Platform sidebar 
 assert.ok(appShellSource.includes('/platform/hotels'), 'Platform sidebar should expose Hotels');
 assert.ok(appShellSource.includes('/platform/providers'), 'Platform sidebar should expose Experience Providers');
 assert.ok(appShellSource.includes('!isPlatformContext ? allowedNavigationGroups.map'), 'Hotel workspace navigation should be hidden in platform context');
+assert.ok(appShellSource.includes('const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext'), 'Back to Platform must only render for internal users inside hotel workspaces');
+assert.ok(appShellSource.includes('Back to Platform'), 'Platform admins need a visible Back to Platform action in hotel workspaces');
+assert.ok(appShellSource.includes('href="/platform/hotels"'), 'Back to Platform should return to the platform hotel directory');
+assert.ok(appShellSource.includes('Hotel workspace view'), 'Internal hotel workspace view should be visually labelled');
 
 console.log('Receptionist permission tests passed');

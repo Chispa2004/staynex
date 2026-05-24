@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Activity,
+  ArrowLeft,
   BarChart3,
   Building2,
   BrainCircuit,
@@ -755,6 +756,7 @@ const AppShellContent = ({ children }) => {
   const workspaceSecondaryColor = currentHotel?.secondary_color || '#0f766e';
   const sidebarHotelName = currentHotel?.name || 'Staynex';
   const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
+  const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext;
   const sidebarTitle = isPlatformContext ? 'Staynex Platform' : sidebarHotelName;
   const sidebarSubtitle = isPlatformContext ? 'Internal command center' : (ROLE_LABELS[activeRole] || activeRole);
   const isNavItemActive = (item) => item.href === '/dashboard'
@@ -928,6 +930,33 @@ const AppShellContent = ({ children }) => {
             </div>
           ) : (
             <>
+              {showBackToPlatform ? (
+                <div className="px-4 pb-4 pt-4">
+                  <div className={[
+                    'rounded-xl border p-3',
+                    isLight
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-900 shadow-sm shadow-emerald-100/70'
+                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 shadow-lg shadow-emerald-950/10'
+                  ].join(' ')}
+                  >
+                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-80">Hotel workspace view</p>
+                    <p className="mt-1 truncate text-sm font-semibold">Viewing {sidebarHotelName}</p>
+                    <Link
+                      href="/platform/hotels"
+                      className={[
+                        'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition',
+                        isLight
+                          ? 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-100'
+                          : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15'
+                      ].join(' ')}
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                      Back to Platform
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
+
               <HotelWorkspaceSwitcher
                 currentHotel={currentHotel}
                 availableHotels={availableHotels}
@@ -1138,6 +1167,23 @@ const AppShellContent = ({ children }) => {
               <ThemeToggle />
               <LanguageSelector />
             </div>
+            {showBackToPlatform ? (
+              <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-semibold">Viewing hotel workspace</p>
+                    <p className="mt-1 opacity-80">{sidebarHotelName} is open in internal Staynex admin view.</p>
+                  </div>
+                  <Link
+                    href="/platform/hotels"
+                    className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/15'}
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                    Back to Platform
+                  </Link>
+                </div>
+              </div>
+            ) : null}
             {supportSession ? (
               <div className={isLight ? 'mb-6 rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900 shadow-sm shadow-sky-100' : 'mb-6 rounded-xl border border-sky-300/20 bg-sky-300/10 px-5 py-4 text-sm text-sky-100 shadow-lg shadow-sky-950/10'}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
