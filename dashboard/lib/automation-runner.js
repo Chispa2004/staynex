@@ -22,6 +22,7 @@ const AUTOMATION_TYPES = [
 ];
 
 const PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE = 'pre_checkout_folio_reminder';
+const POST_STAY_REVIEW_INTELLIGENCE_TYPE = 'post_stay_review_intelligence';
 
 const addDays = (dateValue, days) => {
   if (!dateValue) {
@@ -357,7 +358,7 @@ export const runDashboardAutomationScheduler = async ({
 
   for (const reservation of reservations || []) {
     for (const automationType of AUTOMATION_TYPES) {
-      if (automationType === PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE) {
+      if ([PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE, POST_STAY_REVIEW_INTELLIGENCE_TYPE].includes(automationType)) {
         continue;
       }
 

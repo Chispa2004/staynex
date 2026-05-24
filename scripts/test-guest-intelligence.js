@@ -14,6 +14,10 @@ import {
   generateUpsellRecommendations,
   predictLikelyConversions
 } from '../src/services/revenue-ai.service.js';
+import {
+  analyzePostStayReviewStrategy,
+  classifyAiAssistanceFeedback
+} from '../src/services/post-stay-review-intelligence.service.js';
 
 const baseInput = {
   hotelId: 'hotel-1',
@@ -136,6 +140,41 @@ const run = () => {
     pmsIntelligenceContext: baseInput.pmsIntelligenceContext
   }) >= 0.45);
   cases.push('multilingual intelligence');
+
+  const publicReviewStrategy = analyzePostStayReviewStrategy({
+    hotel: {
+      id: 'hotel-1',
+      name: 'Staynex Hotel',
+      metadata: { google_review_link: 'https://reviews.example.com/hotel' }
+    },
+    reservation: { guest_name: 'Claire Martin' },
+    messages: [{ content: 'Thank you, everything was excellent and the WhatsApp support was very helpful.' }],
+    tickets: [],
+    aiLogs: []
+  });
+  assert.equal(publicReviewStrategy.staySentiment, 'positive');
+  assert.equal(publicReviewStrategy.reviewStrategy, 'request_public_review');
+  cases.push('positive stay public review strategy');
+
+  const qualityStrategy = analyzePostStayReviewStrategy({
+    hotel: {
+      id: 'hotel-1',
+      name: 'Staynex Hotel',
+      metadata: { google_review_link: 'https://reviews.example.com/hotel' }
+    },
+    reservation: { guest_name: 'Angry Guest' },
+    messages: [{ content: 'The room was dirty, the AC was broken and this is unacceptable.' }],
+    tickets: [{ category: 'complaint', priority: 'urgent', status: 'open' }],
+    aiLogs: [{ needs_human: true }]
+  });
+  assert.equal(qualityStrategy.staySentiment, 'negative');
+  assert.equal(qualityStrategy.reviewStrategy, 'alert_quality_team');
+  assert.ok(qualityStrategy.reasons.includes('unresolved_urgent_ticket'));
+  cases.push('negative stay quality alert strategy');
+
+  assert.equal(classifyAiAssistanceFeedback('Yes, it was helpful'), 'helpful');
+  assert.equal(classifyAiAssistanceFeedback('No, it was slow and not helpful'), 'not_helpful');
+  cases.push('ai assistance feedback classification');
 
   console.log(JSON.stringify({ ok: true, cases }, null, 2));
 };

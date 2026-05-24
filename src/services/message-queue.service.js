@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 
 const isSendAutomationsEnabled = () => process.env.SEND_AUTOMATIONS === 'true';
 const PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE = 'pre_checkout_folio_reminder';
+const POST_STAY_REVIEW_INTELLIGENCE_TYPE = 'post_stay_review_intelligence';
 
 const isMissingScheduledMessagesTable = (error) => (
   error?.message?.includes('scheduled_messages')
@@ -57,8 +58,8 @@ const updateScheduledMessageStatus = async (id, updates) => {
 };
 
 export const processScheduledMessage = async (scheduledMessage) => {
-  if (scheduledMessage.automation_type === PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE) {
-    logger.info('pre_checkout_folio_send_blocked_preview_only', {
+  if ([PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE, POST_STAY_REVIEW_INTELLIGENCE_TYPE].includes(scheduledMessage.automation_type)) {
+    logger.info('automation_send_blocked_preview_only', {
       scheduledMessageId: scheduledMessage.id,
       automationType: scheduledMessage.automation_type
     });

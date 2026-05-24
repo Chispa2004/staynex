@@ -9,7 +9,8 @@ export const INTELLIGENT_AUTOMATION_TYPES = {
   VIP_FOLLOWUP: 'vip_followup',
   BIRTHDAY_MESSAGE: 'birthday_message',
   ABANDONED_INTEREST_FOLLOWUP: 'abandoned_interest_followup',
-  PRE_CHECKOUT_FOLIO_REMINDER: 'pre_checkout_folio_reminder'
+  PRE_CHECKOUT_FOLIO_REMINDER: 'pre_checkout_folio_reminder',
+  POST_STAY_REVIEW_INTELLIGENCE: 'post_stay_review_intelligence'
 };
 
 export const DEFAULT_INTELLIGENT_AUTOMATIONS = [
@@ -108,6 +109,15 @@ export const DEFAULT_INTELLIGENT_AUTOMATIONS = [
     name: 'Pre-checkout Folio Reminder',
     triggerType: 'pre_checkout_folio',
     audienceType: 'departing_guests_with_balance',
+    cooldownMinutes: 1440,
+    maxPerGuest: 1,
+    revenueEstimate: 0
+  },
+  {
+    type: INTELLIGENT_AUTOMATION_TYPES.POST_STAY_REVIEW_INTELLIGENCE,
+    name: 'Post-stay Review Intelligence',
+    triggerType: 'post_checkout_24h',
+    audienceType: 'checked_out_guests',
     cooldownMinutes: 1440,
     maxPerGuest: 1,
     revenueEstimate: 0
@@ -271,6 +281,12 @@ export const buildAutomationMessagePreview = ({
       en: `${prefix}your check-out is scheduled for tomorrow. Staynex will only prepare a preview summary when the PMS confirms real pending folio items.`,
       fr: `${prefix}votre check-out est prevu demain. Staynex prepare uniquement un apercu si le PMS confirme des elements reels en attente.`,
       de: `${prefix}Ihr Check-out ist morgen geplant. Staynex erstellt nur eine Vorschau, wenn das PMS echte offene Posten bestaetigt.`
+    },
+    [INTELLIGENT_AUTOMATION_TYPES.POST_STAY_REVIEW_INTELLIGENCE]: {
+      es: `${prefix}Staynex analizara la estancia antes de decidir entre resena publica, feedback privado o alerta interna de calidad.`,
+      en: `${prefix}Staynex will analyze the stay before deciding between a public review request, private feedback or an internal quality alert.`,
+      fr: `${prefix}Staynex analysera le sejour avant de choisir entre avis public, feedback prive ou alerte qualite interne.`,
+      de: `${prefix}Staynex analysiert den Aufenthalt, bevor eine oeffentliche Bewertung, privates Feedback oder ein internes Qualitaetssignal erstellt wird.`
     }
   };
 
@@ -354,7 +370,8 @@ export const evaluateAutomationOpportunity = ({
     [INTELLIGENT_AUTOMATION_TYPES.VIP_FOLLOWUP]: Number(guestProfile.vipScore || guestProfile.vip_score || 0) >= 70 || Number(pmsIntelligenceContext?.vipScore || pmsIntelligenceContext?.vip_score || 0) >= 70 || guest?.vip || Number(guest?.score || 0) >= 80 || /vip|premium|luxury|suite|anniversary|honeymoon/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.BIRTHDAY_MESSAGE]: /birthday|cumple|anniversary|honeymoon|celebration|celebramos/.test(combinedSignals),
     [INTELLIGENT_AUTOMATION_TYPES.ABANDONED_INTEREST_FOLLOWUP]: /interested|me interesa|tell me more|cuentame|details|availability/.test(combinedSignals),
-    [INTELLIGENT_AUTOMATION_TYPES.PRE_CHECKOUT_FOLIO_REMINDER]: false
+    [INTELLIGENT_AUTOMATION_TYPES.PRE_CHECKOUT_FOLIO_REMINDER]: false,
+    [INTELLIGENT_AUTOMATION_TYPES.POST_STAY_REVIEW_INTELLIGENCE]: false
   };
 
   return {

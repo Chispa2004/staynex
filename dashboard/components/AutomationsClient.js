@@ -33,6 +33,7 @@ const typeOptions = [
   'birthday_message',
   'abandoned_interest_followup',
   'pre_checkout_folio_reminder',
+  'post_stay_review_intelligence',
   'pre_arrival_7d',
   'pre_arrival_1d',
   'in_stay_upsell',
@@ -277,6 +278,25 @@ export const AutomationsClient = () => {
     };
   }, [messages, metrics]);
 
+  const reviewStats = useMemo(() => {
+    const reviewMessages = messages.filter((message) => message.automation_type === 'post_stay_review_intelligence');
+    const reviewRuns = (metrics?.runs || []).filter((run) => run.automation_type === 'post_stay_review_intelligence');
+    const byStrategy = (strategy) => reviewRuns.filter((run) => run.metadata?.strategy === strategy).length
+      || reviewMessages.filter((message) => message.metadata?.strategy === strategy).length;
+
+    return {
+      eligibleGuests: reviewRuns.filter((run) => run.status === 'preview' || run.status === 'quality_alert_created').length,
+      publicReviewRequests: byStrategy('request_public_review'),
+      privateFeedbackRequests: byStrategy('request_private_feedback'),
+      qualityAlerts: reviewRuns.filter((run) => run.status === 'quality_alert_created' || run.metadata?.strategy === 'alert_quality_team').length,
+      skipped: reviewRuns.filter((run) => run.status === 'skipped').length,
+      reviewRiskDetected: reviewRuns.filter((run) => Number(run.metadata?.review_risk_score || 0) >= 60 || run.metadata?.strategy === 'alert_quality_team').length,
+      positiveStays: reviewRuns.filter((run) => run.metadata?.stay_sentiment === 'positive').length,
+      negativeStays: reviewRuns.filter((run) => run.metadata?.stay_sentiment === 'negative').length,
+      aiAssistanceFeedback: reviewRuns.filter((run) => run.metadata?.ai_assistance_feedback).length
+    };
+  }, [messages, metrics]);
+
   const automationCards = useMemo(() => automations.map((automation) => {
     const relatedRuns = (metrics?.runs || []).filter((run) => run.automation_type === automation.type);
     const relatedMessages = messages.filter((message) => message.automation_type === automation.type);
@@ -396,6 +416,39 @@ export const AutomationsClient = () => {
             ))}
           </div>
         ) : null}
+      </Card>
+
+      <Card className="p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="sky">Preview only</Badge>
+              <Badge tone="amber">Reputation guard</Badge>
+            </div>
+            <p className="mt-3 text-sm font-semibold">Post-stay Review Intelligence</p>
+            <p className={isLight ? 'mt-1 text-sm leading-6 text-slate-500' : 'mt-1 text-sm leading-6 text-slate-500'}>
+              Staynex analyzes guest sentiment, tickets and review risk before choosing public review, private feedback or an internal quality alert.
+            </p>
+          </div>
+          <div className="grid w-full gap-2 text-xs sm:grid-cols-2 lg:w-auto lg:min-w-[620px] lg:grid-cols-5">
+            {[
+              ['Eligible guests', reviewStats.eligibleGuests],
+              ['Public reviews', reviewStats.publicReviewRequests],
+              ['Private feedback', reviewStats.privateFeedbackRequests],
+              ['Quality alerts', reviewStats.qualityAlerts],
+              ['Skipped', reviewStats.skipped],
+              ['Review risk', reviewStats.reviewRiskDetected],
+              ['Positive stays', reviewStats.positiveStays],
+              ['Negative stays', reviewStats.negativeStays],
+              ['AI feedback', reviewStats.aiAssistanceFeedback]
+            ].map(([label, value]) => (
+              <div key={label} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.04] p-3 text-slate-300'}>
+                <p className="font-semibold">{label}</p>
+                <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </Card>
 
       {migrationRequired ? (

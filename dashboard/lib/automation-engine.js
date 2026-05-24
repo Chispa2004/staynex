@@ -9,7 +9,8 @@ export const INTELLIGENT_AUTOMATION_TYPES = [
   'vip_followup',
   'birthday_message',
   'abandoned_interest_followup',
-  'pre_checkout_folio_reminder'
+  'pre_checkout_folio_reminder',
+  'post_stay_review_intelligence'
 ];
 
 export const LEGACY_AUTOMATION_TYPES = [
@@ -35,7 +36,8 @@ export const DEFAULT_INTELLIGENT_AUTOMATIONS = [
   ['vip_followup', 'VIP follow-up', 'vip_high_value', 'vip_guests', 1440, 2, 120],
   ['birthday_message', 'Birthday message', 'birthday', 'celebration_guests', 1440, 1, 35],
   ['abandoned_interest_followup', 'Abandoned interest follow-up', 'abandoned_interest', 'interested_guests', 720, 1, 80],
-  ['pre_checkout_folio_reminder', 'Pre-checkout Folio Reminder', 'pre_checkout_folio', 'departing_guests_with_balance', 1440, 1, 0]
+  ['pre_checkout_folio_reminder', 'Pre-checkout Folio Reminder', 'pre_checkout_folio', 'departing_guests_with_balance', 1440, 1, 0],
+  ['post_stay_review_intelligence', 'Post-stay Review Intelligence', 'post_checkout_24h', 'checked_out_guests', 1440, 1, 0]
 ].map(([type, name, triggerType, audienceType, cooldownMinutes, maxPerGuest, revenueEstimate]) => ({
   id: `default-${type}`,
   name,
@@ -161,6 +163,10 @@ export const buildAutomationPreview = ({ automationType, hotel, reservation, lan
     pre_checkout_folio_reminder: {
       es: `${prefix}manana esta previsto tu check-out. Staynex preparara solo un resumen en preview si el PMS confirma cargos pendientes reales.`,
       en: `${prefix}your check-out is scheduled for tomorrow. Staynex will only prepare a preview summary when the PMS confirms real pending folio items.`
+    },
+    post_stay_review_intelligence: {
+      es: `${prefix}Staynex analizara la estancia antes de decidir entre resena publica, feedback privado o alerta interna de calidad.`,
+      en: `${prefix}Staynex will analyze the stay before deciding between a public review request, private feedback or an internal quality alert.`
     }
   };
 
@@ -176,6 +182,7 @@ export const scheduledForAutomation = ({ automationType, reservation }) => {
   if (automationType === 'pre_checkout_folio_reminder') return departure ? addHours(departure, -24) : null;
   if (automationType === 'transfer_offer') return arrival ? addHours(arrival, -24) : null;
   if (automationType === 'post_stay_review') return departure ? addHours(departure, 24) : null;
+  if (automationType === 'post_stay_review_intelligence') return departure ? addHours(departure, 24) : null;
   if (automationType === 'pre_arrival_7d') return arrival ? addHours(arrival, -24 * 7) : null;
   if (automationType === 'pre_arrival_1d') return arrival ? addHours(arrival, -24) : null;
   if (automationType === 'in_stay_upsell') return arrival;

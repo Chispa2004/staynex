@@ -10,6 +10,13 @@ import {
   normalizeFolioSummary,
   PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE
 } from '../src/services/pms-folio.service.js';
+import {
+  analyzePostStayReviewStrategy,
+  buildPostStayReviewMessage,
+  classifyAiAssistanceFeedback,
+  evaluatePostStayReviewIntelligence,
+  POST_STAY_REVIEW_INTELLIGENCE_TYPE
+} from '../src/services/post-stay-review-intelligence.service.js';
 
 validateEnvironment({ exitOnError: true });
 
@@ -133,6 +140,112 @@ try {
     now: new Date()
   });
   assert(takeoverDecision.reason === 'human_takeover_active', 'Human takeover should block folio reminder');
+
+  const postStayReservation = {
+    id: 'post-stay-reservation-1',
+    hotel_id: 'hotel-review-1',
+    guest_id: 'guest-review-1',
+    guest_name: 'Marta Lopez',
+    guest_phone: '+34600999888',
+    departure_date: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
+    status: 'checked_out',
+    language: 'es'
+  };
+  const reviewHotel = {
+    id: 'hotel-review-1',
+    name: 'Staynex Review Hotel',
+    default_language: 'es',
+    metadata: {
+      google_review_link: 'https://reviews.example.com/staynex',
+      private_feedback_mode: 'whatsapp_reply'
+    }
+  };
+  const positiveAnalysis = analyzePostStayReviewStrategy({
+    hotel: reviewHotel,
+    reservation: postStayReservation,
+    messages: [{ content: 'Gracias, todo perfecto. La estancia fue excelente.' }],
+    tickets: [],
+    aiLogs: []
+  });
+  const positiveDecision = evaluatePostStayReviewIntelligence({
+    hotel: reviewHotel,
+    reservation: postStayReservation,
+    guest: { phone_number: '+34600999888', preferred_language: 'es' },
+    analysis: positiveAnalysis,
+    now: new Date()
+  });
+  const publicReviewMessage = buildPostStayReviewMessage({
+    hotel: reviewHotel,
+    reservation: postStayReservation,
+    analysis: positiveAnalysis,
+    language: 'es'
+  });
+
+  assert(positiveAnalysis.reviewStrategy === 'request_public_review', 'Positive stay with review link should request public review');
+  assert(positiveDecision.eligible && positiveDecision.previewOnly, 'Post-stay public review should generate preview only');
+  assert(publicReviewMessage.includes('https://reviews.example.com/staynex'), 'Public review message should include configured review link');
+
+  const negativeAnalysis = analyzePostStayReviewStrategy({
+    hotel: reviewHotel,
+    reservation: postStayReservation,
+    messages: [{ content: 'El aire acondicionado estaba roto, habia ruido y fue inaceptable.' }],
+    tickets: [{ category: 'maintenance', priority: 'urgent', status: 'open', title: 'Broken AC' }],
+    aiLogs: [{ needs_human: true, human_reason: 'angry guest' }]
+  });
+  const negativeMessage = buildPostStayReviewMessage({
+    hotel: reviewHotel,
+    reservation: postStayReservation,
+    analysis: negativeAnalysis,
+    language: 'es'
+  });
+
+  assert(negativeAnalysis.reviewStrategy === 'alert_quality_team', 'Negative stay should create quality alert strategy');
+  assert(!negativeMessage.includes('reviews.example.com'), 'Negative stay must not include public review link');
+
+  const neutralAnalysis = analyzePostStayReviewStrategy({
+    hotel: reviewHotel,
+    reservation: postStayReservation,
+    messages: [{ content: 'Gracias por la estancia.' }],
+    tickets: [{ category: 'housekeeping', priority: 'normal', status: 'open', title: 'Towels' }],
+    aiLogs: []
+  });
+  assert(neutralAnalysis.reviewStrategy === 'request_private_feedback', 'Neutral or mixed stay should request private feedback');
+
+  const noReviewLinkAnalysis = analyzePostStayReviewStrategy({
+    hotel: { ...reviewHotel, metadata: {} },
+    reservation: postStayReservation,
+    messages: [{ content: 'Todo perfecto, gracias.' }],
+    tickets: [],
+    aiLogs: []
+  });
+  assert(noReviewLinkAnalysis.reviewStrategy === 'request_private_feedback', 'Missing review link should use private feedback');
+
+  const duplicateReviewDecision = evaluatePostStayReviewIntelligence({
+    hotel: reviewHotel,
+    reservation: postStayReservation,
+    guest: { phone_number: '+34600999888' },
+    analysis: positiveAnalysis,
+    existingScheduledMessages: [{
+      reservation_id: postStayReservation.id,
+      automation_type: POST_STAY_REVIEW_INTELLIGENCE_TYPE,
+      status: 'preview'
+    }],
+    now: new Date()
+  });
+  assert(duplicateReviewDecision.reason === 'duplicate_post_stay_review', 'Post-stay review should not duplicate messages');
+
+  const takeoverReviewDecision = evaluatePostStayReviewIntelligence({
+    hotel: reviewHotel,
+    reservation: postStayReservation,
+    guest: { phone_number: '+34600999888' },
+    conversationState: { conversation_ai_mode: 'human_takeover' },
+    analysis: positiveAnalysis,
+    now: new Date()
+  });
+  assert(takeoverReviewDecision.reason === 'human_takeover_active', 'Human takeover should block post-stay review intelligence');
+
+  assert(classifyAiAssistanceFeedback('si, fue muy util') === 'helpful', 'AI assistance helpful feedback should classify');
+  assert(classifyAiAssistanceFeedback('no me ayudo, fue lento') === 'not_helpful', 'AI assistance negative feedback should classify');
 
   const { data: hotel, error: hotelError } = await supabase
     .from('hotels')
