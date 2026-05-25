@@ -30,6 +30,7 @@ export const PLATFORM_ROLE_LABELS = {
 
 const hotelAdminPermissions = [
   'dashboard',
+  'hotel_health',
   'inbox',
   'tickets',
   'reception',
@@ -66,6 +67,7 @@ const rolePermissions = {
   admin: hotelAdminPermissions,
   manager: [
     'dashboard',
+    'hotel_health',
     'inbox',
     'tickets',
     'reception',
@@ -93,6 +95,7 @@ const rolePermissions = {
   ],
   receptionist: [
     'dashboard',
+    'hotel_health',
     'inbox',
     'tickets',
     'reception',
@@ -128,6 +131,7 @@ const platformPermissions = {
     'platform_console',
     'tenant_support',
     'ai_quality',
+    'platform_monitoring',
     'simulation'
   ],
   platform_admin: [
@@ -136,12 +140,14 @@ const platformPermissions = {
     'platform_console',
     'tenant_support',
     'ai_quality',
+    'platform_monitoring',
     'simulation'
   ],
   internal_only: [
     'workspace_switch',
     'platform_console',
     'ai_quality',
+    'platform_monitoring',
     'simulation'
   ],
   support: [
@@ -155,6 +161,7 @@ const routeRules = [
   { pattern: /^\/dashboard\/settings\/users(?:\/.*)?$/, permission: 'user_management' },
   { pattern: /^\/dashboard\/settings\/pms(?:\/.*)?$/, permission: 'pms_connections' },
   { pattern: /^\/dashboard\/settings\/academy(?:\/.*)?$/, permission: 'academy' },
+  { pattern: /^\/dashboard\/health(?:\/.*)?$/, permission: 'hotel_health' },
   { pattern: /^\/dashboard\/ai-logs(?:\/.*)?$/, permission: 'ai_logs' },
   { pattern: /^\/dashboard\/upsells(?:\/.*)?$/, permission: 'upsells' },
   { pattern: /^\/dashboard\/experiences(?:\/.*)?$/, permission: 'experiences' },
@@ -229,6 +236,10 @@ export const canAccessRoute = (role, pathname = '') => canAccess(role, getRouteP
 
 export const canAccessRouteForContext = (role, pathname = '', platformRole = 'none') => {
   if (pathname.startsWith('/platform')) {
+    if (/^\/platform\/monitoring(?:\/.*)?$/.test(pathname)) {
+      return canAccessPlatform(platformRole, 'platform_monitoring');
+    }
+
     return canAccessPlatform(platformRole, 'platform_console');
   }
 

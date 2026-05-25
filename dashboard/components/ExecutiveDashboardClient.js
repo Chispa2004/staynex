@@ -173,6 +173,7 @@ export const ExecutiveDashboardClient = () => {
     localKnowledge: canAccess(role, 'local_knowledge'),
     experienceBookings: canAccess(role, 'experience_bookings'),
     reception: canAccess(role, 'reception'),
+    health: canAccess(role, 'hotel_health'),
     tickets: canAccess(role, 'tickets'),
     inbox: canAccess(role, 'inbox')
   }), [role]);
@@ -665,6 +666,7 @@ const QuickActionsPanel = ({ role, permissions, data }) => {
     permissions.inbox ? { label: 'Inbox', href: '/dashboard/inbox', icon: Inbox } : null,
     permissions.tickets ? { label: 'Tickets', href: '/dashboard/tickets', icon: TicketCheck } : null,
     permissions.reception ? { label: 'Reception / Pre Check-in', href: '/dashboard/reception', icon: ConciergeBell } : null,
+    permissions.health ? { label: 'Hotel Health', href: '/dashboard/health', icon: ShieldCheck } : null,
     permissions.automations ? { label: 'Automations', href: '/dashboard/automations', icon: Zap } : null,
     permissions.revenue ? { label: 'Revenue', href: '/dashboard/upsells', icon: TrendingUp } : null,
     permissions.experienceBookings ? { label: 'Experience Bookings', href: '/dashboard/experience-bookings', icon: CalendarCheck } : null,
@@ -677,6 +679,7 @@ const QuickActionsPanel = ({ role, permissions, data }) => {
     permissions.inbox ? { label: 'Open Inbox', href: '/dashboard/inbox', icon: Inbox } : null,
     permissions.tickets ? { label: 'View Tickets', href: '/dashboard/tickets', icon: TicketCheck } : null,
     permissions.reception ? { label: 'Reception / Pre Check-in', href: '/dashboard/reception', icon: ConciergeBell } : null,
+    permissions.health ? { label: 'Hotel Health', href: '/dashboard/health', icon: ShieldCheck } : null,
     permissions.qrRooms ? { label: 'QR Rooms', href: '/dashboard/qr-rooms', icon: QrCode } : null,
     permissions.knowledge ? { label: 'Knowledge Base', href: '/dashboard/settings/knowledge', icon: BookOpen } : null,
     permissions.localKnowledge ? { label: 'Local Knowledge', href: '/dashboard/local-knowledge', icon: Map } : null,

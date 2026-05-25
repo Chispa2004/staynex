@@ -17,6 +17,11 @@ import {
   evaluatePostStayReviewIntelligence,
   POST_STAY_REVIEW_INTELLIGENCE_TYPE
 } from '../src/services/post-stay-review-intelligence.service.js';
+import {
+  buildHotelOperationalHealthSnapshot,
+  buildPlatformMonitoringSnapshot,
+  hotelHealthContainsTechnicalInternals
+} from '../dashboard/lib/system-health.js';
 
 validateEnvironment({ exitOnError: true });
 
@@ -50,6 +55,71 @@ const assert = (condition, message) => {
 
 try {
   process.env.SEND_AUTOMATIONS = 'false';
+
+  const hotelHealth = buildHotelOperationalHealthSnapshot({
+    hotel: { id: 'hotel-health-1', name: 'Health Hotel', whatsapp_number: null },
+    pmsConnections: [],
+    tickets: [{ id: 'ticket-urgent-1', hotel_id: 'hotel-health-1', status: 'open', priority: 'urgent' }],
+    bookings: [{ id: 'booking-pending-1', hotel_id: 'hotel-health-1', status: 'provider_request_sent' }],
+    scheduledMessages: [{
+      id: 'folio-preview-1',
+      hotel_id: 'hotel-health-1',
+      automation_type: PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE,
+      status: 'preview',
+      metadata: { folio_warnings: ['folio_missing'] }
+    }],
+    reservations: [{
+      id: 'reservation-arrival-1',
+      hotel_id: 'hotel-health-1',
+      arrival_date: new Date().toISOString().slice(0, 10),
+      status: 'confirmed',
+      metadata: {}
+    }]
+  });
+  assert(hotelHealth.safeForHotel, 'Hotel Operational Health should be marked safe for hotel users');
+  assert(hotelHealth.warnings.some((warning) => /PMS/i.test(`${warning.label} ${warning.message}`)), 'PMS disconnected should appear as a hotel-facing warning');
+  assert(hotelHealth.warnings.some((warning) => warning.id === 'urgent_tickets'), 'Urgent unresolved tickets should appear in hotel health');
+  assert(!hotelHealthContainsTechnicalInternals(hotelHealth), 'Hotel health must not expose internal technical observability labels');
+
+  const platformMonitoring = buildPlatformMonitoringSnapshot({
+    hotels: [{ id: 'hotel-health-1', name: 'Health Hotel', whatsapp_number: null }],
+    pmsConnections: [{
+      id: 'pms-failed-1',
+      hotel_id: 'hotel-health-1',
+      enabled: true,
+      provider: 'apaleo',
+      sync_status: 'failed',
+      last_sync_error: 'timeout',
+      updated_at: new Date().toISOString()
+    }],
+    bookings: [{
+      id: 'provider-failed-1',
+      hotel_id: 'hotel-health-1',
+      status: 'failed_provider_email',
+      experience_title: 'Test experience',
+      created_at: new Date().toISOString()
+    }],
+    scheduledMessages: [{
+      id: 'scheduled-failed-1',
+      hotel_id: 'hotel-health-1',
+      status: 'failed',
+      channel: 'whatsapp',
+      automation_type: 'pre_arrival',
+      created_at: new Date().toISOString()
+    }],
+    aiLogs: [{
+      id: 'ai-fallback-1',
+      hotel_id: 'hotel-health-1',
+      openai_concierge_fallback: true,
+      confidence_score: 0.4,
+      created_at: new Date().toISOString()
+    }]
+  });
+  assert(platformMonitoring.internalOnly, 'Platform Monitoring should be marked internal only');
+  assert(platformMonitoring.failedEvents.some((event) => event.type === 'provider_email_failure'), 'Failed provider emails should appear in platform monitoring');
+  assert(platformMonitoring.failedEvents.some((event) => event.type === 'pms_sync_failure'), 'PMS sync failures should appear in platform monitoring');
+  assert(platformMonitoring.globalHealth.whatsappIssueHotels === 1, 'WhatsApp issue hotels should be counted internally');
+  assert(platformMonitoring.aiHealth.fallbackRate > 0, 'AI fallback rate should be visible internally');
 
   const folioReservation = {
     id: 'folio-reservation-1',

@@ -62,6 +62,7 @@ const navigationGroups = [
     defaultOpen: true,
     items: [
       { href: '/dashboard', labelKey: 'screens.dashboard', icon: LayoutDashboard },
+      { href: '/dashboard/health', labelKey: 'sidebar.health', icon: ShieldCheck },
       { href: '/dashboard/inbox', labelKey: 'sidebar.inbox', icon: Inbox },
       { href: '/dashboard/tickets', labelKey: 'sidebar.tickets', icon: TicketCheck },
       { href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell },
@@ -112,7 +113,8 @@ const navigationGroups = [
 const platformNavigationItems = [
   { href: '/platform', label: 'Staynex Platform', icon: ShieldCheck },
   { href: '/platform/hotels', label: 'Hotels', icon: Building2 },
-  { href: '/platform/providers', label: 'Experience Providers', icon: Compass }
+  { href: '/platform/providers', label: 'Experience Providers', icon: Compass },
+  { href: '/platform/monitoring', label: 'Monitoring', icon: Activity }
 ];
 
 const defaultOpenGroups = navigationGroups.reduce((groups, group) => ({

@@ -83,4 +83,18 @@ assert.ok(providerUiSource.includes('Deactivate'), 'Provider experience UI shoul
 assert.ok(providerUiSource.includes('Delete'), 'Provider experience UI should expose delete');
 assert.ok(providerUiSource.includes('AI aliases / matching keywords'), 'Provider experience edit modal should manage AI aliases');
 
+const platformMonitoringApiSource = readFileSync(join(root, 'dashboard/app/api/platform/monitoring/route.js'), 'utf8');
+assert.ok(platformMonitoringApiSource.includes("canAccessPlatform(platformRole, 'platform_monitoring')"), 'Platform monitoring API must require internal observability permission');
+assert.ok(platformMonitoringApiSource.includes('getPlatformContext'), 'Platform monitoring API should use platform context');
+
+const platformMonitoringUiSource = readFileSync(join(root, 'dashboard/components/PlatformMonitoringClient.js'), 'utf8');
+assert.ok(platformMonitoringUiSource.includes('Platform Monitoring'), 'Platform monitoring should show global system health');
+assert.ok(platformMonitoringUiSource.includes('AI Health'), 'Platform monitoring should show AI health');
+assert.ok(platformMonitoringUiSource.includes('Failed Events'), 'Platform monitoring should show failed events');
+assert.ok(platformMonitoringUiSource.includes('Automation And Queue'), 'Platform monitoring should show automation and queue monitoring');
+
+const hotelHealthApiSource = readFileSync(join(root, 'dashboard/app/api/health/hotel/route.js'), 'utf8');
+assert.ok(hotelHealthApiSource.includes("canAccess(role, 'hotel_health')"), 'Hotel health API must require hotel health permission');
+assert.equal(/OpenAI retries|schema cache|dead letter queue|repair mode/i.test(hotelHealthApiSource), false, 'Hotel health API should not expose internal technical wording');
+
 console.log('Platform management, Academy and PMS connector tests passed');

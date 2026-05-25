@@ -18,6 +18,7 @@ export const translations = {
     sidebar: {
       inbox: 'Inbox',
       tickets: 'Tickets',
+      health: 'Health',
       housekeeping: 'Housekeeping',
       maintenance: 'Mantenimiento',
       reception: 'Recepción',
@@ -384,6 +385,7 @@ export const translations = {
     sidebar: {
       inbox: 'Inbox',
       tickets: 'Tickets',
+      health: 'Health',
       housekeeping: 'Housekeeping',
       maintenance: 'Maintenance',
       reception: 'Reception',
@@ -746,6 +748,7 @@ export const translations = {
     sidebar: {
       inbox: 'Boîte de réception',
       tickets: 'Tickets',
+      health: 'Health',
       housekeeping: 'Housekeeping',
       maintenance: 'Maintenance',
       reception: 'Réception',
@@ -1109,6 +1112,7 @@ export const translations = {
     sidebar: {
       inbox: 'Posteingang',
       tickets: 'Tickets',
+      health: 'Health',
       housekeeping: 'Housekeeping',
       maintenance: 'Wartung',
       reception: 'Rezeption',

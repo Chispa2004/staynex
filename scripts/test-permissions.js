@@ -16,6 +16,7 @@ const root = join(__dirname, '..');
 
 const receptionistAllowedRoutes = [
   '/dashboard',
+  '/dashboard/health',
   '/dashboard/reception',
   '/dashboard/inbox',
   '/dashboard/tickets',
@@ -56,19 +57,24 @@ assert.equal(canAccess('receptionist', 'knowledge_base_manage'), true, 'Receptio
 assert.equal(canAccess('receptionist', 'local_knowledge_manage'), true, 'Receptionist can manage operational Local Knowledge');
 assert.equal(canAccess('receptionist', 'experience_bookings'), true, 'Receptionist can view Experience Bookings');
 assert.equal(canAccess('receptionist', 'reception'), true, 'Receptionist can access Reception / Pre Check-in');
+assert.equal(canAccess('receptionist', 'hotel_health'), true, 'Receptionist can access Hotel Operational Health');
 assert.equal(canAccess('receptionist', 'experience_bookings_manage'), false, 'Receptionist cannot manage critical Experience Booking actions');
 assert.equal(canAccess('receptionist', 'pms_connections'), false, 'Receptionist cannot access PMS setup');
 assert.equal(canAccess('receptionist', 'automations'), false, 'Receptionist cannot access advanced Automations');
 assert.equal(canAccess('receptionist', 'simulation'), false, 'Receptionist cannot access Simulation Mode');
 assert.equal(canAccessPlatform('none', 'platform_console'), false, 'Hotel user cannot access platform console');
 assert.equal(canAccessPlatform('none', 'ai_quality'), false, 'Hotel user cannot access AI Quality');
+assert.equal(canAccessPlatform('none', 'platform_monitoring'), false, 'Hotel user cannot access Platform Monitoring');
 assert.equal(canAccessPlatform('platform_admin', 'simulation'), true, 'Platform admin can access Simulation Mode');
 assert.equal(canAccessPlatform('platform_admin', 'ai_quality'), true, 'Platform admin keeps AI Quality access');
+assert.equal(canAccessPlatform('platform_admin', 'platform_monitoring'), true, 'Platform admin can access internal observability');
 assert.equal(canAccessRouteForContext('admin', '/platform', 'none'), false, 'Hotel admin cannot access platform root');
 assert.equal(canAccessRouteForContext('admin', '/platform/hotels', 'none'), false, 'Hotel admin cannot access platform hotels');
 assert.equal(canAccessRouteForContext('admin', '/platform/providers', 'none'), false, 'Hotel admin cannot access platform providers');
+assert.equal(canAccessRouteForContext('admin', '/platform/monitoring', 'none'), false, 'Hotel admin cannot access platform monitoring');
 assert.equal(canAccessRouteForContext('admin', '/platform/hotels', 'platform_admin'), true, 'Platform admin can access platform hotels');
 assert.equal(canAccessRouteForContext('admin', '/platform/providers', 'platform_admin'), true, 'Platform admin can access platform providers');
+assert.equal(canAccessRouteForContext('admin', '/platform/monitoring', 'platform_admin'), true, 'Platform admin can access platform monitoring');
 assert.equal(canAccessRouteForContext('admin', '/dashboard/simulation', 'none'), false, 'Hotel admin cannot access Simulation Mode');
 assert.equal(canAccessRouteForContext('receptionist', '/dashboard/simulation', 'none'), false, 'Receptionist cannot access Simulation Mode');
 assert.equal(canAccessRouteForContext('admin', '/dashboard/simulation', 'platform_admin'), true, 'Platform admin can access Simulation Mode through dashboard route');
@@ -84,6 +90,7 @@ const navigationGroups = [
     items: [
       { href: '/dashboard/inbox', label: 'Inbox' },
       { href: '/dashboard/tickets', label: 'Tickets' },
+      { href: '/dashboard/health', label: 'Hotel Health' },
       { href: '/dashboard/reception', label: 'Reception / Pre Check-in' },
       { href: '/dashboard/experience-bookings', label: 'Experience Bookings' },
       { href: '/dashboard/qr-rooms', label: 'QR Rooms' },
@@ -102,6 +109,7 @@ const receptionistNav = filterNavigationByRole(navigationGroups, 'receptionist')
 assert.deepEqual(receptionistNav, [
   '/dashboard/inbox',
   '/dashboard/tickets',
+  '/dashboard/health',
   '/dashboard/reception',
   '/dashboard/experience-bookings',
   '/dashboard/qr-rooms',
@@ -131,10 +139,12 @@ assert.ok(knowledgeSource.includes('PROTECTED_KNOWLEDGE_CATEGORIES'), 'Knowledge
 assert.ok(knowledgeSource.includes("getKnowledgeContext(request, 'knowledge_base_manage')"), 'Knowledge writes should require knowledge_base_manage');
 
 const appShellSource = readFileSync(join(root, 'dashboard/components/AppShell.js'), 'utf8');
+assert.ok(appShellSource.includes("{ href: '/dashboard/health', labelKey: 'sidebar.health', icon: ShieldCheck }"), 'Hotel Health should be visible in hotel workspace operations navigation');
 assert.ok(appShellSource.includes("{ href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell },\n      { href: '/dashboard/experience-bookings'"), 'Reception should sit in the main Operations sidebar before Experience Bookings');
 assert.ok(appShellSource.includes('platformNavigationItems'), 'Platform sidebar should use a dedicated platform navigation set');
 assert.ok(appShellSource.includes('/platform/hotels'), 'Platform sidebar should expose Hotels');
 assert.ok(appShellSource.includes('/platform/providers'), 'Platform sidebar should expose Experience Providers');
+assert.ok(appShellSource.includes('/platform/monitoring'), 'Platform sidebar should expose internal Monitoring');
 assert.ok(appShellSource.includes('!isPlatformContext ? allowedNavigationGroups.map'), 'Hotel workspace navigation should be hidden in platform context');
 assert.ok(appShellSource.includes('const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext'), 'Back to Platform must only render for internal users inside hotel workspaces');
 assert.ok(appShellSource.includes('Back to Platform'), 'Platform admins need a visible Back to Platform action in hotel workspaces');
