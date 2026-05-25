@@ -99,6 +99,7 @@ export const HotelHealthClient = () => {
           </div>
           <div className="flex flex-wrap gap-2">
             <HealthBadge status={health.overallStatus || 'healthy'} />
+            {health.environment?.isDemo ? <span className={ui.badge(isLight, 'sky')}>{health.environment.label}</span> : null}
             <button type="button" onClick={() => loadHealth()} disabled={refreshing} className={ui.button(isLight, 'secondary')}>
               <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
               Refresh
@@ -203,6 +204,7 @@ const HealthCard = ({ card }) => {
       </div>
       <p className={cn('mt-4 text-sm font-semibold', ui.text.title(isLight))}>{card.label}</p>
       <p className={cn('mt-2 text-2xl font-semibold tabular-nums', ui.text.title(isLight))}>{card.value}</p>
+      {card.badge ? <span className={cn('mt-2', ui.badge(isLight, 'sky', true))}>{card.badge}</span> : null}
       <p className={cn('mt-2 min-h-10 text-sm leading-5', ui.text.body(isLight))}>{card.description}</p>
     </article>
   );

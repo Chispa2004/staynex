@@ -97,6 +97,11 @@ try {
       hotel_id: 'hotel-health-1',
       status: 'failed_provider_email',
       experience_title: 'Test experience',
+      metadata: {
+        provider_email_status: 'failed',
+        provider_email_retry_count: 2,
+        provider_email_last_retry_at: new Date().toISOString()
+      },
       created_at: new Date().toISOString()
     }],
     scheduledMessages: [{
@@ -119,7 +124,12 @@ try {
   assert(platformMonitoring.failedEvents.some((event) => event.type === 'provider_email_failure'), 'Failed provider emails should appear in platform monitoring');
   assert(platformMonitoring.failedEvents.some((event) => event.type === 'pms_sync_failure'), 'PMS sync failures should appear in platform monitoring');
   assert(platformMonitoring.globalHealth.whatsappIssueHotels === 1, 'WhatsApp issue hotels should be counted internally');
-  assert(platformMonitoring.aiHealth.fallbackRate > 0, 'AI fallback rate should be visible internally');
+  assert(platformMonitoring.aiHealth.safeRecoveryEvents > 0, 'Safe recovery events should replace fallback wording internally');
+  assert(!Object.prototype.hasOwnProperty.call(platformMonitoring.aiHealth, 'fallbackRate'), 'Fallback rate should not be exposed as a primary platform metric');
+  assert(platformMonitoring.providerMonitoring.retryAttempts === 2, 'Provider retry attempts should be tracked without losing the booking');
+  assert(platformMonitoring.providerMonitoring.retryItems.some((item) => item.id === 'provider-failed-1' && item.retryable), 'Retry queue should include retryable provider failures');
+  assert(platformMonitoring.webhookMonitoring.failedWebhookCount > 0, 'Webhook monitoring should include failed delivery counts');
+  assert(platformMonitoring.ticketMonitoring.demoDataDetected === false, 'Real platform monitoring should distinguish demo data from live tickets');
 
   const folioReservation = {
     id: 'folio-reservation-1',

@@ -90,11 +90,27 @@ assert.ok(platformMonitoringApiSource.includes('getPlatformContext'), 'Platform 
 const platformMonitoringUiSource = readFileSync(join(root, 'dashboard/components/PlatformMonitoringClient.js'), 'utf8');
 assert.ok(platformMonitoringUiSource.includes('Platform Monitoring'), 'Platform monitoring should show global system health');
 assert.ok(platformMonitoringUiSource.includes('AI Health'), 'Platform monitoring should show AI health');
+assert.ok(platformMonitoringUiSource.includes('AI recovery success'), 'Platform monitoring should use recovery wording instead of fallback rate');
+assert.equal(platformMonitoringUiSource.includes('Fallback rate'), false, 'Platform monitoring UI should not show fallback rate as a scary primary metric');
+assert.ok(platformMonitoringUiSource.includes('Provider Monitoring'), 'Platform monitoring should show provider monitoring');
+assert.ok(platformMonitoringUiSource.includes('Provider retry queue'), 'Platform monitoring should expose provider retry queue');
+assert.ok(platformMonitoringUiSource.includes('Retry now'), 'Platform monitoring should expose manual retry actions');
+assert.ok(platformMonitoringUiSource.includes('Webhooks & Integrations'), 'Platform monitoring should show webhook health');
+assert.ok(platformMonitoringUiSource.includes('Ticket Data Quality'), 'Platform monitoring should separate demo tickets from real operational tickets');
 assert.ok(platformMonitoringUiSource.includes('Failed Events'), 'Platform monitoring should show failed events');
 assert.ok(platformMonitoringUiSource.includes('Automation And Queue'), 'Platform monitoring should show automation and queue monitoring');
 
 const hotelHealthApiSource = readFileSync(join(root, 'dashboard/app/api/health/hotel/route.js'), 'utf8');
 assert.ok(hotelHealthApiSource.includes("canAccess(role, 'hotel_health')"), 'Hotel health API must require hotel health permission');
 assert.equal(/OpenAI retries|schema cache|dead letter queue|repair mode/i.test(hotelHealthApiSource), false, 'Hotel health API should not expose internal technical wording');
+
+const hotelHealthUiSource = readFileSync(join(root, 'dashboard/components/HotelHealthClient.js'), 'utf8');
+assert.ok(hotelHealthUiSource.includes('All hotel systems operational.'), 'Hotel health should keep reassuring operational wording');
+assert.ok(hotelHealthUiSource.includes('health.environment?.isDemo') || hotelHealthUiSource.includes('Demo separated'), 'Hotel health should differentiate demo environments');
+assert.equal(/OpenAI retries|schema cache|dead letter queue|repair mode|Retry now/i.test(hotelHealthUiSource), false, 'Hotel health UI must not expose technical monitoring controls');
+
+assert.ok(platformMonitoringApiSource.includes("action === 'retry_provider_email'"), 'Platform monitoring API should queue provider email retries');
+assert.ok(platformMonitoringApiSource.includes('provider_email_retry_count'), 'Provider retry count should be tracked');
+assert.ok(platformMonitoringApiSource.includes("lead_status: 'pending_retry'"), 'Provider retries should keep the booking and move lead status into pending_retry');
 
 console.log('Platform management, Academy and PMS connector tests passed');

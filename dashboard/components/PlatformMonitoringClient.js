@@ -28,12 +28,26 @@ const serviceIcons = {
   automation_queue: Workflow
 };
 
+const formatDateTime = (value) => {
+  if (!value) return 'No timestamp';
+
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(new Date(value));
+  } catch {
+    return 'Invalid timestamp';
+  }
+};
+
 export const PlatformMonitoringClient = () => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionBusy, setActionBusy] = useState(null);
   const [error, setError] = useState(null);
 
   const loadMonitoring = useCallback(async ({ silent = false } = {}) => {
@@ -64,11 +78,41 @@ export const PlatformMonitoringClient = () => {
     loadMonitoring();
   }, [loadMonitoring]);
 
+  const runMonitoringAction = useCallback(async ({ action, id, hotelId, note }) => {
+    setActionBusy(`${action}:${id || 'global'}`);
+
+    try {
+      const response = await fetch('/api/platform/monitoring', {
+        method: 'POST',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action, id, hotelId, note })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Monitoring action failed');
+      }
+
+      await loadMonitoring({ silent: true });
+      setError(null);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setActionBusy(null);
+    }
+  }, [loadMonitoring]);
+
   const monitoring = data || {};
   const globalHealth = monitoring.globalHealth || {};
   const aiHealth = monitoring.aiHealth || {};
   const automation = monitoring.automationMonitoring || {};
   const queue = monitoring.queueMonitoring || {};
+  const providerMonitoring = monitoring.providerMonitoring || {};
+  const webhookMonitoring = monitoring.webhookMonitoring || {};
+  const ticketMonitoring = monitoring.ticketMonitoring || {};
 
   return (
     <section className="space-y-5">
@@ -83,6 +127,7 @@ export const PlatformMonitoringClient = () => {
           </div>
           <div className="flex flex-wrap gap-2">
             <StatusBadge status={globalHealth.status || 'healthy'} />
+            {ticketMonitoring.demoDataDetected ? <span className={ui.badge(isLight, 'sky')}>Demo environment</span> : null}
             <button type="button" onClick={() => loadMonitoring()} disabled={refreshing} className={ui.button(isLight, 'secondary')}>
               <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
               Refresh
@@ -112,14 +157,16 @@ export const PlatformMonitoringClient = () => {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <Panel title="AI Health" eyebrow="Quality and fallback signals" icon={Bot}>
+        <Panel title="AI Health" eyebrow="Resolution and recovery quality" icon={Bot}>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Metric label="Fallback rate" value={`${aiHealth.fallbackRate || 0}%`} icon={RotateCcw} tone={(aiHealth.fallbackRate || 0) > 25 ? 'amber' : 'emerald'} compact />
-            <Metric label="Loop detection" value={aiHealth.loopDetection || 0} icon={RefreshCw} tone={(aiHealth.loopDetection || 0) > 0 ? 'amber' : 'emerald'} compact />
-            <Metric label="Repair mode" value={aiHealth.repairModeActivations || 0} icon={Workflow} tone={(aiHealth.repairModeActivations || 0) > 0 ? 'amber' : 'emerald'} compact />
+            <Metric label="Resolved automatically" value={aiHealth.conversationsResolvedAutomatically || 0} icon={ShieldCheck} compact />
+            <Metric label="AI recovery success" value={`${aiHealth.recoverySuccessRate || 0}%`} icon={RotateCcw} tone={(aiHealth.recoverySuccessRate || 0) < 85 ? 'amber' : 'emerald'} compact />
+            <Metric label="Safe recovery events" value={aiHealth.safeRecoveryEvents || 0} icon={Workflow} tone={(aiHealth.safeRecoveryEvents || 0) > 0 ? 'sky' : 'emerald'} compact />
+            <Metric label="Clarification events" value={aiHealth.clarificationEvents || 0} icon={RefreshCw} tone="sky" compact />
             <Metric label="Avg confidence" value={`${aiHealth.averageConfidence || 0}%`} icon={ShieldCheck} compact />
-            <Metric label="Escalation rate" value={`${aiHealth.escalationRate || 0}%`} icon={ShieldAlert} tone={(aiHealth.escalationRate || 0) > 20 ? 'amber' : 'emerald'} compact />
-            <Metric label="Provider flow failures" value={aiHealth.providerFlowFailures || 0} icon={MailWarning} tone={(aiHealth.providerFlowFailures || 0) > 0 ? 'amber' : 'emerald'} compact />
+            <Metric label="Human takeover rate" value={`${aiHealth.humanTakeoverRate || 0}%`} icon={ShieldAlert} tone={(aiHealth.humanTakeoverRate || 0) > 20 ? 'amber' : 'emerald'} compact />
+            <Metric label="AI helpfulness score" value={`${aiHealth.aiHelpfulnessScore || 0}%`} icon={Bot} compact />
+            <Metric label="Guest sentiment" value={aiHealth.guestSatisfactionEstimate || 'Stable'} icon={Activity} tone={aiHealth.guestSatisfactionEstimate === 'Needs attention' ? 'amber' : 'emerald'} compact />
           </div>
         </Panel>
 
@@ -135,13 +182,57 @@ export const PlatformMonitoringClient = () => {
         </Panel>
       </div>
 
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <Panel title="Provider Monitoring" eyebrow="Marketplace delivery and response" icon={MailWarning}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Metric label="Booking success rate" value={`${providerMonitoring.successRate || 0}%`} icon={ShieldCheck} compact />
+            <Metric label="Pending confirmations" value={providerMonitoring.pendingConfirmations || 0} icon={Clock3} tone={(providerMonitoring.pendingConfirmations || 0) > 0 ? 'amber' : 'emerald'} compact />
+            <Metric label="Provider retry queue" value={providerMonitoring.retryQueue || 0} icon={RotateCcw} tone={(providerMonitoring.retryQueue || 0) > 0 ? 'amber' : 'emerald'} compact />
+            <Metric label="Retry attempts" value={providerMonitoring.retryAttempts || 0} icon={RefreshCw} tone={(providerMonitoring.retryAttempts || 0) > 0 ? 'amber' : 'emerald'} compact />
+          </div>
+          <div className="mt-4 space-y-3">
+            {(providerMonitoring.retryItems || []).slice(0, 5).map((item) => (
+              <RetryQueueRow
+                key={item.id}
+                item={item}
+                actionBusy={actionBusy}
+                onAction={runMonitoringAction}
+              />
+            ))}
+            {providerMonitoring.retryItems?.length ? null : <Empty title="Provider retry queue is clear." description="Failed provider emails and pending retries will appear here." />}
+          </div>
+        </Panel>
+
+        <Panel title="Webhooks & Integrations" eyebrow="PMS, WhatsApp and delivery signals" icon={ServerCog}>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Metric label="Webhook uptime" value={`${webhookMonitoring.uptimeEstimate || 0}%`} icon={Activity} compact />
+            <Metric label="Failed webhooks" value={webhookMonitoring.failedWebhookCount || 0} icon={AlertTriangle} tone={(webhookMonitoring.failedWebhookCount || 0) > 0 ? 'amber' : 'emerald'} compact />
+            <Metric label="Webhook retries" value={webhookMonitoring.retryCount || 0} icon={RotateCcw} tone={(webhookMonitoring.retryCount || 0) > 0 ? 'amber' : 'emerald'} compact />
+          </div>
+          <div className="mt-4 space-y-3">
+            {(webhookMonitoring.sources || []).slice(0, 4).map((source) => (
+              <WebhookRow key={source.id} source={source} actionBusy={actionBusy} onAction={runMonitoringAction} />
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="Ticket Data Quality" eyebrow="Real operations separated from demo data" icon={ShieldAlert}>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <Metric label="Real open tickets" value={ticketMonitoring.realOpenTickets || 0} icon={ShieldCheck} compact />
+          <Metric label="Active urgent tickets" value={ticketMonitoring.urgentTickets || 0} icon={AlertTriangle} tone={(ticketMonitoring.urgentTickets || 0) > 0 ? 'red' : 'emerald'} compact />
+          <Metric label="Low priority tickets" value={ticketMonitoring.lowPriorityTickets || 0} icon={Clock3} compact />
+          <Metric label="Demo tickets" value={ticketMonitoring.demoTickets || 0} icon={Workflow} tone={(ticketMonitoring.demoTickets || 0) > 0 ? 'sky' : 'emerald'} compact />
+        </div>
+      </Panel>
+
       <div className="grid gap-5 xl:grid-cols-[minmax(0,0.42fr)_minmax(0,0.58fr)]">
         <Panel title="Internal Alerts" eyebrow="Severity based" icon={AlertTriangle}>
           {loading ? (
             <div className={cn('h-36 rounded-xl', ui.skeleton(isLight))} />
           ) : monitoring.alerts?.length ? (
             <div className="space-y-3">
-              {monitoring.alerts.map((alert) => <AlertRow key={`${alert.title}-${alert.message}`} alert={alert} />)}
+              {monitoring.alerts.map((alert) => <AlertRow key={`${alert.title}-${alert.message}`} alert={alert} onAction={runMonitoringAction} actionBusy={actionBusy} />)}
             </div>
           ) : (
             <Empty title="No internal alerts." description="No critical platform monitoring alerts are currently active." />
@@ -153,7 +244,7 @@ export const PlatformMonitoringClient = () => {
             <div className={cn('h-52 rounded-xl', ui.skeleton(isLight))} />
           ) : monitoring.failedEvents?.length ? (
             <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
-              {monitoring.failedEvents.map((event) => <FailedEventRow key={event.id} event={event} />)}
+              {monitoring.failedEvents.map((event) => <FailedEventRow key={event.id} event={event} onAction={runMonitoringAction} actionBusy={actionBusy} />)}
             </div>
           ) : (
             <Empty title="No failed events in the latest sample." description="Provider email, PMS sync, Twilio and automation failures will appear here." />
@@ -229,10 +320,76 @@ const Panel = ({ title, eyebrow, icon: Icon, children }) => {
   );
 };
 
-const AlertRow = ({ alert }) => {
+const RetryQueueRow = ({ item, onAction, actionBusy }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const busy = actionBusy === `retry_provider_email:${item.id}`;
+
+  return (
+    <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{item.provider}</p>
+          <p className={cn('mt-1 truncate text-sm', ui.text.body(isLight))}>{item.experience}</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+            Retry count {item.retryCount || 0} · Last retry {formatDateTime(item.lastRetryAt)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={ui.badge(isLight, item.status === 'queued' || item.status === 'pending_retry' ? 'amber' : 'red', true)}>
+            {item.status}
+          </span>
+          <button
+            type="button"
+            disabled={busy || !item.retryable}
+            onClick={() => onAction({ action: 'retry_provider_email', id: item.id, hotelId: item.hotelId })}
+            className={ui.button(isLight, 'secondary')}
+          >
+            <RotateCcw className={busy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
+            Retry now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const WebhookRow = ({ source, onAction, actionBusy }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const busy = actionBusy === `retry_webhook:${source.id}`;
+  const tone = source.status === 'healthy' ? 'emerald' : source.status === 'warning' ? 'amber' : 'slate';
+
+  return (
+    <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{source.source}</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Last received {formatDateTime(source.lastReceivedAt)}</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Failed {source.failedCount || 0} · Retries {source.retryCount || 0}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={ui.badge(isLight, tone, true)}>{source.status}</span>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onAction({ action: 'retry_webhook', id: source.id, hotelId: source.hotelId })}
+            className={ui.button(isLight, 'secondary')}
+          >
+            <RefreshCw className={busy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
+            Retry webhook
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AlertRow = ({ alert, onAction, actionBusy }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const tone = alert.severity === 'critical' ? 'red' : alert.severity === 'warning' ? 'amber' : 'sky';
+  const busy = actionBusy === `${alert.action}:global`;
 
   return (
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
@@ -240,17 +397,32 @@ const AlertRow = ({ alert }) => {
         <div>
           <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{alert.title}</p>
           <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{alert.message}</p>
+          {alert.createdAt ? <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{formatDateTime(alert.createdAt)}</p> : null}
         </div>
-        <span className={ui.badge(isLight, tone, true)}>{alert.severity}</span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={ui.badge(isLight, tone, true)}>{alert.severity}</span>
+          {alert.action ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onAction({ action: alert.action })}
+              className={ui.button(isLight, 'ghost')}
+            >
+              <RefreshCw className={busy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
+              Review
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
 };
 
-const FailedEventRow = ({ event }) => {
+const FailedEventRow = ({ event, onAction, actionBusy }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const tone = event.severity === 'critical' ? 'red' : 'amber';
+  const busy = actionBusy === `retry_provider_email:${event.entityId}`;
 
   return (
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
@@ -258,11 +430,25 @@ const FailedEventRow = ({ event }) => {
         <div className="min-w-0">
           <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{event.title}</p>
           <p className={cn('mt-1 truncate text-sm', ui.text.body(isLight))}>{event.detail || event.type}</p>
-          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{event.createdAt ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(event.createdAt)) : 'No timestamp'}</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{formatDateTime(event.createdAt)}</p>
+          {event.retryCount !== undefined ? (
+            <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Retry count {event.retryCount || 0} · Status {event.retryStatus || 'failed'}</p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <span className={ui.badge(isLight, tone, true)}>{event.severity}</span>
           <span className={ui.badge(isLight, 'slate', true)}>{event.type}</span>
+          {event.type === 'provider_email_failure' && event.retryable ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onAction({ action: 'retry_provider_email', id: event.entityId, hotelId: event.hotelId })}
+              className={ui.button(isLight, 'secondary')}
+            >
+              <RotateCcw className={busy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
+              Retry now
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
