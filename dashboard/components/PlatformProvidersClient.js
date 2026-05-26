@@ -23,6 +23,7 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import { PremiumLoadingState } from './PremiumLoadingState';
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -462,17 +463,17 @@ export const PlatformProvidersClient = () => {
       </div>
 
       {notice ? (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+        <div className={ui.notice(isLight, 'success')}>
           {notice}
         </div>
       ) : null}
       {error ? (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
+        <div className={ui.notice(isLight, 'danger')}>
           {error}
         </div>
       ) : null}
       {!data.sqlReady ? (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100')}>
+        <div className={ui.notice(isLight, 'warning')}>
           Provider marketplace SQL migration required.
         </div>
       ) : null}
@@ -653,11 +654,12 @@ export const PlatformProvidersClient = () => {
       </div>
 
       {loading ? (
-        <div className="grid gap-4">
-          {[0, 1].map((item) => (
-            <div key={item} className={cn('h-64 rounded-xl', ui.skeleton(isLight))} />
-          ))}
-        </div>
+        <PremiumLoadingState
+          title="Loading experience providers"
+          description="Staynex is preparing provider catalogs, hotel assignments and marketplace health."
+          rows={4}
+          cards={3}
+        />
       ) : filteredProviders.length ? (
         <div className="grid gap-4">
           {filteredProviders.map((provider) => (

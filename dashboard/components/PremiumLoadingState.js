@@ -16,7 +16,7 @@ export const PremiumLoadingState = ({
   return (
     <section
       className={cn(
-        'rounded-xl border p-5',
+        'rounded-2xl border p-5',
         ui.surface(isLight),
         className
       )}
@@ -32,7 +32,7 @@ export const PremiumLoadingState = ({
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: cards }).map((_, index) => (
-          <div key={`card-${index}`} className={cn('rounded-lg border p-4', ui.surface(isLight, 'subtle'))}>
+          <div key={`card-${index}`} className={cn('rounded-xl border p-4', ui.surface(isLight, 'subtle'))}>
             <span className={cn('block h-3 w-24', ui.skeleton(isLight))} />
             <span className={cn('mt-3 block h-7 w-16', ui.skeleton(isLight))} />
             <span className={cn('mt-3 block h-3 w-full', ui.skeleton(isLight))} />
@@ -42,7 +42,7 @@ export const PremiumLoadingState = ({
 
       <div className="mt-5 space-y-2">
         {Array.from({ length: rows }).map((_, index) => (
-          <div key={`row-${index}`} className={cn('flex items-center gap-3 rounded-lg border p-3', ui.surface(isLight, 'subtle'))}>
+          <div key={`row-${index}`} className={cn('flex items-center gap-3 rounded-xl border p-3', ui.surface(isLight, 'subtle'))}>
             <span className={cn('h-9 w-9 shrink-0 rounded-lg', ui.skeleton(isLight))} />
             <span className={cn('h-3 flex-1', ui.skeleton(isLight))} />
             <span className={cn('hidden h-3 w-24 sm:block', ui.skeleton(isLight))} />

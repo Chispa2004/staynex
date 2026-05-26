@@ -273,16 +273,7 @@ export const ReceptionPreCheckinClient = () => {
                 key={filter.key}
                 type="button"
                 onClick={() => setActiveFilter(filter.key)}
-                className={cn(
-                  'rounded-full border px-3 py-2 text-xs font-semibold transition',
-                  activeFilter === filter.key
-                    ? isLight
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
-                    : isLight
-                      ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      : 'border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06]'
-                )}
+                className={cn(activeFilter === filter.key ? ui.button(isLight, 'active') : ui.button(isLight, 'small'), 'rounded-full')}
               >
                 {filter.label}
               </button>
@@ -331,7 +322,7 @@ const MetricCard = ({ stat, loading }) => {
   const Icon = stat.icon;
 
   return (
-    <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
+    <div className={cn(ui.row(isLight), 'p-4')}>
       <div className="flex items-center justify-between gap-3">
         <p className={ui.text.eyebrow(isLight)}>{stat.label}</p>
         <span className={cn('flex h-9 w-9 items-center justify-center rounded-lg border', ui.badge(isLight, stat.tone, true))}>

@@ -12,7 +12,7 @@ export const ExecutiveCard = ({ children, className = '', interactive = false })
       className={cn(
         'premium-fade-in rounded-xl border transition-all duration-200',
         ui.surface(isLight),
-        interactive ? 'hover:-translate-y-0.5 hover:border-emerald-300/35 hover:shadow-2xl' : '',
+        interactive ? (isLight ? 'hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_22px_60px_rgba(15,23,42,0.10)]' : 'hover:-translate-y-0.5 hover:border-emerald-300/35 hover:shadow-2xl') : '',
         className
       )}
     >

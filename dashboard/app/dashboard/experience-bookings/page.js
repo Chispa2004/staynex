@@ -11,7 +11,7 @@ export default function ExperienceBookingsPage() {
         titleKey="screens.experienceBookings"
         descriptionKey="screens.experienceBookingsDescription"
         fallbackTitle="Experience Bookings"
-        fallbackDescription="Operational workflow for reception to review, confirm and track guest experience requests."
+        fallbackDescription="Operational workspace to track guest experience requests and provider confirmations."
       />
 
       <ExperienceBookingsClient />

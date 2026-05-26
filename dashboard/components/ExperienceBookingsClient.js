@@ -275,17 +275,10 @@ export const ExperienceBookingsClient = () => {
               <button
                 key={status}
                 type="button"
-                onClick={() => setStatusFilter(status)}
-                className={cn(
-                  'rounded-full border px-3 py-1.5 text-xs font-semibold capitalize transition',
-                  statusFilter === status
-                    ? 'border-emerald-300 bg-emerald-300 text-slate-950'
-                    : isLight
-                      ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                      : 'border-white/10 bg-white/[0.035] text-slate-300 hover:bg-white/[0.07]'
-                )}
+                  onClick={() => setStatusFilter(status)}
+                className={statusFilter === status ? ui.button(isLight, 'active') : cn(ui.button(isLight, 'small'), 'rounded-full')}
               >
-                {status.replace('_', ' ')}
+                {status === 'all' ? 'All' : ui.humanize(status)}
               </button>
             ))}
           </div>
@@ -307,7 +300,14 @@ export const ExperienceBookingsClient = () => {
       </section>
 
       <section className="space-y-3">
-        {filtered.map((booking) => {
+        {loading ? (
+          <div className="grid gap-3">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className={cn('h-44 rounded-xl', ui.skeleton(isLight))} />
+            ))}
+          </div>
+        ) : null}
+        {!loading && filtered.map((booking) => {
           const busy = busyId === booking.id;
           const notesValue = draftNotes[booking.id] ?? booking.notes ?? '';
 
@@ -317,7 +317,7 @@ export const ExperienceBookingsClient = () => {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className={cn('truncate text-lg font-semibold', ui.text.title(isLight))}>{booking.experience_title}</h2>
-                    <span className={ui.badge(isLight, statusTone[booking.status] || 'slate')}>{booking.status}</span>
+                    <span className={ui.badge(isLight, statusTone[booking.status] || 'slate')}>{ui.humanize(booking.status)}</span>
                     {providerEmailStatus(booking) ? (
                       <span className={ui.badge(isLight, providerEmailTone[providerEmailStatus(booking)] || 'slate')}>
                         {providerEmailLabel[providerEmailStatus(booking)] || providerEmailStatus(booking)}
@@ -337,7 +337,7 @@ export const ExperienceBookingsClient = () => {
                     Created {formatDate(booking.created_at)} / Source {booking.source || 'ai_concierge'}
                   </p>
                   <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
-                    Lead status {booking.lead_status || booking.metadata?.provider_email_status || 'pending'}
+                    Provider request {ui.humanize(booking.lead_status || booking.metadata?.provider_email_status || 'pending')}
                   </p>
                   {isPartnerMarketplaceBooking(booking) ? (
                     <p className={cn('mt-2 rounded-lg border px-3 py-2 text-xs', isLight ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-violet-300/20 bg-violet-300/10 text-violet-100')}>
@@ -346,7 +346,7 @@ export const ExperienceBookingsClient = () => {
                   ) : null}
                   {booking.metadata?.provider_email_error || booking.lead_error ? (
                     <p className={cn('mt-2 text-xs font-medium', isLight ? 'text-red-700' : 'text-red-200')}>
-                      Provider email error: {booking.metadata?.provider_email_error || booking.lead_error}
+                      Provider request needs attention: {booking.metadata?.provider_email_error || booking.lead_error}
                     </p>
                   ) : null}
                   {booking.metadata?.original_message ? (
@@ -382,7 +382,7 @@ export const ExperienceBookingsClient = () => {
                 <div className="space-y-3">
                   <div className={cn('rounded-lg border p-3', ui.surface(isLight, 'subtle'))}>
                     <p className={ui.text.eyebrow(isLight)}>External status</p>
-                    <p className={cn('mt-2 text-sm font-semibold', ui.text.title(isLight))}>{booking.status?.replace(/_/g, ' ') || 'pending'}</p>
+                    <p className={cn('mt-2 text-sm font-semibold', ui.text.title(isLight))}>{ui.humanize(booking.status || 'pending')}</p>
                     {booking.metadata?.provider_email_sent_at || booking.lead_email_sent_at ? (
                       <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
                         Email sent {formatDate(booking.metadata?.provider_email_sent_at || booking.lead_email_sent_at)}

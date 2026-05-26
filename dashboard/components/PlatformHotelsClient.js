@@ -22,6 +22,7 @@ import { persistWorkspaceSelection } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import { PremiumLoadingState } from './PremiumLoadingState';
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -69,7 +70,7 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
   ].filter(Boolean);
 
   return (
-    <article className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+    <article className={ui.card(isLight, { interactive: true })}>
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="flex min-w-0 items-start gap-4">
           <span
@@ -89,7 +90,7 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
               )}
             </div>
             <p className={cn('mt-2 text-sm', ui.text.muted(isLight))}>
-              {hotel.destination_country || hotel.country || hotel.timezone || 'Hotel workspace'} · {hotel.plan_label || 'No plan'}
+              {hotel.destination_country || hotel.country || hotel.timezone || 'Hotel workspace'} - {hotel.plan_label || 'No plan'}
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <div className={cn('rounded-lg border px-3 py-2', ui.surface(isLight, 'subtle'))}>
@@ -265,7 +266,7 @@ export const PlatformHotelsClient = () => {
       </div>
 
       {error ? (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
+        <div className={ui.notice(isLight, 'danger')}>
           {error}
         </div>
       ) : null}
@@ -298,11 +299,12 @@ export const PlatformHotelsClient = () => {
       </div>
 
       {loading ? (
-        <div className="grid gap-4">
-          {[0, 1, 2].map((item) => (
-            <div key={item} className={cn('h-64 rounded-xl', ui.skeleton(isLight))} />
-          ))}
-        </div>
+        <PremiumLoadingState
+          title="Loading hotel workspaces"
+          description="Staynex is checking hotel health, PMS status and workspace activity."
+          rows={3}
+          cards={4}
+        />
       ) : filteredHotels.length ? (
         <div className="grid gap-4">
           {filteredHotels.map((hotel) => (

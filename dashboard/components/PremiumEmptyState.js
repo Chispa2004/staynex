@@ -17,8 +17,8 @@ export const PremiumEmptyState = ({
   return (
     <div
       className={cn(
-        'flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center',
-        isLight ? 'border-slate-300 bg-slate-50/80' : 'border-white/10 bg-white/[0.025]',
+        'flex min-h-44 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center transition duration-200',
+        isLight ? 'border-slate-300 bg-slate-50/80 shadow-inner shadow-slate-100' : 'border-white/10 bg-white/[0.025]',
         className
       )}
     >
@@ -33,7 +33,7 @@ export const PremiumEmptyState = ({
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
       {title ? (
-        <p className={cn('text-sm font-semibold', isLight ? 'text-slate-900' : 'text-slate-200')}>
+        <p className={cn('text-sm font-semibold tracking-tight', isLight ? 'text-slate-900' : 'text-slate-200')}>
           {title}
         </p>
       ) : null}

@@ -18,6 +18,9 @@ import {
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { cn, ui } from '@/lib/ui/styles';
+import { PremiumEmptyState } from './PremiumEmptyState';
+import { PremiumLoadingState } from './PremiumLoadingState';
 
 const statusOptions = ['all', 'preview', 'scheduled', 'sent', 'failed'];
 const typeOptions = [
@@ -66,14 +69,7 @@ const Card = ({ children, className = '' }) => {
   const isLight = theme === 'light';
 
   return (
-    <section className={[
-      'rounded-lg border shadow-xl',
-      isLight
-        ? 'border-slate-200 bg-white text-slate-900 shadow-slate-200/70'
-        : 'border-white/10 bg-[#0b1019]/88 text-slate-100 shadow-black/15',
-      className
-    ].join(' ')}
-    >
+    <section className={cn(ui.card(isLight), className)}>
       {children}
     </section>
   );
@@ -82,16 +78,8 @@ const Card = ({ children, className = '' }) => {
 const Badge = ({ children, tone = 'slate' }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
-  const styles = {
-    emerald: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200',
-    red: isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100',
-    amber: isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
-    sky: isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-400/10 text-sky-100',
-    slate: isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-white/[0.045] text-slate-300'
-  };
-
   return (
-    <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${styles[tone] || styles.slate}`}>
+    <span className={ui.badge(isLight, tone)}>
       {children}
     </span>
   );
@@ -130,9 +118,7 @@ export const AutomationsClient = () => {
   const [error, setError] = useState(null);
   const [migrationRequired, setMigrationRequired] = useState(false);
 
-  const inputClass = isLight
-    ? 'rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500'
-    : 'rounded-lg border border-white/10 bg-[#0b1019] px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-300/40';
+  const inputClass = ui.input(isLight);
 
   const loadAutomations = async () => {
     setLoading(true);
@@ -566,7 +552,7 @@ export const AutomationsClient = () => {
           <div>
             <p className="text-sm font-semibold">{hotel?.name || 'Current hotel'}</p>
             <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
-              SEND_AUTOMATIONS is off by default. Automated messages are prepared as safe previews until sending is enabled.
+              Automated guest messages are prepared as safe previews until live sending is enabled for this hotel.
             </p>
           </div>
           <Badge tone="slate">Preview mode</Badge>
@@ -574,7 +560,7 @@ export const AutomationsClient = () => {
       </Card>
 
       {runResult ? (
-        <div className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800' : 'rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100'}>
+        <div className={ui.notice(isLight, 'success')}>
           {runResult}
         </div>
       ) : null}
@@ -604,25 +590,34 @@ export const AutomationsClient = () => {
       </Card>
 
       {error ? (
-        <div className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
+        <div className={ui.notice(isLight, 'danger')}>
           {error}
         </div>
       ) : null}
 
-      <Card className="overflow-hidden">
+      {loading ? (
+        <PremiumLoadingState
+          title="Loading automations"
+          description="Staynex is preparing automation previews, scheduled messages and operational safeguards."
+          rows={5}
+          cards={3}
+        />
+      ) : null}
+
+      {!loading ? <Card className="overflow-hidden p-0">
         <div className={isLight ? 'border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900' : 'border-b border-white/10 px-4 py-3 text-sm font-semibold text-white'}>
-          {loading ? 'Loading automations...' : `${filteredMessages.length} scheduled messages`}
+          {`${filteredMessages.length} scheduled messages`}
         </div>
         <div className="divide-y divide-slate-200/10">
           {filteredMessages.map((message) => (
-            <article key={message.id} className={isLight ? 'grid gap-4 p-4 hover:bg-slate-50 xl:grid-cols-[1fr_0.8fr_0.8fr_0.7fr]' : 'grid gap-4 p-4 hover:bg-white/[0.035] xl:grid-cols-[1fr_0.8fr_0.8fr_0.7fr]'}>
+            <article key={message.id} className={isLight ? 'grid gap-4 p-4 transition hover:bg-slate-50 xl:grid-cols-[1fr_0.8fr_0.8fr_0.7fr]' : 'grid gap-4 p-4 transition hover:bg-white/[0.035] xl:grid-cols-[1fr_0.8fr_0.8fr_0.7fr]'}>
               <div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge tone="sky">{message.automation_type}</Badge>
+                  <Badge tone="sky">{formatAutomationLabel(message.automation_type)}</Badge>
                   <Badge tone={message.status === 'sent' ? 'emerald' : message.status === 'failed' ? 'red' : 'amber'}>
-                    {message.status}
+                    {message.status === 'preview' ? 'Preview' : ui.humanize(message.status)}
                   </Badge>
-                  {message.automation_fallback ? <Badge tone="slate">fallback</Badge> : null}
+                  {message.automation_fallback ? <Badge tone="sky">Safe preview</Badge> : null}
                 </div>
                 <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-700' : 'mt-3 text-sm leading-6 text-slate-300'}>
                   {message.message_preview}
@@ -655,13 +650,16 @@ export const AutomationsClient = () => {
               </div>
             </article>
           ))}
-          {!loading && filteredMessages.length === 0 ? (
-            <div className={isLight ? 'px-4 py-12 text-center text-sm text-slate-500' : 'px-4 py-12 text-center text-sm text-slate-500'}>
-              No scheduled automations yet.
-            </div>
+          {filteredMessages.length === 0 ? (
+            <PremiumEmptyState
+              icon={CalendarClock}
+              title="No scheduled automations yet."
+              description="Automation previews and scheduled guest messages will appear here when eligible reservations are detected."
+              className="m-4"
+            />
           ) : null}
         </div>
-      </Card>
+      </Card> : null}
     </div>
   );
 };

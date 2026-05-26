@@ -6,7 +6,7 @@ import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const features = [
   ['AI Concierge', 'Automatic hotel-style WhatsApp replies', Bot],
-  ['OpenAI enhancement', 'Hybrid intelligence with safe fallback', Sparkles],
+  ['OpenAI enhancement', 'Hybrid intelligence with safe recovery', Sparkles],
   ['Guest Memory', 'Persistent preferences and context', BrainCircuit],
   ['Revenue AI', 'Upsell opportunities and conversion tracking', TrendingUp]
 ];

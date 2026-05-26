@@ -16,6 +16,21 @@ export const ui = {
 
     return variants[variant] || variants.card;
   },
+  card: (isLight, { interactive = false, compact = false } = {}) => cn(
+    'rounded-xl border transition-all duration-200',
+    compact ? 'p-4' : 'p-5',
+    ui.surface(isLight),
+    interactive
+      ? isLight
+        ? 'hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_22px_60px_rgba(15,23,42,0.10)]'
+        : 'hover:-translate-y-0.5 hover:border-emerald-300/25 hover:bg-[#0f1723]/90 hover:shadow-[0_22px_60px_rgba(0,0,0,0.30)]'
+      : ''
+  ),
+  row: (isLight, interactive = false) => cn(
+    'rounded-xl border transition duration-200',
+    isLight ? 'border-slate-200 bg-slate-50/85' : 'border-white/10 bg-white/[0.025]',
+    interactive ? (isLight ? 'hover:bg-white hover:shadow-sm' : 'hover:bg-white/[0.055]') : ''
+  ),
   text: {
     eyebrow: (isLight) => cn(
       'text-xs font-semibold uppercase tracking-[0.16em]',
@@ -35,9 +50,12 @@ export const ui = {
     )
   },
   button: (isLight, variant = 'secondary') => {
-    const base = 'inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60';
+    const base = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55';
     const variants = {
       primary: 'border-emerald-200/70 bg-emerald-300 text-slate-950 shadow-lg shadow-emerald-500/15 hover:bg-emerald-200 focus-visible:ring-offset-slate-950',
+      success: isLight
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 focus-visible:ring-offset-white'
+        : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15 focus-visible:ring-offset-[#0b1019]',
       secondary: isLight
         ? 'border-slate-200 bg-white text-slate-700 shadow-sm shadow-slate-200/70 hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-offset-white'
         : 'border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08] hover:text-white focus-visible:ring-offset-[#0b1019]',
@@ -46,7 +64,13 @@ export const ui = {
         : 'border-transparent bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-white focus-visible:ring-offset-[#0b1019]',
       danger: isLight
         ? 'border-red-200 bg-red-50 text-red-800 hover:bg-red-100 focus-visible:ring-red-300 focus-visible:ring-offset-white'
-        : 'border-red-300/20 bg-red-500/10 text-red-100 hover:bg-red-500/15 focus-visible:ring-red-300/60 focus-visible:ring-offset-[#0b1019]'
+        : 'border-red-300/20 bg-red-500/10 text-red-100 hover:bg-red-500/15 focus-visible:ring-red-300/60 focus-visible:ring-offset-[#0b1019]',
+      active: isLight
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-800 shadow-sm shadow-emerald-100 focus-visible:ring-offset-white'
+        : 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100 focus-visible:ring-offset-[#0b1019]',
+      small: isLight
+        ? 'min-h-8 rounded-md border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:ring-offset-white'
+        : 'min-h-8 rounded-md border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-slate-200 hover:bg-white/[0.08] focus-visible:ring-offset-[#0b1019]'
     };
 
     return cn(base, variants[variant] || variants.secondary);
@@ -64,11 +88,18 @@ export const ui = {
   badge: (isLight, tone = 'slate', compact = false) => {
     const tones = {
       emerald: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+      success: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
       sky: isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-300/10 text-sky-100',
+      info: isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-300/10 text-sky-100',
       amber: isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
+      warning: isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
       orange: isLight ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-orange-300/20 bg-orange-400/10 text-orange-100',
       red: isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100',
+      critical: isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100',
+      failed: isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100',
       violet: isLight ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-violet-300/20 bg-violet-400/10 text-violet-100',
+      pending: isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
+      paused: isLight ? 'border-violet-200 bg-violet-50 text-violet-800' : 'border-violet-300/20 bg-violet-400/10 text-violet-100',
       slate: isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-white/[0.045] text-slate-300'
     };
 
@@ -81,5 +112,24 @@ export const ui = {
   skeleton: (isLight) => cn(
     'animate-pulse rounded-lg',
     isLight ? 'bg-slate-200/80' : 'bg-white/[0.08]'
-  )
+  ),
+  notice: (isLight, tone = 'info') => {
+    const tones = {
+      success: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+      info: isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-300/10 text-sky-100',
+      warning: isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
+      danger: isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100'
+    };
+
+    return cn('rounded-xl border px-4 py-3 text-sm leading-6', tones[tone] || tones.info);
+  },
+  statusTone: (status = '') => {
+    const normalized = String(status || '').toLowerCase();
+    if (['healthy', 'active', 'online', 'sent', 'completed', 'confirmed', 'success', 'operational', 'provider_request_sent'].includes(normalized)) return 'emerald';
+    if (['warning', 'needs_attention', 'pending', 'preview', 'scheduled', 'awaiting_confirmation', 'awaiting_guest_confirmation', 'awaiting_guest_details', 'reviewing'].includes(normalized)) return 'amber';
+    if (['critical', 'failed', 'failed_provider_email', 'error', 'urgent', 'cancelled', 'rejected'].includes(normalized)) return 'red';
+    if (['paused', 'human_takeover', 'ai_paused'].includes(normalized)) return 'violet';
+    return 'slate';
+  },
+  humanize: (value = '') => String(value || 'unknown').replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 };
