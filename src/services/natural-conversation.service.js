@@ -173,6 +173,94 @@ const complaintKeywords = [
   'enfadada'
 ];
 
+const maintenanceKeywords = [
+  'ducha',
+  'agua',
+  'grifo',
+  'bano',
+  'baño',
+  'aire acondicionado',
+  'climatizacion',
+  'tv',
+  'television',
+  'electricidad',
+  'luz',
+  'cerradura',
+  'wifi no funciona',
+  'no funciona',
+  'roto',
+  'rota',
+  'averia',
+  'mantenimiento',
+  'shower',
+  'water',
+  'tap',
+  'bathroom',
+  'air conditioning',
+  'broken',
+  'not working',
+  'electricity',
+  'lock',
+  'douche',
+  'eau',
+  'climatisation',
+  'ne fonctionne pas',
+  'kaputt',
+  'funktioniert nicht'
+];
+
+const housekeepingKeywords = [
+  'toalla',
+  'toallas',
+  'limpieza',
+  'limpiar',
+  'limpien',
+  'sabanas',
+  'sabana',
+  'almohada',
+  'amenities',
+  'towel',
+  'towels',
+  'cleaning',
+  'clean my room',
+  'housekeeping',
+  'sheet',
+  'sheets',
+  'pillow',
+  'serviette',
+  'serviettes',
+  'menage',
+  'nettoyer',
+  'handtuch',
+  'reinigung'
+];
+
+const emergencyKeywords = [
+  'humo',
+  'fuego',
+  'incendio',
+  'emergencia',
+  'urgente',
+  'peligro',
+  'fuga',
+  'inundacion',
+  'puerta bloqueada',
+  'smoke',
+  'fire',
+  'emergency',
+  'urgent',
+  'danger',
+  'leak',
+  'flood',
+  'locked door',
+  'fumee',
+  'feu',
+  'urgence',
+  'rauch',
+  'feuer',
+  'notfall'
+];
+
 const genericFallbackPatterns = [
   /de acuerdo.*lo reviso.*siguiente paso/,
   /lo reviso.*te indico/,
@@ -421,6 +509,12 @@ export const buildClarificationReply = ({
 };
 
 export const buildEscalationReply = ({ language = 'es', reason = null, variantIndex = 0 } = {}) => {
+  const incidentType = detectOperationalIncident({ message: '', enhancedRisk: { category: null, reason }, humanEscalation: { humanReason: reason } }).type;
+
+  if (incidentType) {
+    return buildOperationalIncidentReply({ language, incidentType, variantIndex });
+  }
+
   if (reason === 'emergency_detected') {
     return {
       es: 'Lo tratamos como urgente. Contacta ahora con recepcion o emergencias si hay riesgo inmediato; lo escalo al equipo del hotel.',
@@ -468,6 +562,139 @@ export const buildEscalationReply = ({ language = 'es', reason = null, variantIn
   };
 
   return chooseVariant(templates[language] || templates.es, variantIndex);
+};
+
+export const detectOperationalIncident = ({
+  message = '',
+  aiResponse = {},
+  enhancedRisk = {},
+  humanEscalation = {}
+} = {}) => {
+  const text = normalize(message);
+  const reason = enhancedRisk?.reason || humanEscalation?.humanReason || aiResponse?.intent || null;
+  const category = enhancedRisk?.category || aiResponse?.ticket?.category || null;
+
+  if (
+    category === 'emergency'
+    || reason === 'emergency_detected'
+    || aiResponse?.emergency
+    || includesAny(text, emergencyKeywords)
+  ) {
+    return { type: 'emergency', shouldEscalate: true };
+  }
+
+  if (
+    category === 'maintenance'
+    || ['maintenance_issue', 'technical_issue_detected'].includes(reason)
+    || includesAny(text, maintenanceKeywords)
+  ) {
+    return { type: 'maintenance', shouldEscalate: true };
+  }
+
+  if (
+    category === 'housekeeping'
+    || reason === 'housekeeping_request'
+    || aiResponse?.intent === 'housekeeping_request'
+    || includesAny(text, housekeepingKeywords)
+  ) {
+    return { type: 'housekeeping', shouldEscalate: true };
+  }
+
+  if (
+    category === 'complaint'
+    || ['complaint_noise', 'negative_sentiment', 'complaint_detected'].includes(reason)
+    || includesAny(text, complaintKeywords)
+  ) {
+    return { type: 'complaint', shouldEscalate: true };
+  }
+
+  return { type: null, shouldEscalate: false };
+};
+
+export const buildOperationalIncidentReply = ({
+  language = 'es',
+  incidentType = 'maintenance',
+  variantIndex = 0
+} = {}) => {
+  const templates = {
+    emergency: {
+      es: [
+        'Lo tratamos como urgente. Aviso ahora mismo al equipo del hotel; si hay riesgo inmediato, contacta tambien con recepcion o emergencias.',
+        'He marcado esta incidencia como urgente para el equipo del hotel. Si hay peligro inmediato, por favor contacta con recepcion o emergencias ahora.'
+      ],
+      en: [
+        'We are treating this as urgent. I am alerting the hotel team now; if there is immediate danger, please also contact reception or emergency services.',
+        'I have marked this as urgent for the hotel team. If there is immediate danger, please contact reception or emergency services now.'
+      ],
+      fr: [
+        'Nous traitons cela comme urgent. Je prevens tout de suite l equipe de l hotel; en cas de danger immediat, contactez aussi la reception ou les urgences.'
+      ],
+      de: [
+        'Wir behandeln dies als dringend. Ich informiere sofort das Hotelteam; bei unmittelbarer Gefahr kontaktieren Sie bitte auch die Rezeption oder den Notdienst.'
+      ]
+    },
+    maintenance: {
+      es: [
+        'Entendido. Voy a avisar al equipo de mantenimiento para que revisen la incidencia de la habitacion.',
+        'Gracias por avisar. He enviado la incidencia al equipo de mantenimiento para que puedan revisarla cuanto antes.',
+        'Lo comunico ahora mismo a mantenimiento para que puedan ayudarte.'
+      ],
+      en: [
+        'Understood. I will notify maintenance so they can check the room issue.',
+        'Thank you for letting us know. I have sent this to maintenance so they can review it as soon as possible.',
+        'I am passing this to maintenance now so they can help.'
+      ],
+      fr: [
+        'Bien compris. Je vais prevenir la maintenance afin qu elle verifie l incident dans la chambre.',
+        'Merci de nous avoir prevenus. Je transmets l incident a la maintenance pour verification au plus vite.'
+      ],
+      de: [
+        'Verstanden. Ich informiere die Wartung, damit sie das Problem im Zimmer pruefen kann.',
+        'Danke fuer die Information. Ich habe dies an die Wartung weitergeleitet, damit es schnell geprueft wird.'
+      ]
+    },
+    housekeeping: {
+      es: [
+        'Gracias por avisar. Lo comunico al equipo de limpieza para que puedan ayudarte.',
+        'Entendido. Aviso ahora al equipo de housekeeping para revisar la solicitud.',
+        'Lo paso al equipo de limpieza para que puedan atenderlo.'
+      ],
+      en: [
+        'Thank you for letting us know. I will notify housekeeping so they can help.',
+        'Understood. I am alerting housekeeping now to review the request.',
+        'I will pass this to housekeeping so they can take care of it.'
+      ],
+      fr: [
+        'Merci de nous avoir prevenus. Je transmets cela a l equipe housekeeping pour vous aider.',
+        'Bien compris. Je prevens l equipe de menage pour traiter la demande.'
+      ],
+      de: [
+        'Danke fuer die Information. Ich gebe das an das Housekeeping weiter, damit Ihnen geholfen wird.',
+        'Verstanden. Ich informiere das Housekeeping, damit die Anfrage bearbeitet wird.'
+      ]
+    },
+    complaint: {
+      es: [
+        'Siento mucho la molestia. Aviso al equipo del hotel para que revisen la situacion con prioridad.',
+        'Gracias por contarnoslo. Lo escalo al equipo del hotel para que puedan ayudarte cuanto antes.'
+      ],
+      en: [
+        "I'm sorry about the inconvenience. I am alerting the hotel team so they can review this with priority.",
+        'Thank you for telling us. I am escalating this to the hotel team so they can help as soon as possible.'
+      ],
+      fr: [
+        'Je suis desole pour ce desagrement. Je transmets cela a l equipe de l hotel pour une aide prioritaire.'
+      ],
+      de: [
+        'Es tut mir leid fuer die Unannehmlichkeit. Ich leite dies an das Hotelteam weiter, damit es prioritaer behandelt wird.'
+      ]
+    }
+  };
+
+  return chooseVariant(
+    templates[incidentType]?.[language] || templates[incidentType]?.es || templates.maintenance.es,
+    variantIndex
+  );
 };
 
 export const areResponsesSimilar = (first = '', second = '') => {
@@ -861,8 +1088,15 @@ export const chooseSmarterConciergeResponse = ({
   const variantIndex = previousClarifications + (recentMessages?.length || 0);
   const simpleGreeting = isSimpleGreetingMessage(message);
   const explicitHuman = humanEscalation.humanReason === 'human_requested';
+  const operationalIncident = detectOperationalIncident({
+    message,
+    aiResponse,
+    enhancedRisk,
+    humanEscalation
+  });
   const seriousEscalation = Boolean(
     explicitHuman
+    || operationalIncident.shouldEscalate
     || enhancedRisk?.hasRisk
     || ['emergency_detected', 'complaint_detected', 'technical_issue_detected'].includes(humanEscalation.humanReason)
   );
@@ -891,11 +1125,17 @@ export const chooseSmarterConciergeResponse = ({
     responseStrategy = explicitHuman ? 'requested_handoff' : 'human_escalation';
     needsHuman = true;
     humanReason = humanReason || enhancedRisk?.reason || 'human_required';
-    reply = buildEscalationReply({
-      language,
-      reason: humanReason,
-      variantIndex
-    }) || reply;
+    reply = operationalIncident.type
+      ? buildOperationalIncidentReply({
+        language,
+        incidentType: operationalIncident.type,
+        variantIndex
+      })
+      : buildEscalationReply({
+        language,
+        reason: humanReason,
+        variantIndex
+      }) || reply;
   } else if (unclear && previousClarifications >= 1) {
     responseStrategy = 'escalate_after_repeated_unclear';
     needsHuman = true;
@@ -1062,6 +1302,8 @@ export const chooseSmarterConciergeResponse = ({
       recent_fallback_count: recentFallbackCount,
       repair_intent: repairIntent,
       response_variant: variantIndex,
+      operational_incident_type: operationalIncident.type,
+      operational_incident_wording: Boolean(operationalIncident.type),
       confidence,
       language
     }

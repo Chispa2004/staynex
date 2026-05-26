@@ -102,7 +102,7 @@ export const detectRevenueOpportunity = ({ intentResult, context = {} } = {}) =>
 export const detectOperationalRisk = ({ intentResult, message = '' } = {}) => {
   const text = normalize(message);
 
-  if (/\b(smoke|fire|emergency|urgent|humo|fuego|urgente|incendio|fumee|urgence|feu|rauch|brand|notfall)\b/.test(text)) {
+  if (/\b(smoke|fire|emergency|urgent|humo|fuego|urgente|incendio|fumee|urgence|feu|rauch|brand|notfall|fuga|leak|flood|inundacion|bloqueada|locked)\b/.test(text)) {
     return {
       hasRisk: true,
       category: 'emergency',
@@ -135,6 +135,84 @@ export const detectOperationalRisk = ({ intentResult, message = '' } = {}) => {
       category: 'complaint',
       priority: 'high',
       reason: 'negative_sentiment'
+    };
+  }
+
+  if (includesAny(text, [
+    'ducha',
+    'agua',
+    'grifo',
+    'bano',
+    'baño',
+    'aire acondicionado',
+    'climatizacion',
+    'television',
+    'tv',
+    'electricidad',
+    'luz',
+    'luces',
+    'cerradura',
+    'wifi no funciona',
+    'no funciona',
+    'roto',
+    'rota',
+    'averia',
+    'mantenimiento',
+    'shower',
+    'water',
+    'tap',
+    'bathroom',
+    'air conditioning',
+    'broken',
+    'not working',
+    'electricity',
+    'lock',
+    'douche',
+    'eau',
+    'climatisation',
+    'ne fonctionne pas',
+    'kaputt',
+    'funktioniert nicht'
+  ])) {
+    return {
+      hasRisk: true,
+      category: 'maintenance',
+      priority: 'high',
+      reason: 'maintenance_issue'
+    };
+  }
+
+  if (includesAny(text, [
+    'toalla',
+    'toallas',
+    'limpieza',
+    'limpiar',
+    'limpien',
+    'sabanas',
+    'sabana',
+    'almohada',
+    'amenities',
+    'amenity',
+    'towel',
+    'towels',
+    'cleaning',
+    'clean my room',
+    'housekeeping',
+    'sheet',
+    'sheets',
+    'pillow',
+    'serviette',
+    'serviettes',
+    'menage',
+    'nettoyer',
+    'handtuch',
+    'reinigung'
+  ])) {
+    return {
+      hasRisk: true,
+      category: 'housekeeping',
+      priority: 'normal',
+      reason: 'housekeeping_request'
     };
   }
 
@@ -200,9 +278,19 @@ export const generateSuggestedOffer = ({ opportunity, language = 'en' } = {}) =>
 export const generateDepartmentAction = ({ intentResult, opportunity, risk } = {}) => {
   if (risk?.hasRisk) {
     return {
-      department: risk.category === 'housekeeping' ? 'housekeeping' : 'reception',
+      department: risk.category === 'housekeeping'
+        ? 'housekeeping'
+        : risk.category === 'maintenance'
+          ? 'maintenance'
+          : 'reception',
       actionType: risk.reason,
-      title: risk.reason === 'complaint_noise' ? 'Noise complaint follow-up' : 'Guest complaint follow-up',
+      title: risk.reason === 'complaint_noise'
+        ? 'Noise complaint follow-up'
+        : risk.category === 'maintenance'
+          ? 'Maintenance follow-up'
+          : risk.category === 'housekeeping'
+            ? 'Housekeeping follow-up'
+            : 'Guest complaint follow-up',
       priority: risk.priority
     };
   }
@@ -242,11 +330,20 @@ export const generateConciergeResponse = ({ intentResult, opportunity, risk, lan
 
     if (risk.category === 'maintenance') {
       return {
-        es: 'Siento mucho la molestia. Marco la incidencia como prioritaria para que el equipo del hotel revise la habitacion cuanto antes.',
-        en: "I'm sorry for the inconvenience. I am marking this as priority so the hotel team can check the room as soon as possible.",
-        fr: 'Je suis desole pour ce desagrement. Je marque cela comme prioritaire afin que l equipe verifie la chambre au plus vite.',
-        de: 'Es tut mir leid fuer die Unannehmlichkeit. Ich markiere dies als prioritaer, damit das Hotelteam das Zimmer schnell prueft.'
-      }[language] || "I'm sorry for the inconvenience. I am marking this as priority.";
+        es: 'Gracias por avisar. He enviado la incidencia al equipo de mantenimiento para que puedan revisarla cuanto antes.',
+        en: "Thank you for letting us know. I have sent this to maintenance so they can check it as soon as possible.",
+        fr: 'Merci de nous avoir prevenus. Je transmets l incident a la maintenance afin qu elle le verifie au plus vite.',
+        de: 'Danke fuer die Information. Ich habe dies an die Wartung weitergeleitet, damit es schnell geprueft wird.'
+      }[language] || "Thank you for letting us know. I have sent this to maintenance.";
+    }
+
+    if (risk.category === 'housekeeping') {
+      return {
+        es: 'Gracias por avisar. Lo comunico al equipo de limpieza para que puedan ayudarte.',
+        en: "Thank you for letting us know. I have sent this to housekeeping so they can help.",
+        fr: 'Merci de nous avoir prevenus. Je transmets cela a l equipe housekeeping pour vous aider.',
+        de: 'Danke fuer die Information. Ich gebe das an das Housekeeping weiter, damit Ihnen geholfen wird.'
+      }[language] || "Thank you for letting us know. I have sent this to housekeeping.";
     }
 
     return {
@@ -477,7 +574,13 @@ export const createOperationalTicketForConciergeRisk = async ({
       conversationId: conversation.id,
       roomNumber: guest.current_room,
       category: risk.category || 'reception',
-      title: risk.reason === 'complaint_noise' ? 'Noise complaint' : 'Concierge risk follow-up',
+      title: risk.reason === 'complaint_noise'
+        ? 'Noise complaint'
+        : risk.category === 'maintenance'
+          ? 'Maintenance issue'
+          : risk.category === 'housekeeping'
+            ? 'Housekeeping request'
+            : 'Concierge risk follow-up',
       description: `AI concierge detected ${risk.reason}: ${message}`,
       priority: risk.priority || 'high'
     });

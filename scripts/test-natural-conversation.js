@@ -539,6 +539,140 @@ assert(
   'Emergencies should still escalate immediately'
 );
 
+const genericIncidentPhrases = /para no darte|paso esta consulta|lo reviso|te indico|puedan ayudarte bien/i;
+
+const showerIncidentResponse = chooseSmarterConciergeResponse({
+  message: 'se me ha roto la ducha de la habitacion y no sale',
+  aiResponse: {
+    intent: 'maintenance_issue',
+    confidence: 0.84,
+    reply: badFallback,
+    escalate_to_human: true,
+    create_ticket: true,
+    ticket: { category: 'maintenance' }
+  },
+  language: 'es',
+  conversationState: { previousState: null },
+  humanEscalation: {
+    needsHuman: true,
+    humanReason: 'technical_issue_detected'
+  },
+  enhancedRisk: {
+    hasRisk: true,
+    category: 'maintenance',
+    priority: 'high',
+    reason: 'maintenance_issue'
+  },
+  recentMessages: []
+});
+
+assert(
+  showerIncidentResponse.aiResponse.create_ticket === true
+  && showerIncidentResponse.humanEscalation.needsHuman === true
+  && showerIncidentResponse.metadata.operational_incident_type === 'maintenance'
+  && /mantenimiento|incidencia|habitacion/.test(showerIncidentResponse.aiResponse.reply)
+  && !genericIncidentPhrases.test(showerIncidentResponse.aiResponse.reply),
+  'Shower maintenance issue should create operational wording without generic fallback'
+);
+
+const acIncidentResponse = chooseSmarterConciergeResponse({
+  message: 'no funciona el aire acondicionado',
+  aiResponse: {
+    intent: 'maintenance_issue',
+    confidence: 0.88,
+    reply: 'Para no darte una respuesta incorrecta, paso esta consulta a recepcion para que puedan ayudarte bien.',
+    escalate_to_human: true,
+    create_ticket: true,
+    ticket: { category: 'maintenance' }
+  },
+  language: 'es',
+  conversationState: { previousState: null },
+  humanEscalation: {
+    needsHuman: true,
+    humanReason: 'technical_issue_detected'
+  },
+  enhancedRisk: {
+    hasRisk: true,
+    category: 'maintenance',
+    priority: 'high',
+    reason: 'maintenance_issue'
+  },
+  recentMessages: []
+});
+
+assert(
+  acIncidentResponse.metadata.operational_incident_type === 'maintenance'
+  && /mantenimiento|incidencia|habitacion/.test(acIncidentResponse.aiResponse.reply)
+  && !genericIncidentPhrases.test(acIncidentResponse.aiResponse.reply),
+  'AC issue should use human maintenance wording'
+);
+
+const towelsIncidentResponse = chooseSmarterConciergeResponse({
+  message: 'faltan toallas en la habitacion',
+  aiResponse: {
+    intent: 'housekeeping_request',
+    confidence: 0.9,
+    reply: badFallback,
+    escalate_to_human: false,
+    create_ticket: true,
+    ticket: { category: 'housekeeping' }
+  },
+  language: 'es',
+  conversationState: { previousState: null },
+  humanEscalation: {
+    needsHuman: false,
+    humanReason: null
+  },
+  enhancedRisk: {
+    hasRisk: true,
+    category: 'housekeeping',
+    priority: 'normal',
+    reason: 'housekeeping_request'
+  },
+  recentMessages: []
+});
+
+assert(
+  towelsIncidentResponse.metadata.operational_incident_type === 'housekeeping'
+  && /limpieza|housekeeping|equipo/.test(towelsIncidentResponse.aiResponse.reply)
+  && !genericIncidentPhrases.test(towelsIncidentResponse.aiResponse.reply),
+  'Housekeeping request should use human housekeeping wording'
+);
+
+const smokeIncidentResponse = chooseSmarterConciergeResponse({
+  message: 'sale humo del baño',
+  aiResponse: {
+    intent: 'emergency',
+    confidence: 0.96,
+    reply: badFallback,
+    escalate_to_human: true,
+    create_ticket: true,
+    emergency: true,
+    ticket: { category: 'emergency' }
+  },
+  language: 'es',
+  conversationState: { previousState: null },
+  humanEscalation: {
+    needsHuman: true,
+    humanReason: 'emergency_detected'
+  },
+  enhancedRisk: {
+    hasRisk: true,
+    category: 'emergency',
+    priority: 'urgent',
+    reason: 'emergency_detected'
+  },
+  recentMessages: []
+});
+
+assert(
+  smokeIncidentResponse.metadata.operational_incident_type === 'emergency'
+  && smokeIncidentResponse.humanEscalation.needsHuman === true
+  && /urgente|riesgo|emergencias/.test(smokeIncidentResponse.aiResponse.reply)
+  && !genericIncidentPhrases.test(smokeIncidentResponse.aiResponse.reply),
+  'Smoke/emergency issue should use urgent operational wording'
+);
+
 const angryCopilot = buildConversationCopilot({
   guest: { current_room: '208', phone_number: '+49123', preferred_language: 'en' },
   messages: [
@@ -629,6 +763,9 @@ console.log(JSON.stringify({
     'conversation loop activates repair options',
     'experience ambiguity asks info vs booking',
     'emergency still escalates',
+    'maintenance incidents use human operational wording',
+    'housekeeping incidents use human operational wording',
+    'urgent incidents use human operational wording',
     'copilot detects angry guests and escalation risk',
     'copilot detects VIP and revenue opportunity',
     'ticket copilot suggests maintenance without hallucinated compensation',
