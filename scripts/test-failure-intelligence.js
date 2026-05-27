@@ -1,4 +1,5 @@
 import {
+  analyzeLongJourneyFailures,
   analyzeSimulationFailures,
   classifySimulationFailure,
   FAILURE_CATEGORIES,
@@ -95,10 +96,64 @@ const wrongLanguage = classifySimulationFailure({
 
 assert(wrongLanguage.categories.includes('wrong_language'), 'Wrong language should be classified');
 assert(FAILURE_CATEGORIES.includes('conversation_loop'), 'Category registry should include conversation_loop');
+assert(FAILURE_CATEGORIES.includes('stale_context'), 'Category registry should include stale_context');
+assert(FAILURE_CATEGORIES.includes('provider_flow_corruption'), 'Category registry should include provider_flow_corruption');
+assert(FAILURE_CATEGORIES.includes('memory_inconsistency'), 'Category registry should include memory_inconsistency');
+
+const staleJourney = classifySimulationFailure({
+  id: 'crafted-stale-provider',
+  scenario: 'interrupted_provider_flow',
+  journey: 'interrupted_provider_flow',
+  detected_language: 'es',
+  guest_type: 'wellness',
+  hotel_type: 'riad-marrakech',
+  detected_intent: 'provider_details',
+  confidence: 0.8,
+  ticket_created: false,
+  escalation_required: false,
+  revenue_opportunity: true,
+  pass: false,
+  errors: ['Provider flow stale after completion for interrupted_provider_flow'],
+  warnings: ['repeated_long_context_response'],
+  ai_responses: [{ content: 'Perfecto. Para enviar la solicitud necesito fecha y personas.', language: 'es' }],
+  repeated_response: true,
+  analysis: {
+    expected: { providerRequestSent: true },
+    pms_context: { stayPhase: 'in_house', occupancy: { occupancyPercent: 72 } },
+    guest_intelligence: { profileType: 'wellness_traveler' },
+    long_context: {
+      stale_provider_context: true,
+      repeated_answers: true,
+      topic_switch_success: false,
+      memory_consistency: true
+    }
+  }
+});
+
+assert(staleJourney.categories.includes('stale_context'), 'Stale context should be classified');
+assert(staleJourney.categories.includes('provider_flow_corruption'), 'Provider flow corruption should be classified');
+assert(staleJourney.categories.includes('topic_confusion'), 'Topic confusion should be classified');
+assert(staleJourney.categories.includes('repetitive_long_context_response'), 'Repeated long-context response should be classified');
+
+const longJourneyResult = analyzeLongJourneyFailures({
+  count: 20,
+  hotelType: 'all',
+  journey: 'all',
+  aiVersion: 'test-long-journey-failure-intelligence'
+});
+
+assert(longJourneyResult.ok, 'Long Journey Failure Intelligence should return ok=true');
+assert(longJourneyResult.mode === 'long_journey_failure_intelligence', 'Long journey analysis should use long_journey_failure_intelligence mode');
+assert(longJourneyResult.simulation.mode === 'long_journey_simulation', 'Long journey analysis should use journey simulation');
+assert(longJourneyResult.qualityMetrics.longConversationQuality >= 0, 'Long conversation quality should exist');
+assert(longJourneyResult.qualityMetrics.contextRetentionScore >= 0, 'Context retention score should exist');
+assert(longJourneyResult.qualityMetrics.topicSwitchSuccess >= 0, 'Topic switching quality should exist');
+assert(longJourneyResult.qualityMetrics.providerFlowRecovery >= 0, 'Provider flow recovery should exist');
+assert(longJourneyResult.qualityMetrics.memoryConsistency >= 0, 'Memory consistency should exist');
 
 const history = getFailureIntelligenceHistory();
 assert(history.ok, 'History endpoint payload should be ok');
-assert(history.history[0]?.aiVersion === 'test-failure-intelligence', 'History should keep the latest AI version');
+assert(history.history[0]?.aiVersion === 'test-long-journey-failure-intelligence', 'History should keep the latest AI version');
 
 console.log(JSON.stringify({
   ok: true,

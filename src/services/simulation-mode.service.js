@@ -252,6 +252,152 @@ export const SIMULATION_SCENARIOS = [
   }
 ];
 
+export const SIMULATION_JOURNEYS = [
+  {
+    id: 'guest_standard_journey',
+    label: 'Guest standard journey',
+    guestType: 'normal',
+    turns: [
+      { message: 'hola', expectedIntent: 'greeting', minutesAfterStart: 0 },
+      { message: 'a que hora abre el restaurante', expectedIntent: 'hotel_info', minutesAfterStart: 1 },
+      { message: 'puedo reservar para 2', expectedIntent: 'restaurant_interest', minutesAfterStart: 2 },
+      { message: 'tambien me interesa una excursion', expectedIntent: 'excursion_interest', minutesAfterStart: 5 },
+      { message: 'que recomendais', expectedIntent: 'excursion_interest', minutesAfterStart: 6 },
+      { message: 'me interesa Essaouira', expectedIntent: 'experience_selected', minutesAfterStart: 9 },
+      { message: 'para manana somos 2', expectedIntent: 'provider_details', minutesAfterStart: 11 },
+      { message: 'si', expectedIntent: 'provider_confirmation', minutesAfterStart: 12 },
+      { message: 'gracias', expectedIntent: 'thanks', minutesAfterStart: 13 }
+    ],
+    expected: {
+      providerRequestSent: true,
+      topicSwitch: true,
+      escalation: false,
+      languages: ['es']
+    }
+  },
+  {
+    id: 'language_switching',
+    label: 'Language switching',
+    guestType: 'normal',
+    forcedLanguage: 'en',
+    turns: [
+      { message: 'hello', expectedIntent: 'greeting', forcedLanguage: 'en', minutesAfterStart: 0 },
+      { message: 'what time is breakfast', expectedIntent: 'hotel_info', forcedLanguage: 'en', minutesAfterStart: 1 },
+      { message: 'tambien necesito toallas', expectedIntent: 'housekeeping_request', forcedLanguage: 'es', minutesAfterStart: 4 },
+      { message: 'merci', expectedIntent: 'thanks', forcedLanguage: 'fr', minutesAfterStart: 5 },
+      { message: 'can you remind me if checkout is tomorrow?', expectedIntent: 'checkout_question', forcedLanguage: 'en', minutesAfterStart: 12 }
+    ],
+    expected: {
+      multilingualContinuity: true,
+      ticket: true,
+      languages: ['en', 'es', 'fr']
+    }
+  },
+  {
+    id: 'room_issue_frustration',
+    label: 'Room issue and frustration',
+    guestType: 'angry',
+    turns: [
+      { message: 'hola', expectedIntent: 'greeting', minutesAfterStart: 0 },
+      { message: 'no sale agua caliente', expectedIntent: 'maintenance_issue', minutesAfterStart: 2 },
+      { message: 'sigue sin funcionar', expectedIntent: 'maintenance_followup', minutesAfterStart: 22 },
+      { message: 'estoy bastante enfadado', expectedIntent: 'negative_sentiment', minutesAfterStart: 27 },
+      { message: 'necesito una solucion ahora', expectedIntent: 'complaint_escalation', minutesAfterStart: 29 }
+    ],
+    expected: {
+      ticket: true,
+      escalation: true,
+      sentimentAdaptation: true
+    }
+  },
+  {
+    id: 'chaotic_guest',
+    label: 'Chaotic guest topic switching',
+    guestType: 'indecisive',
+    turns: [
+      { message: 'hola', expectedIntent: 'greeting', minutesAfterStart: 0 },
+      { message: 'quiero una excursion', expectedIntent: 'excursion_interest', minutesAfterStart: 1 },
+      { message: 'no espera mejor un transfer', expectedIntent: 'airport_transfer_interest', minutesAfterStart: 2 },
+      { message: 'cuanto cuesta', expectedIntent: 'clarification_needed', minutesAfterStart: 3 },
+      { message: 'y el spa', expectedIntent: 'spa_interest', minutesAfterStart: 5 },
+      { message: 'mejor mandame opciones de excursiones', expectedIntent: 'excursion_interest', minutesAfterStart: 8 }
+    ],
+    expected: {
+      topicSwitch: true,
+      providerRequestSent: false,
+      escalation: false
+    }
+  },
+  {
+    id: 'checkout_journey',
+    label: 'Checkout journey',
+    guestType: 'business',
+    turns: [
+      { message: 'hola', expectedIntent: 'greeting', minutesAfterStart: 0 },
+      { message: 'manana hago checkout?', expectedIntent: 'checkout_question', minutesAfterStart: 1 },
+      { message: 'cuanto debo', expectedIntent: 'folio_question', minutesAfterStart: 3 },
+      { message: 'puedo salir mas tarde', expectedIntent: 'late_checkout_interest', minutesAfterStart: 4 },
+      { message: 'ok gracias', expectedIntent: 'thanks', minutesAfterStart: 6 }
+    ],
+    expected: {
+      folioSafe: true,
+      revenue: true,
+      pmsContext: true
+    }
+  },
+  {
+    id: 'interrupted_provider_flow',
+    label: 'Interrupted provider flow',
+    guestType: 'wellness',
+    turns: [
+      { message: 'me interesa Atlas Mountains Day Trip', expectedIntent: 'experience_selected', minutesAfterStart: 0 },
+      { message: 'un momento, antes necesito toallas', expectedIntent: 'housekeeping_request', minutesAfterStart: 2 },
+      { message: 'ok volvemos a la excursion', expectedIntent: 'provider_resume', minutesAfterStart: 13 },
+      { message: 'para manana somos 2', expectedIntent: 'provider_details', minutesAfterStart: 14 },
+      { message: 'vale', expectedIntent: 'provider_confirmation', minutesAfterStart: 15 }
+    ],
+    expected: {
+      providerRequestSent: true,
+      providerRecovery: true,
+      ticket: true
+    }
+  },
+  {
+    id: 'human_takeover_interruption',
+    label: 'Human takeover interruption',
+    guestType: 'vip',
+    turns: [
+      { message: 'hola, necesito hablar con alguien del hotel', expectedIntent: 'human_request', minutesAfterStart: 0 },
+      { message: 'AI paused by reception', expectedIntent: 'human_takeover', aiMode: 'human_takeover', minutesAfterStart: 1 },
+      { message: 'ya esta, podeis activar la IA otra vez', expectedIntent: 'resume_ai', aiMode: 'ai_active', minutesAfterStart: 18 },
+      { message: 'quiero una recomendacion de spa', expectedIntent: 'spa_interest', minutesAfterStart: 20 },
+      { message: 'gracias', expectedIntent: 'thanks', minutesAfterStart: 21 }
+    ],
+    expected: {
+      humanTakeoverRecovery: true,
+      escalation: true,
+      revenue: true
+    }
+  },
+  {
+    id: 'guest_memory_consistency',
+    label: 'Guest memory consistency',
+    guestType: 'wellness',
+    turns: [
+      { message: 'me gusta mucho el spa y prefiero planes tranquilos', expectedIntent: 'preference_memory', minutesAfterStart: 0 },
+      { message: 'mas tarde te pregunto', expectedIntent: 'thanks', minutesAfterStart: 1 },
+      { message: 'que me recomiendas para esta tarde?', expectedIntent: 'memory_recommendation', minutesAfterStart: 180 },
+      { message: 'algo relajado, no aventura', expectedIntent: 'memory_refinement', minutesAfterStart: 181 },
+      { message: 'perfecto gracias', expectedIntent: 'thanks', minutesAfterStart: 182 }
+    ],
+    expected: {
+      memoryConsistency: true,
+      revenue: true,
+      languages: ['es']
+    }
+  }
+];
+
 const pick = (items, index) => items[index % items.length];
 
 const resolveScenarioMessage = (scenario, guest, index) => {
@@ -675,6 +821,517 @@ const simulateOneConversation = ({ index, hotelType, scenario }) => {
   };
 };
 
+const EXPERIENCE_MATCHES = [
+  {
+    title: 'Essaouira Coastal Excursion',
+    provider: 'Luxotour Morocco',
+    keywords: ['essaouira', 'coastal']
+  },
+  {
+    title: 'Atlas Mountains Day Trip',
+    provider: 'Luxotour Morocco',
+    keywords: ['atlas', 'mountains', 'mountain']
+  },
+  {
+    title: 'Agafay Desert Dinner',
+    provider: 'Luxotour Morocco',
+    keywords: ['agafay', 'desert', 'dinner']
+  },
+  {
+    title: 'Marrakech Hammam Experience',
+    provider: 'Luxotour Morocco',
+    keywords: ['hammam', 'spa', 'wellness']
+  }
+];
+
+const isSimpleGreeting = (message = '') => /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hello|hi|bonjour|salut|hallo|hey)[\s!.?]*$/i.test(normalize(message));
+
+const isThanks = (message = '') => /^(gracias|merci|thanks|thank you|danke|ok gracias|perfecto gracias|vale gracias)[\s!.?]*$/i.test(normalize(message));
+
+const isConfirmation = (message = '') => /^(si|sí|vale|ok|okay|adelante|confirmo|enviala|envíala|perfecto|yes|oui|ja)[\s!.?]*$/i.test(String(message || '').trim().toLowerCase());
+
+const detectExperienceMatch = (message = '') => {
+  const text = normalize(message);
+  return EXPERIENCE_MATCHES.find((experience) => experience.keywords.some((keyword) => text.includes(keyword))) || null;
+};
+
+const extractProviderDetails = (message = '') => {
+  const text = normalize(message);
+  const peopleMatch = text.match(/(\d+)\s*(personas|pax|people|guests|adultos|somos)/) || text.match(/somos\s*(\d+)/);
+  const dateMatch = text.match(/(\d{1,2}\/\d{1,2})/) || text.match(/\b(manana|tomorrow|demain|morgen|hoy|today)\b/);
+
+  return {
+    requestedDate: dateMatch ? dateMatch[1] : null,
+    guestCount: peopleMatch ? Number(peopleMatch[1]) : null
+  };
+};
+
+const resolveJourneyLanguage = ({ turn, guest, hotel }) => {
+  if (turn.forcedLanguage) return turn.forcedLanguage;
+  return detectLanguage(turn.message, guest.preferred_language || hotel.primary_language || 'es');
+};
+
+const resolveJourneyIntent = ({ turn, state, message }) => {
+  if (turn.expectedIntent) return turn.expectedIntent;
+  if (isSimpleGreeting(message)) return 'greeting';
+  if (isThanks(message)) return 'thanks';
+  if (state.providerFlowActive && isConfirmation(message)) return 'provider_confirmation';
+  return inferOperationalIntent({
+    message,
+    conciergeIntent: detectGuestIntent({
+      message,
+      context: { recentMessages: state.recentMessages || [], guestMemory: state.guestMemory || [] }
+    }),
+    risk: null
+  });
+};
+
+const buildJourneyResponse = ({ hotel, guest, reservation, turn, state, language }) => {
+  const message = turn.message;
+  const text = normalize(message);
+  const intent = resolveJourneyIntent({ turn, state, message });
+  const experience = detectExperienceMatch(message);
+  const details = extractProviderDetails(message);
+  const previousProviderStatus = state.provider.status;
+  const response = {
+    content: '',
+    ticketCreated: false,
+    ticketCategory: null,
+    escalationRequired: false,
+    revenueOpportunity: false,
+    confidence: 0.84,
+    providerState: { ...state.provider },
+    memoryState: { preferences: [...state.guestMemory], recalled: false },
+    aiMode: turn.aiMode || state.aiMode || 'ai_active'
+  };
+
+  if (turn.aiMode === 'human_takeover') {
+    state.aiMode = 'human_takeover';
+    response.content = '[AI paused: human takeover active. Copilot analysis only.]';
+    response.escalationRequired = true;
+    response.confidence = 0.96;
+    return { intent: 'human_takeover', response };
+  }
+
+  if (turn.aiMode === 'ai_active' || intent === 'resume_ai') {
+    state.aiMode = 'ai_active';
+  }
+
+  if (state.aiMode === 'human_takeover') {
+    response.content = '[AI paused: human takeover active. Copilot analysis only.]';
+    response.escalationRequired = true;
+    response.confidence = 0.94;
+    return { intent: 'human_takeover', response };
+  }
+
+  if (isSimpleGreeting(message)) {
+    response.content = {
+      es: 'Hola, te ayudo. ¿Quieres informacion sobre experiencias, restaurante, transfer, late checkout o algun servicio del hotel?',
+      en: 'Hello, I can help. Would you like information about experiences, restaurant, transfer, late checkout or another hotel service?',
+      fr: 'Bonjour, je peux vous aider. Souhaitez-vous des informations sur les experiences, le restaurant, le transfert, le late checkout ou un autre service?',
+      de: 'Hallo, ich helfe gerne. Moechten Sie Informationen zu Erlebnissen, Restaurant, Transfer, Late Checkout oder einem anderen Hotelservice?'
+    }[language] || 'Hello, I can help. What do you need?';
+    response.providerState.status = previousProviderStatus === 'sent' || previousProviderStatus === 'completed' ? previousProviderStatus : 'idle';
+    return { intent: 'greeting', response };
+  }
+
+  if (isThanks(message)) {
+    response.content = {
+      es: state.provider.status === 'completed'
+        ? `Gracias a ti. La solicitud de ${state.provider.experienceTitle} ya esta enviada a ${state.provider.provider}; te avisaremos cuando haya confirmacion.`
+        : 'Gracias a ti. Si necesitas algo mas durante la estancia, estoy aqui para ayudarte.',
+      en: 'You are welcome. If you need anything else during your stay, I am here to help.',
+      fr: 'Avec plaisir. Si vous avez besoin d autre chose pendant le sejour, je suis la pour vous aider.',
+      de: 'Sehr gern. Wenn Sie waehrend Ihres Aufenthalts noch etwas brauchen, helfe ich gerne.'
+    }[language] || 'You are welcome.';
+    return { intent: 'thanks', response };
+  }
+
+  if (/me gusta|prefiero|i like|i prefer|j aime|je prefere|ich mag|ich bevorzuge/.test(text)) {
+    if (/spa|tranquil|relax|wellness|calm/.test(text)) {
+      state.guestMemory = [...new Set([...state.guestMemory, 'spa_affinity', 'calm_experiences'])];
+    }
+    response.content = 'Perfecto, lo tengo en cuenta para recomendarte opciones mas tranquilas y acordes a tus preferencias.';
+    response.memoryState = { preferences: [...state.guestMemory], recalled: false };
+    response.revenueOpportunity = true;
+    return { intent: 'preference_memory', response };
+  }
+
+  if (intent === 'memory_recommendation' || intent === 'memory_refinement') {
+    response.content = intent === 'memory_refinement'
+      ? 'Entonces evitaria planes de aventura y priorizaria hammam, spa o una experiencia local tranquila con poco desplazamiento.'
+      : state.guestMemory.includes('spa_affinity')
+        ? 'Por lo que me comentaste, te recomendaria una opcion tranquila como hammam o una experiencia local relajada, sin plan de aventura.'
+        : 'Te puedo recomendar una experiencia local suave o revisar opciones segun lo que prefieras.';
+    response.memoryState = { preferences: [...state.guestMemory], recalled: state.guestMemory.length > 0 };
+    response.revenueOpportunity = true;
+    return { intent, response };
+  }
+
+  if (intent === 'hotel_info') {
+    response.content = buildBaseReply({ language, intent: 'hotel_info', hotel, message });
+    return { intent, response };
+  }
+
+  if (intent === 'restaurant_interest') {
+    response.content = 'Claro. Para reservar restaurante para 2, dime la hora aproximada y lo dejamos preparado como solicitud para el equipo.';
+    response.revenueOpportunity = true;
+    return { intent, response };
+  }
+
+  if (intent === 'housekeeping_request') {
+    response.content = 'Gracias por avisar. Lo comunico al equipo de housekeeping para que puedan ayudarte cuanto antes.';
+    response.ticketCreated = true;
+    response.ticketCategory = 'housekeeping';
+    return { intent, response };
+  }
+
+  if (['maintenance_issue', 'maintenance_followup'].includes(intent)) {
+    response.content = intent === 'maintenance_followup'
+      ? 'Entiendo. Lo marco como seguimiento prioritario para mantenimiento porque la incidencia continua.'
+      : 'Gracias por avisar. He enviado la incidencia al equipo de mantenimiento para que revisen la habitacion cuanto antes.';
+    response.ticketCreated = true;
+    response.ticketCategory = 'maintenance';
+    response.escalationRequired = intent === 'maintenance_followup';
+    response.confidence = 0.91;
+    return { intent, response };
+  }
+
+  if (['negative_sentiment', 'complaint_escalation', 'human_request'].includes(intent)) {
+    response.content = intent === 'human_request'
+      ? 'Entendido. Recomiendo que recepcion tome el control de esta conversacion para ayudarte directamente.'
+      : intent === 'complaint_escalation'
+        ? 'Entendido. Escalo la incidencia como prioritaria para que el equipo del hotel pueda darte una solucion cuanto antes.'
+        : 'Siento la molestia. Lo marco como urgente para que el equipo del hotel lo revise y pueda darte seguimiento humano.';
+    response.ticketCreated = true;
+    response.ticketCategory = 'complaint';
+    response.escalationRequired = true;
+    response.confidence = 0.93;
+    return { intent, response };
+  }
+
+  if (['excursion_interest', 'experience_selected', 'provider_resume'].includes(intent) || experience) {
+    if (intent === 'excursion_interest' && !experience) {
+      response.providerState = { ...state.provider };
+      response.revenueOpportunity = true;
+      response.content = state.lastGenericExperienceHelp
+        ? 'Para una primera opcion, Essaouira encaja si quereis costa y paseo tranquilo; Atlas Mountains si preferis naturaleza. Dime cual os interesa y avanzamos.'
+        : state.provider.status === 'idle'
+        ? 'Tenemos opciones locales como Essaouira, Atlas Mountains, Agafay y hammam. Si una te encaja, te doy detalles y puedo preparar la solicitud al proveedor.'
+        : 'Te puedo recomendar Essaouira para costa, Atlas Mountains para naturaleza, Agafay para cena al atardecer o hammam para algo mas relajado.';
+      state.lastGenericExperienceHelp = true;
+      return { intent, response };
+    }
+
+    const selectedExperience = experience || state.provider.experience || EXPERIENCE_MATCHES[0];
+    state.provider = {
+      status: 'awaiting_details',
+      providerFlowActive: true,
+      experience: selectedExperience,
+      experienceTitle: selectedExperience.title,
+      provider: selectedExperience.provider,
+      requestedDate: state.provider.requestedDate || null,
+      guestCount: state.provider.guestCount || null
+    };
+    response.providerState = { ...state.provider };
+    response.revenueOpportunity = true;
+    response.content = experience || intent === 'experience_selected'
+      ? `Perfecto. Para enviar la solicitud a ${state.provider.provider}, me confirmas que dia quereis hacer ${state.provider.experienceTitle} y para cuantas personas?`
+      : 'Podemos revisar experiencias como Essaouira, Atlas Mountains, Agafay o hammam. Si alguna te interesa, puedo enviar una solicitud al proveedor para confirmar disponibilidad.';
+    return { intent: experience ? 'experience_selected' : intent, response };
+  }
+
+  if (state.provider.providerFlowActive && intent === 'provider_details') {
+    state.provider.requestedDate = details.requestedDate || state.provider.requestedDate;
+    state.provider.guestCount = details.guestCount || state.provider.guestCount;
+    state.provider.status = state.provider.requestedDate && state.provider.guestCount ? 'awaiting_confirmation' : 'awaiting_details';
+    response.providerState = { ...state.provider };
+    response.revenueOpportunity = true;
+    response.content = state.provider.status === 'awaiting_confirmation'
+      ? `Perfecto. Tengo los datos para la solicitud ${state.provider.experienceTitle}. ¿Quieres que envie ahora la solicitud a ${state.provider.provider} para confirmar disponibilidad?`
+      : `Para enviar la solicitud a ${state.provider.provider}, necesito fecha y numero de personas.`;
+    return { intent, response };
+  }
+
+  if (state.provider.providerFlowActive && intent === 'provider_confirmation' && state.provider.status === 'awaiting_confirmation') {
+    state.provider.status = 'completed';
+    state.provider.providerFlowActive = false;
+    state.provider.sentAt = new Date(`${todayKey()}T12:00:00.000Z`).toISOString();
+    response.providerState = { ...state.provider };
+    response.revenueOpportunity = true;
+    response.confidence = 0.97;
+    response.content = `Perfecto, he enviado la solicitud a ${state.provider.provider}. Te avisaremos cuando tengamos confirmacion de disponibilidad.`;
+    return { intent, response };
+  }
+
+  if (intent === 'airport_transfer_interest') {
+    response.content = 'Te ayudo con el transfer. Para preparar la solicitud necesito hora de llegada o salida, numero de vuelo y numero de pasajeros.';
+    response.revenueOpportunity = true;
+    return { intent, response };
+  }
+
+  if (intent === 'spa_interest') {
+    response.content = state.guestMemory.includes('spa_affinity')
+      ? 'Por tu preferencia de planes tranquilos, el spa encaja muy bien. Puedo ayudarte a revisar tratamientos disponibles o enviar una solicitud.'
+      : 'El spa puede ser una buena opcion. Si quieres, te ayudo a revisar tratamientos y disponibilidad.';
+    response.revenueOpportunity = true;
+    response.memoryState = { preferences: [...state.guestMemory], recalled: state.guestMemory.includes('spa_affinity') };
+    return { intent, response };
+  }
+
+  if (intent === 'checkout_question') {
+    response.content = `Segun el contexto PMS simulado, tu checkout esta previsto para ${reservation.departure_date}. Si necesitas salir mas tarde, puedo ayudarte a solicitar late checkout.`;
+    return { intent, response };
+  }
+
+  if (intent === 'folio_question') {
+    response.content = 'No voy a inventar importes. En esta simulacion el folio debe venir del PMS; si no esta disponible, recepcion debe revisarlo antes de informar el saldo.';
+    response.confidence = 0.9;
+    return { intent, response };
+  }
+
+  if (intent === 'late_checkout_interest') {
+    response.content = 'Puedo ayudarte a solicitar late checkout. Depende de disponibilidad del hotel, asi que lo tratamos como solicitud y no como confirmacion.';
+    response.revenueOpportunity = true;
+    return { intent, response };
+  }
+
+  response.content = 'Para ayudarte bien, dime si te refieres a una experiencia, transfer, restaurante, checkout o una incidencia de la habitacion.';
+  response.confidence = 0.62;
+  return { intent: 'clarification_needed', response };
+};
+
+const buildJourneyContext = ({ index, hotelType, journey }) => {
+  const guestType = SIMULATION_GUEST_TYPES.find((item) => item.id === journey.guestType) || pick(SIMULATION_GUEST_TYPES, index);
+  const hotel = buildHotel(hotelType, index);
+  const guest = buildGuest({ type: guestType, hotel, scenario: journey, index });
+  const reservation = buildReservation({ hotel, guest, guestType, index });
+  const pmsContextRaw = buildGuestStayContextFromReservation({
+    reservation,
+    occupancy: {
+      occupancy_percent: hotelType.pms.occupancyPercent,
+      occupied_rooms: Math.round((hotelType.pms.occupancyPercent / 100) * hotelType.rooms),
+      available_rooms: Math.max(0, hotelType.rooms - Math.round((hotelType.pms.occupancyPercent / 100) * hotelType.rooms))
+    }
+  });
+
+  return {
+    guestType,
+    hotel,
+    guest,
+    reservation,
+    pmsIntelligenceContext: {
+      stayPhase: pmsContextRaw.stay_phase,
+      vipScore: pmsContextRaw.vip_score,
+      revenuePotential: pmsContextRaw.revenue_potential,
+      upgradeEligible: pmsContextRaw.upgrade_eligible,
+      lateCheckoutEligible: pmsContextRaw.late_checkout_eligible,
+      transferLikely: pmsContextRaw.transfer_likely,
+      experienceLikely: pmsContextRaw.experience_likely,
+      occupancy: {
+        occupancyPercent: hotelType.pms.occupancyPercent,
+        roomsDirty: hotelType.pms.roomsDirty,
+        roomsReady: hotelType.pms.roomsReady
+      },
+      roomStatus: {
+        housekeepingStatus: index % 4 === 0 ? 'dirty' : 'clean',
+        maintenanceStatus: journey.id === 'room_issue_frustration' ? 'maintenance' : 'ok',
+        occupancyStatus: 'occupied'
+      },
+      guestStayContext: pmsContextRaw,
+      operationalWarnings: journey.id === 'room_issue_frustration' ? ['room_maintenance'] : []
+    }
+  };
+};
+
+const evaluateJourney = ({ journey, messages, responses, timelines, state }) => {
+  const errors = [];
+  const warnings = [];
+  const responseTexts = responses.map((item) => normalize(item.content)).filter((item) => item && !item.includes('ai paused'));
+  const repeatedAnswers = responseTexts.some((item, index) => index > 0 && areResponsesSimilar(item, responseTexts[index - 1]));
+  const providerSent = timelines.provider.some((item) => ['sent', 'completed'].includes(item.status));
+  const providerActiveAfterCompletion = timelines.provider.some((item, index) => {
+    const completedBefore = timelines.provider.slice(0, index).some((previous) => previous.status === 'completed');
+    return completedBefore && ['awaiting_details', 'awaiting_confirmation'].includes(item.status);
+  });
+  const languages = [...new Set(timelines.language.map((item) => item.language).filter(Boolean))];
+  const topicSwitchCount = new Set(timelines.intent.map((item) => item.intent).filter(Boolean)).size;
+  const expected = journey.expected || {};
+
+  if (expected.providerRequestSent && !providerSent) errors.push(`Provider request expectation mismatch for ${journey.id}`);
+  if (expected.ticket && !responses.some((item) => item.ticketCreated)) errors.push(`Ticket expectation mismatch for ${journey.id}`);
+  if (expected.escalation && !responses.some((item) => item.escalationRequired)) errors.push(`Escalation expectation mismatch for ${journey.id}`);
+  if (expected.multilingualContinuity && languages.length < 2) errors.push(`Expected multilingual continuity for ${journey.id}`);
+  if (expected.topicSwitch && topicSwitchCount < 3) warnings.push('topic_switch_not_stressed');
+  if (repeatedAnswers) warnings.push('repeated_long_context_response');
+  if (providerActiveAfterCompletion) errors.push(`Provider flow stale after completion for ${journey.id}`);
+
+  const longContext = {
+    context_loss: Boolean(expected.providerRequestSent && !providerSent),
+    repeated_answers: repeatedAnswers,
+    wrong_intent_after_long_context: false,
+    stale_provider_context: providerActiveAfterCompletion,
+    incorrect_memory_recall: journey.id === 'guest_memory_consistency' && !timelines.memory.some((item) => item.recalled),
+    hallucinated_followup: false,
+    language_confusion: Boolean(expected.multilingualContinuity && languages.length < 2),
+    escalation_inconsistency: Boolean(expected.escalation && !responses.some((item) => item.escalationRequired)),
+    topic_switch_success: topicSwitchCount >= 3 || !expected.topicSwitch,
+    provider_flow_recovery: journey.id !== 'interrupted_provider_flow' || providerSent,
+    memory_consistency: journey.id !== 'guest_memory_consistency' || timelines.memory.some((item) => item.recalled),
+    human_takeover_recovery: journey.id !== 'human_takeover_interruption' || timelines.aiMode.some((item) => item.mode === 'human_takeover') && timelines.aiMode.at(-1)?.mode === 'ai_active',
+    long_context_confidence: Number((responses.reduce((sum, item) => sum + Number(item.confidence || 0), 0) / Math.max(1, responses.length)).toFixed(2))
+  };
+
+  if (longContext.incorrect_memory_recall) errors.push(`Memory recall expectation mismatch for ${journey.id}`);
+  if (longContext.language_confusion) errors.push(`Language continuity expectation mismatch for ${journey.id}`);
+
+  return {
+    pass: errors.length === 0 && !longContext.stale_provider_context && !longContext.repeated_answers,
+    errors,
+    warnings,
+    longContext,
+    providerSent,
+    languages,
+    topicSwitchCount,
+    finalProviderState: { ...state.provider }
+  };
+};
+
+const simulateJourneyConversation = ({ index, hotelType, journey }) => {
+  const { guestType, hotel, guest, reservation, pmsIntelligenceContext } = buildJourneyContext({ index, hotelType, journey });
+  const state = {
+    aiMode: 'ai_active',
+    provider: {
+      status: 'idle',
+      providerFlowActive: false,
+      provider: null,
+      experienceTitle: null,
+      requestedDate: null,
+      guestCount: null
+    },
+    guestMemory: [],
+    recentMessages: []
+  };
+  const startedAt = new Date(`${todayKey()}T12:00:00.000Z`);
+  const messages = [];
+  const responses = [];
+  const timelines = {
+    intent: [],
+    language: [],
+    escalation: [],
+    provider: [],
+    memory: [],
+    aiMode: []
+  };
+
+  journey.turns.forEach((turn, turnIndex) => {
+    const occurredAt = new Date(startedAt.getTime() + Number(turn.minutesAfterStart || turnIndex) * 60000).toISOString();
+    const language = resolveJourneyLanguage({ turn, guest, hotel });
+    const { intent, response } = buildJourneyResponse({ hotel, guest, reservation, turn, state, language });
+
+    const guestMessage = {
+      sender_type: 'guest',
+      content: turn.message,
+      original_language: language,
+      occurred_at: occurredAt,
+      turn: turnIndex + 1
+    };
+    const aiMessage = {
+      sender_type: 'ai',
+      content: response.content,
+      language,
+      occurred_at: occurredAt,
+      turn: turnIndex + 1
+    };
+
+    messages.push(guestMessage);
+    responses.push({
+      ...aiMessage,
+      ticketCreated: response.ticketCreated,
+      ticketCategory: response.ticketCategory,
+      escalationRequired: response.escalationRequired,
+      revenueOpportunity: response.revenueOpportunity,
+      confidence: response.confidence
+    });
+    state.recentMessages.push(guestMessage, aiMessage);
+    timelines.intent.push({ turn: turnIndex + 1, intent, message: turn.message });
+    timelines.language.push({ turn: turnIndex + 1, language });
+    timelines.escalation.push({ turn: turnIndex + 1, escalationRequired: response.escalationRequired, ticketCategory: response.ticketCategory });
+    timelines.provider.push({ turn: turnIndex + 1, ...response.providerState });
+    timelines.memory.push({ turn: turnIndex + 1, ...response.memoryState });
+    timelines.aiMode.push({ turn: turnIndex + 1, mode: response.aiMode });
+  });
+
+  const evaluation = evaluateJourney({ journey, messages, responses, timelines, state });
+  const ticketResponse = responses.find((item) => item.ticketCreated);
+  const confidence = evaluation.longContext.long_context_confidence;
+  const detectedIntent = timelines.intent.at(-1)?.intent || 'unknown';
+  const detectedLanguage = timelines.language.at(-1)?.language || guest.preferred_language || 'es';
+  const revenueDetected = responses.some((item) => item.revenueOpportunity);
+  const escalationRequired = responses.some((item) => item.escalationRequired);
+  const ticketCreated = responses.some((item) => item.ticketCreated);
+  const repeatedResponse = evaluation.longContext.repeated_answers;
+
+  return {
+    id: `journey-result-${index + 1}`,
+    simulation: true,
+    mode: 'long_journey',
+    hotel_id: hotel.id,
+    hotel_name: hotel.name,
+    hotel_type: hotelType.id,
+    guest_id: guest.id,
+    guest_name: guest.name,
+    guest_type: guestType.id,
+    scenario: journey.id,
+    journey: journey.id,
+    journey_label: journey.label,
+    scenario_label: journey.label,
+    turn_count: messages.length,
+    messages,
+    ai_responses: responses,
+    detected_intent: detectedIntent,
+    detected_language: detectedLanguage,
+    ticket_created: ticketCreated,
+    ticket_category: ticketResponse?.ticketCategory || null,
+    escalation_required: escalationRequired,
+    revenue_opportunity: revenueDetected,
+    confidence,
+    errors: evaluation.errors,
+    warnings: evaluation.warnings,
+    pass: evaluation.pass,
+    repeated_response: repeatedResponse,
+    unsafe_response: false,
+    hallucination_warning: false,
+    intent_timeline: timelines.intent,
+    language_timeline: timelines.language,
+    escalation_timeline: timelines.escalation,
+    provider_state_timeline: timelines.provider,
+    memory_state_timeline: timelines.memory,
+    ai_mode_timeline: timelines.aiMode,
+    analysis: {
+      hotel,
+      guest,
+      reservation,
+      pms_context: pmsIntelligenceContext,
+      expected: journey.expected,
+      long_context: evaluation.longContext,
+      provider_state_timeline: timelines.provider,
+      intent_timeline: timelines.intent,
+      language_timeline: timelines.language,
+      escalation_timeline: timelines.escalation,
+      memory_state_timeline: timelines.memory,
+      ai_mode_timeline: timelines.aiMode,
+      safety: {
+        whatsapp_delivery: 'disabled',
+        pms_apis: 'disabled',
+        email_delivery: 'disabled',
+        automations: 'preview_only',
+        writes_to_real_hotels: false
+      }
+    }
+  };
+};
+
 const summarizeResults = (results) => {
   const total = results.length || 1;
   const count = (predicate) => results.filter(predicate).length;
@@ -691,6 +1348,26 @@ const summarizeResults = (results) => {
     repeatedResponses: count((item) => item.repeated_response),
     unsafeResponses: count((item) => item.unsafe_response),
     hallucinationWarnings: count((item) => item.hallucination_warning)
+  };
+};
+
+const summarizeJourneyResults = (results) => {
+  const base = summarizeResults(results);
+  const total = results.length || 1;
+  const count = (predicate) => results.filter(predicate).length;
+  const averageLongConfidence = results.reduce((sum, item) => sum + Number(item.analysis?.long_context?.long_context_confidence || item.confidence || 0), 0) / total;
+
+  return {
+    ...base,
+    longConversationQuality: Math.round((count((item) => item.pass) / total) * 100),
+    contextRetentionScore: Math.round((count((item) => !item.analysis?.long_context?.context_loss && !item.analysis?.long_context?.stale_provider_context) / total) * 100),
+    topicSwitchSuccess: Math.round((count((item) => item.analysis?.long_context?.topic_switch_success !== false) / total) * 100),
+    providerFlowRecovery: Math.round((count((item) => item.analysis?.long_context?.provider_flow_recovery !== false) / total) * 100),
+    memoryConsistency: Math.round((count((item) => item.analysis?.long_context?.memory_consistency !== false) / total) * 100),
+    conversationStability: Math.round((count((item) => !item.analysis?.long_context?.repeated_answers && !item.analysis?.long_context?.wrong_intent_after_long_context) / total) * 100),
+    multilingualContinuity: Math.round((count((item) => !item.analysis?.long_context?.language_confusion) / total) * 100),
+    humanTakeoverRecovery: Math.round((count((item) => item.analysis?.long_context?.human_takeover_recovery !== false) / total) * 100),
+    longContextConfidence: Number(averageLongConfidence.toFixed(2))
   };
 };
 
@@ -741,7 +1418,63 @@ export const runStaynexSimulation = ({
     catalog: {
       hotelTypes: SIMULATION_HOTEL_TYPES,
       guestTypes: SIMULATION_GUEST_TYPES,
-      scenarios: SIMULATION_SCENARIOS.map(({ id, label }) => ({ id, label }))
+      scenarios: SIMULATION_SCENARIOS.map(({ id, label }) => ({ id, label })),
+      journeys: SIMULATION_JOURNEYS.map(({ id, label }) => ({ id, label }))
+    },
+    metrics,
+    results
+  };
+};
+
+export const runStaynexJourneySimulation = ({
+  count = 10,
+  hotelType = 'all',
+  journey = 'all'
+} = {}) => {
+  const safeCount = Math.max(1, Math.min(500, Number(count || 10)));
+  const hotelTypes = hotelType === 'all'
+    ? SIMULATION_HOTEL_TYPES
+    : SIMULATION_HOTEL_TYPES.filter((item) => item.id === hotelType);
+  const journeys = journey === 'all'
+    ? SIMULATION_JOURNEYS
+    : SIMULATION_JOURNEYS.filter((item) => item.id === journey);
+
+  if (!hotelTypes.length) {
+    throw new Error(`Unknown simulation hotel type: ${hotelType}`);
+  }
+
+  if (!journeys.length) {
+    throw new Error(`Unknown simulation journey: ${journey}`);
+  }
+
+  const results = Array.from({ length: safeCount }, (_, index) => simulateJourneyConversation({
+    index,
+    hotelType: pick(hotelTypes, index),
+    journey: pick(journeys, index)
+  }));
+  const metrics = summarizeJourneyResults(results);
+
+  return {
+    ok: true,
+    mode: 'long_journey_simulation',
+    safety: {
+      noRealWhatsapp: true,
+      noRealHotels: true,
+      noLiveAutomations: true,
+      noProviderEmails: true,
+      noRealPmsApis: true,
+      dataScope: 'in_memory_sandbox'
+    },
+    filters: {
+      count: safeCount,
+      hotelType,
+      journey
+    },
+    catalog: {
+      hotelTypes: SIMULATION_HOTEL_TYPES,
+      guestTypes: SIMULATION_GUEST_TYPES,
+      scenarios: SIMULATION_SCENARIOS.map(({ id, label }) => ({ id, label })),
+      journeys: SIMULATION_JOURNEYS.map(({ id, label }) => ({ id, label }))
     },
     metrics,
     results

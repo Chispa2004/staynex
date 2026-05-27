@@ -4,11 +4,14 @@ import { createLuxuryHotelDemoData } from '../services/demo-data.service.js';
 import { sendProviderEmailTest } from '../services/provider-lead-email.service.js';
 import { syncPlatformGoogleSheets } from '../services/platform-sheets-sync.service.js';
 import {
+  runStaynexJourneySimulation,
   runStaynexSimulation,
   SIMULATION_HOTEL_TYPES,
+  SIMULATION_JOURNEYS,
   SIMULATION_SCENARIOS
 } from '../services/simulation-mode.service.js';
 import {
+  analyzeLongJourneyFailures,
   analyzeSimulationFailures,
   getFailureIntelligenceHistory
 } from '../services/failure-intelligence.service.js';
@@ -152,7 +155,8 @@ router.get('/api/simulation/catalog', async (req, res, next) => {
     res.status(200).json({
       ok: true,
       hotelTypes: SIMULATION_HOTEL_TYPES,
-      scenarios: SIMULATION_SCENARIOS.map(({ id, label }) => ({ id, label }))
+      scenarios: SIMULATION_SCENARIOS.map(({ id, label }) => ({ id, label })),
+      journeys: SIMULATION_JOURNEYS.map(({ id, label }) => ({ id, label }))
     });
   } catch (error) {
     next(error);
@@ -162,11 +166,18 @@ router.get('/api/simulation/catalog', async (req, res, next) => {
 router.post('/api/simulation/run', async (req, res, next) => {
   try {
     await verifyPlatformAdminRequest(req);
-    const result = runStaynexSimulation({
-      count: req.body?.count,
-      hotelType: req.body?.hotelType || req.body?.hotel_type || 'all',
-      scenario: req.body?.scenario || 'all'
-    });
+    const longJourneyMode = req.body?.mode === 'journeys' || req.body?.mode === 'long_journey';
+    const result = longJourneyMode
+      ? runStaynexJourneySimulation({
+        count: req.body?.count,
+        hotelType: req.body?.hotelType || req.body?.hotel_type || 'all',
+        journey: req.body?.journey || req.body?.scenario || 'all'
+      })
+      : runStaynexSimulation({
+        count: req.body?.count,
+        hotelType: req.body?.hotelType || req.body?.hotel_type || 'all',
+        scenario: req.body?.scenario || 'all'
+      });
 
     res.status(200).json(result);
   } catch (error) {
@@ -210,12 +221,20 @@ router.post('/api/platform/sync-google-sheets', async (req, res, next) => {
 router.post('/api/platform/ai-quality/run', async (req, res, next) => {
   try {
     const { supabase, user } = await verifyPlatformAdminRequest(req);
-    const result = analyzeSimulationFailures({
-      count: req.body?.count,
-      hotelType: req.body?.hotelType || req.body?.hotel_type || 'all',
-      scenario: req.body?.scenario || 'all',
-      aiVersion: req.body?.aiVersion || req.body?.ai_version
-    });
+    const longJourneyMode = req.body?.mode === 'journeys' || req.body?.mode === 'long_journey';
+    const result = longJourneyMode
+      ? analyzeLongJourneyFailures({
+        count: req.body?.count,
+        hotelType: req.body?.hotelType || req.body?.hotel_type || 'all',
+        journey: req.body?.journey || req.body?.scenario || 'all',
+        aiVersion: req.body?.aiVersion || req.body?.ai_version
+      })
+      : analyzeSimulationFailures({
+        count: req.body?.count,
+        hotelType: req.body?.hotelType || req.body?.hotel_type || 'all',
+        scenario: req.body?.scenario || 'all',
+        aiVersion: req.body?.aiVersion || req.body?.ai_version
+      });
     result.persistence = await persistFailureIntelligenceRun({
       supabase,
       userId: user.id,

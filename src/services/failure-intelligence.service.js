@@ -1,4 +1,7 @@
-import { runStaynexSimulation } from './simulation-mode.service.js';
+import {
+  runStaynexJourneySimulation,
+  runStaynexSimulation
+} from './simulation-mode.service.js';
 
 export const FAILURE_CATEGORIES = [
   'low_confidence',
@@ -21,7 +24,15 @@ export const FAILURE_CATEGORIES = [
   'automation_risk',
   'fake_information',
   'weak_followup',
-  'conversation_loop'
+  'conversation_loop',
+  'stale_context',
+  'topic_confusion',
+  'long_context_loss',
+  'provider_flow_corruption',
+  'memory_inconsistency',
+  'multilingual_drift',
+  'escalation_after_context_loss',
+  'repetitive_long_context_response'
 ];
 
 const CRITICAL_CATEGORIES = new Set([
@@ -37,7 +48,10 @@ const HIGH_CATEGORIES = new Set([
   'wrong_language',
   'bad_sentiment_detection',
   'automation_risk',
-  'wrong_guest_context'
+  'wrong_guest_context',
+  'provider_flow_corruption',
+  'memory_inconsistency',
+  'escalation_after_context_loss'
 ]);
 
 const MEDIUM_CATEGORIES = new Set([
@@ -50,7 +64,12 @@ const MEDIUM_CATEGORIES = new Set([
   'unclear_response',
   'weak_followup',
   'conversation_loop',
-  'repetitive_response'
+  'repetitive_response',
+  'stale_context',
+  'topic_confusion',
+  'long_context_loss',
+  'multilingual_drift',
+  'repetitive_long_context_response'
 ]);
 
 const history = [];
@@ -100,6 +119,7 @@ export const classifySimulationFailure = (result = {}) => {
   const response = normalize(result.ai_responses?.[0]?.content || '');
   const pmsContext = result.analysis?.pms_context || {};
   const guestProfile = result.analysis?.guest_intelligence || {};
+  const longContext = result.analysis?.long_context || result.long_context || {};
   const usefulClarification = /room|reservation|booking|hotel|service|issue|habitacion|reserva|incidencia|servicio|chambre|probleme|information|zimmer|reservierung|problem|hotelservice|experiencia|experience|tour|availability|disponibilidad/.test(response);
 
   if (Number(result.confidence || 0) < 0.55 || (result.warnings || []).includes('low_confidence')) categories.push('low_confidence');
@@ -122,6 +142,13 @@ export const classifySimulationFailure = (result = {}) => {
   if ((result.analysis?.automation_preview || []).length > 0 && result.escalation_required) categories.push('automation_risk');
   if (unsafeReasons.some((reason) => /hours|availability|booking|policy/i.test(reason))) categories.push('fake_information');
   if (/let me know|tell me|puedo ayudarte|can help/.test(response) && result.revenue_opportunity && !/request|solicitud|availability|disponibilidad|details|detalles/.test(response)) categories.push('weak_followup');
+  if (longContext.context_loss) categories.push('long_context_loss');
+  if (longContext.stale_provider_context) categories.push('stale_context', 'provider_flow_corruption');
+  if (longContext.topic_switch_success === false) categories.push('topic_confusion');
+  if (longContext.incorrect_memory_recall || longContext.memory_consistency === false) categories.push('memory_inconsistency');
+  if (longContext.language_confusion) categories.push('multilingual_drift');
+  if (longContext.escalation_inconsistency) categories.push('escalation_after_context_loss');
+  if (longContext.repeated_answers) categories.push('repetitive_long_context_response', 'repetitive_response', 'conversation_loop');
 
   const finalCategories = unique(categories).filter((category) => FAILURE_CATEGORIES.includes(category));
   const severity = finalCategories.some((category) => CRITICAL_CATEGORIES.has(category))
@@ -137,6 +164,7 @@ export const classifySimulationFailure = (result = {}) => {
   return {
     resultId: result.id,
     scenario: result.scenario,
+    journey: result.journey,
     language: result.detected_language,
     guestType: result.guest_type,
     hotelType: result.hotel_type,
@@ -174,7 +202,16 @@ const buildQualityMetrics = ({ simulation, classifications }) => {
     multilingualQuality: score(100 - (categoryCount('wrong_language') / total) * 100),
     revenueIntelligenceQuality: score(simulation.metrics.revenueOpportunityDetection || 0),
     ticketQuality: score(simulation.metrics.ticketCreationAccuracy || 0),
-    pmsContextReliability: score(100 - (categoryCount('pms_context_missing') / total) * 100)
+    pmsContextReliability: score(100 - (categoryCount('pms_context_missing') / total) * 100),
+    longConversationQuality: score(simulation.metrics.longConversationQuality ?? simulation.metrics.successRate ?? 0),
+    contextRetentionScore: score(simulation.metrics.contextRetentionScore ?? (100 - ((categoryCount('long_context_loss') + categoryCount('stale_context')) / total) * 100)),
+    topicSwitchSuccess: score(simulation.metrics.topicSwitchSuccess ?? (100 - (categoryCount('topic_confusion') / total) * 100)),
+    providerFlowRecovery: score(simulation.metrics.providerFlowRecovery ?? (100 - (categoryCount('provider_flow_corruption') / total) * 100)),
+    memoryConsistency: score(simulation.metrics.memoryConsistency ?? (100 - (categoryCount('memory_inconsistency') / total) * 100)),
+    conversationStability: score(simulation.metrics.conversationStability ?? (100 - ((categoryCount('conversation_loop') + categoryCount('repetitive_long_context_response')) / total) * 100)),
+    multilingualContinuity: score(simulation.metrics.multilingualContinuity ?? (100 - (categoryCount('multilingual_drift') / total) * 100)),
+    humanTakeoverRecovery: score(simulation.metrics.humanTakeoverRecovery ?? 100),
+    longContextConfidence: Number(simulation.metrics.longContextConfidence || simulation.metrics.averageConfidence || 0)
   };
 };
 
@@ -223,19 +260,19 @@ const buildSuggestions = ({ classifications, trends }) => {
   if (categories.has('robotic_tone') || categories.has('too_generic')) suggestions.push('Improve hospitality tone templates for high-friction and premium guest scenarios.');
   if (categories.has('pms_context_missing')) suggestions.push('Improve PMS simulation context coverage before go-live checks.');
   if (categories.has('unsafe_response') || categories.has('hallucination_risk') || categories.has('fake_information')) suggestions.push('Block unverified promises about bookings, availability, hotel policies and live delivery actions.');
+  if (categories.has('long_context_loss') || categories.has('stale_context')) suggestions.push('Add stronger context expiration and state cleanup for long guest conversations.');
+  if (categories.has('topic_confusion')) suggestions.push('Improve topic switching detection when guests move between restaurant, experiences, room issues and checkout.');
+  if (categories.has('provider_flow_corruption')) suggestions.push('Harden provider booking recovery after interruptions, language switches and completed requests.');
+  if (categories.has('memory_inconsistency')) suggestions.push('Review guest memory recall so preferences are reused only when explicitly observed.');
+  if (categories.has('multilingual_drift')) suggestions.push('Lock response language per turn during multilingual journeys.');
+  if (categories.has('escalation_after_context_loss')) suggestions.push('Retest escalation rules after long context changes and repeated complaints.');
   if (trends.languagesWithWorstPerformance[0]) suggestions.push(`${trends.languagesWithWorstPerformance[0].label.toUpperCase()} conversations need focused regression testing.`);
   if (trends.problematicGuestTypes[0]) suggestions.push(`${trends.problematicGuestTypes[0].label} guest journeys should be reviewed in replay mode.`);
 
   return unique(suggestions);
 };
 
-export const analyzeSimulationFailures = ({
-  count = 100,
-  hotelType = 'all',
-  scenario = 'all',
-  aiVersion = process.env.STAYNEX_AI_VERSION || process.env.npm_package_version || 'local'
-} = {}) => {
-  const simulation = runStaynexSimulation({ count, hotelType, scenario });
+const buildFailureIntelligencePayload = ({ simulation, aiVersion, mode = 'failure_intelligence' }) => {
   const classifications = simulation.results.map(classifySimulationFailure);
   const metrics = buildQualityMetrics({ simulation, classifications });
   const trends = buildTrends({ simulation, classifications });
@@ -261,7 +298,7 @@ export const analyzeSimulationFailures = ({
   return {
     ok: true,
     internalOnly: true,
-    mode: 'failure_intelligence',
+    mode,
     simulation,
     classifications,
     qualityMetrics: metrics,
@@ -270,6 +307,30 @@ export const analyzeSimulationFailures = ({
     history,
     snapshot
   };
+};
+
+export const analyzeSimulationFailures = ({
+  count = 100,
+  hotelType = 'all',
+  scenario = 'all',
+  aiVersion = process.env.STAYNEX_AI_VERSION || process.env.npm_package_version || 'local'
+} = {}) => {
+  const simulation = runStaynexSimulation({ count, hotelType, scenario });
+  return buildFailureIntelligencePayload({ simulation, aiVersion });
+};
+
+export const analyzeLongJourneyFailures = ({
+  count = 100,
+  hotelType = 'all',
+  journey = 'all',
+  aiVersion = process.env.STAYNEX_AI_VERSION || process.env.npm_package_version || 'local'
+} = {}) => {
+  const simulation = runStaynexJourneySimulation({ count, hotelType, journey });
+  return buildFailureIntelligencePayload({
+    simulation,
+    aiVersion,
+    mode: 'long_journey_failure_intelligence'
+  });
 };
 
 export const getFailureIntelligenceHistory = () => ({

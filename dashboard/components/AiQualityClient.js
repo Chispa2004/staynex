@@ -57,6 +57,18 @@ const scenarios = [
   { id: 'real_urgency', label: 'Real urgency' }
 ];
 
+const journeys = [
+  { id: 'all', label: 'All journeys' },
+  { id: 'guest_standard_journey', label: 'Guest standard journey' },
+  { id: 'language_switching', label: 'Language switching' },
+  { id: 'room_issue_frustration', label: 'Room issue and frustration' },
+  { id: 'chaotic_guest', label: 'Chaotic guest topic switching' },
+  { id: 'checkout_journey', label: 'Checkout journey' },
+  { id: 'interrupted_provider_flow', label: 'Interrupted provider flow' },
+  { id: 'human_takeover_interruption', label: 'Human takeover interruption' },
+  { id: 'guest_memory_consistency', label: 'Guest memory consistency' }
+];
+
 const formatPercent = (value) => `${Math.round(Number(value || 0))}%`;
 
 const severityTone = (severity) => {
@@ -125,8 +137,10 @@ export const AiQualityClient = () => {
   const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [count, setCount] = useState(100);
+  const [analysisMode, setAnalysisMode] = useState('journeys');
   const [hotelType, setHotelType] = useState('all');
   const [scenario, setScenario] = useState('all');
+  const [journey, setJourney] = useState('all');
   const [aiVersion, setAiVersion] = useState('local-quality-run');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -157,7 +171,14 @@ export const AiQualityClient = () => {
           'Content-Type': 'application/json',
           ...(await getAuthHeaders())
         },
-        body: JSON.stringify({ count, hotelType, scenario, aiVersion })
+        body: JSON.stringify({
+          count,
+          hotelType,
+          scenario,
+          journey,
+          mode: analysisMode === 'journeys' ? 'journeys' : 'scenarios',
+          aiVersion
+        })
       });
       const body = await response.json();
 
@@ -228,11 +249,18 @@ export const AiQualityClient = () => {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[130px_180px_210px_180px_auto]">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[130px_170px_180px_230px_180px_auto]">
             <label className="space-y-1.5">
               <span className={ui.text.eyebrow(isLight)}>{tx('Conversations')}</span>
               <select className={cn('w-full', ui.input(isLight))} value={count} onChange={(event) => setCount(Number(event.target.value))}>
                 {counts.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1.5">
+              <span className={ui.text.eyebrow(isLight)}>{tx('Simulation mode')}</span>
+              <select className={cn('w-full', ui.input(isLight))} value={analysisMode} onChange={(event) => setAnalysisMode(event.target.value)}>
+                <option value="journeys">{tx('Long Journey Simulation')}</option>
+                <option value="scenarios">{tx('Single-turn scenarios')}</option>
               </select>
             </label>
             <label className="space-y-1.5">
@@ -242,9 +270,13 @@ export const AiQualityClient = () => {
               </select>
             </label>
             <label className="space-y-1.5">
-              <span className={ui.text.eyebrow(isLight)}>{tx('Scenario')}</span>
-              <select className={cn('w-full', ui.input(isLight))} value={scenario} onChange={(event) => setScenario(event.target.value)}>
-                {scenarios.map((item) => <option key={item.id} value={item.id}>{tx(item.label)}</option>)}
+              <span className={ui.text.eyebrow(isLight)}>{tx(analysisMode === 'journeys' ? 'Journey' : 'Scenario')}</span>
+              <select
+                className={cn('w-full', ui.input(isLight))}
+                value={analysisMode === 'journeys' ? journey : scenario}
+                onChange={(event) => (analysisMode === 'journeys' ? setJourney(event.target.value) : setScenario(event.target.value))}
+              >
+                {(analysisMode === 'journeys' ? journeys : scenarios).map((item) => <option key={item.id} value={item.id}>{tx(item.label)}</option>)}
               </select>
             </label>
             <label className="space-y-1.5">
@@ -277,6 +309,28 @@ export const AiQualityClient = () => {
             <MetricCard icon={TicketCheck} label="Ticket quality" value={formatPercent(metrics.ticketQuality)} tone="sky" />
             <MetricCard icon={BarChart3} label="PMS reliability" value={formatPercent(metrics.pmsContextReliability)} tone="violet" />
           </div>
+
+          {result.mode === 'long_journey_failure_intelligence' ? (
+            <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className={ui.text.eyebrow(isLight)}>{tx('Long Journey Simulation')}</p>
+                  <h3 className={cn('mt-1 text-lg font-semibold', ui.text.title(isLight))}>{tx('Conversation stability and context retention')}</h3>
+                </div>
+                <StatusPill tone="violet">{tx('5-20 message journeys')}</StatusPill>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <MetricCard icon={MessageSquareText} label="Long conversation quality" value={formatPercent(metrics.longConversationQuality)} tone="sky" />
+                <MetricCard icon={BrainCircuit} label="Context retention" value={formatPercent(metrics.contextRetentionScore)} tone="violet" />
+                <MetricCard icon={Target} label="Topic switching quality" value={formatPercent(metrics.topicSwitchSuccess)} tone="amber" />
+                <MetricCard icon={TrendingUp} label="Provider flow recovery" value={formatPercent(metrics.providerFlowRecovery)} tone="emerald" />
+                <MetricCard icon={Sparkles} label="Memory consistency" value={formatPercent(metrics.memoryConsistency)} tone="violet" />
+                <MetricCard icon={ShieldCheck} label="Conversation stability" value={formatPercent(metrics.conversationStability)} tone="emerald" />
+                <MetricCard icon={Languages} label="Multilingual continuity" value={formatPercent(metrics.multilingualContinuity)} tone="sky" />
+                <MetricCard icon={Bot} label="Human takeover recovery" value={formatPercent(metrics.humanTakeoverRecovery)} tone="amber" />
+              </div>
+            </section>
+          ) : null}
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
             <section className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
@@ -318,7 +372,7 @@ export const AiQualityClient = () => {
                         )}
                       >
                         <td className="px-5 py-3"><StatusPill tone={severityTone(item.severity)}>{item.severity || 'PASS'}</StatusPill></td>
-                        <td className="px-5 py-3 font-semibold">{item.scenario}</td>
+                        <td className="px-5 py-3 font-semibold">{item.journey || item.scenario}</td>
                         <td className="px-5 py-3 uppercase">{item.language || 'unknown'}</td>
                         <td className="px-5 py-3">{item.intent || 'unknown'}</td>
                         <td className="px-5 py-3">
@@ -423,14 +477,35 @@ const ConversationReplay = ({ replay }) => {
       <div className="mt-5 space-y-4">
         <ReplayBlock title="Guest message" icon={MessageSquareText}>
           {(result.messages || []).map((message) => (
-            <p key={message.content} className="whitespace-pre-wrap">{message.content}</p>
+            <p key={`${message.turn || message.occurred_at}-${message.content}`} className="whitespace-pre-wrap">{message.turn ? `${message.turn}. ` : ''}{message.content}</p>
           ))}
         </ReplayBlock>
         <ReplayBlock title="AI response" icon={Bot}>
           {(result.ai_responses || []).map((message) => (
-            <p key={message.content} className="whitespace-pre-wrap">{message.content}</p>
+            <p key={`${message.turn || message.occurred_at}-${message.content}`} className="whitespace-pre-wrap">{message.turn ? `${message.turn}. ` : ''}{message.content}</p>
           ))}
         </ReplayBlock>
+        {result.intent_timeline?.length ? (
+          <ReplayBlock title="Long conversation timeline" icon={BarChart3}>
+            <div className="space-y-2">
+              {result.intent_timeline.map((item) => {
+                const language = result.language_timeline?.find((entry) => entry.turn === item.turn)?.language || 'unknown';
+                const provider = result.provider_state_timeline?.find((entry) => entry.turn === item.turn)?.status || 'idle';
+                const mode = result.ai_mode_timeline?.find((entry) => entry.turn === item.turn)?.mode || 'ai_active';
+
+                return (
+                  <div key={`${item.turn}-${item.intent}`} className={cn('grid gap-2 rounded-lg border px-3 py-2 sm:grid-cols-[40px_1fr_80px_120px_120px]', isLight ? 'border-slate-200' : 'border-white/10')}>
+                    <span className="font-semibold tabular-nums">#{item.turn}</span>
+                    <span>{tx(item.intent)}</span>
+                    <span className="uppercase">{language}</span>
+                    <span>{tx(provider)}</span>
+                    <span>{tx(mode)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </ReplayBlock>
+        ) : null}
         <ReplayBlock title="Failure categories" icon={AlertTriangle}>
           <div className="flex flex-wrap gap-1.5">
             {(classification?.categories || ['clean']).map((category) => (
