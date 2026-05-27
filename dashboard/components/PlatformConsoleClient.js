@@ -28,6 +28,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { persistWorkspaceSelection } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
 
@@ -78,23 +79,27 @@ const WorkspaceMark = ({ hotel, size = 'h-11 w-11' }) => (
   </span>
 );
 
-const StatCard = ({ icon: Icon, label, value, helper, isLight, tone = 'emerald' }) => (
-  <article className={cn('premium-fade-in rounded-xl border p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-2xl', ui.surface(isLight))}>
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <p className={ui.text.eyebrow(isLight)}>{label}</p>
-        <p className={cn('mt-3 text-2xl font-semibold', ui.text.title(isLight))}>{value}</p>
-        {helper ? <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{helper}</p> : null}
+const StatCard = ({ icon: Icon, label, value, helper, isLight, tone = 'emerald' }) => {
+  const { tx } = useDashboardLanguage();
+
+  return (
+    <article className={cn('premium-fade-in rounded-xl border p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-2xl', ui.surface(isLight))}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className={ui.text.eyebrow(isLight)}>{tx(label)}</p>
+          <p className={cn('mt-3 text-2xl font-semibold', ui.text.title(isLight))}>{value}</p>
+          {helper ? <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx(helper)}</p> : null}
+        </div>
+        <span className={cn(
+          'flex h-10 w-10 items-center justify-center rounded-lg border',
+          tone === 'violet' ? ui.badge(isLight, 'violet') : tone === 'sky' ? ui.badge(isLight, 'sky') : ui.badge(isLight, 'emerald')
+        )}>
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </span>
       </div>
-      <span className={cn(
-        'flex h-10 w-10 items-center justify-center rounded-lg border',
-        tone === 'violet' ? ui.badge(isLight, 'violet') : tone === 'sky' ? ui.badge(isLight, 'sky') : ui.badge(isLight, 'emerald')
-      )}>
-        <Icon className="h-4 w-4" aria-hidden="true" />
-      </span>
-    </div>
-  </article>
-);
+    </article>
+  );
+};
 
 const HealthBar = ({ value = 0, isLight }) => {
   const tone = value >= 75 ? 'bg-emerald-400' : value >= 50 ? 'bg-amber-400' : 'bg-red-400';
@@ -107,6 +112,7 @@ const HealthBar = ({ value = 0, isLight }) => {
 };
 
 const DeleteHotelModal = ({ hotel, isLight, deleting, onCancel, onConfirm }) => {
+  const { tx } = useDashboardLanguage();
   if (!hotel) return null;
 
   return (
@@ -117,20 +123,20 @@ const DeleteHotelModal = ({ hotel, isLight, deleting, onCancel, onConfirm }) => 
             <Trash2 className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
-            <p className={ui.text.eyebrow(isLight)}>Delete Hotel Workspace</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Delete Hotel Workspace')}</p>
             <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{hotel.name}</h2>
             <p className={cn('mt-2 text-sm leading-6', ui.text.body(isLight))}>
-              This action will permanently remove the hotel workspace and related demo/test data.
+              {tx('This action will permanently remove the hotel workspace and related demo/test data.')}
             </p>
             <p className={cn('mt-2 text-xs leading-5', ui.text.muted(isLight))}>
-              Staynex archives the workspace first, disables scoped operational records by hotel_id, and hides it from platform metrics to prevent accidental cross-hotel deletion.
+              {tx('Staynex archives the workspace first, disables scoped operational records by hotel_id, and hides it from platform metrics to prevent accidental cross-hotel deletion.')}
             </p>
           </div>
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onCancel} disabled={deleting} className={ui.button(isLight, 'secondary')}>
-            Cancel
+            {tx('Cancel')}
           </button>
           <button
             type="button"
@@ -139,7 +145,7 @@ const DeleteHotelModal = ({ hotel, isLight, deleting, onCancel, onConfirm }) => 
             className={cn('inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-60', isLight ? 'border-red-200 bg-red-600 text-white hover:bg-red-700' : 'border-red-300/20 bg-red-500 text-white hover:bg-red-400')}
           >
             <Trash2 className={deleting ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
-            {deleting ? 'Deleting...' : 'Delete hotel'}
+            {tx(deleting ? 'Deleting...' : 'Delete hotel')}
           </button>
         </div>
       </section>
@@ -148,6 +154,7 @@ const DeleteHotelModal = ({ hotel, isLight, deleting, onCancel, onConfirm }) => 
 };
 
 const PmsEcosystemSection = ({ ecosystem = {}, isLight }) => {
+  const { tx } = useDashboardLanguage();
   const providers = ecosystem.connectorReadiness || [];
   const hotelsByPms = Object.entries(ecosystem.hotelsByPms || {});
 
@@ -155,13 +162,13 @@ const PmsEcosystemSection = ({ ecosystem = {}, isLight }) => {
     <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className={ui.text.eyebrow(isLight)}>PMS Ecosystem</p>
-          <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>Multi-provider readiness</h2>
+          <p className={ui.text.eyebrow(isLight)}>{tx('PMS Ecosystem')}</p>
+          <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{tx('Multi-provider readiness')}</h2>
           <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
-            Operational view of connected PMS providers and the Morocco connector roadmap.
+            {tx('Operational view of connected PMS providers and the Morocco connector roadmap.')}
           </p>
         </div>
-        <span className={ui.badge(isLight, 'sky')}>{ecosystem.coveragePercent || 0}% coverage</span>
+        <span className={ui.badge(isLight, 'sky')}>{tx(`${ecosystem.coveragePercent || 0}% coverage`)}</span>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -179,10 +186,10 @@ const PmsEcosystemSection = ({ ecosystem = {}, isLight }) => {
                 <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{provider.region}</p>
               </div>
               <span className={ui.badge(isLight, provider.status === 'Connected' ? 'emerald' : provider.status === 'Setup available' ? 'amber' : 'slate', true)}>
-                {provider.status}
+                {tx(provider.status)}
               </span>
             </div>
-            <p className={cn('mt-3 text-sm leading-6', ui.text.body(isLight))}>{provider.readiness}</p>
+            <p className={cn('mt-3 text-sm leading-6', ui.text.body(isLight))}>{tx(provider.readiness)}</p>
           </article>
         ))}
       </div>
@@ -198,6 +205,7 @@ const readinessTone = (status) => {
 };
 
 const GoLiveReadinessSection = ({ readiness = {}, hotels = [], isLight, loading }) => {
+  const { tx } = useDashboardLanguage();
   const readinessHotels = readiness.hotels || [];
   const lowestHotels = readinessHotels.slice(0, 5);
   const readyCount = readiness.readyHotels || 0;
@@ -207,18 +215,18 @@ const GoLiveReadinessSection = ({ readiness = {}, hotels = [], isLight, loading 
     <section className={cn('overflow-hidden rounded-xl border p-5', ui.surface(isLight))}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className={ui.text.eyebrow(isLight)}>Go-Live Readiness</p>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Go-Live Readiness')}</p>
           <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>
-            Readiness Center
+            {tx('Readiness Center')}
           </h2>
           <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
-            Platform validation for PMS, WhatsApp, AI, revenue, automations, staff onboarding, GDPR and marketplace readiness before a hotel serves live guests.
+            {tx('Platform validation for PMS, WhatsApp, AI, revenue, automations, staff onboarding, GDPR and marketplace readiness before a hotel serves live guests.')}
           </p>
         </div>
         <div className={cn('min-w-40 rounded-xl border p-4 text-center', isLight ? 'border-emerald-200 bg-emerald-50' : 'border-emerald-300/20 bg-emerald-300/10')}>
-          <p className={ui.text.eyebrow(isLight)}>Average score</p>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Average score')}</p>
           <p className={cn('mt-2 text-3xl font-semibold', ui.text.title(isLight))}>{loading ? '...' : `${readiness.averageScore || 0}%`}</p>
-          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{readyCount}/{totalHotels} ready for live</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx(`${readyCount}/${totalHotels} ready for live`)}</p>
         </div>
       </div>
 
@@ -231,7 +239,7 @@ const GoLiveReadinessSection = ({ readiness = {}, hotels = [], isLight, loading 
 
       {readiness.blockedHotels > 0 ? (
         <div className={cn('mt-5 rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
-          Hotel not ready for live guests where critical blockers exist.
+          {tx('Hotel not ready for live guests where critical blockers exist.')}
         </div>
       ) : null}
 
@@ -242,7 +250,7 @@ const GoLiveReadinessSection = ({ readiness = {}, hotels = [], isLight, loading 
               <div>
                 <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{hotel.name}</p>
                 <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
-                  {hotel.criticalChecks ? `${hotel.criticalChecks} critical blockers` : 'No critical blockers'} / {hotel.warningChecks || 0} warnings
+                  {hotel.criticalChecks ? tx(`${hotel.criticalChecks} critical blockers`) : tx('No critical blockers')} / {tx(`${hotel.warningChecks || 0} warnings`)}
                 </p>
               </div>
               <span className={ui.badge(isLight, hotel.readyForLive ? 'emerald' : hotel.criticalChecks ? 'red' : 'amber')}>
@@ -251,10 +259,10 @@ const GoLiveReadinessSection = ({ readiness = {}, hotels = [], isLight, loading 
             </div>
             {hotel.topBlockers?.length ? (
               <p className={cn('mt-3 text-xs leading-5', ui.text.muted(isLight))}>
-                Blockers: {hotel.topBlockers.join(', ')}
+                {tx('Blockers')}: {hotel.topBlockers.map((blocker) => tx(blocker)).join(', ')}
               </p>
             ) : (
-              <p className={cn('mt-3 text-xs leading-5', ui.text.muted(isLight))}>Ready for final launch review.</p>
+              <p className={cn('mt-3 text-xs leading-5', ui.text.muted(isLight))}>{tx('Ready for final launch review.')}</p>
             )}
           </Link>
         ))}
@@ -264,6 +272,7 @@ const GoLiveReadinessSection = ({ readiness = {}, hotels = [], isLight, loading 
 };
 
 const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }) => {
+  const { tx } = useDashboardLanguage();
   const rows = revenue.partnerMarketplace || [];
   const partnerMarketplaceMetrics = {
     totalPartnerLeads: Number(metrics.totalPartnerLeads || 0),
@@ -304,20 +313,20 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className={ui.text.eyebrow(isLight)}>Staynex Partner Network</p>
-          <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>Partner Marketplace Revenue</h2>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Staynex Partner Network')}</p>
+          <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>{tx('Partner Marketplace Revenue')}</h2>
           <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
-            Platform-only view of external provider leads, Staynex commission and provider payouts.
+            {tx('Platform-only view of external provider leads, Staynex commission and provider payouts.')}
           </p>
         </div>
         <span className={ui.badge(isLight, metrics.partnerMarketplaceSqlReady === false ? 'amber' : 'violet')}>
-          {metrics.partnerMarketplaceSqlReady === false ? 'Migration required' : 'Platform only'}
+          {tx(metrics.partnerMarketplaceSqlReady === false ? 'Migration required' : 'Platform only')}
         </span>
       </div>
 
       {metrics.partnerMarketplaceSqlReady === false ? (
         <div className={cn('mt-4 rounded-xl border px-4 py-3 text-sm', isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-300/10 text-amber-100')}>
-          Partner marketplace SQL migration required.
+          {tx('Partner marketplace SQL migration required.')}
         </div>
       ) : null}
 
@@ -334,13 +343,13 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
 
       <div className={cn('mt-5 overflow-hidden rounded-xl border', isLight ? 'border-slate-200 bg-white/80 shadow-sm' : 'border-white/10 bg-black/10')}>
         <div className={cn('grid gap-3 border-b px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] md:grid-cols-[1.1fr_1fr_0.5fr_0.8fr_0.8fr_0.8fr_0.7fr]', isLight ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-white/10 bg-white/[0.03] text-slate-400')}>
-          <span>Provider</span>
-          <span>Hotel Source</span>
-          <span>Bookings</span>
-          <span>Revenue</span>
-          <span>Staynex Commission</span>
-          <span>Provider Payout</span>
-          <span>Status</span>
+          <span>{tx('Provider')}</span>
+          <span>{tx('Hotel Source')}</span>
+          <span>{tx('Bookings')}</span>
+          <span>{tx('Revenue')}</span>
+          <span>{tx('Staynex Commission')}</span>
+          <span>{tx('Provider Payout')}</span>
+          <span>{tx('Status')}</span>
         </div>
         <div className="divide-y divide-slate-200/10">
           {rows.map((row) => (
@@ -351,12 +360,12 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
                 </span>
                 <strong className="truncate">{row.provider}</strong>
               </div>
-              <span className={cn('truncate', ui.text.muted(isLight))}>{row.hotelSource || 'Unknown hotel'}</span>
+              <span className={cn('truncate', ui.text.muted(isLight))}>{row.hotelSource || tx('Unknown hotel')}</span>
               <span>{row.bookings || 0}</span>
               <span>{formatCurrency(row.revenue)}</span>
               <span>{formatCurrency(row.staynexCommission)}</span>
               <span>{formatCurrency(row.providerPayout)}</span>
-              <span className={ui.badge(isLight, statusTone[row.status] || 'slate')}>{statusLabel[row.status] || row.status}</span>
+              <span className={ui.badge(isLight, statusTone[row.status] || 'slate')}>{tx(statusLabel[row.status] || row.status)}</span>
             </div>
           ))}
         </div>
@@ -375,6 +384,7 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
 };
 
 const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
+  const { tx } = useDashboardLanguage();
   const [form, setForm] = useState(initialForm);
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
@@ -389,36 +399,36 @@ const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className={ui.text.eyebrow(isLight)}>Create workspace</p>
-          <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>New hotel tenant</h2>
-          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>Creates the hotel, onboarding state and first invited admin.</p>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Create workspace')}</p>
+          <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{tx('New hotel tenant')}</h2>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{tx('Creates the hotel, onboarding state and first invited admin.')}</p>
         </div>
-        <button type="button" onClick={onCancel} className={ui.button(isLight, 'ghost')}>Cancel</button>
+        <button type="button" onClick={onCancel} className={ui.button(isLight, 'ghost')}>{tx('Cancel')}</button>
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Hotel name</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Hotel name')}</span>
           <input className={cn('w-full', ui.input(isLight))} value={form.name} onChange={(event) => update('name', event.target.value)} required />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Brand name</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Brand name')}</span>
           <input className={cn('w-full', ui.input(isLight))} value={form.brand_name} onChange={(event) => update('brand_name', event.target.value)} />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Workspace slug</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Workspace slug')}</span>
           <input className={cn('w-full', ui.input(isLight))} value={form.slug} onChange={(event) => update('slug', event.target.value)} placeholder="hotel-costa-azul" />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Admin email</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Admin email')}</span>
           <input className={cn('w-full', ui.input(isLight))} type="email" value={form.admin_email} onChange={(event) => update('admin_email', event.target.value)} required />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Timezone</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Timezone')}</span>
           <input className={cn('w-full', ui.input(isLight))} value={form.timezone} onChange={(event) => update('timezone', event.target.value)} />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Language</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Language')}</span>
           <select className={cn('w-full', ui.input(isLight))} value={form.default_language} onChange={(event) => update('default_language', event.target.value)}>
             {languages.map((language) => <option key={language} value={language}>{language.toUpperCase()}</option>)}
           </select>
@@ -428,15 +438,15 @@ const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
           <input className={cn('w-full', ui.input(isLight))} value={form.whatsapp_number} onChange={(event) => update('whatsapp_number', event.target.value)} placeholder="+34123456789" />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Support email</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Support email')}</span>
           <input className={cn('w-full', ui.input(isLight))} type="email" value={form.support_email} onChange={(event) => update('support_email', event.target.value)} />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Brand color</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Brand color')}</span>
           <input className={cn('w-full', ui.input(isLight))} value={form.brand_color} onChange={(event) => update('brand_color', event.target.value)} />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Subscription plan</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Subscription plan')}</span>
           <select className={cn('w-full', ui.input(isLight))} value={form.subscription_plan} onChange={(event) => update('subscription_plan', event.target.value)}>
             {plans.map((plan) => <option key={plan} value={plan}>{plan.replaceAll('_', ' ')}</option>)}
           </select>
@@ -446,7 +456,7 @@ const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
       <div className="mt-5 flex justify-end">
         <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
           <Plus className="h-4 w-4" aria-hidden="true" />
-          {saving ? 'Creating...' : 'Create Hotel Workspace'}
+          {tx(saving ? 'Creating...' : 'Create Hotel Workspace')}
         </button>
       </div>
     </form>
@@ -454,6 +464,7 @@ const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
 };
 
 const ProviderEmailTestPanel = ({ isLight }) => {
+  const { tx } = useDashboardLanguage();
   const [form, setForm] = useState({
     to: '',
     subject: 'Staynex provider email test',
@@ -505,28 +516,28 @@ const ProviderEmailTestPanel = ({ isLight }) => {
           <Mail className="h-4 w-4" aria-hidden="true" />
         </span>
         <div>
-          <p className={ui.text.eyebrow(isLight)}>Provider email</p>
-          <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>Test Provider Email</h2>
-          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>Platform-only delivery test for provider leads.</p>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Provider email')}</p>
+          <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>{tx('Test Provider Email')}</h2>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{tx('Platform-only delivery test for provider leads.')}</p>
         </div>
       </div>
 
       <form onSubmit={sendTest} className="mt-4 space-y-3">
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Recipient</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Recipient')}</span>
           <input className={cn('w-full', ui.input(isLight))} type="email" value={form.to} onChange={(event) => update('to', event.target.value)} placeholder="provider@example.com" required />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Subject</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Subject')}</span>
           <input className={cn('w-full', ui.input(isLight))} value={form.subject} onChange={(event) => update('subject', event.target.value)} />
         </label>
         <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>Message</span>
+          <span className={ui.text.eyebrow(isLight)}>{tx('Message')}</span>
           <textarea className={cn('min-h-24 w-full', ui.input(isLight))} value={form.message} onChange={(event) => update('message', event.target.value)} />
         </label>
         <button type="submit" disabled={sending} className={ui.button(isLight, 'primary')}>
           <Mail className="h-4 w-4" aria-hidden="true" />
-          {sending ? 'Sending...' : 'Send Test Email'}
+          {tx(sending ? 'Sending...' : 'Send Test Email')}
         </button>
       </form>
 
@@ -537,7 +548,7 @@ const ProviderEmailTestPanel = ({ isLight }) => {
             ? isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
             : isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100'
         )}>
-          {result.message}
+          {tx(result.message)}
         </div>
       ) : null}
     </section>
@@ -545,6 +556,7 @@ const ProviderEmailTestPanel = ({ isLight }) => {
 };
 
 const GoogleSheetsSyncPanel = ({ isLight }) => {
+  const { tx } = useDashboardLanguage();
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -587,15 +599,15 @@ const GoogleSheetsSyncPanel = ({ isLight }) => {
           <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
         </span>
         <div>
-          <p className={ui.text.eyebrow(isLight)}>Platform BI</p>
-          <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>Google Sheets Sync</h2>
-          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>Push platform metrics to Staynex Platform Control.</p>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Platform BI')}</p>
+          <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>{tx('Google Sheets Sync')}</h2>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{tx('Push platform metrics to Staynex Platform Control.')}</p>
         </div>
       </div>
 
       <button type="button" disabled={syncing} onClick={syncSheets} className={cn('mt-4 w-full justify-center', ui.button(isLight, 'primary'))}>
         <FileSpreadsheet className={syncing ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
-        {syncing ? 'Syncing...' : 'Sync Google Sheets'}
+        {tx(syncing ? 'Syncing...' : 'Sync Google Sheets')}
       </button>
 
       {result ? (
@@ -605,12 +617,12 @@ const GoogleSheetsSyncPanel = ({ isLight }) => {
             ? isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
             : isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100'
         )}>
-          <p>{result.message}</p>
-          {result.syncedAt ? <p className="mt-1 text-xs opacity-80">Last sync: {formatDate(result.syncedAt)}</p> : null}
+          <p>{tx(result.message)}</p>
+          {result.syncedAt ? <p className="mt-1 text-xs opacity-80">{tx('Last sync')}: {formatDate(result.syncedAt)}</p> : null}
           {result.tabs?.length ? (
             <div className="mt-2 grid gap-1 text-xs opacity-90">
               {result.tabs.slice(0, 4).map((tab) => (
-                <span key={tab.tabName}>{tab.tabName}: {tab.rowsSynced} rows</span>
+                <span key={tab.tabName}>{tab.tabName}: {tx(`${tab.rowsSynced} rows`)}</span>
               ))}
             </div>
           ) : null}
@@ -623,6 +635,7 @@ const GoogleSheetsSyncPanel = ({ isLight }) => {
 export const PlatformConsoleClient = () => {
   const router = useRouter();
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [data, setData] = useState({ hotels: [], metrics: {}, revenue: {} });
   const [loading, setLoading] = useState(true);
@@ -770,21 +783,21 @@ export const PlatformConsoleClient = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">Platform operations</p>
-          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>Staynex SaaS console</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">{tx('Platform operations')}</p>
+          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Staynex SaaS console')}</h1>
           <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
-            Internal operations hub for tenants, health, revenue, PMS status and support access.
+            {tx('Internal operations hub for tenants, health, revenue, PMS status and support access.')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => loadPlatform()} className={ui.button(isLight, 'secondary')}>
             <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-            Refresh
+            {tx('Refresh')}
           </button>
           {canCreate ? (
             <button type="button" onClick={() => setShowCreate(true)} className={ui.button(isLight, 'primary')}>
               <Plus className="h-4 w-4" aria-hidden="true" />
-              Create Hotel Workspace
+              {tx('Create Hotel Workspace')}
             </button>
           ) : null}
         </div>
@@ -792,12 +805,12 @@ export const PlatformConsoleClient = () => {
 
       {error ? (
         <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
-          {error}
+          {tx(error)}
         </div>
       ) : null}
       {notice ? (
         <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
-          {notice}
+          {tx(notice)}
         </div>
       ) : null}
 
@@ -818,17 +831,17 @@ export const PlatformConsoleClient = () => {
             </span>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className={ui.text.eyebrow(isLight)}>Internal AI QA</p>
-                <span className={ui.badge(isLight, 'red', true)}>Platform only</span>
+                <p className={ui.text.eyebrow(isLight)}>{tx('Internal AI QA')}</p>
+                <span className={ui.badge(isLight, 'red', true)}>{tx('Platform only')}</span>
               </div>
-              <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>Failure Intelligence</h2>
+              <h2 className={cn('mt-2 text-lg font-semibold', ui.text.title(isLight))}>{tx('Failure Intelligence')}</h2>
               <p className={cn('mt-1 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
-                Private simulation analysis for unsafe responses, missed escalations, language drift, ticket quality and revenue intelligence before go-live.
+                {tx('Private simulation analysis for unsafe responses, missed escalations, language drift, ticket quality and revenue intelligence before go-live.')}
               </p>
             </div>
           </div>
           <Link href="/platform/ai-quality" className={cn(ui.button(isLight, 'secondary'), 'shrink-0')}>
-            Open AI Quality
+            {tx('Open AI Quality')}
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
@@ -866,16 +879,16 @@ export const PlatformConsoleClient = () => {
           <div className={cn('border-b px-4 py-3', isLight ? 'border-slate-200' : 'border-white/10')}>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>Tenant workspaces</h2>
-                <p className={cn('text-xs', ui.text.muted(isLight))}>{loading ? 'Loading...' : `${sortedHotels.length} of ${hotels.length} hotels`}</p>
+                <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx('Tenant workspaces')}</h2>
+                <p className={cn('text-xs', ui.text.muted(isLight))}>{loading ? tx('Loading...') : tx(`${sortedHotels.length} of ${hotels.length} hotels`)}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <select value={planFilter} onChange={(event) => setPlanFilter(event.target.value)} className={cn('w-40', ui.input(isLight))}>
-                  <option value="all">All plans</option>
+                  <option value="all">{tx('All plans')}</option>
                   {plans.map((plan) => <option key={plan} value={plan}>{plan.replaceAll('_', ' ')}</option>)}
                 </select>
                 <select value={healthFilter} onChange={(event) => setHealthFilter(event.target.value)} className={cn('w-40', ui.input(isLight))}>
-                  {healthFilters.map((health) => <option key={health} value={health}>{health === 'all' ? 'All health' : health}</option>)}
+                  {healthFilters.map((health) => <option key={health} value={health}>{tx(health === 'all' ? 'All health' : health)}</option>)}
                 </select>
               </div>
             </div>
@@ -891,21 +904,21 @@ export const PlatformConsoleClient = () => {
                       <Link href={`/platform/hotels/${hotel.id}`} className={cn('truncate text-sm font-semibold hover:text-emerald-300', ui.text.title(isLight))}>
                         {hotel.name}
                       </Link>
-                      <span className={ui.badge(isLight, hotel.subscription_plan ? 'emerald' : 'slate', true)}>{hotel.plan_label || 'No plan'}</span>
+                      <span className={ui.badge(isLight, hotel.subscription_plan ? 'emerald' : 'slate', true)}>{hotel.plan_label || tx('No plan')}</span>
                     </div>
                     <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{hotel.brand_name || hotel.name} / {hotel.workspace_slug || hotel.slug}</p>
-                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Created {formatDate(hotel.created_at)}</p>
-                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Last activity: {formatDate(hotel.lastActivityAt)}</p>
+                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx('Created')} {formatDate(hotel.created_at)}</p>
+                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx('Last activity')}: {formatDate(hotel.lastActivityAt)}</p>
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className={cn('text-xs font-semibold', ui.text.muted(isLight))}>Health</span>
+                    <span className={cn('text-xs font-semibold', ui.text.muted(isLight))}>{tx('Health')}</span>
                     <span className={cn('text-xs font-bold', ui.text.title(isLight))}>{hotel.healthScore || 0}%</span>
                   </div>
                   <div className="mt-2"><HealthBar value={hotel.healthScore || 0} isLight={isLight} /></div>
-                  <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>{hotel.healthStatus || 'Unknown'} / onboarding {hotel.onboarding?.percent || 0}%</p>
+                  <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>{tx(hotel.healthStatus || 'Unknown')} / {tx('onboarding')} {hotel.onboarding?.percent || 0}%</p>
                   <div className="mt-3 grid grid-cols-3 gap-1.5">
                     <span className={ui.badge(isLight, hotel.pms?.enabled ? 'emerald' : 'slate', true)}>PMS</span>
                     <span className={ui.badge(isLight, hotel.stats?.whatsappConfigured ? 'sky' : 'slate', true)}>WhatsApp</span>
@@ -914,20 +927,20 @@ export const PlatformConsoleClient = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div><span className={ui.text.muted(isLight)}>PMS</span><p className="font-semibold">{hotel.pms?.enabled ? hotel.pms.provider : 'Disconnected'}</p></div>
-                  <div><span className={ui.text.muted(isLight)}>WhatsApp</span><p className="font-semibold">{hotel.stats?.whatsappConfigured ? 'Ready' : 'Missing'}</p></div>
-                  <div><span className={ui.text.muted(isLight)}>Users</span><p className="font-semibold">{hotel.stats?.activeUsers || 0}/{hotel.stats?.users || 0}</p></div>
-                  <div><span className={ui.text.muted(isLight)}>Reservations</span><p className="font-semibold">{hotel.stats?.reservations || 0}</p></div>
-                  <div><span className={ui.text.muted(isLight)}>AI handled</span><p className="font-semibold">{hotel.stats?.aiHandled || 0}</p></div>
-                  <div><span className={ui.text.muted(isLight)}>Open tickets</span><p className="font-semibold">{hotel.stats?.openTickets || 0}</p></div>
-                  <div><span className={ui.text.muted(isLight)}>Bookings</span><p className="font-semibold">{hotel.stats?.experienceBookings || 0}</p></div>
-                  <div><span className={ui.text.muted(isLight)}>Revenue</span><p className="font-semibold">{formatCurrency((hotel.stats?.revenue || 0) + (hotel.stats?.offerRevenue || 0) + (hotel.stats?.experienceRevenue || 0))}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>PMS</span><p className="font-semibold">{hotel.pms?.enabled ? hotel.pms.provider : tx('Disconnected')}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>WhatsApp</span><p className="font-semibold">{tx(hotel.stats?.whatsappConfigured ? 'Ready' : 'Missing')}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>{tx('Users')}</span><p className="font-semibold">{hotel.stats?.activeUsers || 0}/{hotel.stats?.users || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>{tx('Reservations')}</span><p className="font-semibold">{hotel.stats?.reservations || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>{tx('AI handled')}</span><p className="font-semibold">{hotel.stats?.aiHandled || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>{tx('Open tickets')}</span><p className="font-semibold">{hotel.stats?.openTickets || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>{tx('Bookings')}</span><p className="font-semibold">{hotel.stats?.experienceBookings || 0}</p></div>
+                  <div><span className={ui.text.muted(isLight)}>{tx('Revenue')}</span><p className="font-semibold">{formatCurrency((hotel.stats?.revenue || 0) + (hotel.stats?.offerRevenue || 0) + (hotel.stats?.experienceRevenue || 0))}</p></div>
                 </div>
 
                 <div className="flex items-center gap-2 lg:justify-end">
                   <button type="button" onClick={() => enterSupport(hotel)} className={ui.button(isLight, 'secondary')}>
                     <DoorOpen className="h-4 w-4" aria-hidden="true" />
-                    Support
+                    {tx('Support')}
                   </button>
                   {canCreate ? (
                     <button
@@ -950,8 +963,8 @@ export const PlatformConsoleClient = () => {
           {!loading && hotels.length === 0 ? (
             <PremiumEmptyState
               icon={Building2}
-              title="No hotel workspaces yet"
-              description="Create the first tenant workspace to start onboarding a hotel."
+              title={tx('No hotel workspaces yet')}
+              description={tx('Create the first tenant workspace to start onboarding a hotel.')}
               className="m-4"
             />
           ) : null}
@@ -963,19 +976,19 @@ export const PlatformConsoleClient = () => {
           <ProviderEmailTestPanel isLight={isLight} />
 
           <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
-            <p className={ui.text.eyebrow(isLight)}>Global revenue</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Global revenue')}</p>
             <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{formatCurrency(metrics.totalAiRevenue)}</h2>
             <div className="mt-4 space-y-3">
-              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Upsell revenue</span><strong>{formatCurrency(metrics.totalUpsellRevenue)}</strong></div>
-              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>AI offer revenue</span><strong>{formatCurrency(metrics.totalOfferRevenue)}</strong></div>
-              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Experience revenue</span><strong>{formatCurrency(metrics.totalExperienceRevenue)}</strong></div>
-              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Experience bookings</span><strong>{formatCurrency(metrics.totalExperienceBookingRevenue)}</strong></div>
-              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>Accepted offers</span><strong>{metrics.acceptedOffers || 0}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>{tx('Upsell revenue')}</span><strong>{formatCurrency(metrics.totalUpsellRevenue)}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>{tx('AI offer revenue')}</span><strong>{formatCurrency(metrics.totalOfferRevenue)}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>{tx('Experience revenue')}</span><strong>{formatCurrency(metrics.totalExperienceRevenue)}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>{tx('Experience bookings')}</span><strong>{formatCurrency(metrics.totalExperienceBookingRevenue)}</strong></div>
+              <div className="flex justify-between text-sm"><span className={ui.text.muted(isLight)}>{tx('Accepted offers')}</span><strong>{metrics.acceptedOffers || 0}</strong></div>
             </div>
           </section>
 
           <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
-            <p className={ui.text.eyebrow(isLight)}>Top hotels by revenue</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Top hotels by revenue')}</p>
             <div className="mt-4 space-y-3">
               {(revenue.topHotels || []).filter((item) => item.revenue > 0).map((item) => (
                 <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
@@ -984,18 +997,18 @@ export const PlatformConsoleClient = () => {
                 </div>
               ))}
               {!(revenue.topHotels || []).some((item) => item.revenue > 0) ? (
-                <p className={cn('text-sm', ui.text.muted(isLight))}>No revenue attributed yet.</p>
+                <p className={cn('text-sm', ui.text.muted(isLight))}>{tx('No revenue attributed yet.')}</p>
               ) : null}
             </div>
           </section>
 
           <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
-            <p className={ui.text.eyebrow(isLight)}>Platform controls</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Platform controls')}</p>
             <div className="mt-4 space-y-2 text-sm">
-              <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Platform-only access enforced</p>
-              <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-300" /> Support access is audit logged</p>
-              <p className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-emerald-300" /> Billing-ready plan structure</p>
-              <p className="flex items-center gap-2"><Users className="h-4 w-4 text-emerald-300" /> Global user operations</p>
+              <p className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> {tx('Platform-only access enforced')}</p>
+              <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-300" /> {tx('Support access is audit logged')}</p>
+              <p className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-emerald-300" /> {tx('Billing-ready plan structure')}</p>
+              <p className="flex items-center gap-2"><Users className="h-4 w-4 text-emerald-300" /> {tx('Global user operations')}</p>
             </div>
           </section>
         </aside>
