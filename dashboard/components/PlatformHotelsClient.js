@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { persistWorkspaceSelection } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { PremiumLoadingState } from './PremiumLoadingState';
@@ -38,9 +39,10 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 };
 
-const StatusBadge = ({ isLight, tone = 'slate', children }) => (
-  <span className={ui.badge(isLight, tone, true)}>{children}</span>
-);
+const StatusBadge = ({ isLight, tone = 'slate', children }) => {
+  const { tx } = useDashboardLanguage();
+  return <span className={ui.badge(isLight, tone, true)}>{typeof children === 'string' ? tx(children) : children}</span>;
+};
 
 const toneForHealth = (score = 0) => {
   if (score >= 80) return 'emerald';
@@ -62,6 +64,7 @@ const HealthBar = ({ value = 0, isLight }) => (
 );
 
 const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
+  const { tx } = useDashboardLanguage();
   const warnings = [
     hotel.pms?.lastSyncError ? 'PMS sync warning' : null,
     hotel.stats?.urgentTickets ? `${hotel.stats.urgentTickets} urgent tickets` : null,
@@ -90,25 +93,25 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
               )}
             </div>
             <p className={cn('mt-2 text-sm', ui.text.muted(isLight))}>
-              {hotel.destination_country || hotel.country || hotel.timezone || 'Hotel workspace'} - {hotel.plan_label || 'No plan'}
+              {hotel.destination_country || hotel.country || hotel.timezone || tx('Hotel workspace')} - {hotel.plan_label || tx('No plan')}
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <div className={cn('rounded-lg border px-3 py-2', ui.surface(isLight, 'subtle'))}>
                 <p className={ui.text.eyebrow(isLight)}>PMS</p>
                 <p className={cn('mt-1 text-sm font-semibold', ui.text.title(isLight))}>
-                  {hotel.pms?.enabled ? hotel.pms.provider : 'Disconnected'}
+                  {hotel.pms?.enabled ? hotel.pms.provider : tx('Disconnected')}
                 </p>
               </div>
               <div className={cn('rounded-lg border px-3 py-2', ui.surface(isLight, 'subtle'))}>
                 <p className={ui.text.eyebrow(isLight)}>WhatsApp</p>
                 <p className={cn('mt-1 text-sm font-semibold', ui.text.title(isLight))}>
-                  {hotel.stats?.whatsappConfigured ? 'Configured' : 'Needs setup'}
+                  {tx(hotel.stats?.whatsappConfigured ? 'Configured' : 'Needs setup')}
                 </p>
               </div>
               <div className={cn('rounded-lg border px-3 py-2', ui.surface(isLight, 'subtle'))}>
                 <p className={ui.text.eyebrow(isLight)}>AI status</p>
                 <p className={cn('mt-1 text-sm font-semibold', ui.text.title(isLight))}>
-                  {hotel.stats?.aiLogs ? `${hotel.stats.aiHandled || 0} handled` : 'No traffic yet'}
+                  {hotel.stats?.aiLogs ? tx(`${hotel.stats.aiHandled || 0} handled`) : tx('No traffic yet')}
                 </p>
               </div>
             </div>
@@ -117,12 +120,12 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
 
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row xl:flex-col">
           <Link href={`/platform/hotels/${hotel.id}`} className={ui.button(isLight, 'secondary')}>
-            View detail
+            {tx('View detail')}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           <button type="button" onClick={() => onEnterWorkspace(hotel)} className={ui.button(isLight, 'primary')}>
             <DoorOpen className="h-4 w-4" aria-hidden="true" />
-            Enter workspace
+            {tx('Enter workspace')}
           </button>
         </div>
       </div>
@@ -137,7 +140,7 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
         ].map(([label, value, Icon]) => (
           <div key={label} className={cn('rounded-lg border p-3', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
             <div className="flex items-center justify-between gap-2">
-              <p className={cn('text-xs font-semibold uppercase tracking-[0.13em]', isLight ? 'text-slate-500' : 'text-slate-500')}>{label}</p>
+              <p className={cn('text-xs font-semibold uppercase tracking-[0.13em]', isLight ? 'text-slate-500' : 'text-slate-500')}>{tx(label)}</p>
               <Icon className={cn('h-4 w-4', isLight ? 'text-slate-400' : 'text-slate-500')} aria-hidden="true" />
             </div>
             <p className={cn('mt-2 text-2xl font-semibold tabular-nums', ui.text.title(isLight))}>{value}</p>
@@ -148,17 +151,17 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
       <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1.2fr]">
         <div>
           <div className="flex items-center justify-between gap-3">
-            <p className={ui.text.eyebrow(isLight)}>Health score</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Health score')}</p>
             <span className={cn('text-sm font-semibold tabular-nums', ui.text.title(isLight))}>{hotel.healthScore || 0}%</span>
           </div>
           <div className="mt-2">
             <HealthBar value={hotel.healthScore || 0} isLight={isLight} />
           </div>
-          <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>Last activity: {formatDate(hotel.lastActivityAt)}</p>
+          <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>{tx('Last activity')}: {formatDate(hotel.lastActivityAt)}</p>
         </div>
         <div className={cn('rounded-lg border px-3 py-2.5', warnings.length ? (isLight ? 'border-amber-200 bg-amber-50' : 'border-amber-300/20 bg-amber-400/10') : ui.surface(isLight, 'subtle'))}>
           <p className={cn('text-xs font-semibold uppercase tracking-[0.13em]', warnings.length ? (isLight ? 'text-amber-800' : 'text-amber-100') : (isLight ? 'text-slate-500' : 'text-slate-500'))}>
-            Warnings
+            {tx('Warnings')}
           </p>
           {warnings.length ? (
             <div className="mt-2 flex flex-wrap gap-2">
@@ -167,7 +170,7 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
               ))}
             </div>
           ) : (
-            <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>No platform warnings for this workspace.</p>
+            <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>{tx('No platform warnings for this workspace.')}</p>
           )}
         </div>
       </div>
@@ -178,6 +181,7 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
 export const PlatformHotelsClient = () => {
   const router = useRouter();
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [data, setData] = useState({ hotels: [], metrics: {} });
   const [query, setQuery] = useState('');
@@ -253,21 +257,21 @@ export const PlatformHotelsClient = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">Platform workspaces</p>
-          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>Hotels</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">{tx('Platform workspaces')}</p>
+          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Hotels')}</h1>
           <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
-            Dedicated multi-hotel workspace directory. Enter a hotel to switch into the hotel operations sidebar.
+            {tx('Dedicated multi-hotel workspace directory. Enter a hotel to switch into the hotel operations sidebar.')}
           </p>
         </div>
         <button type="button" onClick={loadHotels} className={ui.button(isLight, 'secondary')}>
           <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-          Refresh
+          {tx('Refresh')}
         </button>
       </div>
 
       {error ? (
         <div className={ui.notice(isLight, 'danger')}>
-          {error}
+          {tx(error)}
         </div>
       ) : null}
 
@@ -280,7 +284,7 @@ export const PlatformHotelsClient = () => {
         ].map(([label, value, Icon]) => (
           <article key={label} className={cn('rounded-xl border p-4', ui.surface(isLight))}>
             <div className="flex items-center justify-between">
-              <p className={ui.text.eyebrow(isLight)}>{label}</p>
+              <p className={ui.text.eyebrow(isLight)}>{tx(label)}</p>
               <Icon className={cn('h-4 w-4', isLight ? 'text-slate-400' : 'text-slate-500')} aria-hidden="true" />
             </div>
             <p className={cn('mt-3 text-3xl font-semibold tabular-nums', ui.text.title(isLight))}>{value}</p>
@@ -293,15 +297,15 @@ export const PlatformHotelsClient = () => {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search hotels, PMS, health..."
+          placeholder={tx('Search hotels, PMS, health...')}
           className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
         />
       </div>
 
       {loading ? (
         <PremiumLoadingState
-          title="Loading hotel workspaces"
-          description="Staynex is checking hotel health, PMS status and workspace activity."
+          title={tx('Loading hotel workspaces')}
+          description={tx('Staynex is checking hotel health, PMS status and workspace activity.')}
           rows={3}
           cards={4}
         />
@@ -314,10 +318,11 @@ export const PlatformHotelsClient = () => {
       ) : (
         <PremiumEmptyState
           icon={Building2}
-          title="No hotel workspaces found"
-          description="Create or unarchive a hotel workspace from the platform console to see it here."
+          title={tx('No hotel workspaces found')}
+          description={tx('Create or unarchive a hotel workspace from the platform console to see it here.')}
         />
       )}
     </div>
   );
 };
+

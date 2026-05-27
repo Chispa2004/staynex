@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { PremiumLoadingState } from './PremiumLoadingState';
@@ -74,24 +75,32 @@ const initialAssignment = {
   notes: ''
 };
 
-const StatCard = ({ icon: Icon, label, value, isLight }) => (
-  <article className={cn('rounded-xl border p-4', ui.surface(isLight))}>
-    <div className="flex items-center justify-between gap-3">
-      <p className={ui.text.eyebrow(isLight)}>{label}</p>
-      <Icon className={cn('h-4 w-4', isLight ? 'text-slate-400' : 'text-slate-500')} aria-hidden="true" />
-    </div>
-    <p className={cn('mt-3 text-3xl font-semibold tabular-nums', ui.text.title(isLight))}>{value}</p>
-  </article>
-);
+const StatCard = ({ icon: Icon, label, value, isLight }) => {
+  const { tx } = useDashboardLanguage();
 
-const Field = ({ label, children, isLight }) => (
-  <label className="block">
-    <span className={cn('mb-1.5 block text-xs font-semibold uppercase tracking-[0.13em]', isLight ? 'text-slate-500' : 'text-slate-500')}>
-      {label}
-    </span>
-    {children}
-  </label>
-);
+  return (
+    <article className={cn('rounded-xl border p-4', ui.surface(isLight))}>
+      <div className="flex items-center justify-between gap-3">
+        <p className={ui.text.eyebrow(isLight)}>{tx(label)}</p>
+        <Icon className={cn('h-4 w-4', isLight ? 'text-slate-400' : 'text-slate-500')} aria-hidden="true" />
+      </div>
+      <p className={cn('mt-3 text-3xl font-semibold tabular-nums', ui.text.title(isLight))}>{value}</p>
+    </article>
+  );
+};
+
+const Field = ({ label, children, isLight }) => {
+  const { tx } = useDashboardLanguage();
+
+  return (
+    <label className="block">
+      <span className={cn('mb-1.5 block text-xs font-semibold uppercase tracking-[0.13em]', isLight ? 'text-slate-500' : 'text-slate-500')}>
+        {tx(label)}
+      </span>
+      {children}
+    </label>
+  );
+};
 
 const experienceToForm = (experience = {}) => ({
   id: experience.id || '',
@@ -120,6 +129,7 @@ const ProviderCard = ({
   onDuplicateExperience,
   onDeleteExperience
 }) => {
+  const { tx } = useDashboardLanguage();
   const assignments = provider.assignments || [];
   const experiences = provider.experiences || [];
 
@@ -134,12 +144,12 @@ const ProviderCard = ({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className={cn('truncate text-xl font-semibold', ui.text.title(isLight))}>{provider.name}</h2>
               <span className={ui.badge(isLight, provider.active !== false ? 'emerald' : 'slate', true)}>
-                {provider.active !== false ? 'Active' : 'Inactive'}
+                {tx(provider.active !== false ? 'Active' : 'Inactive')}
               </span>
               <span className={ui.badge(isLight, 'sky', true)}>{provider.provider_type || 'provider'}</span>
             </div>
             <p className={cn('mt-2 text-sm', ui.text.muted(isLight))}>
-              {[provider.destination_city, provider.destination_country].filter(Boolean).join(', ') || 'No destination configured'}
+              {[provider.destination_city, provider.destination_country].filter(Boolean).join(', ') || tx('No destination configured')}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {provider.contact_email ? (
@@ -148,7 +158,7 @@ const ProviderCard = ({
                   {provider.contact_email}
                 </span>
               ) : (
-                <span className={ui.badge(isLight, 'amber', true)}>Reservation email missing</span>
+                <span className={ui.badge(isLight, 'amber', true)}>{tx('Reservation email missing')}</span>
               )}
               {(provider.languages || []).slice(0, 4).map((language) => (
                 <span key={language} className={ui.badge(isLight, 'slate', true)}>{language.toUpperCase()}</span>
@@ -159,15 +169,15 @@ const ProviderCard = ({
 
         <div className="grid min-w-[220px] gap-2 sm:grid-cols-3 lg:grid-cols-1">
           <div className={cn('rounded-lg border px-3 py-2', ui.surface(isLight, 'subtle'))}>
-            <p className={ui.text.eyebrow(isLight)}>Hotels</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Hotels')}</p>
             <p className={cn('mt-1 text-lg font-semibold tabular-nums', ui.text.title(isLight))}>{provider.metrics?.assignedHotels || 0}</p>
           </div>
           <div className={cn('rounded-lg border px-3 py-2', ui.surface(isLight, 'subtle'))}>
-            <p className={ui.text.eyebrow(isLight)}>Experiences</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Experiences')}</p>
             <p className={cn('mt-1 text-lg font-semibold tabular-nums', ui.text.title(isLight))}>{provider.metrics?.activeExperiences || 0}</p>
           </div>
           <div className={cn('rounded-lg border px-3 py-2', ui.surface(isLight, 'subtle'))}>
-            <p className={ui.text.eyebrow(isLight)}>Commission</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Commission')}</p>
             <p className={cn('mt-1 text-lg font-semibold tabular-nums', ui.text.title(isLight))}>{formatCurrency(provider.metrics?.staynexCommission || 0)}</p>
           </div>
         </div>
@@ -175,28 +185,28 @@ const ProviderCard = ({
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
-          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>Assigned hotels</p>
+          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx('Assigned hotels')}</p>
           {assignments.length ? (
             <div className="mt-3 flex flex-wrap gap-2">
               {assignments.slice(0, 8).map((assignment) => (
                 <span key={assignment.id} className={ui.badge(isLight, assignment.active !== false ? 'emerald' : 'slate', true)}>
-                  {assignment.hotel?.name || 'Unknown hotel'}
+                  {assignment.hotel?.name || tx('Unknown hotel')}
                 </span>
               ))}
             </div>
           ) : (
-            <p className={cn('mt-3 text-sm', ui.text.body(isLight))}>Not assigned to a hotel yet.</p>
+            <p className={cn('mt-3 text-sm', ui.text.body(isLight))}>{tx('Not assigned to a hotel yet.')}</p>
           )}
         </div>
         <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>Experiences</p>
-              <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Manage AI matching, availability and provider request data.</p>
+              <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx('Experiences')}</p>
+              <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx('Manage AI matching, availability and provider request data.')}</p>
             </div>
             <button type="button" onClick={() => onAddExperience(provider)} className={ui.button(isLight, 'secondary')}>
               <Plus className="h-4 w-4" aria-hidden="true" />
-              Add experience
+              {tx('Add experience')}
             </button>
           </div>
           {experiences.length ? (
@@ -208,14 +218,14 @@ const ProviderCard = ({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className={cn('font-semibold', ui.text.title(isLight))}>{experience.title}</p>
                         <span className={ui.badge(isLight, experience.active !== false ? 'emerald' : 'slate', true)}>
-                          {experience.active !== false ? 'Active' : 'Inactive'}
+                          {tx(experience.active !== false ? 'Active' : 'Inactive')}
                         </span>
                         <span className={ui.badge(isLight, 'slate', true)}>
                           {experience.price ? formatCurrency(experience.price) : experience.category}
                         </span>
                       </div>
                       <p className={cn('mt-2 line-clamp-2 text-sm', ui.text.body(isLight))}>
-                        {experience.description || experience.short_description || 'No description yet.'}
+                        {experience.description || experience.short_description || tx('No description yet.')}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {experience.duration ? <span className={ui.badge(isLight, 'sky', true)}>{experience.duration}</span> : null}
@@ -230,7 +240,7 @@ const ProviderCard = ({
                     <div className="flex shrink-0 flex-wrap gap-2">
                       <button type="button" onClick={() => onEditExperience(experience)} className={ui.button(isLight, 'secondary')}>
                         <Edit3 className="h-4 w-4" aria-hidden="true" />
-                        Edit
+                        {tx('Edit')}
                       </button>
                       <button
                         type="button"
@@ -239,15 +249,15 @@ const ProviderCard = ({
                         className={ui.button(isLight, experience.active !== false ? 'secondary' : 'primary')}
                       >
                         <Power className="h-4 w-4" aria-hidden="true" />
-                        {experience.active !== false ? 'Deactivate' : 'Activate'}
+                        {tx(experience.active !== false ? 'Deactivate' : 'Activate')}
                       </button>
                       <button type="button" disabled={saving} onClick={() => onDuplicateExperience(experience)} className={ui.button(isLight, 'secondary')}>
                         <Copy className="h-4 w-4" aria-hidden="true" />
-                        Duplicate
+                        {tx('Duplicate')}
                       </button>
                       <button type="button" disabled={saving} onClick={() => onDeleteExperience(experience)} className={ui.button(isLight, 'danger')}>
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Delete
+                        {tx('Delete')}
                       </button>
                     </div>
                   </div>
@@ -255,7 +265,7 @@ const ProviderCard = ({
               ))}
             </div>
           ) : (
-            <p className={cn('mt-3 text-sm', ui.text.body(isLight))}>Add provider experiences for AI matching.</p>
+            <p className={cn('mt-3 text-sm', ui.text.body(isLight))}>{tx('Add provider experiences for AI matching.')}</p>
           )}
         </div>
       </div>
@@ -265,6 +275,7 @@ const ProviderCard = ({
 
 export const PlatformProvidersClient = () => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [data, setData] = useState({ providers: [], hotels: [], metrics: {}, sqlReady: true });
   const [query, setQuery] = useState('');
@@ -362,7 +373,7 @@ export const PlatformProvidersClient = () => {
   };
 
   const deleteExperience = async (experience) => {
-    const confirmed = window.confirm('This will hide the experience from AI recommendations and keep historical booking references safe. Continue?');
+    const confirmed = window.confirm(tx('This will hide the experience from AI recommendations and keep historical booking references safe. Continue?'));
     if (!confirmed) return;
 
     setSaving(true);
@@ -450,31 +461,31 @@ export const PlatformProvidersClient = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">Staynex Partner Network</p>
-          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>Experience Providers</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">{tx('Staynex Partner Network')}</p>
+          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Experience Providers')}</h1>
           <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
-            Central marketplace for external providers, their experiences and hotel assignments. Hotel AI only uses assigned providers.
+            {tx('Central marketplace for external providers, their experiences and hotel assignments. Hotel AI only uses assigned providers.')}
           </p>
         </div>
         <button type="button" onClick={loadProviders} className={ui.button(isLight, 'secondary')}>
           <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-          Refresh
+          {tx('Refresh')}
         </button>
       </div>
 
       {notice ? (
         <div className={ui.notice(isLight, 'success')}>
-          {notice}
+          {tx(notice)}
         </div>
       ) : null}
       {error ? (
         <div className={ui.notice(isLight, 'danger')}>
-          {error}
+          {tx(error)}
         </div>
       ) : null}
       {!data.sqlReady ? (
         <div className={ui.notice(isLight, 'warning')}>
-          Provider marketplace SQL migration required.
+          {tx('Provider marketplace SQL migration required.')}
         </div>
       ) : null}
 
@@ -504,7 +515,7 @@ export const PlatformProvidersClient = () => {
                 onClick={() => setActiveForm(key)}
                 className={activeForm === key ? ui.button(isLight, 'primary') : ui.button(isLight, 'secondary')}
               >
-                {label}
+                {tx(label)}
               </button>
             ))}
           </div>
@@ -542,7 +553,7 @@ export const PlatformProvidersClient = () => {
             <div className="flex items-end">
               <button type="submit" disabled={saving} className={cn('w-full', ui.button(isLight, 'primary'))}>
                 <Plus className="h-4 w-4" aria-hidden="true" />
-                Add provider
+                {tx('Add provider')}
               </button>
             </div>
           </form>
@@ -558,7 +569,7 @@ export const PlatformProvidersClient = () => {
           >
             <Field label="Provider" isLight={isLight}>
               <select className={cn('w-full', ui.input(isLight))} value={experienceForm.provider_id} onChange={(event) => setExperienceForm({ ...experienceForm, provider_id: event.target.value })}>
-                <option value="">Select provider</option>
+                <option value="">{tx('Select provider')}</option>
                 {(data.providers || []).map((provider) => (
                   <option key={provider.id} value={provider.id}>{provider.name}</option>
                 ))}
@@ -589,7 +600,7 @@ export const PlatformProvidersClient = () => {
               <input className={cn('w-full', ui.input(isLight))} value={experienceForm.aliases} onChange={(event) => setExperienceForm({ ...experienceForm, aliases: event.target.value })} placeholder="essaouira,coastal excursion" />
             </Field>
             <Field label="Provider email" isLight={isLight}>
-              <input className={cn('w-full', ui.input(isLight))} value={experienceForm.provider_email} onChange={(event) => setExperienceForm({ ...experienceForm, provider_email: event.target.value })} placeholder="Optional override" />
+              <input className={cn('w-full', ui.input(isLight))} value={experienceForm.provider_email} onChange={(event) => setExperienceForm({ ...experienceForm, provider_email: event.target.value })} placeholder={tx('Optional override')} />
             </Field>
             <Field label="Description" isLight={isLight}>
               <input className={cn('w-full', ui.input(isLight))} value={experienceForm.description} onChange={(event) => setExperienceForm({ ...experienceForm, description: event.target.value })} />
@@ -600,7 +611,7 @@ export const PlatformProvidersClient = () => {
             <div className="flex items-end">
               <button type="submit" disabled={saving} className={cn('w-full', ui.button(isLight, 'primary'))}>
                 <Plus className="h-4 w-4" aria-hidden="true" />
-                Add experience
+                {tx('Add experience')}
               </button>
             </div>
           </form>
@@ -616,7 +627,7 @@ export const PlatformProvidersClient = () => {
           >
             <Field label="Provider" isLight={isLight}>
               <select className={cn('w-full', ui.input(isLight))} value={assignmentForm.provider_id} onChange={(event) => setAssignmentForm({ ...assignmentForm, provider_id: event.target.value })}>
-                <option value="">Select provider</option>
+                <option value="">{tx('Select provider')}</option>
                 {(data.providers || []).map((provider) => (
                   <option key={provider.id} value={provider.id}>{provider.name}</option>
                 ))}
@@ -624,19 +635,19 @@ export const PlatformProvidersClient = () => {
             </Field>
             <Field label="Hotel" isLight={isLight}>
               <select className={cn('w-full', ui.input(isLight))} value={assignmentForm.hotel_id} onChange={(event) => setAssignmentForm({ ...assignmentForm, hotel_id: event.target.value })}>
-                <option value="">Select hotel</option>
+                <option value="">{tx('Select hotel')}</option>
                 {(data.hotels || []).map((hotel) => (
                   <option key={hotel.id} value={hotel.id}>{hotel.name}</option>
                 ))}
               </select>
             </Field>
             <Field label="Lead email override" isLight={isLight}>
-              <input className={cn('w-full', ui.input(isLight))} value={assignmentForm.lead_email} onChange={(event) => setAssignmentForm({ ...assignmentForm, lead_email: event.target.value })} placeholder="Optional" />
+              <input className={cn('w-full', ui.input(isLight))} value={assignmentForm.lead_email} onChange={(event) => setAssignmentForm({ ...assignmentForm, lead_email: event.target.value })} placeholder={tx('Optional')} />
             </Field>
             <div className="flex items-end">
               <button type="submit" disabled={saving} className={cn('w-full', ui.button(isLight, 'primary'))}>
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                Assign provider
+                {tx('Assign provider')}
               </button>
             </div>
           </form>
@@ -648,15 +659,15 @@ export const PlatformProvidersClient = () => {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search providers, experiences, hotels..."
+          placeholder={tx('Search providers, experiences, hotels...')}
           className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-500"
         />
       </div>
 
       {loading ? (
         <PremiumLoadingState
-          title="Loading experience providers"
-          description="Staynex is preparing provider catalogs, hotel assignments and marketplace health."
+          title={tx('Loading experience providers')}
+          description={tx('Staynex is preparing provider catalogs, hotel assignments and marketplace health.')}
           rows={4}
           cards={3}
         />
@@ -679,12 +690,12 @@ export const PlatformProvidersClient = () => {
       ) : (
         <PremiumEmptyState
           icon={Store}
-          title="No experience providers yet"
-          description="Create external providers and assign them to hotels before AI can recommend their experiences."
+          title={tx('No experience providers yet')}
+          description={tx('Create external providers and assign them to hotels before AI can recommend their experiences.')}
           action={data.sqlReady ? null : (
             <span className={ui.badge(isLight, 'amber')}>
               <AlertTriangle className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-              Provider marketplace SQL migration required
+              {tx('Provider marketplace SQL migration required')}
             </span>
           )}
         />
@@ -695,10 +706,10 @@ export const PlatformProvidersClient = () => {
           <section className={cn('max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl border p-5 shadow-2xl', ui.surface(isLight))}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className={ui.text.eyebrow(isLight)}>Edit provider experience</p>
+                <p className={ui.text.eyebrow(isLight)}>{tx('Edit provider experience')}</p>
                 <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>{editingExperience.title}</h2>
                 <p className={cn('mt-2 text-sm', ui.text.body(isLight))}>
-                  Changes update the provider catalog used by AI matching. Inactive experiences are not recommended or bookable.
+                  {tx('Changes update the provider catalog used by AI matching. Inactive experiences are not recommended or bookable.')}
                 </p>
               </div>
               <button
@@ -709,7 +720,7 @@ export const PlatformProvidersClient = () => {
                 }}
                 className={ui.button(isLight, 'secondary')}
               >
-                Cancel
+                {tx('Cancel')}
               </button>
             </div>
 
@@ -755,8 +766,8 @@ export const PlatformProvidersClient = () => {
               </div>
               <label className={cn('flex items-center justify-between gap-3 rounded-xl border p-3 md:col-span-2', ui.surface(isLight, 'subtle'))}>
                 <span>
-                  <span className={cn('block text-sm font-semibold', ui.text.title(isLight))}>Active in AI catalog</span>
-                  <span className={cn('mt-1 block text-xs', ui.text.muted(isLight))}>When off, the AI will not recommend or book this experience.</span>
+                  <span className={cn('block text-sm font-semibold', ui.text.title(isLight))}>{tx('Active in AI catalog')}</span>
+                  <span className={cn('mt-1 block text-xs', ui.text.muted(isLight))}>{tx('When off, the AI will not recommend or book this experience.')}</span>
                 </span>
                 <input
                   type="checkbox"
@@ -776,11 +787,11 @@ export const PlatformProvidersClient = () => {
                 }}
                 className={ui.button(isLight, 'secondary')}
               >
-                Cancel
+                {tx('Cancel')}
               </button>
               <button type="button" disabled={saving} onClick={saveExperienceChanges} className={ui.button(isLight, 'primary')}>
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                Save changes
+                {tx('Save changes')}
               </button>
             </div>
           </section>
@@ -789,3 +800,5 @@ export const PlatformProvidersClient = () => {
     </div>
   );
 };
+
+

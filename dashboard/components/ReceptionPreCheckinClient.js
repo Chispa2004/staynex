@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,6 +25,7 @@ import {
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 
 const filters = [
@@ -108,6 +109,7 @@ const compactText = (value, fallback = '-') => {
 
 export const ReceptionPreCheckinClient = () => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [reservations, setReservations] = useState([]);
   const [metrics, setMetrics] = useState({});
@@ -239,15 +241,15 @@ export const ReceptionPreCheckinClient = () => {
       <div className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className={ui.text.eyebrow(isLight)}>Reception operations</p>
-            <h2 className={cn('mt-2 text-2xl sm:text-3xl', ui.text.title(isLight))}>Reception / Pre Check-in</h2>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Reception operations')}</p>
+            <h2 className={cn('mt-2 text-2xl sm:text-3xl', ui.text.title(isLight))}>{tx('Reception / Pre Check-in')}</h2>
             <p className={cn('mt-2 max-w-3xl', ui.text.body(isLight))}>
-              Search guests and reservations, review check-in readiness and open the connected Staynex context before arrival or checkout.
+              {tx('Search guests and reservations, review check-in readiness and open the connected Staynex context before arrival or checkout.')}
             </p>
           </div>
           <button type="button" onClick={() => loadReservations()} disabled={refreshing} className={ui.button(isLight, 'secondary')}>
             <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-            Refresh
+            {tx('Refresh')}
           </button>
         </div>
 
@@ -263,7 +265,7 @@ export const ReceptionPreCheckinClient = () => {
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, room, phone, email, locator, document or status"
+              placeholder={tx('Search name, room, phone, email, locator, document or status')}
               className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-slate-500"
             />
           </label>
@@ -275,7 +277,7 @@ export const ReceptionPreCheckinClient = () => {
                 onClick={() => setActiveFilter(filter.key)}
                 className={cn(activeFilter === filter.key ? ui.button(isLight, 'active') : ui.button(isLight, 'small'), 'rounded-full')}
               >
-                {filter.label}
+                {tx(filter.label)}
               </button>
             ))}
           </div>
@@ -284,12 +286,12 @@ export const ReceptionPreCheckinClient = () => {
 
       {error ? (
         <div className={cn('rounded-xl border p-4 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
-          {error}
+          {tx(error)}
         </div>
       ) : null}
       {notice ? (
         <div className={cn('rounded-xl border p-4 text-sm', isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-300/10 text-sky-100')}>
-          {notice}
+          {tx(notice)}
         </div>
       ) : null}
 
@@ -318,13 +320,14 @@ export const ReceptionPreCheckinClient = () => {
 
 const MetricCard = ({ stat, loading }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const Icon = stat.icon;
 
   return (
     <div className={cn(ui.row(isLight), 'p-4')}>
       <div className="flex items-center justify-between gap-3">
-        <p className={ui.text.eyebrow(isLight)}>{stat.label}</p>
+        <p className={ui.text.eyebrow(isLight)}>{tx(stat.label)}</p>
         <span className={cn('flex h-9 w-9 items-center justify-center rounded-lg border', ui.badge(isLight, stat.tone, true))}>
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
@@ -336,14 +339,15 @@ const MetricCard = ({ stat, loading }) => {
 
 const ReservationList = ({ reservations, selectedId, onSelect, loading, hotelName }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <div className={cn('min-h-0 rounded-2xl border p-4', ui.surface(isLight))}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className={ui.text.eyebrow(isLight)}>Reservation finder</p>
-          <h3 className={cn('mt-1 text-lg', ui.text.title(isLight))}>{hotelName || 'Hotel'} guests</h3>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Reservation finder')}</p>
+          <h3 className={cn('mt-1 text-lg', ui.text.title(isLight))}>{hotelName || 'Hotel'} {tx('guests')}</h3>
         </div>
         <Badge tone="slate">{reservations.length}</Badge>
       </div>
@@ -371,7 +375,7 @@ const ReservationList = ({ reservations, selectedId, onSelect, loading, hotelNam
                 <div className="min-w-0">
                   <p className={cn('truncate text-sm font-semibold', ui.text.title(isLight))}>{reservation.guestName}</p>
                   <p className={cn('mt-1 truncate text-xs', ui.text.muted(isLight))}>
-                    Room {compactText(reservation.roomNumber)} - {compactText(reservation.roomType, 'Room type unavailable')}
+                    {tx('Room')} {compactText(reservation.roomNumber)} - {compactText(reservation.roomType, tx('Room type unavailable'))}
                   </p>
                 </div>
                 <Badge tone={readinessTone(reservation.readiness?.status)}>
@@ -380,17 +384,17 @@ const ReservationList = ({ reservations, selectedId, onSelect, loading, hotelNam
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge tone={statusTone(reservation.reservationStatus)}>
-                  {statusLabels[reservation.reservationStatus] || reservation.reservationStatus}
+                  {tx(statusLabels[reservation.reservationStatus] || reservation.reservationStatus)}
                 </Badge>
                 {reservation.vip ? <Badge tone="violet">VIP</Badge> : null}
                 {reservation.language ? <Badge tone="sky">{String(reservation.language).toUpperCase()}</Badge> : null}
-                {reservation.readiness?.alerts?.length ? <Badge tone="amber">{reservation.readiness.alerts.length} alerts</Badge> : null}
+                {reservation.readiness?.alerts?.length ? <Badge tone="amber">{reservation.readiness.alerts.length} {tx('alerts')}</Badge> : null}
               </div>
               <div className={cn('mt-3 grid gap-2 text-xs sm:grid-cols-2', ui.text.muted(isLight))}>
-                <span>In: {formatDate(reservation.arrivalDate)}</span>
-                <span>Out: {formatDate(reservation.departureDate)}</span>
-                <span>{compactText(reservation.phone, 'No phone')}</span>
-                <span>{compactText(reservation.locator, 'No locator')}</span>
+                <span>{tx('In')}: {formatDate(reservation.arrivalDate)}</span>
+                <span>{tx('Out')}: {formatDate(reservation.departureDate)}</span>
+                <span>{compactText(reservation.phone, tx('No phone'))}</span>
+                <span>{compactText(reservation.locator, tx('No locator'))}</span>
               </div>
             </button>
           ))}
@@ -417,6 +421,7 @@ const ReservationDetail = ({
   onMarkAttention
 }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   if (loading) {
@@ -446,14 +451,14 @@ const ReservationDetail = ({
     <div className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className={ui.text.eyebrow(isLight)}>Reservation detail</p>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Reservation detail')}</p>
           <h3 className={cn('mt-2 text-2xl', ui.text.title(isLight))}>{reservation.guestName}</h3>
           <div className="mt-3 flex flex-wrap gap-2">
               <Badge tone={readinessTone(reservation.readiness?.status)}>
-              {readinessLabels[reservation.readiness?.status] || 'Needs attention'} - {reservation.readiness?.score || 0}%
+              {tx(readinessLabels[reservation.readiness?.status] || 'Needs attention')} - {reservation.readiness?.score || 0}%
             </Badge>
             <Badge tone={statusTone(reservation.reservationStatus)}>
-              {statusLabels[reservation.reservationStatus] || reservation.reservationStatus}
+              {tx(statusLabels[reservation.reservationStatus] || reservation.reservationStatus)}
             </Badge>
             <Badge tone="slate">{role}</Badge>
           </div>
@@ -550,20 +555,20 @@ const ReservationDetail = ({
 
         <DetailPanel title="Safe reception actions" icon={FileText}>
           <p className={cn('text-sm leading-6', ui.text.body(isLight))}>
-            Notes and attention marks stay inside Staynex. This does not edit PMS check-in data or send documents by WhatsApp.
+            {tx('Notes and attention marks stay inside Staynex. This does not edit PMS check-in data or send documents by WhatsApp.')}
           </p>
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Add an internal operational note"
+            placeholder={tx('Add an internal operational note')}
             className={cn('mt-3 min-h-28 w-full resize-y', ui.input(isLight))}
           />
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={onAddNote} disabled={!note.trim()} className={ui.button(isLight, 'secondary')}>
-              Add internal note
+              {tx('Add internal note')}
             </button>
             <button type="button" onClick={onMarkAttention} className={ui.button(isLight, 'secondary')}>
-              Mark as needs attention
+              {tx('Mark as needs attention')}
             </button>
           </div>
         </DetailPanel>
@@ -574,6 +579,7 @@ const ReservationDetail = ({
 
 const DetailPanel = ({ title, icon: Icon, children }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
@@ -582,7 +588,7 @@ const DetailPanel = ({ title, icon: Icon, children }) => {
         <span className={cn('flex h-9 w-9 items-center justify-center rounded-lg border', isLight ? 'border-sky-200 bg-sky-50 text-sky-800' : 'border-sky-300/20 bg-sky-300/10 text-sky-100')}>
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
-        <h4 className={cn('text-sm', ui.text.title(isLight))}>{title}</h4>
+        <h4 className={cn('text-sm', ui.text.title(isLight))}>{tx(title)}</h4>
       </div>
       {children}
     </section>
@@ -591,14 +597,15 @@ const DetailPanel = ({ title, icon: Icon, children }) => {
 
 const DetailGrid = ({ rows }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <dl className="grid gap-3 sm:grid-cols-2">
       {rows.map(([label, value]) => (
         <div key={label} className={cn('rounded-lg border p-3', isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-black/10')}>
-          <dt className={ui.text.eyebrow(isLight)}>{label}</dt>
-          <dd className={cn('mt-1 break-words text-sm font-semibold', ui.text.title(isLight))}>{value}</dd>
+          <dt className={ui.text.eyebrow(isLight)}>{tx(label)}</dt>
+          <dd className={cn('mt-1 break-words text-sm font-semibold', ui.text.title(isLight))}>{typeof value === 'string' ? tx(value) : value}</dd>
         </div>
       ))}
     </dl>
@@ -606,26 +613,29 @@ const DetailGrid = ({ rows }) => {
 };
 
 const CheckRow = ({ check }) => {
+  const { tx } = useDashboardLanguage();
   const tone = check.status === 'ok' ? 'emerald' : check.status === 'attention' ? 'amber' : check.status === 'missing' ? 'red' : 'slate';
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-black/10">
       <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
         {check.status === 'ok' ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> : <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />}
-        <span className="truncate">{check.label}</span>
+        <span className="truncate">{tx(check.label)}</span>
       </span>
-      <Badge tone={tone}>{check.status.replaceAll('_', ' ')}</Badge>
+      <Badge tone={tone}>{tx(check.status.replaceAll('_', ' '))}</Badge>
     </div>
   );
 };
 
 const Badge = ({ children, tone = 'slate' }) => {
   const { theme } = useDashboardTheme();
-  return <span className={ui.badge(theme === 'light', tone, true)}>{children}</span>;
+  const { tx } = useDashboardLanguage();
+  return <span className={ui.badge(theme === 'light', tone, true)}>{typeof children === 'string' ? tx(children) : children}</span>;
 };
 
 const ActionLink = ({ href, icon: Icon, label }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   if (!href) {
@@ -636,7 +646,7 @@ const ActionLink = ({ href, icon: Icon, label }) => {
     <Link href={href} className={cn(ui.button(isLight, 'secondary'), 'justify-between text-xs')}>
       <span className="flex min-w-0 items-center gap-2">
         <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className="truncate">{label}</span>
+        <span className="truncate">{tx(label)}</span>
       </span>
       <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
     </Link>
@@ -645,13 +655,14 @@ const ActionLink = ({ href, icon: Icon, label }) => {
 
 const ActionButton = ({ onClick, icon: Icon, label, disabled = false }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={cn(ui.button(isLight, 'secondary'), 'justify-between text-xs')}>
       <span className="flex min-w-0 items-center gap-2">
         <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-        <span className="truncate">{label}</span>
+        <span className="truncate">{tx(label)}</span>
       </span>
     </button>
   );
@@ -659,18 +670,20 @@ const ActionButton = ({ onClick, icon: Icon, label, disabled = false }) => {
 
 const DisabledAction = ({ icon: Icon, label }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <span className={cn(ui.button(isLight, 'secondary'), 'justify-start text-xs opacity-50')}>
       <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span className="truncate">{label}</span>
+      <span className="truncate">{tx(label)}</span>
     </span>
   );
 };
 
 const EmptyState = ({ icon: Icon, title, description }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
@@ -678,8 +691,8 @@ const EmptyState = ({ icon: Icon, title, description }) => {
       <span className={cn('mx-auto flex h-10 w-10 items-center justify-center rounded-xl border', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
-      <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>{title}</p>
-      <p className={cn('mt-1', ui.text.muted(isLight))}>{description}</p>
+      <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>{tx(title)}</p>
+      <p className={cn('mt-1', ui.text.muted(isLight))}>{tx(description)}</p>
     </div>
   );
 };
@@ -696,3 +709,4 @@ const SkeletonList = () => {
     </div>
   );
 };
+

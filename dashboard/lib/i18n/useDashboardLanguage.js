@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {
   createContext,
@@ -10,7 +10,8 @@ import {
 import {
   DASHBOARD_LANGUAGE_STORAGE_KEY,
   DEFAULT_DASHBOARD_LANGUAGE,
-  translations
+  translations,
+  translatePhrase
 } from './translations';
 
 const DashboardLanguageContext = createContext(null);
@@ -43,17 +44,29 @@ export const DashboardLanguageProvider = ({ children }) => {
     const t = (key, replacements = {}) => {
       const translatedValue = getValue(translations[language], key)
         || getValue(translations[DEFAULT_DASHBOARD_LANGUAGE], key)
+        || getValue(translations.en, key)
         || key;
+
+      if (
+        translatedValue === key
+        && language !== DEFAULT_DASHBOARD_LANGUAGE
+        && process.env.NODE_ENV !== 'production'
+      ) {
+        console.warn('Missing dashboard translation key', { language, key });
+      }
 
       return typeof translatedValue === 'string'
         ? formatValue(translatedValue, replacements)
         : translatedValue;
     };
 
+    const tx = (value, replacements = {}) => translatePhrase(language, value, replacements);
+
     return {
       language,
       setLanguage,
-      t
+      t,
+      tx
     };
   }, [language]);
 
@@ -73,3 +86,4 @@ export const useDashboardLanguage = () => {
 
   return context;
 };
+

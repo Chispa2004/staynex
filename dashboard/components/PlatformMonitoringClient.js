@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 
 const serviceIcons = {
@@ -43,6 +44,7 @@ const formatDateTime = (value) => {
 
 export const PlatformMonitoringClient = () => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +63,7 @@ export const PlatformMonitoringClient = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Platform monitoring could not be loaded');
+        throw new Error(body.error || tx('Platform monitoring could not be loaded'));
       }
 
       setData(body.monitoring);
@@ -93,7 +95,7 @@ export const PlatformMonitoringClient = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Monitoring action failed');
+        throw new Error(body.error || tx('Monitoring action failed'));
       }
 
       await loadMonitoring({ silent: true });
@@ -119,18 +121,18 @@ export const PlatformMonitoringClient = () => {
       <section className={cn('overflow-hidden rounded-2xl border p-5', ui.surface(isLight))}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className={ui.text.eyebrow(isLight)}>Internal Observability</p>
-            <h1 className={cn('mt-2 text-3xl font-semibold sm:text-4xl', ui.text.title(isLight))}>Platform Monitoring</h1>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Internal Observability')}</p>
+            <h1 className={cn('mt-2 text-3xl font-semibold sm:text-4xl', ui.text.title(isLight))}>{tx('Platform Monitoring')}</h1>
             <p className={cn('mt-3 max-w-3xl', ui.text.body(isLight))}>
-              Internal Staynex console for technical health, retries, provider failures, AI quality signals and queue monitoring.
+              {tx('Internal Staynex console for technical health, retries, provider failures, AI quality signals and queue monitoring.')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <StatusBadge status={globalHealth.status || 'healthy'} />
-            {ticketMonitoring.demoDataDetected ? <span className={ui.badge(isLight, 'sky')}>Demo environment</span> : null}
+            {ticketMonitoring.demoDataDetected ? <span className={ui.badge(isLight, 'sky')}>{tx('Demo environment')}</span> : null}
             <button type="button" onClick={() => loadMonitoring()} disabled={refreshing} className={ui.button(isLight, 'secondary')}>
               <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-              Refresh
+              {tx('Refresh')}
             </button>
           </div>
         </div>
@@ -232,7 +234,7 @@ export const PlatformMonitoringClient = () => {
             <div className={cn('h-36 rounded-xl', ui.skeleton(isLight))} />
           ) : monitoring.alerts?.length ? (
             <div className="space-y-3">
-              {monitoring.alerts.map((alert) => <AlertRow key={`${alert.title}-${alert.message}`} alert={alert} onAction={runMonitoringAction} actionBusy={actionBusy} />)}
+              {monitoring.alerts.map((alert) => <AlertRow key={`${tx(alert.title)}-${tx(alert.message)}`} alert={alert} onAction={runMonitoringAction} actionBusy={actionBusy} />)}
             </div>
           ) : (
             <Empty title="No internal alerts." description="No critical platform monitoring alerts are currently active." />
@@ -257,20 +259,22 @@ export const PlatformMonitoringClient = () => {
 
 const StatusBadge = ({ status = 'healthy' }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const tone = status === 'critical' ? 'red' : status === 'warning' ? 'amber' : 'emerald';
 
-  return <span className={ui.badge(isLight, tone)}>{status}</span>;
+  return <span className={ui.badge(isLight, tone)}>{tx(status)}</span>;
 };
 
 const Metric = ({ label, value, icon: Icon, tone = 'emerald', compact = false }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <div className={cn('rounded-xl border', compact ? 'p-3' : 'p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
       <div className="flex items-center justify-between gap-3">
-        <p className={ui.text.eyebrow(isLight)}>{label}</p>
+        <p className={ui.text.eyebrow(isLight)}>{tx(label)}</p>
         <span className={ui.badge(isLight, tone, true)}>
           <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         </span>
@@ -282,6 +286,7 @@ const Metric = ({ label, value, icon: Icon, tone = 'emerald', compact = false })
 
 const ServiceCard = ({ service }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const Icon = serviceIcons[service.id] || ServerCog;
 
@@ -293,15 +298,16 @@ const ServiceCard = ({ service }) => {
         </span>
         <StatusBadge status={service.status} />
       </div>
-      <p className={cn('mt-4 text-sm font-semibold', ui.text.title(isLight))}>{service.label}</p>
+      <p className={cn('mt-4 text-sm font-semibold', ui.text.title(isLight))}>{tx(service.label)}</p>
       <p className={cn('mt-2 text-2xl font-semibold tabular-nums', ui.text.title(isLight))}>{service.value}</p>
-      <p className={cn('mt-2 text-sm leading-5', ui.text.body(isLight))}>{service.description}</p>
+      <p className={cn('mt-2 text-sm leading-5', ui.text.body(isLight))}>{tx(service.description)}</p>
     </article>
   );
 };
 
 const Panel = ({ title, eyebrow, icon: Icon, children }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
@@ -311,8 +317,8 @@ const Panel = ({ title, eyebrow, icon: Icon, children }) => {
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
         <div>
-          <p className={ui.text.eyebrow(isLight)}>{eyebrow}</p>
-          <h2 className={cn('mt-1 text-xl', ui.text.title(isLight))}>{title}</h2>
+          <p className={ui.text.eyebrow(isLight)}>{tx(eyebrow)}</p>
+          <h2 className={cn('mt-1 text-xl', ui.text.title(isLight))}>{tx(title)}</h2>
         </div>
       </div>
       {children}
@@ -322,6 +328,7 @@ const Panel = ({ title, eyebrow, icon: Icon, children }) => {
 
 const RetryQueueRow = ({ item, onAction, actionBusy }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const busy = actionBusy === `retry_provider_email:${item.id}`;
 
@@ -332,12 +339,12 @@ const RetryQueueRow = ({ item, onAction, actionBusy }) => {
           <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{item.provider}</p>
           <p className={cn('mt-1 truncate text-sm', ui.text.body(isLight))}>{item.experience}</p>
           <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
-            Retry count {item.retryCount || 0} · Last retry {formatDateTime(item.lastRetryAt)}
+            {tx(`Retry count ${item.retryCount || 0} · Last retry ${formatDateTime(item.lastRetryAt)}`)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={ui.badge(isLight, item.status === 'queued' || item.status === 'pending_retry' ? 'amber' : 'red', true)}>
-            {item.status}
+            {tx(item.status)}
           </span>
           <button
             type="button"
@@ -346,7 +353,7 @@ const RetryQueueRow = ({ item, onAction, actionBusy }) => {
             className={ui.button(isLight, 'secondary')}
           >
             <RotateCcw className={busy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-            Retry now
+            {tx('Retry now')}
           </button>
         </div>
       </div>
@@ -356,6 +363,7 @@ const RetryQueueRow = ({ item, onAction, actionBusy }) => {
 
 const WebhookRow = ({ source, onAction, actionBusy }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const busy = actionBusy === `retry_webhook:${source.id}`;
   const tone = source.status === 'healthy' ? 'emerald' : source.status === 'warning' ? 'amber' : 'slate';
@@ -365,11 +373,11 @@ const WebhookRow = ({ source, onAction, actionBusy }) => {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{source.source}</p>
-          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Last received {formatDateTime(source.lastReceivedAt)}</p>
-          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Failed {source.failedCount || 0} · Retries {source.retryCount || 0}</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx(`Last received ${formatDateTime(source.lastReceivedAt)}`)}</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx(`Failed ${source.failedCount || 0} · Retries ${source.retryCount || 0}`)}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={ui.badge(isLight, tone, true)}>{source.status}</span>
+          <span className={ui.badge(isLight, tone, true)}>{tx(source.status)}</span>
           <button
             type="button"
             disabled={busy}
@@ -377,7 +385,7 @@ const WebhookRow = ({ source, onAction, actionBusy }) => {
             className={ui.button(isLight, 'secondary')}
           >
             <RefreshCw className={busy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-            Retry webhook
+            {tx('Retry webhook')}
           </button>
         </div>
       </div>
@@ -387,6 +395,7 @@ const WebhookRow = ({ source, onAction, actionBusy }) => {
 
 const AlertRow = ({ alert, onAction, actionBusy }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const tone = alert.severity === 'critical' ? 'red' : alert.severity === 'warning' ? 'amber' : 'sky';
   const busy = actionBusy === `${alert.action}:global`;
@@ -395,12 +404,12 @@ const AlertRow = ({ alert, onAction, actionBusy }) => {
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{alert.title}</p>
-          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{alert.message}</p>
+          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx(alert.title)}</p>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{tx(alert.message)}</p>
           {alert.createdAt ? <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{formatDateTime(alert.createdAt)}</p> : null}
         </div>
         <div className="flex flex-col items-end gap-2">
-          <span className={ui.badge(isLight, tone, true)}>{alert.severity}</span>
+          <span className={ui.badge(isLight, tone, true)}>{tx(alert.severity)}</span>
           {alert.action ? (
             <button
               type="button"
@@ -409,7 +418,7 @@ const AlertRow = ({ alert, onAction, actionBusy }) => {
               className={ui.button(isLight, 'ghost')}
             >
               <RefreshCw className={busy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-              Review
+              {tx('Review')}
             </button>
           ) : null}
         </div>
@@ -420,6 +429,7 @@ const AlertRow = ({ alert, onAction, actionBusy }) => {
 
 const FailedEventRow = ({ event, onAction, actionBusy }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const tone = event.severity === 'critical' ? 'red' : 'amber';
   const busy = actionBusy === `retry_provider_email:${event.entityId}`;
@@ -428,16 +438,16 @@ const FailedEventRow = ({ event, onAction, actionBusy }) => {
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
-          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{event.title}</p>
-          <p className={cn('mt-1 truncate text-sm', ui.text.body(isLight))}>{event.detail || event.type}</p>
+          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx(event.title)}</p>
+          <p className={cn('mt-1 truncate text-sm', ui.text.body(isLight))}>{tx(event.detail || event.type)}</p>
           <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{formatDateTime(event.createdAt)}</p>
           {event.retryCount !== undefined ? (
-            <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Retry count {event.retryCount || 0} · Status {event.retryStatus || 'failed'}</p>
+            <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx(`Retry count ${event.retryCount || 0} · Status ${event.retryStatus || 'failed'}`)}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className={ui.badge(isLight, tone, true)}>{event.severity}</span>
-          <span className={ui.badge(isLight, 'slate', true)}>{event.type}</span>
+          <span className={ui.badge(isLight, tone, true)}>{tx(event.severity)}</span>
+          <span className={ui.badge(isLight, 'slate', true)}>{tx(event.type)}</span>
           {event.type === 'provider_email_failure' && event.retryable ? (
             <button
               type="button"
@@ -446,7 +456,7 @@ const FailedEventRow = ({ event, onAction, actionBusy }) => {
               className={ui.button(isLight, 'secondary')}
             >
               <RotateCcw className={busy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-              Retry now
+              {tx('Retry now')}
             </button>
           ) : null}
         </div>
@@ -457,13 +467,15 @@ const FailedEventRow = ({ event, onAction, actionBusy }) => {
 
 const Empty = ({ title, description }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <div className={cn('rounded-xl border border-dashed p-6 text-center', isLight ? 'border-slate-300 bg-slate-50' : 'border-white/10 bg-white/[0.02]')}>
       <ShieldCheck className="mx-auto h-8 w-8 text-emerald-400" aria-hidden="true" />
-      <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>{title}</p>
-      <p className={cn('mt-1', ui.text.muted(isLight))}>{description}</p>
+      <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>{tx(title)}</p>
+      <p className={cn('mt-1', ui.text.muted(isLight))}>{tx(description)}</p>
     </div>
   );
 };
+

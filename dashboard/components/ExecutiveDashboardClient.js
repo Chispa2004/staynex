@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +30,7 @@ import { getAuthHeaders } from '@/lib/auth-headers';
 import { canAccess } from '@/lib/permissions';
 import { getActiveTenantId, shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 
 const formatNumber = (value) => new Intl.NumberFormat().format(Number(value || 0));
@@ -85,6 +86,7 @@ const toneForSeverity = (severity) => {
 
 export const ExecutiveDashboardClient = () => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -192,17 +194,17 @@ export const ExecutiveDashboardClient = () => {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <ExecutiveBadge tone="sky">Hotel Operations Command Center</ExecutiveBadge>
+              <ExecutiveBadge tone="sky">{tx('Hotel Operations Command Center')}</ExecutiveBadge>
               <ExecutiveBadge tone="slate">{formatDateTime(null, timezone)}</ExecutiveBadge>
               <ExecutiveBadge tone={role === 'receptionist' ? 'emerald' : 'violet'}>
                 {role.replaceAll('_', ' ')}
               </ExecutiveBadge>
             </div>
             <h1 className={cn('text-3xl font-semibold tracking-tight sm:text-5xl', ui.text.title(isLight))}>
-              {greetingForHour(timezone)}, {hotelName}
+              {tx(greetingForHour(timezone))}, {hotelName}
             </h1>
             <p className={cn('mt-4 max-w-3xl', ui.text.body(isLight))}>
-              Un centro de control para ver lo urgente, entender la operacion del hotel y abrir rapidamente las herramientas que necesita el equipo.
+              {tx('Un centro de control para ver lo urgente, entender la operacion del hotel y abrir rapidamente las herramientas que necesita el equipo.')}
             </p>
           </div>
           <button
@@ -212,14 +214,14 @@ export const ExecutiveDashboardClient = () => {
             className={ui.button(isLight, 'secondary')}
           >
             <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-            Refresh
+            {tx('Refresh')}
           </button>
         </div>
       </header>
 
       {error ? (
         <ExecutiveCard className="border-red-300/25 p-4">
-          <p className="text-sm font-semibold text-red-400">Dashboard data could not be refreshed.</p>
+          <p className="text-sm font-semibold text-red-400">{tx('Dashboard data could not be refreshed.')}</p>
           <p className={cn('mt-1', ui.text.body(isLight))}>{error}</p>
         </ExecutiveCard>
       ) : null}
@@ -711,6 +713,7 @@ const QuickActionsPanel = ({ role, permissions, data }) => {
 
 const DataTile = ({ label, value, tone = 'slate', compact = false, badge = null }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
@@ -721,14 +724,14 @@ const DataTile = ({ label, value, tone = 'slate', compact = false, badge = null 
     )}
     >
       <p className={cn('text-[10px] font-semibold uppercase tracking-[0.18em]', isLight ? 'text-slate-500' : 'text-slate-400')}>
-        {label}
+        {tx(label)}
       </p>
       <p className={cn('mt-2 truncate text-xl font-semibold tracking-tight tabular-nums', ui.text.title(isLight))}>
         {value}
       </p>
       {badge ? (
         <div className="mt-2 flex justify-center">
-          <ExecutiveBadge tone={tone}>{badge}</ExecutiveBadge>
+          <ExecutiveBadge tone={tone}>{tx(badge)}</ExecutiveBadge>
         </div>
       ) : null}
     </div>
@@ -737,6 +740,7 @@ const DataTile = ({ label, value, tone = 'slate', compact = false, badge = null 
 
 const LanguagePills = ({ languages = [], loading }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   if (loading) {
@@ -745,7 +749,7 @@ const LanguagePills = ({ languages = [], loading }) => {
 
   return (
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
-      <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>Top languages</p>
+      <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx('Top languages')}</p>
       {languages.length ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {languages.map((language) => (
@@ -755,7 +759,7 @@ const LanguagePills = ({ languages = [], loading }) => {
           ))}
         </div>
       ) : (
-        <p className={cn('mt-2 text-sm', ui.text.muted(isLight))}>No language pattern yet.</p>
+        <p className={cn('mt-2 text-sm', ui.text.muted(isLight))}>{tx('No language pattern yet.')}</p>
       )}
     </div>
   );
@@ -771,6 +775,7 @@ const WarningList = ({ warnings = [] }) => (
 
 const Panel = ({ title, eyebrow, icon: Icon, children, action = null, actions = [], badge = null, badgeTone = 'slate', compact = false }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const actionList = action ? [action, ...actions] : actions;
 
@@ -786,15 +791,15 @@ const Panel = ({ title, eyebrow, icon: Icon, children, action = null, actions = 
             <Icon className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <p className={ui.text.eyebrow(isLight)}>{eyebrow}</p>
-            <h2 className={cn('mt-1 text-lg', ui.text.title(isLight))}>{title}</h2>
+            <p className={ui.text.eyebrow(isLight)}>{tx(eyebrow)}</p>
+            <h2 className={cn('mt-1 text-lg', ui.text.title(isLight))}>{tx(title)}</h2>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {badge ? <ExecutiveBadge tone={badgeTone}>{badge}</ExecutiveBadge> : null}
+          {badge ? <ExecutiveBadge tone={badgeTone}>{tx(badge)}</ExecutiveBadge> : null}
           {actionList.map((item) => (
             <Link key={item.href} href={item.href} className={ui.button(isLight, 'secondary')}>
-              {item.label}
+              {tx(item.label)}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           ))}
@@ -807,13 +812,14 @@ const Panel = ({ title, eyebrow, icon: Icon, children, action = null, actions = 
 
 const StatCard = ({ label, value, icon: Icon, tone = 'slate', loading }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50/85' : 'border-white/10 bg-white/[0.025]')}>
       <div className="flex items-start justify-between gap-3">
-        <p className={ui.text.eyebrow(isLight)}>{label}</p>
-        <ExecutiveBadge tone={tone}>Live</ExecutiveBadge>
+        <p className={ui.text.eyebrow(isLight)}>{tx(label)}</p>
+        <ExecutiveBadge tone={tone}>{tx('Live')}</ExecutiveBadge>
       </div>
       <div className="mt-4 flex items-end justify-between gap-3">
         <p className={cn('text-3xl font-semibold tracking-tight tabular-nums', ui.text.title(isLight))}>
@@ -829,13 +835,14 @@ const StatCard = ({ label, value, icon: Icon, tone = 'slate', loading }) => {
 
 const MiniMetric = ({ item, loading }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
       <div className="flex items-center justify-between gap-3">
-        <p className={ui.text.eyebrow(isLight)}>{item.label}</p>
-        <ExecutiveBadge tone={item.tone}>{loading ? '...' : item.value}</ExecutiveBadge>
+        <p className={ui.text.eyebrow(isLight)}>{tx(item.label)}</p>
+        <ExecutiveBadge tone={item.tone}>{loading ? '...' : tx(item.value)}</ExecutiveBadge>
       </div>
     </div>
   );
@@ -843,6 +850,7 @@ const MiniMetric = ({ item, loading }) => {
 
 const AttentionRow = ({ item }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const tone = toneForSeverity(Number(item.value || 0) > 0 ? item.severity : 'positive');
 
@@ -854,8 +862,8 @@ const AttentionRow = ({ item }) => {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{item.label}</p>
-          <p className={cn('mt-1', ui.text.muted(isLight))}>{item.detail}</p>
+          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx(item.label)}</p>
+          <p className={cn('mt-1', ui.text.muted(isLight))}>{tx(item.detail)}</p>
         </div>
         <ExecutiveBadge tone={tone}>{formatNumber(item.value)}</ExecutiveBadge>
       </div>
@@ -881,6 +889,7 @@ const BulletList = ({ lines, loading, emptyTitle = 'No items yet.' }) => {
 
 const StatusLine = ({ icon: Icon, label, value, tone = 'slate', compact = false }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
@@ -892,15 +901,16 @@ const StatusLine = ({ icon: Icon, label, value, tone = 'slate', compact = false 
     >
       <div className="flex min-w-0 items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
-        <span className={cn('truncate text-sm font-medium', isLight ? 'text-slate-700' : 'text-slate-300')}>{label}</span>
+        <span className={cn('truncate text-sm font-medium', isLight ? 'text-slate-700' : 'text-slate-300')}>{tx(label)}</span>
       </div>
-      <ExecutiveBadge tone={tone}>{value}</ExecutiveBadge>
+      <ExecutiveBadge tone={tone}>{tx(value)}</ExecutiveBadge>
     </div>
   );
 };
 
 const LinkCard = ({ href, icon: Icon, label }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
@@ -911,7 +921,7 @@ const LinkCard = ({ href, icon: Icon, label }) => {
     >
       <span className="flex min-w-0 items-center gap-3">
         <Icon className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
-        <span className="truncate">{label}</span>
+        <span className="truncate">{tx(label)}</span>
       </span>
       <ArrowRight className="h-4 w-4 shrink-0 opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" aria-hidden="true" />
     </Link>
@@ -920,6 +930,7 @@ const LinkCard = ({ href, icon: Icon, label }) => {
 
 const EmptyState = ({ icon: Icon, title, description }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
@@ -927,8 +938,8 @@ const EmptyState = ({ icon: Icon, title, description }) => {
       <span className={cn('mx-auto flex h-10 w-10 items-center justify-center rounded-xl border', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
-      <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>{title}</p>
-      <p className={cn('mt-1', ui.text.muted(isLight))}>{description}</p>
+      <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>{tx(title)}</p>
+      <p className={cn('mt-1', ui.text.muted(isLight))}>{tx(description)}</p>
     </div>
   );
 };
@@ -958,3 +969,4 @@ const SkeletonGrid = () => {
     </div>
   );
 };
+

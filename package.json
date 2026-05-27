@@ -28,6 +28,7 @@
     "test:platform-management": "node scripts/test-platform-management-academy-pms.js",
     "test:permissions": "node scripts/test-permissions.js",
     "test:inbox": "node scripts/test-inbox.js",
+    "test:dashboard-i18n": "node scripts/test-dashboard-i18n.js",
     "test:simulation": "node scripts/test-simulation.js",
     "test:simulation:100": "node scripts/test-simulation.js --count=100",
     "test:simulation:500": "node scripts/test-simulation.js --count=500",

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -166,7 +166,7 @@ const AppShellContent = ({ children }) => {
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const { t } = useDashboardLanguage();
+  const { t, tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const isLoginPage = pathname === '/login';
@@ -702,7 +702,7 @@ const AppShellContent = ({ children }) => {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
-          Checking session...
+          {tx('Checking session...')}
         </div>
       </div>
     );
@@ -715,7 +715,7 @@ const AppShellContent = ({ children }) => {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-amber-300/30 bg-amber-300/10 text-amber-400">
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
-          <h1 className="mt-5 text-2xl font-semibold">Workspace could not load</h1>
+          <h1 className="mt-5 text-2xl font-semibold">{tx('Workspace could not load')}</h1>
           <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
             {workspaceError}
           </p>
@@ -729,7 +729,7 @@ const AppShellContent = ({ children }) => {
               }}
               className={isLight ? 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
             >
-              Retry
+              {tx('Retry')}
             </button>
             <button
               type="button"
@@ -748,7 +748,7 @@ const AppShellContent = ({ children }) => {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
-          Preparing workspace...
+          {tx('Preparing workspace...')}
         </div>
       </div>
     );
@@ -760,7 +760,7 @@ const AppShellContent = ({ children }) => {
   const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
   const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext;
   const sidebarTitle = isPlatformContext ? 'Staynex Platform' : sidebarHotelName;
-  const sidebarSubtitle = isPlatformContext ? 'Internal command center' : (ROLE_LABELS[activeRole] || activeRole);
+  const sidebarSubtitle = isPlatformContext ? tx('Internal command center') : (ROLE_LABELS[activeRole] || activeRole);
   const isNavItemActive = (item) => item.href === '/dashboard'
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -779,9 +779,9 @@ const AppShellContent = ({ children }) => {
 
   if (hotelContext.accessDenied) {
     const reasonCopy = {
-      disabled: 'Your Staynex access is disabled. Please contact your hotel administrator.',
-      invitation_pending: 'Your invitation is still pending. Log in with the invited email or contact your administrator.',
-      no_active_assignment: 'No active hotel assignment is available for your user.'
+      disabled: tx('Your Staynex access is disabled. Please contact your hotel administrator.'),
+      invitation_pending: tx('Your invitation is still pending. Log in with the invited email or contact your administrator.'),
+      no_active_assignment: tx('No active hotel assignment is available for your user.')
     };
 
     return (
@@ -790,9 +790,9 @@ const AppShellContent = ({ children }) => {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-orange-300/30 bg-orange-300/10 text-orange-400">
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
-          <h1 className="mt-5 text-2xl font-semibold">Access needs attention</h1>
+          <h1 className="mt-5 text-2xl font-semibold">{tx('Access needs attention')}</h1>
           <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
-            {reasonCopy[hotelContext.accessDeniedReason] || 'Your account is not assigned to an active hotel yet.'}
+            {reasonCopy[hotelContext.accessDeniedReason] || tx('No active hotel assignment is available for your user.')}
           </p>
           <button
             type="button"
@@ -814,7 +814,7 @@ const AppShellContent = ({ children }) => {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
-          Preparing workspace...
+          {tx('Preparing workspace...')}
         </div>
       </div>
     );
@@ -842,7 +842,7 @@ const AppShellContent = ({ children }) => {
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
             className={isLight ? 'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm' : 'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.045] text-slate-100 shadow-lg shadow-black/20'}
-            aria-label="Open navigation"
+            aria-label={tx('Open navigation')}
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -878,7 +878,7 @@ const AppShellContent = ({ children }) => {
             type="button"
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
             onClick={() => setMobileSidebarOpen(false)}
-            aria-label="Close navigation overlay"
+            aria-label={tx('Close navigation overlay')}
           />
         ) : null}
 
@@ -897,7 +897,7 @@ const AppShellContent = ({ children }) => {
               type="button"
               onClick={() => setMobileSidebarOpen(false)}
               className={isLight ? 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600' : 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-slate-200'}
-              aria-label="Close navigation"
+              aria-label={tx('Close navigation')}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -922,9 +922,9 @@ const AppShellContent = ({ children }) => {
                     <ShieldCheck className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">Platform context</p>
+                    <p className="truncate text-sm font-semibold">{tx('Platform context')}</p>
                     <p className={isLight ? 'mt-0.5 text-xs text-slate-500' : 'mt-0.5 text-xs text-slate-500'}>
-                      Global multi-hotel operations
+                      {tx('Global multi-hotel operations')}
                     </p>
                   </div>
                 </div>
@@ -941,8 +941,8 @@ const AppShellContent = ({ children }) => {
                       : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 shadow-lg shadow-emerald-950/10'
                   ].join(' ')}
                   >
-                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-80">Hotel workspace view</p>
-                    <p className="mt-1 truncate text-sm font-semibold">Viewing {sidebarHotelName}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-80">{tx('Hotel workspace view')}</p>
+                    <p className="mt-1 truncate text-sm font-semibold">{tx('Viewing {hotel}', { hotel: sidebarHotelName })}</p>
                     <Link
                       href="/platform/hotels"
                       className={[
@@ -953,7 +953,7 @@ const AppShellContent = ({ children }) => {
                       ].join(' ')}
                     >
                       <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                      Back to Platform
+                      {tx('Back to Platform')}
                     </Link>
                   </div>
                 </div>
@@ -998,7 +998,7 @@ const AppShellContent = ({ children }) => {
                     className={isLight ? 'flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800' : 'flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2.5 text-xs font-semibold text-emerald-100'}
                   >
                     <Rocket className="h-4 w-4" />
-                    Finish onboarding
+                    {tx('Finish onboarding')}
                   </Link>
                 </div>
               ) : null}
@@ -1043,7 +1043,7 @@ const AppShellContent = ({ children }) => {
                       >
                         <Icon className="h-4 w-4" aria-hidden="true" />
                       </span>
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      <span className="min-w-0 flex-1 truncate">{tx(item.label)}</span>
                     </Link>
                   );
                 })}
@@ -1173,15 +1173,15 @@ const AppShellContent = ({ children }) => {
               <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="font-semibold">Viewing hotel workspace</p>
-                    <p className="mt-1 opacity-80">{sidebarHotelName} is open in internal Staynex admin view.</p>
+                    <p className="font-semibold">{tx('Viewing hotel workspace')}</p>
+                    <p className="mt-1 opacity-80">{tx('{hotel} is open in internal Staynex admin view.', { hotel: sidebarHotelName })}</p>
                   </div>
                   <Link
                     href="/platform/hotels"
                     className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/15'}
                   >
                     <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                    Back to Platform
+                    {tx('Back to Platform')}
                   </Link>
                 </div>
               </div>
@@ -1192,8 +1192,8 @@ const AppShellContent = ({ children }) => {
                   <div className="flex items-start gap-3">
                     <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                     <div>
-                      <p className="font-semibold">Support session active</p>
-                      <p className="mt-1 opacity-80">You are viewing {supportSession.hotelName || sidebarHotelName} as internal Staynex support. This access is audit logged and should be treated as read-only unless escalation is required.</p>
+                      <p className="font-semibold">{tx('Support session active')}</p>
+                      <p className="mt-1 opacity-80">{tx('You are viewing {hotel} as internal Staynex support. This access is audit logged and should be treated as read-only unless escalation is required.', { hotel: supportSession.hotelName || sidebarHotelName })}</p>
                     </div>
                   </div>
                   <button
@@ -1204,7 +1204,7 @@ const AppShellContent = ({ children }) => {
                     }}
                     className={isLight ? 'rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100' : 'rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-1.5 text-xs font-semibold text-sky-100 hover:bg-sky-300/15'}
                   >
-                    End banner
+                    {tx('End banner')}
                   </button>
                 </div>
               </div>
@@ -1213,15 +1213,15 @@ const AppShellContent = ({ children }) => {
               <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-semibold">Welcome to {welcomeState.hotelName || sidebarHotelName}</p>
-                    <p className="mt-1 opacity-80">Your role is {ROLE_LABELS[welcomeState.role] || welcomeState.role}. Staynex linked your invitation automatically.</p>
+                    <p className="font-semibold">{tx('Welcome to {hotel}', { hotel: welcomeState.hotelName || sidebarHotelName })}</p>
+                    <p className="mt-1 opacity-80">{tx('Your role is {role}. Staynex linked your invitation automatically.', { role: ROLE_LABELS[welcomeState.role] || welcomeState.role })}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setWelcomeState(null)}
                     className={isLight ? 'rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100' : 'rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/15'}
                   >
-                    Dismiss
+                    {tx('Dismiss')}
                   </button>
                 </div>
               </div>
@@ -1243,3 +1243,4 @@ export const AppShell = ({ children }) => (
     </DashboardLanguageProvider>
   </DashboardThemeProvider>
 );
+

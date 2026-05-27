@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
@@ -18,6 +18,7 @@ import {
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 
 const iconById = {
@@ -41,6 +42,7 @@ const statusLabel = {
 
 export const HotelHealthClient = () => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export const HotelHealthClient = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Hotel health could not be loaded');
+        throw new Error(body.error || tx('Hotel health could not be loaded'));
       }
 
       if (!shouldAcceptTenantPayload(body, 'hotel-health')) {
@@ -89,12 +91,12 @@ export const HotelHealthClient = () => {
       <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className={ui.text.eyebrow(isLight)}>Hotel Operational Health</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Hotel Operational Health')}</p>
             <h2 className={cn('mt-2 text-3xl', ui.text.title(isLight))}>
-              {allOperational ? 'All hotel systems operational.' : 'Hotel systems need review.'}
+              {allOperational ? tx('All hotel systems operational.') : tx('Hotel systems need review.')}
             </h2>
             <p className={cn('mt-2 max-w-3xl', ui.text.body(isLight))}>
-              A simple operational view for reception and hotel admins. It focuses on guest-facing impact and clear next steps.
+              {tx('A simple operational view for reception and hotel admins. It focuses on guest-facing impact and clear next steps.')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -102,7 +104,7 @@ export const HotelHealthClient = () => {
             {health.environment?.isDemo ? <span className={ui.badge(isLight, 'sky')}>{health.environment.label}</span> : null}
             <button type="button" onClick={() => loadHealth()} disabled={refreshing} className={ui.button(isLight, 'secondary')}>
               <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-              Refresh
+              {tx('Refresh')}
             </button>
           </div>
         </div>
@@ -131,11 +133,11 @@ export const HotelHealthClient = () => {
       <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className={ui.text.eyebrow(isLight)}>Operational warnings</p>
-            <h3 className={cn('mt-1 text-xl', ui.text.title(isLight))}>Guest-facing impact only</h3>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Operational warnings')}</p>
+            <h3 className={cn('mt-1 text-xl', ui.text.title(isLight))}>{tx('Guest-facing impact only')}</h3>
           </div>
           <Link href="/dashboard/reception" className={ui.button(isLight, 'secondary')}>
-            Open Reception
+            {tx('Open Reception')}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
@@ -150,8 +152,8 @@ export const HotelHealthClient = () => {
         ) : (
           <div className={cn('mt-4 rounded-xl border border-dashed p-6 text-center', isLight ? 'border-emerald-200 bg-emerald-50' : 'border-emerald-300/20 bg-emerald-300/10')}>
             <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-400" aria-hidden="true" />
-            <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>All hotel systems operational.</p>
-            <p className={cn('mt-1', ui.text.muted(isLight))}>No urgent tickets, disconnected services or guest-facing warnings are visible right now.</p>
+            <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>{tx('All hotel systems operational.')}</p>
+            <p className={cn('mt-1', ui.text.muted(isLight))}>{tx('No urgent tickets, disconnected services or guest-facing warnings are visible right now.')}</p>
           </div>
         )}
       </section>
@@ -161,23 +163,25 @@ export const HotelHealthClient = () => {
 
 const HealthBadge = ({ status = 'healthy' }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const tone = status === 'critical' ? 'red' : status === 'warning' ? 'amber' : 'emerald';
 
   return (
     <span className={ui.badge(isLight, tone)}>
-      {statusLabel[status] || 'Operational'}
+      {tx(statusLabel[status] || 'Operational')}
     </span>
   );
 };
 
 const SummaryTile = ({ label, value, tone }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
 
   return (
     <div className={cn('rounded-xl border p-4 text-center', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
-      <p className={ui.text.eyebrow(isLight)}>{label}</p>
+      <p className={ui.text.eyebrow(isLight)}>{tx(label)}</p>
       <p className={cn('mt-2 text-2xl font-semibold tabular-nums', ui.text.title(isLight))}>{value}</p>
       <div className={cn('mx-auto mt-3 h-1.5 w-16 rounded-full', tone === 'red' ? 'bg-red-400' : tone === 'amber' ? 'bg-amber-400' : 'bg-emerald-400')} />
     </div>
@@ -186,6 +190,7 @@ const SummaryTile = ({ label, value, tone }) => {
 
 const HealthCard = ({ card }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const Icon = iconById[card.id] || ShieldCheck;
   const toneClass = card.status === 'critical'
@@ -202,16 +207,17 @@ const HealthCard = ({ card }) => {
         </span>
         <HealthBadge status={card.status} />
       </div>
-      <p className={cn('mt-4 text-sm font-semibold', ui.text.title(isLight))}>{card.label}</p>
+      <p className={cn('mt-4 text-sm font-semibold', ui.text.title(isLight))}>{tx(card.label)}</p>
       <p className={cn('mt-2 text-2xl font-semibold tabular-nums', ui.text.title(isLight))}>{card.value}</p>
-      {card.badge ? <span className={cn('mt-2', ui.badge(isLight, 'sky', true))}>{card.badge}</span> : null}
-      <p className={cn('mt-2 min-h-10 text-sm leading-5', ui.text.body(isLight))}>{card.description}</p>
+      {card.badge ? <span className={cn('mt-2', ui.badge(isLight, 'sky', true))}>{tx(card.badge)}</span> : null}
+      <p className={cn('mt-2 min-h-10 text-sm leading-5', ui.text.body(isLight))}>{tx(card.description)}</p>
     </article>
   );
 };
 
 const WarningRow = ({ warning }) => {
   const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const tone = warning.severity === 'critical' ? 'red' : warning.severity === 'warning' ? 'amber' : 'sky';
 
@@ -220,11 +226,12 @@ const WarningRow = ({ warning }) => {
       <div className="flex min-w-0 items-start gap-3">
         <AlertTriangle className={cn('mt-0.5 h-5 w-5 shrink-0', tone === 'red' ? 'text-red-400' : tone === 'amber' ? 'text-amber-400' : 'text-sky-400')} aria-hidden="true" />
         <div>
-          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{warning.label}</p>
-          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{warning.message}</p>
+          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx(warning.label)}</p>
+          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{tx(warning.message)}</p>
         </div>
       </div>
-      <span className={ui.badge(isLight, tone)}>{warning.severity}</span>
+      <span className={ui.badge(isLight, tone)}>{tx(warning.severity)}</span>
     </div>
   );
 };
+
