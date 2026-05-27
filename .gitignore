@@ -15,6 +15,7 @@ dashboard/.env.*
 .next/
 dashboard/.next/
 dashboard/.next-codex-build*/
+dashboard/.next-verify/
 dashboard/.next-onedrive-broken-*/
 dashboard/.next_corrupt_*/
 dashboard/.next_onedrive_reparse_*/

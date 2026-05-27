@@ -270,48 +270,30 @@ export const AiQualityClient = () => {
   return (
     <div className="space-y-5">
       <section className={cn(
-        'overflow-hidden rounded-2xl border shadow-sm',
+        'rounded-2xl border p-4 shadow-sm sm:p-5',
         isLight ? 'border-slate-200 bg-white shadow-slate-200/70' : 'border-white/10 bg-slate-950/80 shadow-black/30'
       )}>
-        <div className={cn('border-b px-5 py-4', isLight ? 'border-slate-200 bg-slate-50/70' : 'border-white/10 bg-white/[0.025]')}>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <QAStatusBadge tone="red">Internal only</QAStatusBadge>
-                <QAStatusBadge tone="emerald">Simulation sandbox</QAStatusBadge>
-                <QAStatusBadge tone="sky">No client visibility</QAStatusBadge>
-                <QAStatusBadge tone="violet">AI training QA</QAStatusBadge>
-              </div>
-              <div className="mt-3 flex min-w-0 items-center gap-3">
-                <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100')}>
-                  <BrainCircuit className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <h2 className={cn('truncate text-xl font-semibold tracking-tight sm:text-2xl', ui.text.title(isLight))}>{tx('Failure Intelligence')}</h2>
-                  <p className={cn('mt-1 max-w-4xl text-sm leading-5', ui.text.body(isLight))}>
-                    {tx('Internal AI quality lab for long journey simulations, escalation analysis and conversation stability testing.')}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={runAnalysis}
-              disabled={loading}
-              className={cn(
-                ui.button(isLight, 'primary'),
-                'h-11 shrink-0 px-5 shadow-lg transition hover:-translate-y-0.5 disabled:hover:translate-y-0',
-                isLight ? 'shadow-emerald-200/70' : 'shadow-emerald-950/40'
-              )}
-            >
-              <FlaskConical className={loading ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
-              {tx(loading ? 'Analyzing...' : 'Run QA analysis')}
-            </button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <QAStatusBadge tone="red">Internal only</QAStatusBadge>
+          <QAStatusBadge tone="emerald">Simulation sandbox</QAStatusBadge>
+          <QAStatusBadge tone="sky">No client visibility</QAStatusBadge>
+          <QAStatusBadge tone="violet">AI training QA</QAStatusBadge>
+        </div>
+
+        <div className="mt-3 flex min-w-0 items-center gap-3">
+          <span className={cn('hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:flex', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100')}>
+            <BrainCircuit className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className={cn('text-xl font-semibold tracking-tight sm:text-2xl', ui.text.title(isLight))}>{tx('Failure Intelligence')}</h2>
+            <p className={cn('mt-1 text-sm leading-5', ui.text.body(isLight))}>
+              {tx('Internal AI quality lab for long journey simulations, escalation analysis and conversation stability testing.')}
+            </p>
           </div>
         </div>
 
-        <div className="px-5 py-4">
-          <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-[120px_190px_170px_minmax(220px,1fr)_180px]">
+        <div className={cn('mt-4 rounded-xl border p-3', isLight ? 'border-slate-200 bg-slate-50/70' : 'border-white/10 bg-white/[0.025]')}>
+          <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[120px_190px_170px_minmax(240px,1fr)_180px_170px]">
             <QAControlField label="Conversations">
               <select className={cn('h-10 w-full', ui.input(isLight))} value={count} onChange={(event) => setCount(Number(event.target.value))}>
                 {counts.map((item) => <option key={item} value={item}>{item}</option>)}
@@ -340,6 +322,19 @@ export const AiQualityClient = () => {
             <QAControlField label="AI version">
               <input className={cn('h-10 w-full', ui.input(isLight))} value={aiVersion} onChange={(event) => setAiVersion(event.target.value)} />
             </QAControlField>
+            <button
+              type="button"
+              onClick={runAnalysis}
+              disabled={loading}
+              className={cn(
+                ui.button(isLight, 'primary'),
+                'h-10 w-full justify-center px-4 shadow-lg transition hover:-translate-y-0.5 disabled:hover:translate-y-0',
+                isLight ? 'shadow-emerald-200/70' : 'shadow-emerald-950/40'
+              )}
+            >
+              <FlaskConical className={loading ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
+              {tx(loading ? 'Analyzing...' : 'Run QA analysis')}
+            </button>
           </div>
         </div>
 
