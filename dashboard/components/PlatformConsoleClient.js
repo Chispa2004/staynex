@@ -770,9 +770,10 @@ export const PlatformConsoleClient = () => {
           hotel: body.hotel,
           role: 'support',
           supportSession: body.supportSession
-        }
+        },
+        notify: true
       });
-      router.push('/dashboard');
+      router.push(`/dashboard?hotelId=${encodeURIComponent(hotel.id)}`);
       router.refresh();
     } catch (caughtError) {
       setError(caughtError.message);

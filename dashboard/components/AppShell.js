@@ -45,7 +45,8 @@ import {
   clearWorkspaceSelection,
   getWorkspaceRequestHeaders,
   persistWorkspaceSelection,
-  switchWorkspace
+  switchWorkspace,
+  WORKSPACE_SELECTION_EVENT
 } from '@/lib/workspace-context';
 import {
   canAccess,
@@ -282,9 +283,6 @@ const AppShellContent = ({ children }) => {
     setUrgentCount(0);
     setInboxUnreadCount(0);
     setInboxHumanCount(0);
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem('staynex_support_session');
-    }
     setOnboardingChecked(false);
     setOnboardingCompleted(true);
 
@@ -292,7 +290,8 @@ const AppShellContent = ({ children }) => {
       try {
         const headers = {
           ...(sessionAccessToken ? { Authorization: `Bearer ${sessionAccessToken}` } : {}),
-          ...getWorkspaceRequestHeaders()
+          ...getWorkspaceRequestHeaders(),
+          'x-staynex-workspace-path': pathname || ''
         };
         const response = await fetch('/api/current-hotel', {
           headers,
@@ -363,6 +362,36 @@ const AppShellContent = ({ children }) => {
       window.clearTimeout(timeoutId);
     };
   }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken, workspaceRetryNonce]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || isLoginPage) {
+      return undefined;
+    }
+
+    const handleWorkspaceSelection = (event) => {
+      const selectedHotelId = event.detail?.hotelId || null;
+
+      if (!selectedHotelId || selectedHotelId === currentHotel?.id) {
+        return;
+      }
+
+      setHotelContextLoaded(false);
+      setWorkspaceError(null);
+      setCurrentHotel(null);
+      setUrgentCount(0);
+      setInboxUnreadCount(0);
+      setInboxHumanCount(0);
+      setOnboardingChecked(false);
+      setOnboardingCompleted(true);
+      setWorkspaceRetryNonce((current) => current + 1);
+    };
+
+    window.addEventListener(WORKSPACE_SELECTION_EVENT, handleWorkspaceSelection);
+
+    return () => {
+      window.removeEventListener(WORKSPACE_SELECTION_EVENT, handleWorkspaceSelection);
+    };
+  }, [currentHotel?.id, isLoginPage]);
 
   useEffect(() => {
     if (isLoginPage || authLoading || !isAuthenticated) {
@@ -574,7 +603,12 @@ const AppShellContent = ({ children }) => {
 
     try {
       const parsed = JSON.parse(rawSession);
-      setSupportSession(parsed.hotelId === currentHotel.id ? parsed : null);
+      if (parsed.hotelId === currentHotel.id) {
+        setSupportSession(parsed);
+      } else {
+        window.sessionStorage.removeItem('staynex_support_session');
+        setSupportSession(null);
+      }
     } catch (error) {
       console.warn('Support session state could not be parsed', error);
       window.sessionStorage.removeItem('staynex_support_session');
@@ -744,6 +778,40 @@ const AppShellContent = ({ children }) => {
     );
   }
 
+  if (hotelContext.accessDenied) {
+    const reasonCopy = {
+      disabled: tx('Your Staynex access is disabled. Please contact your hotel administrator.'),
+      invitation_pending: tx('Your invitation is still pending. Log in with the invited email or contact your administrator.'),
+      no_active_assignment: tx('No active hotel assignment is available for your user.'),
+      workspace_required: tx('Select a hotel workspace from Platform Hotels before opening hotel operations.')
+    };
+
+    return (
+      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight px-4 text-slate-100`}>
+        <section className={isLight ? 'w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 text-slate-950 shadow-2xl shadow-slate-200/80' : 'w-full max-w-lg rounded-xl border border-white/10 bg-[#0b1019] p-6 text-white shadow-2xl shadow-black/30'}>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-orange-300/30 bg-orange-300/10 text-orange-400">
+            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <h1 className="mt-5 text-2xl font-semibold">{tx('Access needs attention')}</h1>
+          <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
+            {reasonCopy[hotelContext.accessDeniedReason] || tx('No active hotel assignment is available for your user.')}
+          </p>
+          <button
+            type="button"
+            onClick={hotelContext.accessDeniedReason === 'workspace_required'
+              ? () => router.replace('/platform/hotels')
+              : handleLogout}
+            className={isLight ? 'mt-6 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'mt-6 inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
+          >
+            {hotelContext.accessDeniedReason === 'workspace_required'
+              ? tx('Back to Platform Hotels')
+              : logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   if (!currentHotel?.id) {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
@@ -776,35 +844,6 @@ const AppShellContent = ({ children }) => {
       [groupId]: !current[groupId]
     }));
   };
-
-  if (hotelContext.accessDenied) {
-    const reasonCopy = {
-      disabled: tx('Your Staynex access is disabled. Please contact your hotel administrator.'),
-      invitation_pending: tx('Your invitation is still pending. Log in with the invited email or contact your administrator.'),
-      no_active_assignment: tx('No active hotel assignment is available for your user.')
-    };
-
-    return (
-      <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight px-4 text-slate-100`}>
-        <section className={isLight ? 'w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 text-slate-950 shadow-2xl shadow-slate-200/80' : 'w-full max-w-lg rounded-xl border border-white/10 bg-[#0b1019] p-6 text-white shadow-2xl shadow-black/30'}>
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-orange-300/30 bg-orange-300/10 text-orange-400">
-            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <h1 className="mt-5 text-2xl font-semibold">{tx('Access needs attention')}</h1>
-          <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
-            {reasonCopy[hotelContext.accessDeniedReason] || tx('No active hotel assignment is available for your user.')}
-          </p>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className={isLight ? 'mt-6 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'mt-6 inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
-          >
-            {logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}
-          </button>
-        </section>
-      </div>
-    );
-  }
 
   if (!isOnboardingPage && canAccess(activeRole, 'onboarding') && currentHotel?.id && !onboardingChecked) {
     if (process.env.NODE_ENV !== 'production') {

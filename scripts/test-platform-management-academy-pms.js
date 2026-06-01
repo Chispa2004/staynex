@@ -44,8 +44,10 @@ assert.equal(getPmsConnectorDefinition('pluriel').configurationMode, 'manual_set
 
 const ubikosConnector = createPmsConnector('ubikos');
 const ubikosHealth = await ubikosConnector.healthCheck();
-assert.equal(ubikosHealth.ok, false);
-assert.equal(ubikosHealth.status, 'placeholder');
+assert.equal(ubikosHealth.provider, 'ubikos');
+assert.equal(ubikosHealth.sandbox, true);
+assert.equal(ubikosHealth.readOnly, true);
+assert.ok(['not_configured', 'sandbox_configured'].includes(ubikosHealth.status), 'Ubikos should remain safe sandbox/read-only in phase 1');
 
 const archiveUpdate = buildHotelArchiveUpdate({
   hotel: { id: 'hotel-a', name: 'Test Hotel', metadata: { source: 'test' } },

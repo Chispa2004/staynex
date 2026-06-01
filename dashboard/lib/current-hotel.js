@@ -24,11 +24,39 @@ const getBearerToken = (request) => {
   return match?.[1] || null;
 };
 
-const getRequestedHotelId = (request) => (
-  request?.headers?.get('x-staynex-hotel-id')
-  || request?.cookies?.get?.(ACTIVE_HOTEL_COOKIE)?.value
-  || null
+const getRequestedWorkspacePath = (request) => (
+  request?.headers?.get('x-staynex-workspace-path') || ''
 );
+
+const isHotelWorkspacePath = (pathname = '') => (
+  pathname === '/dashboard'
+  || pathname.startsWith('/dashboard/')
+  || pathname === '/settings'
+);
+
+const getRequestedHotelId = (request) => {
+  const headerHotelId = request?.headers?.get('x-staynex-hotel-id');
+
+  if (headerHotelId) {
+    return headerHotelId;
+  }
+
+  try {
+    const url = request?.url ? new URL(request.url) : null;
+    const queryHotelId = url?.searchParams.get('hotelId')
+      || url?.searchParams.get('hotel')
+      || url?.searchParams.get('workspace')
+      || url?.searchParams.get('tenant');
+
+    if (queryHotelId) {
+      return queryHotelId;
+    }
+  } catch {
+    // Ignore malformed request URLs and continue with cookie fallback.
+  }
+
+  return request?.cookies?.get?.(ACTIVE_HOTEL_COOKIE)?.value || null;
+};
 
 const getHotelById = async (supabase, hotelId) => {
   if (!hotelId) {
@@ -167,6 +195,7 @@ export const getCurrentHotelForRequest = async (request) => {
   const supabase = getSupabaseAdmin();
   const token = getBearerToken(request);
   const requestedHotelId = getRequestedHotelId(request);
+  const requestedWorkspacePath = getRequestedWorkspacePath(request);
   let userId = null;
   let email = null;
   let authUser = null;
@@ -213,6 +242,39 @@ export const getCurrentHotelForRequest = async (request) => {
 
     if (Array.isArray(assignments) && assignments.length > 0) {
       const tenantAccess = resolveTenantAccess(assignments);
+      if (
+        tenantAccess.canSwitchWorkspaces
+        && tenantAccess.platformRole !== 'none'
+        && !requestedHotelId
+        && isHotelWorkspacePath(requestedWorkspacePath)
+      ) {
+        return {
+          supabase,
+          hotel: null,
+          hotelUser: null,
+          role: 'blocked',
+          permissions: [],
+          platformRole: tenantAccess.platformRole,
+          platformPermissions: tenantAccess.platformPermissions,
+          multiPropertyAccess: tenantAccess.multiPropertyAccess,
+          canSwitchWorkspaces: tenantAccess.canSwitchWorkspaces,
+          canCreateWorkspaces: tenantAccess.canCreateWorkspaces,
+          availableHotels: (await getAllHotelWorkspaces(supabase)).map((workspaceHotel) => {
+            const assignment = assignments.find((item) => item.hotel_id === workspaceHotel.id);
+            return {
+              hotel: workspaceHotel,
+              hotelUser: assignment ? normalizeHotelUser(assignment) : null,
+              role: assignment?.role || 'owner',
+              isDefault: Boolean(assignment?.is_default)
+            };
+          }),
+          fallback: false,
+          accessDenied: true,
+          accessDeniedReason: 'workspace_required',
+          user: { id: userId, email }
+        };
+      }
+
       const canUseRequestedHotel = tenantAccess.canSwitchWorkspaces;
       const selectedAssignment = chooseHotelAssignment(assignments, requestedHotelId, {
         allowRequested: canUseRequestedHotel
