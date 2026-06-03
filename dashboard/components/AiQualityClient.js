@@ -23,6 +23,7 @@ import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
+import { StaynexLogo } from './StaynexBrand';
 
 const counts = [10, 50, 100, 500];
 
@@ -281,9 +282,7 @@ export const AiQualityClient = () => {
         </div>
 
         <div className="mt-3 flex min-w-0 items-center gap-3">
-          <span className={cn('hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:flex', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-400/10 text-emerald-100')}>
-            <BrainCircuit className="h-5 w-5" aria-hidden="true" />
-          </span>
+          <StaynexLogo size="sm" />
           <div className="min-w-0">
             <h2 className={cn('text-xl font-semibold tracking-tight sm:text-2xl', ui.text.title(isLight))}>{tx('Failure Intelligence')}</h2>
             <p className={cn('mt-1 text-sm leading-5', ui.text.body(isLight))}>

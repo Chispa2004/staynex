@@ -25,6 +25,7 @@ import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { PremiumLoadingState } from './PremiumLoadingState';
+import { StaynexLogo } from './StaynexBrand';
 
 const getAuthHeaders = async () => {
   const supabase = getSupabaseBrowser();
@@ -460,12 +461,15 @@ export const PlatformProvidersClient = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">{tx('Staynex Partner Network')}</p>
-          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Experience Providers')}</h1>
-          <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
-            {tx('Central marketplace for external providers, their experiences and hotel assignments. Hotel AI only uses assigned providers.')}
-          </p>
+        <div className="flex min-w-0 items-start gap-4">
+          <StaynexLogo size="lg" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0A66FF]">{tx('Staynex Partner Network')}</p>
+            <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Experience Providers')}</h1>
+            <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
+              {tx('Central marketplace for external providers, their experiences and hotel assignments. Hotel AI only uses assigned providers.')}
+            </p>
+          </div>
         </div>
         <button type="button" onClick={loadProviders} className={ui.button(isLight, 'secondary')}>
           <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />

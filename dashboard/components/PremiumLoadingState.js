@@ -2,6 +2,7 @@
 
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
+import { StaynexLogo } from './StaynexBrand';
 
 export const PremiumLoadingState = ({
   title = 'Loading workspace data',
@@ -23,9 +24,12 @@ export const PremiumLoadingState = ({
       aria-busy="true"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{title}</p>
-          <p className={cn('mt-1', ui.text.body(isLight))}>{description}</p>
+        <div className="flex items-center gap-3">
+          <StaynexLogo size="sm" />
+          <div>
+            <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{title}</p>
+            <p className={cn('mt-1', ui.text.body(isLight))}>{description}</p>
+          </div>
         </div>
         <span className={cn('h-9 w-24', ui.skeleton(isLight))} />
       </div>

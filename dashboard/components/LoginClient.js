@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getDefaultRouteForRole } from '@/lib/permissions';
+import { STAYNEX_BLUE, StaynexLogo } from './StaynexBrand';
 
 const SESSION_CHECK_TIMEOUT_MS = 7000;
 
@@ -143,11 +144,9 @@ export const LoginClient = () => {
           : 'border-white/10 bg-[#0b1019]/95 shadow-black/30'
       ].join(' ')}
       >
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-300 text-base font-black text-slate-950">
-            S
-          </div>
-          <div>
+        <div className="mb-8 flex flex-col items-center text-center">
+          <StaynexLogo size="lg" />
+          <div className="mt-4">
             <h1 className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>
               Staynex
             </h1>
@@ -158,7 +157,7 @@ export const LoginClient = () => {
         </div>
 
         <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0A66FF]">
             Secure access
           </p>
           <h2 className={isLight ? 'mt-3 text-2xl font-semibold text-slate-950' : 'mt-3 text-2xl font-semibold text-white'}>
@@ -215,7 +214,8 @@ export const LoginClient = () => {
           <button
             type="submit"
             disabled={loading || checkingSession}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-blue-300/50 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ backgroundColor: STAYNEX_BLUE }}
           >
             {checkingSession ? 'Checking session...' : loading ? 'Entering...' : 'Login'}
           </button>

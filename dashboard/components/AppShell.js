@@ -38,9 +38,11 @@ import {
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
 import { HotelWorkspaceSwitcher } from './HotelWorkspaceSwitcher';
+import { PoweredByStaynex, STAYNEX_BLUE, StaynexLogo, StaynexWordmark } from './StaynexBrand';
 import { DashboardLanguageProvider, useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { DashboardThemeProvider, useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { cn } from '@/lib/ui/styles';
 import {
   clearWorkspaceSelection,
   getWorkspaceRequestHeaders,
@@ -822,10 +824,10 @@ const AppShellContent = ({ children }) => {
     );
   }
 
-  const workspaceBrandColor = currentHotel?.brand_color || '#34d399';
-  const workspaceSecondaryColor = currentHotel?.secondary_color || '#0f766e';
   const sidebarHotelName = currentHotel?.name || 'Staynex';
   const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
+  const workspaceBrandColor = isPlatformContext ? STAYNEX_BLUE : currentHotel?.brand_color || '#34d399';
+  const workspaceSecondaryColor = isPlatformContext ? '#084EC7' : currentHotel?.secondary_color || '#0f766e';
   const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext;
   const sidebarTitle = isPlatformContext ? 'Staynex Platform' : sidebarHotelName;
   const sidebarSubtitle = isPlatformContext ? tx('Internal command center') : (ROLE_LABELS[activeRole] || activeRole);
@@ -887,11 +889,15 @@ const AppShellContent = ({ children }) => {
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: workspaceBrandColor }}
-                aria-hidden="true"
-              />
+              {isPlatformContext ? (
+                <StaynexLogo size="xs" withShadow={false} />
+              ) : (
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: workspaceBrandColor }}
+                  aria-hidden="true"
+                />
+              )}
               <p className="truncate text-sm font-semibold">{sidebarTitle}</p>
             </div>
             <p className={isLight ? 'truncate text-xs text-slate-500' : 'truncate text-xs text-slate-500'}>
@@ -931,7 +937,7 @@ const AppShellContent = ({ children }) => {
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className={isLight ? 'flex items-center justify-between border-b border-slate-200 px-4 py-3 lg:hidden' : 'flex items-center justify-between border-b border-white/10 px-4 py-3 lg:hidden'}>
-            <p className="text-sm font-semibold">Staynex</p>
+            <StaynexWordmark logoSize="xs" />
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(false)}
@@ -941,6 +947,18 @@ const AppShellContent = ({ children }) => {
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
+
+          <div className={cn(
+            'hidden items-center border-b px-4 py-4 lg:flex',
+            isLight ? 'border-slate-200' : 'border-white/10'
+          )}>
+            <StaynexWordmark
+              logoSize="sm"
+              subtitle={isPlatformContext ? tx('Platform operations') : tx('Hotel operations system')}
+              className={isLight ? 'text-slate-950' : 'text-white'}
+            />
+          </div>
+
           {isPlatformContext ? (
             <div className="px-4 pb-5 pt-4">
               <div className={[
@@ -951,15 +969,7 @@ const AppShellContent = ({ children }) => {
               ].join(' ')}
               >
                 <div className="flex items-center gap-3">
-                  <span className={[
-                    'flex h-10 w-10 items-center justify-center rounded-xl border',
-                    isLight
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-200'
-                  ].join(' ')}
-                  >
-                    <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-                  </span>
+                  <StaynexLogo size="sm" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{tx('Platform context')}</p>
                     <p className={isLight ? 'mt-0.5 text-xs text-slate-500' : 'mt-0.5 text-xs text-slate-500'}>
@@ -1009,6 +1019,10 @@ const AppShellContent = ({ children }) => {
                 accessToken={sessionAccessToken}
                 onWorkspaceCreated={handleHotelSwitch}
               />
+
+              <div className="px-4 pb-5 pt-1">
+                <PoweredByStaynex className={isLight ? 'text-slate-500' : 'text-slate-400'} />
+              </div>
 
               {urgentCount > 0 ? (
                 <div className="px-4 pb-5 pt-1">

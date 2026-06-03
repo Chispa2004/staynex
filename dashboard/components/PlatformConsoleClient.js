@@ -31,6 +31,7 @@ import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import { StaynexLogo } from './StaynexBrand';
 
 const plans = ['starter', 'professional', 'enterprise', 'enterprise_demo', 'pro_demo'];
 const languages = ['es', 'en', 'fr', 'de'];
@@ -783,12 +784,15 @@ export const PlatformConsoleClient = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">{tx('Platform operations')}</p>
-          <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Staynex SaaS console')}</h1>
-          <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
-            {tx('Internal operations hub for tenants, health, revenue, PMS status and support access.')}
-          </p>
+        <div className="flex min-w-0 items-start gap-4">
+          <StaynexLogo size="lg" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0A66FF]">{tx('Platform operations')}</p>
+            <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Staynex SaaS console')}</h1>
+            <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
+              {tx('Internal operations hub for tenants, health, revenue, PMS status and support access.')}
+            </p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => loadPlatform()} className={ui.button(isLight, 'secondary')}>
