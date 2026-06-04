@@ -21,6 +21,7 @@ import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { PremiumLoadingState } from './PremiumLoadingState';
+import { AutomationTestCenter } from './AutomationTestCenter';
 
 const statusOptions = ['all', 'preview', 'scheduled', 'sent', 'failed'];
 const typeOptions = [
@@ -340,6 +341,8 @@ export const AutomationsClient = () => {
           </div>
         </div>
       </Card>
+
+      <AutomationTestCenter />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard icon={Zap} label="Active automations" value={stats.activeAutomations} tone="emerald" />

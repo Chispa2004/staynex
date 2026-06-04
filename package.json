@@ -42,6 +42,7 @@
     "test:openai": "node scripts/test-openai.js",
     "test:upsells": "node scripts/test-upsells.js",
     "test:automations": "node scripts/test-automations.js",
+    "test:automation-test-center": "node scripts/test-automation-test-center.js",
     "test:apaleo-sync": "node scripts/test-apaleo-sync.js",
     "test:apaleo-webhook": "node scripts/test-apaleo-webhook.js",
     "jobs:cleanup": "node scripts/jobs-cleanup.js",
