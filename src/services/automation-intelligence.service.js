@@ -277,16 +277,16 @@ export const buildAutomationMessagePreview = ({
       de: `${prefix}wenn Sie weiterhin interessiert sind, kann ich die Empfehlung aufgreifen und Details klaeren.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.PRE_CHECKOUT_FOLIO_REMINDER]: {
-      es: `${prefix}manana esta previsto tu check-out. Staynex preparara solo un resumen en preview si el PMS confirma cargos pendientes reales.`,
-      en: `${prefix}your check-out is scheduled for tomorrow. Staynex will only prepare a preview summary when the PMS confirms real pending folio items.`,
-      fr: `${prefix}votre check-out est prevu demain. Staynex prepare uniquement un apercu si le PMS confirme des elements reels en attente.`,
-      de: `${prefix}Ihr Check-out ist morgen geplant. Staynex erstellt nur eine Vorschau, wenn das PMS echte offene Posten bestaetigt.`
+      es: `${prefix}manana esta previsto tu check-out. Si tienes algun consumo pendiente en la habitacion, recepcion podra ayudarte a revisarlo antes de tu salida.`,
+      en: `${prefix}your check-out is scheduled for tomorrow. If there are any pending room charges, reception can help you review them before departure.`,
+      fr: `${prefix}votre check-out est prevu demain. Si des consommations restent en attente sur votre chambre, la reception pourra vous aider a les verifier avant votre depart.`,
+      de: `${prefix}Ihr Check-out ist morgen geplant. Falls noch offene Zimmerkosten vorliegen, hilft die Rezeption gern bei der Ueberpruefung vor Ihrer Abreise.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.POST_STAY_REVIEW_INTELLIGENCE]: {
-      es: `${prefix}Staynex analizara la estancia antes de decidir entre resena publica, feedback privado o alerta interna de calidad.`,
-      en: `${prefix}Staynex will analyze the stay before deciding between a public review request, private feedback or an internal quality alert.`,
-      fr: `${prefix}Staynex analysera le sejour avant de choisir entre avis public, feedback prive ou alerte qualite interne.`,
-      de: `${prefix}Staynex analysiert den Aufenthalt, bevor eine oeffentliche Bewertung, privates Feedback oder ein internes Qualitaetssignal erstellt wird.`
+      es: `${prefix}gracias por alojarte con nosotros. Esperamos que hayas disfrutado de tu estancia. Tu opinion nos ayuda a seguir mejorando. Podrias dedicar unos segundos a valorar tu experiencia?`,
+      en: `${prefix}thank you for staying with us. We hope you enjoyed your stay. Your feedback helps us improve. Would you mind sharing your experience with us?`,
+      fr: `${prefix}merci d'avoir sejourne chez nous. Nous esperons que votre sejour s'est bien passe. Votre avis nous aide a nous ameliorer. Pourriez-vous partager votre experience ?`,
+      de: `${prefix}vielen Dank fuer Ihren Aufenthalt bei uns. Wir hoffen, dass Sie Ihren Aufenthalt genossen haben. Ihre Rueckmeldung hilft uns, unseren Service weiter zu verbessern. Moechten Sie Ihre Erfahrung mit uns teilen?`
     }
   };
 

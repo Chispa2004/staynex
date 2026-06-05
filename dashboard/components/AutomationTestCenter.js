@@ -301,9 +301,25 @@ export function AutomationTestCenter() {
                       <Badge tone="emerald">{formatLabel(preview.automation_type)}</Badge>
                       <Badge tone="slate">{formatDate(preview.scheduled_for)}</Badge>
                     </div>
-                    <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-700' : 'mt-3 text-sm leading-6 text-slate-300'}>
-                      {preview.message_body}
-                    </p>
+                    <div className={isLight ? 'mt-3 rounded-lg border border-slate-200 bg-white p-3' : 'mt-3 rounded-lg border border-white/10 bg-black/10 p-3'}>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-60">Guest message preview</p>
+                      <p className={isLight ? 'mt-2 text-sm leading-6 text-slate-700' : 'mt-2 text-sm leading-6 text-slate-300'}>
+                        {preview.guest_message_preview || preview.message_body}
+                      </p>
+                    </div>
+                    {preview.internal_reasoning ? (
+                      <div className={isLight ? 'mt-3 rounded-lg border border-slate-200 bg-slate-100/70 p-3' : 'mt-3 rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-60">Internal reasoning</p>
+                        <dl className="mt-2 grid gap-1.5 text-xs md:grid-cols-2">
+                          {Object.entries(preview.internal_reasoning).map(([key, value]) => (
+                            <div key={key} className="flex justify-between gap-3">
+                              <dt className="opacity-60">{formatLabel(key)}</dt>
+                              <dd className="text-right font-semibold">{String(value)}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    ) : null}
                     <p className="mt-2 text-xs opacity-60">Trigger: {formatLabel(preview.trigger_reason)}</p>
                   </article>
                 ))}

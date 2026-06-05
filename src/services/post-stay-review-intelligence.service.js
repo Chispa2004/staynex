@@ -197,10 +197,10 @@ export const buildPostStayReviewMessage = ({
 
   if (analysis?.reviewStrategy === 'request_public_review') {
     const templates = {
-      es: `${prefix}esperamos que hayas disfrutado de tu estancia en ${hotelName}.\n\nNos ayudaria mucho conocer tu opinion. Si tienes un minuto, puedes dejar una resena sobre tu experiencia aqui:\n\n${reviewLink}\n\nTambien puedes valorar si la asistencia por WhatsApp de Staynex te resulto util respondiendo a este mensaje.\n\nMuchas gracias por alojarte con nosotros.`,
-      en: `${prefix}we hope you enjoyed your stay at ${hotelName}.\n\nYour opinion would mean a lot to us. If you have a minute, you can leave a review about your experience here:\n\n${reviewLink}\n\nYou can also let us know whether the Staynex WhatsApp assistance was helpful by replying to this message.\n\nThank you very much for staying with us.`,
-      fr: `${prefix}nous esperons que vous avez apprecie votre sejour a ${hotelName}.\n\nVotre avis nous aiderait beaucoup. Si vous avez une minute, vous pouvez laisser un avis ici:\n\n${reviewLink}\n\nVous pouvez aussi nous dire si l'assistance WhatsApp Staynex vous a ete utile en repondant a ce message.\n\nMerci beaucoup d'avoir sejourne chez nous.`,
-      de: `${prefix}wir hoffen, dass Sie Ihren Aufenthalt im ${hotelName} genossen haben.\n\nIhre Meinung hilft uns sehr. Wenn Sie eine Minute Zeit haben, koennen Sie hier eine Bewertung hinterlassen:\n\n${reviewLink}\n\nSie koennen auch direkt antworten, ob die Staynex WhatsApp-Unterstuetzung hilfreich war.\n\nVielen Dank fuer Ihren Aufenthalt.`
+      es: `${prefix}gracias por alojarte con nosotros. Esperamos que hayas disfrutado de tu estancia en ${hotelName}. Tu opinion nos ayuda a seguir mejorando. Si tienes unos segundos, puedes valorar tu experiencia aqui:\n\n${reviewLink}\n\nMuchas gracias.`,
+      en: `${prefix}thank you for staying with us. We hope you enjoyed your stay at ${hotelName}. Your feedback helps us improve. If you have a moment, would you mind sharing your experience here?\n\n${reviewLink}\n\nThank you very much.`,
+      fr: `${prefix}merci d'avoir sejourne chez nous. Nous esperons que votre sejour a ${hotelName} s'est bien passe. Votre avis nous aide a nous ameliorer. Pourriez-vous partager votre experience ici ?\n\n${reviewLink}\n\nMerci beaucoup.`,
+      de: `${prefix}vielen Dank fuer Ihren Aufenthalt bei uns. Wir hoffen, dass Sie Ihren Aufenthalt im ${hotelName} genossen haben. Ihre Rueckmeldung hilft uns, unseren Service weiter zu verbessern. Wenn Sie kurz Zeit haben, koennen Sie Ihre Erfahrung hier teilen:\n\n${reviewLink}\n\nVielen Dank.`
     };
     return templates[normalizedLanguage];
   }
@@ -208,20 +208,20 @@ export const buildPostStayReviewMessage = ({
   if (analysis?.reviewStrategy === 'request_private_feedback') {
     const privateLink = config.privateFeedbackLink ? `\n\n${config.privateFeedbackLink}` : '';
     const templates = {
-      es: `${prefix}gracias por alojarte en ${hotelName}. Nos gustaria saber como fue tu experiencia y si hay algo que podamos mejorar. Puedes responder directamente a este mensaje.${privateLink}`,
-      en: `${prefix}thank you for staying at ${hotelName}. We would like to know how your experience was and whether there is anything we can improve. You can reply directly to this message.${privateLink}`,
-      fr: `${prefix}merci d'avoir sejourne a ${hotelName}. Nous aimerions savoir comment s'est passee votre experience et s'il y a quelque chose a ameliorer. Vous pouvez repondre directement a ce message.${privateLink}`,
-      de: `${prefix}vielen Dank fuer Ihren Aufenthalt im ${hotelName}. Wir wuerden gern erfahren, wie Ihre Erfahrung war und ob wir etwas verbessern koennen. Sie koennen direkt auf diese Nachricht antworten.${privateLink}`
+      es: `${prefix}gracias por alojarte con nosotros. Nos gustaria conocer como fue tu experiencia para seguir mejorando nuestro servicio. Puedes compartir cualquier comentario o sugerencia respondiendo directamente a este mensaje.${privateLink}`,
+      en: `${prefix}thank you for staying with us. We would like to understand how your experience was so we can continue improving our service. You can share any comments or suggestions by replying directly to this message.${privateLink}`,
+      fr: `${prefix}merci d'avoir sejourne chez nous. Nous aimerions savoir comment s'est passee votre experience afin de continuer a ameliorer notre service. Vous pouvez partager vos commentaires ou suggestions en repondant directement a ce message.${privateLink}`,
+      de: `${prefix}vielen Dank fuer Ihren Aufenthalt bei uns. Wir moechten gern erfahren, wie Ihre Erfahrung war, damit wir unseren Service weiter verbessern koennen. Sie koennen uns Ihre Hinweise oder Vorschlaege direkt als Antwort senden.${privateLink}`
     };
     return templates[normalizedLanguage];
   }
 
   if (analysis?.reviewStrategy === 'alert_quality_team') {
     const templates = {
-      es: `${prefix}sentimos que tu estancia no haya sido perfecta. El equipo del hotel revisara lo ocurrido para poder ayudarte y mejorar la experiencia.`,
-      en: `${prefix}we are sorry your stay was not perfect. The hotel team will review what happened so they can help and improve the experience.`,
-      fr: `${prefix}nous sommes desoles que votre sejour n'ait pas ete parfait. L'equipe de l'hotel va examiner la situation afin de vous aider et d'ameliorer l'experience.`,
-      de: `${prefix}es tut uns leid, dass Ihr Aufenthalt nicht perfekt war. Das Hotelteam wird den Fall pruefen, um zu helfen und die Erfahrung zu verbessern.`
+      es: `${prefix}gracias por alojarte con nosotros. Nos gustaria conocer como fue tu experiencia para seguir mejorando nuestro servicio. Podrias compartir cualquier comentario o sugerencia que consideres importante?`,
+      en: `${prefix}thank you for staying with us. We would like to understand how your experience was so we can continue improving our service. Would you mind sharing any comment or suggestion you consider important?`,
+      fr: `${prefix}merci d'avoir sejourne chez nous. Nous aimerions savoir comment s'est passee votre experience afin de continuer a ameliorer notre service. Pourriez-vous partager tout commentaire ou suggestion que vous jugez important ?`,
+      de: `${prefix}vielen Dank fuer Ihren Aufenthalt bei uns. Wir moechten gern erfahren, wie Ihre Erfahrung war, damit wir unseren Service weiter verbessern koennen. Koennten Sie uns mitteilen, was Ihnen wichtig erscheint?`
     };
     return templates[normalizedLanguage];
   }

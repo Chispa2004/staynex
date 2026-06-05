@@ -161,12 +161,12 @@ export const buildAutomationPreview = ({ automationType, hotel, reservation, lan
       en: `${prefix}if you are still interested, I can pick this back up and help confirm the details.`
     },
     pre_checkout_folio_reminder: {
-      es: `${prefix}manana esta previsto tu check-out. Staynex preparara solo un resumen en preview si el PMS confirma cargos pendientes reales.`,
-      en: `${prefix}your check-out is scheduled for tomorrow. Staynex will only prepare a preview summary when the PMS confirms real pending folio items.`
+      es: `${prefix}manana esta previsto tu check-out. Si tienes algun consumo pendiente en la habitacion, recepcion podra ayudarte a revisarlo antes de tu salida.`,
+      en: `${prefix}your check-out is scheduled for tomorrow. If there are any pending room charges, reception can help you review them before departure.`
     },
     post_stay_review_intelligence: {
-      es: `${prefix}Staynex analizara la estancia antes de decidir entre resena publica, feedback privado o alerta interna de calidad.`,
-      en: `${prefix}Staynex will analyze the stay before deciding between a public review request, private feedback or an internal quality alert.`
+      es: `${prefix}gracias por alojarte con nosotros. Esperamos que hayas disfrutado de tu estancia. Tu opinion nos ayuda a seguir mejorando. Podrias dedicar unos segundos a valorar tu experiencia?`,
+      en: `${prefix}thank you for staying with us. We hope you enjoyed your stay. Your feedback helps us improve. Would you mind sharing your experience with us?`
     }
   };
 

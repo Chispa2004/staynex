@@ -318,6 +318,40 @@ const isCheckout24hAgo = (guest, now) => {
   return diff >= 18 * 60 * 60 * 1000 && diff <= 36 * 60 * 60 * 1000;
 };
 
+const buildPostStayGuestPreview = ({ hotel, simulatedGuest }) => {
+  const prefix = simulatedGuest.name ? `${String(simulatedGuest.name).split(' ')[0]}, ` : '';
+  const reviewLink = simulatedGuest.metadata?.google_review_link || hotel.metadata?.google_review_link || hotel.metadata?.review_link || null;
+
+  if (simulatedGuest.sentiment === 'negative') {
+    return `${prefix}gracias por alojarte con nosotros. Nos gustaria conocer como fue tu experiencia para seguir mejorando nuestro servicio. Podrias compartir cualquier comentario o sugerencia que consideres importante?`;
+  }
+
+  const linkCopy = reviewLink ? `\n\n${reviewLink}` : '';
+  return `${prefix}gracias por alojarte con nosotros. Esperamos que hayas disfrutado de tu estancia en ${hotel.name}. Tu opinion nos ayuda a seguir mejorando. Podrias dedicar unos segundos a valorar tu experiencia?${linkCopy}`;
+};
+
+const buildInternalReasoning = ({ automation, scenario, decision }) => {
+  const { simulatedGuest } = scenario;
+
+  if (automation.type === 'post_stay_review_intelligence') {
+    return {
+      classification: simulatedGuest.sentiment === 'negative' ? 'negative_stay' : 'positive_stay',
+      review_strategy: simulatedGuest.sentiment === 'negative' ? 'alert_quality_team' : 'request_public_review',
+      review_risk_score: simulatedGuest.metadata?.review_risk_score || 0,
+      quality_alert: simulatedGuest.sentiment === 'negative',
+      public_review_allowed: simulatedGuest.sentiment !== 'negative',
+      trigger_reason: decision.reason
+    };
+  }
+
+  return {
+    classification: 'automation_preview',
+    trigger_reason: decision.reason,
+    safe_preview: true,
+    live_guest_send_blocked: true
+  };
+};
+
 const evaluateType = ({ automation, guest, now }) => {
   const type = automation.type;
 
@@ -432,9 +466,9 @@ const evaluateType = ({ automation, guest, now }) => {
 const buildPreview = ({ automation, scenario, decision }) => {
   const { hotel, reservation, simulatedGuest } = scenario;
   const message = automation.type === 'pre_checkout_folio_reminder'
-    ? `${simulatedGuest.name}, tomorrow is your scheduled check-out at ${hotel.name}. Your current test folio shows ${simulatedGuest.folio?.outstandingBalance || simulatedGuest.balance_due} ${simulatedGuest.currency} pending. This is a safe preview only.`
-    : automation.type === 'post_stay_review_intelligence' && simulatedGuest.sentiment === 'negative'
-      ? `Quality alert preview: ${simulatedGuest.name} had a negative stay signal. Do not request a public review; ask the team to follow up privately.`
+    ? `${simulatedGuest.name}, tomorrow is your scheduled check-out at ${hotel.name}. According to the current room information, there is an estimated pending balance of ${simulatedGuest.folio?.outstandingBalance || simulatedGuest.balance_due} ${simulatedGuest.currency}. Reception can help if you have any questions.`
+    : automation.type === 'post_stay_review_intelligence'
+      ? buildPostStayGuestPreview({ hotel, simulatedGuest })
       : buildAutomationPreview({
         automationType: automation.type,
         hotel,
@@ -454,6 +488,8 @@ const buildPreview = ({ automation, scenario, decision }) => {
     scheduled_for: scheduledFor,
     message_body: message,
     message_preview: message,
+    guest_message_preview: message,
+    internal_reasoning: buildInternalReasoning({ automation, scenario, decision }),
     guest_id: simulatedGuest.id,
     reservation_id: reservation.id,
     room: simulatedGuest.room,
@@ -466,7 +502,8 @@ const buildPreview = ({ automation, scenario, decision }) => {
     metadata: {
       test_mode: true,
       scenario_id: scenario.id,
-      hotel_id: hotel.id
+      hotel_id: hotel.id,
+      internal_reasoning: buildInternalReasoning({ automation, scenario, decision })
     }
   };
 };

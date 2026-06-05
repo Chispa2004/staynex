@@ -29,21 +29,33 @@ const run = (options) => disabledSendModule.runAutomationTestCenter({
   ...options
 });
 
+const internalTerms = /Staynex analiz|quality alert|alerta interna|review risk|reputation|sentiment analysis|classification|clasificacion|escalation score|IA considera|sistema ha detectado/i;
+const postStayPreview = (result) => result.previews.find((item) => item.automation_type === 'post_stay_review_intelligence');
+
 const positive = run({ scenarioId: 'checked_out_24h_positive', simulatedNow: 'checkout_plus_24h' });
 assert.ok(
   positive.eligibleAutomations.some((item) => item.type === 'post_stay_review_intelligence'),
   'checked-out positive stay should generate post-stay review intelligence preview'
 );
+const positiveReviewPreview = postStayPreview(positive);
 assert.ok(
-  positive.previews.some((item) => item.automation_type === 'post_stay_review_intelligence' && /review|resena|rese/i.test(item.message_body)),
-  'positive stay preview should include review-oriented message'
+  /opinion|valorar|feedback|experience|experiencia/i.test(positiveReviewPreview.message_body),
+  'positive stay preview should include hospitality feedback-oriented message'
 );
+assert.ok(!internalTerms.test(positiveReviewPreview.message_body), 'positive guest message must not expose internal reasoning');
+assert.ok(positiveReviewPreview.guest_message_preview, 'positive preview should expose guest message preview separately');
+assert.ok(positiveReviewPreview.internal_reasoning?.review_strategy === 'request_public_review', 'positive preview should keep internal reasoning separately');
 
 const negative = run({ scenarioId: 'checked_out_24h_negative', simulatedNow: 'checkout_plus_24h' });
+const negativeReviewPreview = postStayPreview(negative);
 assert.ok(
-  negative.previews.some((item) => item.automation_type === 'post_stay_review_intelligence' && /quality alert/i.test(item.message_body)),
-  'negative stay should generate quality alert preview'
+  negativeReviewPreview && /comentario|sugerencia|suggestion|experience|experiencia/i.test(negativeReviewPreview.message_body),
+  'negative stay should generate private feedback guest message'
 );
+assert.ok(!negativeReviewPreview.message_body.includes('reviews.example.com'), 'negative stay guest message must not include public review link');
+assert.ok(!internalTerms.test(negativeReviewPreview.message_body), 'negative guest message must not expose internal reasoning');
+assert.ok(negativeReviewPreview.guest_message_preview, 'negative preview should expose guest message preview separately');
+assert.ok(negativeReviewPreview.internal_reasoning?.quality_alert === true, 'negative preview should keep quality alert in internal reasoning only');
 
 const folio = run({ scenarioId: 'departing_tomorrow_with_balance', simulatedNow: 'checkout_minus_24h' });
 assert.ok(

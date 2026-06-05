@@ -260,10 +260,13 @@ try {
     analysis: positiveAnalysis,
     language: 'es'
   });
+  const internalTerms = /Staynex analiz|quality alert|alerta interna|review risk|reputation|sentiment analysis|classification|clasificacion|escalation score|IA considera|sistema ha detectado/i;
 
   assert(positiveAnalysis.reviewStrategy === 'request_public_review', 'Positive stay with review link should request public review');
   assert(positiveDecision.eligible && positiveDecision.previewOnly, 'Post-stay public review should generate preview only');
   assert(publicReviewMessage.includes('https://reviews.example.com/staynex'), 'Public review message should include configured review link');
+  assert(/gracias por alojarte|opinion|valorar/i.test(publicReviewMessage), 'Positive stay message should sound hotel-facing');
+  assert(!internalTerms.test(publicReviewMessage), 'Positive stay message must not expose internal AI logic');
 
   const negativeAnalysis = analyzePostStayReviewStrategy({
     hotel: reviewHotel,
@@ -281,6 +284,8 @@ try {
 
   assert(negativeAnalysis.reviewStrategy === 'alert_quality_team', 'Negative stay should create quality alert strategy');
   assert(!negativeMessage.includes('reviews.example.com'), 'Negative stay must not include public review link');
+  assert(/experiencia|comentario|sugerencia/i.test(negativeMessage), 'Negative stay message should ask for private feedback');
+  assert(!internalTerms.test(negativeMessage), 'Negative stay message must not expose internal AI logic');
 
   const neutralAnalysis = analyzePostStayReviewStrategy({
     hotel: reviewHotel,
