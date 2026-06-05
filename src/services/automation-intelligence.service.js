@@ -258,34 +258,34 @@ export const buildAutomationMessagePreview = ({
       de: `${prefix}willkommen im ${hotelName}. Wenn Sie Empfehlungen, Transfer oder Hilfe brauchen, sind wir gern da.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.LATE_CHECKOUT_OFFER]: {
-      es: `${prefix}como manana es tu ultimo dia, podemos revisar disponibilidad de late checkout para que disfrutes la salida con mas calma.`,
-      en: `${prefix}as tomorrow is your last day, we can check late checkout availability so you can leave more comfortably.`,
-      fr: `${prefix}comme demain est votre dernier jour, nous pouvons verifier la disponibilite d'un late checkout.`,
-      de: `${prefix}da morgen Ihr letzter Tag ist, koennen wir gern einen Late Check-out pruefen.`
+      es: `${prefix}si deseas disfrutar de una salida mas relajada, podemos revisar la disponibilidad de late checkout para tu estancia.`,
+      en: `${prefix}if you would like a more relaxed departure, we can check late checkout availability for your stay.`,
+      fr: `${prefix}si vous souhaitez profiter d'un depart plus confortable, nous pouvons verifier la disponibilite d'un late checkout pour votre sejour.`,
+      de: `${prefix}wenn Sie eine entspanntere Abreise wuenschen, pruefen wir gern die Verfuegbarkeit eines Late Check-outs fuer Ihren Aufenthalt.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.SPA_UPSELL]: {
-      es: `${prefix}si te apetece un momento de bienestar, podemos ayudarte a consultar opciones de spa o hammam durante tu estancia.`,
-      en: `${prefix}if you would like a wellness moment, we can help check spa or hammam options during your stay.`,
-      fr: `${prefix}si vous souhaitez un moment bien-etre, nous pouvons vous aider avec les options spa ou hammam.`,
-      de: `${prefix}wenn Sie einen Wellness-Moment wuenschen, helfen wir gern mit Spa- oder Hammam-Optionen.`
+      es: `${prefix}si te apetece disfrutar de un momento de bienestar durante tu estancia, podemos ayudarte a consultar opciones de spa, hammam o tratamientos disponibles.`,
+      en: `${prefix}if you would like to enjoy a moment of wellbeing during your stay, we can help check available spa, hammam or treatment options.`,
+      fr: `${prefix}si vous souhaitez profiter d'un moment de bien-etre pendant votre sejour, nous pouvons vous aider a consulter les options spa, hammam ou soins disponibles.`,
+      de: `${prefix}wenn Sie waehrend Ihres Aufenthalts einen Moment der Erholung geniessen moechten, helfen wir gern mit verfuegbaren Spa-, Hammam- oder Behandlungsoptionen.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.EXPERIENCE_RECOMMENDATION]: {
-      es: `${prefix}si aun te interesa ${destination}, puedo ayudarte a ver detalles o enviar una solicitud de disponibilidad.`,
-      en: `${prefix}if you are still interested in ${destination}, I can help with details or send an availability request.`,
-      fr: `${prefix}si ${destination} vous interesse toujours, je peux vous aider avec les details ou une demande de disponibilite.`,
-      de: `${prefix}wenn Sie noch Interesse an ${destination} haben, helfe ich gern mit Details oder einer Anfrage.`
+      es: `${prefix}si te apetece descubrir ${destination}, experiencias locales o actividades recomendadas, estaremos encantados de ayudarte a encontrar la opcion que mejor encaje contigo.`,
+      en: `${prefix}if you would like to discover ${destination}, local experiences or recommended activities, we will be happy to help you find the option that best suits you.`,
+      fr: `${prefix}si vous souhaitez decouvrir ${destination}, des experiences locales ou des activites recommandees, nous serons ravis de vous aider a trouver l'option qui vous convient le mieux.`,
+      de: `${prefix}wenn Sie ${destination}, lokale Erlebnisse oder empfohlene Aktivitaeten entdecken moechten, helfen wir gern, die passende Option fuer Sie zu finden.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.RESTAURANT_PROMOTION]: {
-      es: `${prefix}esta noche podemos ayudarte con recomendaciones de restaurante o una mesa tranquila cerca del hotel.`,
-      en: `${prefix}tonight we can help with restaurant recommendations or a quiet table near the hotel.`,
-      fr: `${prefix}ce soir, nous pouvons vous aider avec des recommandations de restaurant ou une table calme pres de l'hotel.`,
-      de: `${prefix}heute Abend helfen wir gern mit Restaurantempfehlungen oder einem ruhigen Tisch in der Naehe.`
+      es: `${prefix}si deseas reservar una mesa para esta noche o recibir recomendaciones gastronomicas cercanas, nuestro equipo estara encantado de ayudarte.`,
+      en: `${prefix}if you would like to reserve a table for this evening or receive nearby dining recommendations, our team will be happy to help.`,
+      fr: `${prefix}si vous souhaitez reserver une table pour ce soir ou recevoir des recommandations gastronomiques a proximite, notre equipe sera ravie de vous aider.`,
+      de: `${prefix}wenn Sie fuer heute Abend einen Tisch reservieren oder Restaurantempfehlungen in der Naehe wuenschen, hilft unser Team Ihnen gern.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.TRANSFER_OFFER]: {
-      es: `${prefix}si necesitas traslado para tu llegada o salida, podemos ayudarte a organizarlo de forma sencilla.`,
-      en: `${prefix}if you need a transfer for arrival or departure, we can help arrange it easily.`,
-      fr: `${prefix}si vous avez besoin d'un transfert pour votre arrivee ou depart, nous pouvons vous aider.`,
-      de: `${prefix}wenn Sie einen Transfer fuer Anreise oder Abreise brauchen, helfen wir gern.`
+      es: `${prefix}si necesitas organizar tu traslado al aeropuerto o cualquier transporte durante tu estancia, estaremos encantados de ayudarte.`,
+      en: `${prefix}if you need to arrange an airport transfer or any transportation during your stay, we will be happy to help.`,
+      fr: `${prefix}si vous souhaitez organiser un transfert aeroport ou tout autre transport pendant votre sejour, nous serons ravis de vous aider.`,
+      de: `${prefix}wenn Sie einen Flughafentransfer oder andere Fahrten waehrend Ihres Aufenthalts organisieren moechten, helfen wir Ihnen gern.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.WEATHER_TRIGGER]: {
       es: `${prefix}si el tiempo no acompana, podemos recomendarte planes indoor, spa o experiencias tranquilas cerca del hotel.`,
@@ -294,10 +294,10 @@ export const buildAutomationMessagePreview = ({
       de: `${prefix}falls das Wetter nicht ideal ist, empfehlen wir gern Indoor-Optionen, Spa oder ruhige Erlebnisse.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.VIP_FOLLOWUP]: {
-      es: `${prefix}si quieres que preparemos algo especial para tu estancia, nuestro equipo puede ayudarte con opciones premium.`,
-      en: `${prefix}if you would like us to prepare something special for your stay, our team can help with premium options.`,
-      fr: `${prefix}si vous souhaitez preparer quelque chose de special, notre equipe peut vous aider avec des options premium.`,
-      de: `${prefix}wenn wir etwas Besonderes fuer Ihren Aufenthalt vorbereiten duerfen, helfen wir mit Premium-Optionen.`
+      es: `${prefix}como huesped preferente, estaremos encantados de ayudarte con peticiones especiales o recomendaciones personalizadas durante tu estancia.`,
+      en: `${prefix}as a preferred guest, we will be happy to help with special requests or personalised recommendations during your stay.`,
+      fr: `${prefix}en tant qu'hote privilegie, nous serons ravis de vous aider avec des demandes speciales ou des recommandations personnalisees pendant votre sejour.`,
+      de: `${prefix}als bevorzugter Gast helfen wir Ihnen waehrend Ihres Aufenthalts gern mit besonderen Wuenschen oder persoenlichen Empfehlungen.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.BIRTHDAY_MESSAGE]: {
       es: `${prefix}hemos visto que celebras una ocasion especial. Si quieres, podemos ayudarte a preparar un detalle durante tu estancia.`,
@@ -312,10 +312,10 @@ export const buildAutomationMessagePreview = ({
       de: `${prefix}wenn Sie weiterhin interessiert sind, kann ich die Empfehlung aufgreifen und Details klaeren.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.PRE_CHECKOUT_FOLIO_REMINDER]: {
-      es: `${prefix}manana esta previsto tu check-out. Si tienes algun consumo pendiente en la habitacion, recepcion podra ayudarte a revisarlo antes de tu salida.`,
-      en: `${prefix}your check-out is scheduled for tomorrow. If there are any pending room charges, reception can help you review them before departure.`,
-      fr: `${prefix}votre check-out est prevu demain. Si des consommations restent en attente sur votre chambre, la reception pourra vous aider a les verifier avant votre depart.`,
-      de: `${prefix}Ihr Check-out ist morgen geplant. Falls noch offene Zimmerkosten vorliegen, hilft die Rezeption gern bei der Ueberpruefung vor Ihrer Abreise.`
+      es: `${prefix}te recordamos que manana esta prevista tu salida del hotel. Actualmente existe un saldo pendiente estimado asociado a tu estancia. Si tienes cualquier duda, nuestro equipo de recepcion estara encantado de ayudarte.`,
+      en: `${prefix}this is a friendly reminder that your departure from the hotel is scheduled for tomorrow. There is currently an estimated pending balance associated with your stay. If you have any questions, our reception team will be happy to help.`,
+      fr: `${prefix}nous vous rappelons que votre depart de l'hotel est prevu demain. Un solde estime est actuellement associe a votre sejour. Si vous avez la moindre question, notre equipe de reception sera ravie de vous aider.`,
+      de: `${prefix}wir moechten Sie daran erinnern, dass Ihre Abreise aus dem Hotel fuer morgen vorgesehen ist. Derzeit ist ein geschaetzter offener Betrag mit Ihrem Aufenthalt verbunden. Bei Fragen hilft Ihnen unser Rezeptionsteam gern.`
     },
     [INTELLIGENT_AUTOMATION_TYPES.POST_STAY_REVIEW_INTELLIGENCE]: {
       es: `${prefix}gracias por alojarte con nosotros. Esperamos que hayas disfrutado de tu estancia. Tu opinion nos ayuda a seguir mejorando. Podrias dedicar unos segundos a valorar tu experiencia?`,

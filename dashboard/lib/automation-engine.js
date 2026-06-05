@@ -125,32 +125,38 @@ export const buildAutomationPreview = ({ automationType, hotel, reservation, lan
       en: `${prefix}welcome to ${hotelName}. If you need recommendations, transfers or anything during your stay, we are here to help.`
     },
     late_checkout_offer: {
-      es: `${prefix}como manana es tu ultimo dia, podemos revisar disponibilidad de late checkout para una salida mas tranquila.`,
-      en: `${prefix}as tomorrow is your last day, we can check late checkout availability so you can leave more comfortably.`
+      es: `${prefix}si deseas disfrutar de una salida mas relajada, podemos revisar la disponibilidad de late checkout para tu estancia.`,
+      en: `${prefix}if you would like a more relaxed departure, we can check late checkout availability for your stay.`,
+      fr: `${prefix}si vous souhaitez profiter d'un depart plus confortable, nous pouvons verifier la disponibilite d'un late checkout pour votre sejour.`
     },
     spa_upsell: {
-      es: `${prefix}si te apetece un momento de bienestar, podemos ayudarte a consultar opciones de spa o hammam durante tu estancia.`,
-      en: `${prefix}if you would like a wellness moment, we can help check spa or hammam options during your stay.`
+      es: `${prefix}si te apetece disfrutar de un momento de bienestar durante tu estancia, podemos ayudarte a consultar opciones de spa, hammam o tratamientos disponibles.`,
+      en: `${prefix}if you would like to enjoy a moment of wellbeing during your stay, we can help check available spa, hammam or treatment options.`,
+      fr: `${prefix}si vous souhaitez profiter d'un moment de bien-etre pendant votre sejour, nous pouvons vous aider a consulter les options spa, hammam ou soins disponibles.`
     },
     experience_recommendation: {
-      es: `${prefix}si aun te interesan excursiones o experiencias locales, puedo ayudarte con detalles o disponibilidad.`,
-      en: `${prefix}if you are still interested in local tours or experiences, I can help with details or availability.`
+      es: `${prefix}si te apetece descubrir experiencias locales, excursiones o actividades recomendadas, estaremos encantados de ayudarte a encontrar la opcion que mejor encaje contigo.`,
+      en: `${prefix}if you would like to discover local experiences, excursions or recommended activities, we will be happy to help you find the option that best suits you.`,
+      fr: `${prefix}si vous souhaitez decouvrir des experiences locales, excursions ou activites recommandees, nous serons ravis de vous aider a trouver l'option qui vous convient le mieux.`
     },
     restaurant_promotion: {
-      es: `${prefix}esta noche podemos ayudarte con recomendaciones de restaurante o una mesa tranquila cerca del hotel.`,
-      en: `${prefix}tonight we can help with restaurant recommendations or a quiet table near the hotel.`
+      es: `${prefix}si deseas reservar una mesa para esta noche o recibir recomendaciones gastronomicas cercanas, nuestro equipo estara encantado de ayudarte.`,
+      en: `${prefix}if you would like to reserve a table for this evening or receive nearby dining recommendations, our team will be happy to help.`,
+      fr: `${prefix}si vous souhaitez reserver une table pour ce soir ou recevoir des recommandations gastronomiques a proximite, notre equipe sera ravie de vous aider.`
     },
     transfer_offer: {
-      es: `${prefix}si necesitas traslado para tu llegada o salida, podemos ayudarte a organizarlo de forma sencilla.`,
-      en: `${prefix}if you need a transfer for arrival or departure, we can help arrange it easily.`
+      es: `${prefix}si necesitas organizar tu traslado al aeropuerto o cualquier transporte durante tu estancia, estaremos encantados de ayudarte.`,
+      en: `${prefix}if you need to arrange an airport transfer or any transportation during your stay, we will be happy to help.`,
+      fr: `${prefix}si vous souhaitez organiser un transfert aeroport ou tout autre transport pendant votre sejour, nous serons ravis de vous aider.`
     },
     weather_trigger: {
       es: `${prefix}si el tiempo no acompana, podemos recomendarte planes indoor, spa o experiencias tranquilas cerca del hotel.`,
       en: `${prefix}if the weather is not ideal, we can recommend indoor plans, spa options or calm local experiences.`
     },
     vip_followup: {
-      es: `${prefix}si quieres que preparemos algo especial para tu estancia, nuestro equipo puede ayudarte con opciones premium.`,
-      en: `${prefix}if you would like us to prepare something special for your stay, our team can help with premium options.`
+      es: `${prefix}como huesped preferente, estaremos encantados de ayudarte con peticiones especiales o recomendaciones personalizadas durante tu estancia.`,
+      en: `${prefix}as a preferred guest, we will be happy to help with special requests or personalised recommendations during your stay.`,
+      fr: `${prefix}en tant qu'hote privilegie, nous serons ravis de vous aider avec des demandes speciales ou des recommandations personnalisees pendant votre sejour.`
     },
     birthday_message: {
       es: `${prefix}hemos visto que celebras una ocasion especial. Si quieres, podemos ayudarte a preparar un detalle durante tu estancia.`,
@@ -161,8 +167,9 @@ export const buildAutomationPreview = ({ automationType, hotel, reservation, lan
       en: `${prefix}if you are still interested, I can pick this back up and help confirm the details.`
     },
     pre_checkout_folio_reminder: {
-      es: `${prefix}manana esta previsto tu check-out. Si tienes algun consumo pendiente en la habitacion, recepcion podra ayudarte a revisarlo antes de tu salida.`,
-      en: `${prefix}your check-out is scheduled for tomorrow. If there are any pending room charges, reception can help you review them before departure.`
+      es: `${prefix}te recordamos que manana esta prevista tu salida del hotel. Actualmente existe un saldo pendiente estimado asociado a tu estancia. Si tienes cualquier duda, nuestro equipo de recepcion estara encantado de ayudarte.`,
+      en: `${prefix}this is a friendly reminder that your departure from the hotel is scheduled for tomorrow. There is currently an estimated pending balance associated with your stay. If you have any questions, our reception team will be happy to help.`,
+      fr: `${prefix}nous vous rappelons que votre depart de l'hotel est prevu demain. Un solde estime est actuellement associe a votre sejour. Si vous avez la moindre question, notre equipe de reception sera ravie de vous aider.`
     },
     post_stay_review_intelligence: {
       es: `${prefix}gracias por alojarte con nosotros. Esperamos que hayas disfrutado de tu estancia. Tu opinion nos ayuda a seguir mejorando. Podrias dedicar unos segundos a valorar tu experiencia?`,

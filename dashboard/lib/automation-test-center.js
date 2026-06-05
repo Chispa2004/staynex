@@ -591,7 +591,7 @@ const buildPreview = ({ automation, scenario, decision, priority }) => {
   const { hotel, reservation, simulatedGuest } = scenario;
   const internalReasoning = buildInternalReasoning({ automation, scenario, decision, priority });
   const message = automation.type === 'pre_checkout_folio_reminder'
-    ? `${simulatedGuest.name}, tomorrow is your scheduled check-out at ${hotel.name}. According to the current room information, there is an estimated pending balance of ${simulatedGuest.folio?.outstandingBalance || simulatedGuest.balance_due} ${simulatedGuest.currency}. Reception can help if you have any questions.`
+    ? `${simulatedGuest.name}, te recordamos que manana esta prevista tu salida de ${hotel.name}. Actualmente existe un saldo pendiente estimado de ${simulatedGuest.folio?.outstandingBalance || simulatedGuest.balance_due} ${simulatedGuest.currency} asociado a tu estancia. Si tienes cualquier duda, nuestro equipo de recepcion estara encantado de ayudarte.`
     : automation.type === 'post_stay_review_intelligence'
       ? buildPostStayGuestPreview({ hotel, simulatedGuest })
       : buildAutomationPreview({
