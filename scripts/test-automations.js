@@ -22,6 +22,10 @@ import {
   buildPlatformMonitoringSnapshot,
   hotelHealthContainsTechnicalInternals
 } from '../dashboard/lib/system-health.js';
+import {
+  evaluateAutomationOpportunity,
+  INTELLIGENT_AUTOMATION_TYPES
+} from '../src/services/automation-intelligence.service.js';
 
 validateEnvironment({ exitOnError: true });
 
@@ -130,6 +134,30 @@ try {
   assert(platformMonitoring.providerMonitoring.retryItems.some((item) => item.id === 'provider-failed-1' && item.retryable), 'Retry queue should include retryable provider failures');
   assert(platformMonitoring.webhookMonitoring.failedWebhookCount > 0, 'Webhook monitoring should include failed delivery counts');
   assert(platformMonitoring.ticketMonitoring.demoDataDetected === false, 'Real platform monitoring should distinguish demo data from live tickets');
+
+  const welcomeDuplicateDecision = evaluateAutomationOpportunity({
+    automation: {
+      type: INTELLIGENT_AUTOMATION_TYPES.WELCOME_MESSAGE,
+      cooldownMinutes: 1440,
+      maxPerGuest: 1
+    },
+    reservation: {
+      id: 'welcome-stay-1',
+      guest_id: 'welcome-guest-1',
+      status: 'checked_in',
+      arrival_date: addDays(-1),
+      departure_date: addDays(2),
+      metadata: { welcome_sent_for_stay: true }
+    },
+    guest: {
+      id: 'welcome-guest-1',
+      metadata: { welcome_sent_for_stay: true }
+    },
+    now: new Date()
+  });
+  assert(welcomeDuplicateDecision.shouldRun === false, 'Welcome message should not run twice for the same stay');
+  assert(welcomeDuplicateDecision.reason === 'welcome_already_delivered', 'Welcome duplicate should explain that welcome was already delivered');
+  assert(welcomeDuplicateDecision.duplicateBlocked === true, 'Welcome duplicate should be marked as duplicate blocked');
 
   const folioReservation = {
     id: 'folio-reservation-1',

@@ -199,6 +199,41 @@ export const shouldRespectCooldown = ({
   return { blocked: false, reason: null };
 };
 
+const hasWelcomeAlreadyDeliveredForStay = ({
+  reservation = {},
+  guest = {},
+  guestId = null,
+  recentRuns = [],
+  recentScheduledMessages = []
+} = {}) => {
+  if (
+    guest?.welcome_sent_for_stay
+    || reservation?.welcome_sent_for_stay
+    || guest?.metadata?.welcome_sent_for_stay
+    || reservation?.metadata?.welcome_sent_for_stay
+  ) {
+    return true;
+  }
+
+  const reservationId = reservation.id || reservation.reservation_id || reservation.pms_reservation_id || null;
+  const stayKey = reservationId || `${guestId || guest?.id || 'guest'}:${reservation.arrival_date || guest?.arrival_date || guest?.checkIn || 'unknown'}`;
+  const isWelcomeRecord = (record = {}) => (
+    record.automation_type === INTELLIGENT_AUTOMATION_TYPES.WELCOME_MESSAGE
+    || record.type === INTELLIGENT_AUTOMATION_TYPES.WELCOME_MESSAGE
+  );
+  const sameStay = (record = {}) => (
+    (reservationId && (record.reservation_id === reservationId || record.metadata?.reservation_id === reservationId))
+    || record.metadata?.stay_key === stayKey
+    || (guestId && record.guest_id === guestId && String(record.created_at || record.scheduled_for || '').slice(0, 10) >= String(reservation.arrival_date || guest?.arrival_date || guest?.checkIn || '').slice(0, 10))
+  );
+
+  return [...recentRuns, ...recentScheduledMessages].some((record) => (
+    isWelcomeRecord(record)
+    && sameStay(record)
+    && !['failed', 'cancelled', 'skipped'].includes(record.status)
+  ));
+};
+
 export const getAutomationDefinition = (type) => (
   DEFAULT_INTELLIGENT_AUTOMATIONS.find((automation) => automation.type === type)
 );
@@ -313,6 +348,25 @@ export const evaluateAutomationOpportunity = ({
   const guestId = reservation.guest_id || guest?.id || null;
   const fatigueScore = calculateFatigueScore({ recentRuns, recentScheduledMessages, guestId });
   const cooldown = shouldRespectCooldown({ automation, guestId, recentRuns, now });
+
+  if (
+    type === INTELLIGENT_AUTOMATION_TYPES.WELCOME_MESSAGE
+    && hasWelcomeAlreadyDeliveredForStay({
+      reservation,
+      guest,
+      guestId,
+      recentRuns,
+      recentScheduledMessages
+    })
+  ) {
+    return {
+      shouldRun: false,
+      reason: 'welcome_already_delivered',
+      fatigueScore,
+      cooldownApplied: false,
+      duplicateBlocked: true
+    };
+  }
 
   if (cooldown.blocked) {
     return {

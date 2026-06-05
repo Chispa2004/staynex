@@ -31,6 +31,13 @@ const formatLabel = (value) => String(value || '')
   .replace(/_/g, ' ')
   .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
+const priorityTone = (priority) => {
+  if (priority === 'CRITICAL') return 'red';
+  if (priority === 'HIGH') return 'amber';
+  if (priority === 'MEDIUM') return 'sky';
+  return 'slate';
+};
+
 const Card = ({ children, className = '' }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -60,7 +67,7 @@ const KeyValue = ({ label, value }) => {
   return (
     <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.04] p-3'}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] opacity-60">{label}</p>
-      <p className="mt-1 break-words text-sm font-semibold">{value || '-'}</p>
+      <p className="mt-1 break-words text-sm font-semibold">{value ?? '-'}</p>
     </div>
   );
 };
@@ -283,9 +290,66 @@ export function AutomationTestCenter() {
                 ))}
               </div>
             </section>
+
+            {result.automationHealth ? (
+              <section className={isLight ? 'rounded-lg border border-slate-200 bg-white p-4' : 'rounded-lg border border-white/10 bg-white/[0.035] p-4'}>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+                  <p className="text-sm font-semibold">Automation health</p>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <KeyValue label="Generated" value={result.automationHealth.generated} />
+                  <KeyValue label="Suppressed" value={result.automationHealth.suppressed} />
+                  <KeyValue label="Duplicates blocked" value={result.automationHealth.duplicatesBlocked} />
+                  <KeyValue label="Fatigue blocked" value={result.automationHealth.fatigueBlocked} />
+                  <KeyValue label="Cooldown blocked" value={result.automationHealth.cooldownBlocked} />
+                  <KeyValue label="Priority suppressed" value={result.automationHealth.prioritySuppressed} />
+                </div>
+                {result.automationHealth.fatigueGuardDecisions?.length ? (
+                  <div className="mt-3 space-y-1.5">
+                    {result.automationHealth.fatigueGuardDecisions.slice(0, 6).map((decision) => (
+                      <div key={`${decision.automation_type}-${decision.decision}`} className="flex items-center justify-between gap-3 text-xs">
+                        <span>{formatLabel(decision.automation_type)}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge tone={priorityTone(decision.priority)}>{decision.priority}</Badge>
+                          <Badge tone={decision.decision === 'generated' ? 'emerald' : 'amber'}>{formatLabel(decision.decision)}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
           </div>
 
           <div className="space-y-4">
+            {result.revenueFollowUp?.active ? (
+              <section className={isLight ? 'rounded-lg border border-slate-200 bg-white p-4' : 'rounded-lg border border-white/10 bg-white/[0.035] p-4'}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+                    <p className="text-sm font-semibold">Revenue follow-up dry-run</p>
+                  </div>
+                  <Badge tone="sky">Dry run</Badge>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  <KeyValue label="Guest message" value={result.revenueFollowUp.guest_message} />
+                  <KeyValue label="Detected intent" value={formatLabel(result.revenueFollowUp.detected_intent)} />
+                  <KeyValue label="Provider handoff" value={formatLabel(result.revenueFollowUp.provider_handoff)} />
+                  <KeyValue label="Reservation request" value={formatLabel(result.revenueFollowUp.reservation_request)} />
+                </div>
+                <div className={isLight ? 'mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3' : 'mt-3 rounded-lg border border-white/10 bg-black/10 p-3'}>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-60">Next message preview</p>
+                  <p className={isLight ? 'mt-2 text-sm leading-6 text-slate-700' : 'mt-2 text-sm leading-6 text-slate-300'}>
+                    {result.revenueFollowUp.next_message}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs opacity-60">
+                  Confirmation path: {formatLabel(result.revenueFollowUp.confirmation_request)}
+                </p>
+              </section>
+            ) : null}
+
             <section className={isLight ? 'rounded-lg border border-slate-200 bg-white p-4' : 'rounded-lg border border-white/10 bg-white/[0.035] p-4'}>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -299,6 +363,7 @@ export function AutomationTestCenter() {
                   <article key={preview.id} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.04] p-3'}>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone="emerald">{formatLabel(preview.automation_type)}</Badge>
+                      <Badge tone={priorityTone(preview.priority)}>{preview.priority || 'LOW'}</Badge>
                       <Badge tone="slate">{formatDate(preview.scheduled_for)}</Badge>
                     </div>
                     <div className={isLight ? 'mt-3 rounded-lg border border-slate-200 bg-white p-3' : 'mt-3 rounded-lg border border-white/10 bg-black/10 p-3'}>
@@ -340,7 +405,10 @@ export function AutomationTestCenter() {
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 {(result.skippedAutomations || []).map((item) => (
                   <div key={item.type} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm' : 'rounded-lg border border-white/10 bg-white/[0.04] p-3 text-sm'}>
-                    <p className="font-semibold">{item.name}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{item.name}</p>
+                      <Badge tone={priorityTone(item.priority)}>{item.priority || 'LOW'}</Badge>
+                    </div>
                     <p className="mt-1 text-xs opacity-60">{formatLabel(item.reason)}</p>
                   </div>
                 ))}

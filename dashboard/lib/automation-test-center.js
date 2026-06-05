@@ -26,7 +26,11 @@ const scenarioNames = {
   guest_opt_out: 'Guest with opt-out',
   human_takeover_active: 'Human takeover active',
   guest_incomplete_folio: 'Guest with incomplete folio',
-  guest_missing_pms_data: 'Guest with missing PMS data'
+  guest_missing_pms_data: 'Guest with missing PMS data',
+  high_automation_density: 'High automation density',
+  revenue_followup_spa: 'Revenue follow-up: spa interest',
+  revenue_followup_experience: 'Revenue follow-up: experience interest',
+  revenue_followup_transfer: 'Revenue follow-up: transfer request'
 };
 
 export const AUTOMATION_TEST_SCENARIOS = Object.entries(scenarioNames).map(([id, name]) => ({
@@ -46,6 +50,48 @@ export const SIMULATED_NOW_OPTIONS = [
 const iso = (date) => date.toISOString();
 const dateOnly = (date) => iso(date).slice(0, 10);
 const addDays = (date, days) => new Date(date.getTime() + days * DAY_MS);
+
+const AUTOMATION_PRIORITIES = {
+  human_escalation: 'CRITICAL',
+  quality_alert: 'CRITICAL',
+  pre_checkout_folio_reminder: 'HIGH',
+  vip_followup: 'HIGH',
+  transfer_offer: 'MEDIUM',
+  experience_recommendation: 'MEDIUM',
+  spa_upsell: 'MEDIUM',
+  restaurant_promotion: 'MEDIUM',
+  late_checkout_offer: 'MEDIUM',
+  post_stay_review_intelligence: 'MEDIUM',
+  welcome_message: 'LOW',
+  weather_trigger: 'LOW',
+  birthday_message: 'LOW',
+  abandoned_interest_followup: 'LOW'
+};
+
+const PRIORITY_WEIGHT = {
+  CRITICAL: 4,
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1
+};
+
+const priorityForAutomation = ({ automation, scenario }) => {
+  if (
+    automation.type === 'post_stay_review_intelligence'
+    && scenario?.simulatedGuest?.sentiment === 'negative'
+  ) {
+    return 'CRITICAL';
+  }
+
+  return AUTOMATION_PRIORITIES[automation.type] || 'LOW';
+};
+
+const hasWelcomeAlreadyDelivered = (guest = {}, reservation = {}) => (
+  Boolean(guest.welcome_sent_for_stay)
+  || Boolean(reservation.welcome_sent_for_stay)
+  || Boolean(guest.metadata?.welcome_sent_for_stay)
+  || Boolean(reservation.metadata?.welcome_sent_for_stay)
+);
 
 const normalizeNow = ({ simulatedNow, scenarioId, customNow }) => {
   const base = customNow || simulatedNow;
@@ -183,17 +229,20 @@ const buildBaseGuest = ({ hotel, now, scenarioId }) => {
       room: '801',
       current_room: '801',
       room_type: 'Presidential Suite',
-      metadata: { tags: ['VIP', 'suite'], notes: 'VIP guest' }
+      welcome_sent_for_stay: true,
+      metadata: { tags: ['VIP', 'suite'], notes: 'VIP guest', welcome_sent_for_stay: true }
     },
     guest_interested_experiences: {
       status: 'checked_in',
       interests: ['experiences', 'excursion', 'agafay'],
-      metadata: { last_intent: 'experience excursion agafay', interests: ['experiences', 'excursion'] }
+      welcome_sent_for_stay: true,
+      metadata: { last_intent: 'experience excursion agafay', interests: ['experiences', 'excursion'], welcome_sent_for_stay: true }
     },
     guest_interested_spa: {
       status: 'checked_in',
       interests: ['spa', 'wellness', 'hammam'],
-      metadata: { last_intent: 'spa wellness hammam', interests: ['spa', 'wellness'] }
+      welcome_sent_for_stay: true,
+      metadata: { last_intent: 'spa wellness hammam', interests: ['spa', 'wellness'], welcome_sent_for_stay: true }
     },
     guest_requested_transfer: {
       status: 'confirmed',
@@ -244,6 +293,71 @@ const buildBaseGuest = ({ hotel, now, scenarioId }) => {
       departure_date: null,
       checkIn: null,
       checkOut: null
+    },
+    high_automation_density: {
+      status: 'checked_in',
+      checkIn: dateOnly(addDays(now, -1)),
+      arrival_date: dateOnly(addDays(now, -1)),
+      checkOut: dateOnly(addDays(now, 1)),
+      departure_date: dateOnly(addDays(now, 1)),
+      room: '901',
+      current_room: '901',
+      room_type: 'Premium Suite',
+      birthday_today: true,
+      interests: ['vip', 'suite', 'premium', 'spa', 'wellness', 'hammam', 'experience', 'excursion', 'agafay', 'transfer', 'airport', 'restaurant', 'birthday'],
+      balance_due: 118,
+      welcome_sent_for_stay: true,
+      folio: {
+        available: true,
+        currency: 'EUR',
+        lineItems: [
+          { description: 'Spa', amount: 70 },
+          { description: 'Restaurant', amount: 48 }
+        ],
+        totalCharges: 118,
+        totalPaid: 0,
+        outstandingBalance: 118,
+        warnings: []
+      },
+      metadata: {
+        last_intent: 'vip premium spa wellness experience excursion agafay transfer airport restaurant birthday interested availability',
+        tags: ['VIP', 'suite', 'birthday'],
+        interests: ['spa', 'experiences', 'transfer', 'restaurant'],
+        welcome_sent_for_stay: true
+      }
+    },
+    revenue_followup_spa: {
+      status: 'checked_in',
+      interests: ['spa', 'wellness'],
+      welcome_sent_for_stay: true,
+      metadata: {
+        last_guest_message: 'Si, me interesa el spa',
+        last_intent: 'spa_interest',
+        interests: ['spa', 'wellness'],
+        welcome_sent_for_stay: true
+      }
+    },
+    revenue_followup_experience: {
+      status: 'checked_in',
+      interests: ['experience', 'excursion', 'essaouira'],
+      welcome_sent_for_stay: true,
+      metadata: {
+        last_guest_message: 'Quiero informacion de la excursion',
+        last_intent: 'experience_interest',
+        interests: ['experience', 'excursion'],
+        welcome_sent_for_stay: true
+      }
+    },
+    revenue_followup_transfer: {
+      status: 'confirmed',
+      interests: ['transfer', 'airport'],
+      welcome_sent_for_stay: true,
+      metadata: {
+        last_guest_message: 'Reservadme el transfer',
+        last_intent: 'airport_transfer_interest',
+        interests: ['transfer', 'airport'],
+        welcome_sent_for_stay: true
+      }
     }
   }[scenarioId] || {};
 
@@ -330,7 +444,7 @@ const buildPostStayGuestPreview = ({ hotel, simulatedGuest }) => {
   return `${prefix}gracias por alojarte con nosotros. Esperamos que hayas disfrutado de tu estancia en ${hotel.name}. Tu opinion nos ayuda a seguir mejorando. Podrias dedicar unos segundos a valorar tu experiencia?${linkCopy}`;
 };
 
-const buildInternalReasoning = ({ automation, scenario, decision }) => {
+const buildInternalReasoning = ({ automation, scenario, decision, priority }) => {
   const { simulatedGuest } = scenario;
 
   if (automation.type === 'post_stay_review_intelligence') {
@@ -340,12 +454,14 @@ const buildInternalReasoning = ({ automation, scenario, decision }) => {
       review_risk_score: simulatedGuest.metadata?.review_risk_score || 0,
       quality_alert: simulatedGuest.sentiment === 'negative',
       public_review_allowed: simulatedGuest.sentiment !== 'negative',
+      priority,
       trigger_reason: decision.reason
     };
   }
 
   return {
     classification: 'automation_preview',
+    priority,
     trigger_reason: decision.reason,
     safe_preview: true,
     live_guest_send_blocked: true
@@ -376,6 +492,14 @@ const evaluateType = ({ automation, guest, now }) => {
   }
 
   if (type === 'welcome_message') {
+    if (hasWelcomeAlreadyDelivered(guest)) {
+      return {
+        eligible: false,
+        reason: 'welcome_already_delivered',
+        duplicateBlocked: true
+      };
+    }
+
     return ['checked_in', 'in_house'].includes(guest.status)
       ? { eligible: true, reason: 'guest_checked_in' }
       : { eligible: false, reason: 'not_checked_in' };
@@ -463,8 +587,9 @@ const evaluateType = ({ automation, guest, now }) => {
   return { eligible: false, reason: 'scenario_not_matching_trigger' };
 };
 
-const buildPreview = ({ automation, scenario, decision }) => {
+const buildPreview = ({ automation, scenario, decision, priority }) => {
   const { hotel, reservation, simulatedGuest } = scenario;
+  const internalReasoning = buildInternalReasoning({ automation, scenario, decision, priority });
   const message = automation.type === 'pre_checkout_folio_reminder'
     ? `${simulatedGuest.name}, tomorrow is your scheduled check-out at ${hotel.name}. According to the current room information, there is an estimated pending balance of ${simulatedGuest.folio?.outstandingBalance || simulatedGuest.balance_due} ${simulatedGuest.currency}. Reception can help if you have any questions.`
     : automation.type === 'post_stay_review_intelligence'
@@ -484,12 +609,13 @@ const buildPreview = ({ automation, scenario, decision }) => {
     id: `preview-${automation.type}-${scenario.id}`,
     automation_type: automation.type,
     automation_name: automation.name,
+    priority,
     status: 'preview_generated',
     scheduled_for: scheduledFor,
     message_body: message,
     message_preview: message,
     guest_message_preview: message,
-    internal_reasoning: buildInternalReasoning({ automation, scenario, decision }),
+    internal_reasoning: internalReasoning,
     guest_id: simulatedGuest.id,
     reservation_id: reservation.id,
     room: simulatedGuest.room,
@@ -503,9 +629,61 @@ const buildPreview = ({ automation, scenario, decision }) => {
       test_mode: true,
       scenario_id: scenario.id,
       hotel_id: hotel.id,
-      internal_reasoning: buildInternalReasoning({ automation, scenario, decision })
+      priority,
+      internal_reasoning: internalReasoning
     }
   };
+};
+
+const buildRevenueFollowUpDryRun = ({ scenario }) => {
+  const scenarioId = scenario.id;
+
+  if (scenarioId === 'revenue_followup_spa') {
+    return {
+      active: true,
+      dry_run: true,
+      guest_message: scenario.simulatedGuest.metadata?.last_guest_message,
+      detected_intent: 'spa_interest',
+      next_message: 'Por supuesto. Puedo ayudarte a consultar disponibilidad de spa. Para avanzar, dime si lo prefieres hoy o manana y cuantas personas sois.',
+      provider_handoff: 'not_required',
+      reservation_request: 'awaiting_guest_details',
+      confirmation_request: 'pending_guest_date_time',
+      pmsTouched: false,
+      ubikosTouched: false
+    };
+  }
+
+  if (scenarioId === 'revenue_followup_experience') {
+    return {
+      active: true,
+      dry_run: true,
+      guest_message: scenario.simulatedGuest.metadata?.last_guest_message,
+      detected_intent: 'experience_interest',
+      next_message: 'Te ayudo. Para enviar la solicitud al proveedor, necesito la experiencia, la fecha deseada y el numero de personas.',
+      provider_handoff: 'provider_request_preview',
+      reservation_request: 'awaiting_guest_details',
+      confirmation_request: 'ask_guest_before_provider_email',
+      pmsTouched: false,
+      ubikosTouched: false
+    };
+  }
+
+  if (scenarioId === 'revenue_followup_transfer') {
+    return {
+      active: true,
+      dry_run: true,
+      guest_message: scenario.simulatedGuest.metadata?.last_guest_message,
+      detected_intent: 'airport_transfer_interest',
+      next_message: 'Claro. Para preparar la solicitud de transfer, dime el numero de vuelo u hora de llegada y cuantas personas sois.',
+      provider_handoff: 'transfer_request_preview',
+      reservation_request: 'awaiting_flight_time_and_passengers',
+      confirmation_request: 'ask_guest_before_provider_or_driver_request',
+      pmsTouched: false,
+      ubikosTouched: false
+    };
+  }
+
+  return null;
 };
 
 export const runAutomationTestCenter = ({
@@ -529,6 +707,18 @@ export const runAutomationTestCenter = ({
   const skippedAutomations = [];
   const previews = [];
   const logs = [];
+  const candidates = [];
+  const automationHealth = {
+    generated: 0,
+    suppressed: 0,
+    duplicatesBlocked: 0,
+    fatigueBlocked: 0,
+    cooldownBlocked: 0,
+    prioritySuppressed: 0,
+    messagesGenerated: 0,
+    messagesSuppressed: 0,
+    fatigueGuardDecisions: []
+  };
   const safety = {
     testMode: true,
     dryRun: dryRun !== false,
@@ -556,12 +746,13 @@ export const runAutomationTestCenter = ({
     safety.blockedReasons.push('missing_test_whatsapp_number');
   }
 
-  for (const automation of mergedAutomations) {
+  mergedAutomations.forEach((automation, index) => {
     const decision = evaluateType({
       automation,
       guest: scenario.simulatedGuest,
       now
     });
+    const priority = priorityForAutomation({ automation, scenario });
     const baseLog = {
       automation_type: automation.type,
       scenario_id: scenario.id,
@@ -571,44 +762,121 @@ export const runAutomationTestCenter = ({
       scheduled_for: null,
       status: decision.eligible ? 'preview_generated' : decision.reason,
       reason: decision.reason,
+      priority,
       message_preview: null,
       created_at: new Date().toISOString(),
       metadata: {
         test_mode: true,
-        dry_run: true
+        dry_run: true,
+        priority
       }
     };
 
     if (!decision.eligible) {
+      if (decision.duplicateBlocked) {
+        automationHealth.duplicatesBlocked += 1;
+      }
+
       skippedAutomations.push({
         type: automation.type,
         name: automation.name,
         status: decision.reason,
-        reason: decision.reason
+        reason: decision.reason,
+        priority,
+        duplicate_blocked: Boolean(decision.duplicateBlocked)
       });
       logs.push(baseLog);
+      return;
+    }
+
+    candidates.push({
+      automation,
+      decision,
+      priority,
+      baseLog,
+      index
+    });
+  });
+
+  const sortedCandidates = candidates.sort((left, right) => {
+    const priorityDiff = (PRIORITY_WEIGHT[right.priority] || 0) - (PRIORITY_WEIGHT[left.priority] || 0);
+    return priorityDiff || left.index - right.index;
+  });
+  const fatigueLimit = scenario.id === 'high_automation_density' ? 3 : 5;
+
+  for (const candidate of sortedCandidates) {
+    const { automation, decision, priority, baseLog } = candidate;
+    const overFatigueLimit = previews.length >= fatigueLimit && priority !== 'CRITICAL';
+
+    if (overFatigueLimit) {
+      const suppressed = {
+        type: automation.type,
+        name: automation.name,
+        status: 'fatigue_guard_suppressed',
+        reason: 'fatigue_guard_suppressed',
+        priority,
+        priority_suppressed: true
+      };
+
+      automationHealth.suppressed += 1;
+      automationHealth.fatigueBlocked += 1;
+      automationHealth.prioritySuppressed += 1;
+      automationHealth.messagesSuppressed += 1;
+      automationHealth.fatigueGuardDecisions.push({
+        automation_type: automation.type,
+        priority,
+        decision: 'suppressed',
+        reason: 'fatigue_guard_suppressed'
+      });
+      skippedAutomations.push(suppressed);
+      logs.push({
+        ...baseLog,
+        status: 'fatigue_guard_suppressed',
+        reason: 'fatigue_guard_suppressed'
+      });
       continue;
     }
 
     const preview = buildPreview({
       automation,
       scenario,
-      decision
+      decision,
+      priority
     });
 
     eligibleAutomations.push({
       type: automation.type,
       name: automation.name,
+      priority,
       trigger_reason: decision.reason,
       scheduled_for: preview.scheduled_for
     });
     previews.push(preview);
+    automationHealth.generated += 1;
+    automationHealth.messagesGenerated += 1;
+    automationHealth.fatigueGuardDecisions.push({
+      automation_type: automation.type,
+      priority,
+      decision: 'generated',
+      reason: decision.reason
+    });
     logs.push({
       ...baseLog,
       scheduled_for: preview.scheduled_for,
       message_preview: preview.message_preview
     });
   }
+
+  automationHealth.cooldownBlocked = skippedAutomations.filter((item) => (
+    item.reason === 'cooldown_active' || item.reason === 'max_per_guest_reached'
+  )).length;
+  automationHealth.suppressed = skippedAutomations.filter((item) => (
+    item.reason === 'fatigue_guard_suppressed'
+    || item.reason === 'cooldown_active'
+    || item.reason === 'max_per_guest_reached'
+    || item.reason === 'welcome_already_delivered'
+  )).length;
+  automationHealth.messagesSuppressed = automationHealth.suppressed;
 
   const sendResult = sendTest
     ? {
@@ -636,6 +904,8 @@ export const runAutomationTestCenter = ({
     skippedAutomations,
     previews,
     logs,
+    automationHealth,
+    revenueFollowUp: buildRevenueFollowUpDryRun({ scenario }),
     safety,
     sendResult
   };

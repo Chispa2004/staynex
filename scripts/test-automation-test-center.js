@@ -66,6 +66,75 @@ assert.ok(
   folio.previews.some((item) => item.automation_type === 'pre_checkout_folio_reminder' && item.message_body.includes('132 EUR')),
   'folio preview should include outstanding balance'
 );
+assert.equal(
+  folio.previews.find((item) => item.automation_type === 'pre_checkout_folio_reminder')?.priority,
+  'HIGH',
+  'folio reminder should be marked as high priority'
+);
+
+const vip = run({ scenarioId: 'vip_guest_in_house' });
+assert.ok(
+  vip.skippedAutomations.some((item) => item.type === 'welcome_message' && item.reason === 'welcome_already_delivered'),
+  'VIP guest in-house should not regenerate welcome message'
+);
+assert.ok(
+  !vip.previews.some((item) => item.automation_type === 'welcome_message'),
+  'VIP scenario should not include welcome preview once welcome was delivered for the stay'
+);
+assert.equal(
+  vip.previews.find((item) => item.automation_type === 'vip_followup')?.priority,
+  'HIGH',
+  'VIP follow-up should be high priority'
+);
+
+const spaInterest = run({ scenarioId: 'guest_interested_spa' });
+assert.ok(
+  spaInterest.skippedAutomations.some((item) => item.type === 'welcome_message' && item.reason === 'welcome_already_delivered'),
+  'Spa interest scenario should not regenerate welcome message'
+);
+assert.ok(
+  spaInterest.previews.some((item) => item.automation_type === 'spa_upsell'),
+  'Spa interest scenario should still generate spa upsell preview'
+);
+
+const experienceInterest = run({ scenarioId: 'guest_interested_experiences' });
+assert.ok(
+  experienceInterest.skippedAutomations.some((item) => item.type === 'welcome_message' && item.reason === 'welcome_already_delivered'),
+  'Experience interest scenario should not regenerate welcome message'
+);
+assert.ok(
+  experienceInterest.previews.some((item) => item.automation_type === 'experience_recommendation'),
+  'Experience interest scenario should still generate experience recommendation preview'
+);
+
+const density = run({ scenarioId: 'high_automation_density', simulatedNow: 'checkout_minus_24h' });
+assert.ok(density.automationHealth.generated <= 3, 'High automation density should cap generated messages');
+assert.ok(density.automationHealth.fatigueBlocked > 0, 'High automation density should suppress excess messages with fatigue guard');
+assert.ok(density.automationHealth.prioritySuppressed > 0, 'High automation density should record priority suppression');
+assert.ok(
+  density.automationHealth.fatigueGuardDecisions.some((item) => item.decision === 'suppressed'),
+  'Fatigue guard decisions should be visible'
+);
+assert.ok(
+  density.previews.every((item, index, all) => {
+    const weights = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+    return index === 0 || weights[all[index - 1].priority] >= weights[item.priority];
+  }),
+  'Generated previews should be ordered by priority'
+);
+
+const spaFollowUp = run({ scenarioId: 'revenue_followup_spa' });
+assert.equal(spaFollowUp.revenueFollowUp?.detected_intent, 'spa_interest', 'Spa follow-up should detect spa intent');
+assert.equal(spaFollowUp.revenueFollowUp?.dry_run, true, 'Spa follow-up should stay dry-run');
+assert.equal(spaFollowUp.revenueFollowUp?.ubikosTouched, false, 'Spa follow-up should not touch Ubikos');
+
+const experienceFollowUp = run({ scenarioId: 'revenue_followup_experience' });
+assert.equal(experienceFollowUp.revenueFollowUp?.detected_intent, 'experience_interest', 'Experience follow-up should detect experience intent');
+assert.equal(experienceFollowUp.revenueFollowUp?.provider_handoff, 'provider_request_preview', 'Experience follow-up should preview provider handoff only');
+
+const transferFollowUp = run({ scenarioId: 'revenue_followup_transfer' });
+assert.equal(transferFollowUp.revenueFollowUp?.detected_intent, 'airport_transfer_interest', 'Transfer follow-up should detect transfer intent');
+assert.equal(transferFollowUp.revenueFollowUp?.pmsTouched, false, 'Transfer follow-up should not touch PMS');
 
 const missingPhone = run({ scenarioId: 'guest_missing_phone' });
 assert.ok(
