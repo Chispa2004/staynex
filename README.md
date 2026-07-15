@@ -1,28 +1,47 @@
 # Staynex
 
-Staynex is an AI operations assistant for hotels. Guests write to the hotel on WhatsApp, Staynex understands the request, replies in the guest language, creates operational tickets when needed, and gives reception a dashboard to monitor conversations, tickets, AI decisions, QR room links, analytics, and hotel knowledge.
+Staynex is an operational intelligence layer for hotels. It connects guest messaging, hotel operations, PMS context, tickets, automations, knowledge, revenue opportunities and experience providers in one operating system.
 
-This repository contains:
+Staynex does not replace the PMS. The PMS remains the system of record. Staynex reads and interprets hotel context so reception, operations and management teams can work faster and communicate better with guests.
 
-- `src/`: Express backend for WhatsApp, AI processing, tickets, AI logs, and staff replies.
-- `dashboard/`: Next.js App Router dashboard.
-- `supabase/`: SQL schema, migrations, and demo seed files.
-- `scripts/`: local test and validation scripts.
+## Repository Structure
+
+- `src/`: Express backend for WhatsApp, AI, PMS context, automations, tickets, providers and jobs.
+- `dashboard/`: Next.js App Router dashboard and platform console.
+- `supabase/`: SQL schema, migrations and seed/demo files.
+- `scripts/`: local tests, checks and jobs.
+- `docs/`: technical documentation, current status, roadmap and repository audit.
+
+## Core Product Areas
+
+- Staynex Platform: internal SaaS owner console for hotels, providers, monitoring and AI quality.
+- Hotel Workspaces: dashboard, inbox, tickets, reception, health, automations, QR rooms and knowledge.
+- Experience Providers: provider catalog, hotel assignments and guest booking requests.
+- PMS Layer: read-oriented adapters, normalizers, mocks and PMS intelligence services.
+- Automations: guarded playbooks, preview mode, fatigue guard, deduplication and test center.
+- AI QA: Simulation Mode and Failure Intelligence for internal quality testing.
+
+## Current Integration Notes
+
+- Ubikos is prepared in safe read-only sandbox mode only. The adapter, normalizer, mocks, health check and tests exist, but no official API credentials or live endpoints are connected yet.
+- Real automated guest sends should remain guarded until pilot approval. Use preview/dry-run and internal test numbers first.
+- WhatsApp requires Twilio configuration and per-hotel onboarding.
+- PMS data quality determines how safely Staynex can power Reception, AI context, folio reminders and automations.
 
 ## Stack
 
-- Node.js
-- Express
-- Next.js App Router
-- TailwindCSS
-- Supabase PostgreSQL
-- OpenAI API
-- Twilio WhatsApp API
+- Node.js / JavaScript ES modules.
+- Express backend.
+- Next.js App Router dashboard.
+- React 19.
+- Tailwind CSS.
+- Supabase PostgreSQL/Auth.
+- OpenAI SDK.
+- Twilio WhatsApp.
+- Resend / SMTP email paths.
+- Google Sheets via `googleapis`.
 
-## Ports
-
-- Backend: `http://localhost:3000`
-- Dashboard: `http://localhost:3001`
+See [docs/03-tech-stack.md](docs/03-tech-stack.md) for the detailed inventory.
 
 ## Setup
 
@@ -38,7 +57,7 @@ Install dashboard dependencies:
 npm --prefix dashboard install
 ```
 
-If npm has cache permission issues on Windows, use the local cache:
+If npm has cache permission issues on Windows:
 
 ```bash
 npm install --cache .npm-cache
@@ -47,114 +66,42 @@ npm --prefix dashboard install --cache dashboard/.npm-cache
 
 ## Environment
 
-Create backend env:
+Create local environment files:
 
 ```bash
 cp .env.example .env
-```
-
-Create dashboard env:
-
-```bash
 cp dashboard/.env.local.example dashboard/.env.local
 ```
 
-PowerShell equivalent:
+PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 Copy-Item dashboard/.env.local.example dashboard/.env.local
 ```
 
-Required backend variables:
-
-```env
-PORT=3000
-USE_MOCK_AI=true
-OPENAI_API_KEY=your_openai_api_key
-OPENAI_MODEL=gpt-4o-mini
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-TWILIO_ACCOUNT_SID=your_twilio_account_sid
-TWILIO_AUTH_TOKEN=your_twilio_auth_token
-TWILIO_WHATSAPP_FROM=your_twilio_whatsapp_number
-REQUIRE_TWILIO=false
-```
-
-Required dashboard variables:
-
-```env
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-BACKEND_URL=http://localhost:3000
-NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
-NEXT_PUBLIC_TWILIO_WHATSAPP_FROM=your_twilio_whatsapp_number
-```
-
 Do not commit `.env` or `.env.local`. They are ignored by Git.
 
-## Supabase
+Important variable groups:
 
-Run the base schema in Supabase SQL Editor:
+- Supabase URL and keys.
+- OpenAI API/model settings.
+- Twilio WhatsApp credentials.
+- Resend/SMTP email settings.
+- PMS credentials.
+- Ubikos sandbox variables.
+- Google Sheets service account variables.
+- automation safety flags.
 
-```text
-supabase/schema.sql
-```
+See [docs/08-deployment.md](docs/08-deployment.md) for deployment guidance.
 
-Then run optional/current migrations as needed:
+## Development
 
-```text
-supabase/add-guest-language.sql
-supabase/sql/create_ai_logs.sql
-supabase/sql/add_ai_logs_human_fields.sql
-supabase/seed-demo-knowledge.sql
-```
-
-The backend uses the Supabase service role key server-side only. The browser dashboard uses the anon key where appropriate.
-
-## Backend
-
-Start development server:
+Start backend:
 
 ```bash
 npm run dev
 ```
-
-Start normal server:
-
-```bash
-npm start
-```
-
-Validate environment:
-
-```bash
-npm run check:env
-```
-
-Check backend syntax:
-
-```bash
-npm run check:syntax
-```
-
-Run a local message test without Twilio:
-
-```bash
-npm run test:message -- "Hello, I am in room 208" "+34600000000"
-```
-
-Useful backend endpoints:
-
-- `GET /health`
-- `POST /test-message`
-- `POST /webhooks/whatsapp`
-- `POST /messages/send`
-- `GET /debug/ai-logs` outside production only
-
-## Dashboard
 
 Start dashboard:
 
@@ -162,104 +109,61 @@ Start dashboard:
 npm run dashboard:dev
 ```
 
-Build dashboard:
+Default local ports:
 
-```bash
-npm run dashboard:build
-```
+- Backend: `http://localhost:3000`
+- Dashboard: `http://localhost:3001`
 
-Main routes:
+## Checks and Tests
 
-- `/dashboard`: tickets
-- `/dashboard/inbox`: operational inbox
-- `/dashboard/housekeeping`
-- `/dashboard/maintenance`
-- `/dashboard/reception`
-- `/dashboard/analytics`
-- `/dashboard/ai-logs`
-- `/dashboard/qr-rooms`
-- `/dashboard/settings/knowledge`
-- `/dashboard/tickets/[id]`
-
-## WhatsApp With Twilio
-
-For local webhook testing:
-
-1. Start the backend on port `3000`.
-2. Expose it with ngrok:
-
-```bash
-ngrok http 3000
-```
-
-3. In Twilio WhatsApp Sandbox or sender settings, configure:
-
-```text
-POST https://your-ngrok-url/webhooks/whatsapp
-```
-
-4. Ensure `TWILIO_WHATSAPP_FROM` matches the hotel number stored in Supabase.
-
-For local development without Twilio, keep:
-
-```env
-REQUIRE_TWILIO=false
-USE_MOCK_AI=true
-```
-
-## QR Rooms
-
-The dashboard route `/dashboard/qr-rooms` generates room QR codes that open WhatsApp with a prefilled message like:
-
-```text
-Hello, I am in room 208
-```
-
-The backend already detects this room format and stores it on the guest profile.
-
-## Deployment Notes
-
-This repo is prepared for a split deploy:
-
-- Railway: backend from the repository root, `npm start`.
-- Vercel: dashboard from `dashboard/`, `npm run build`.
-
-Set production environment variables separately in Railway and Vercel. Do not rely on local `.env` files in production.
-
-Potential deploy settings:
-
-- Railway root directory: repository root.
-- Railway start command: `npm start`.
-- Vercel root directory: `dashboard`.
-- Vercel build command: `npm run build`.
-- Vercel output: managed by Next.js.
-
-## Checks Before Push
-
-Run:
+Recommended before commit:
 
 ```bash
 npm run check:syntax
 npm run dashboard:build
 ```
 
-Or:
+Useful targeted tests:
 
 ```bash
-npm run check:all
+npm run test:permissions
+npm run test:pms:ubikos
+npm run test:automation-test-center
+npm run test:automations
 ```
 
-## Security
+See [docs/09-testing.md](docs/09-testing.md) for the full script inventory.
 
-Ignored by Git:
+## Documentation
 
-- `.env`
-- `.env.local`
-- `node_modules`
-- `.next`
-- build output
-- logs
-- npm cache
-- local legacy prototypes
+Start here:
 
-Never commit Supabase service role keys, Twilio auth tokens, OpenAI keys, or real production `.env` files.
+- [docs/00-project-overview.md](docs/00-project-overview.md)
+- [docs/01-current-status.md](docs/01-current-status.md)
+- [docs/02-technical-architecture.md](docs/02-technical-architecture.md)
+- [docs/04-features.md](docs/04-features.md)
+- [docs/05-pms-integration.md](docs/05-pms-integration.md)
+- [docs/12-github-audit.md](docs/12-github-audit.md)
+
+## Deployment
+
+Recommended split:
+
+- backend from repository root;
+- dashboard from `dashboard/`;
+- Supabase for database/auth;
+- environment variables configured in the deployment platforms.
+
+Typical production flow:
+
+```bash
+npm run check:syntax
+npm run dashboard:build
+git status
+git add README.md docs/
+git commit -m "Document Staynex technical status and repository audit"
+git push origin main
+```
+
+Use targeted `git add` commands when unrelated untracked folders exist in the repository root.
+
