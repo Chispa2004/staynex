@@ -142,6 +142,38 @@ const getAllHotelWorkspaces = async (supabase) => {
   return data || [];
 };
 
+const buildWorkspaceSelectionRequiredContext = async ({
+  supabase,
+  assignments,
+  tenantAccess,
+  userId,
+  email
+}) => ({
+  supabase,
+  hotel: null,
+  hotelUser: null,
+  role: 'blocked',
+  permissions: [],
+  platformRole: tenantAccess.platformRole,
+  platformPermissions: tenantAccess.platformPermissions,
+  multiPropertyAccess: tenantAccess.multiPropertyAccess,
+  canSwitchWorkspaces: tenantAccess.canSwitchWorkspaces,
+  canCreateWorkspaces: tenantAccess.canCreateWorkspaces,
+  availableHotels: (await getAllHotelWorkspaces(supabase)).map((workspaceHotel) => {
+    const assignment = assignments.find((item) => item.hotel_id === workspaceHotel.id);
+    return {
+      hotel: workspaceHotel,
+      hotelUser: assignment ? normalizeHotelUser(assignment) : null,
+      role: assignment?.role || 'owner',
+      isDefault: Boolean(assignment?.is_default)
+    };
+  }),
+  fallback: false,
+  accessDenied: true,
+  accessDeniedReason: 'workspace_required',
+  user: { id: userId, email }
+});
+
 const getLegacyAssignmentForUser = async ({ supabase, userId }) => {
   if (!userId) {
     return null;
@@ -248,31 +280,13 @@ export const getCurrentHotelForRequest = async (request) => {
         && !requestedHotelId
         && isHotelWorkspacePath(requestedWorkspacePath)
       ) {
-        return {
+        return buildWorkspaceSelectionRequiredContext({
           supabase,
-          hotel: null,
-          hotelUser: null,
-          role: 'blocked',
-          permissions: [],
-          platformRole: tenantAccess.platformRole,
-          platformPermissions: tenantAccess.platformPermissions,
-          multiPropertyAccess: tenantAccess.multiPropertyAccess,
-          canSwitchWorkspaces: tenantAccess.canSwitchWorkspaces,
-          canCreateWorkspaces: tenantAccess.canCreateWorkspaces,
-          availableHotels: (await getAllHotelWorkspaces(supabase)).map((workspaceHotel) => {
-            const assignment = assignments.find((item) => item.hotel_id === workspaceHotel.id);
-            return {
-              hotel: workspaceHotel,
-              hotelUser: assignment ? normalizeHotelUser(assignment) : null,
-              role: assignment?.role || 'owner',
-              isDefault: Boolean(assignment?.is_default)
-            };
-          }),
-          fallback: false,
-          accessDenied: true,
-          accessDeniedReason: 'workspace_required',
-          user: { id: userId, email }
-        };
+          assignments,
+          tenantAccess,
+          userId,
+          email
+        });
       }
 
       const canUseRequestedHotel = tenantAccess.canSwitchWorkspaces;
@@ -282,7 +296,19 @@ export const getCurrentHotelForRequest = async (request) => {
       let hotel = selectedAssignment?.hotel || await getHotelById(supabase, selectedAssignment?.hotel_id);
 
       if (tenantAccess.canSwitchWorkspaces && tenantAccess.platformRole !== 'none' && requestedHotelId) {
-        hotel = await getHotelById(supabase, requestedHotelId) || hotel;
+        const requestedHotel = await getHotelById(supabase, requestedHotelId);
+
+        if (!requestedHotel && isHotelWorkspacePath(requestedWorkspacePath)) {
+          return buildWorkspaceSelectionRequiredContext({
+            supabase,
+            assignments,
+            tenantAccess,
+            userId,
+            email
+          });
+        }
+
+        hotel = requestedHotel || hotel;
       }
 
       if (hotel) {

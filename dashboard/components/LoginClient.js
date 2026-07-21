@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getDefaultRouteForRole } from '@/lib/permissions';
+import { getActiveWorkspace, persistWorkspaceSelection } from '@/lib/workspace-context';
 import { STAYNEX_BLUE, StaynexLogo } from './StaynexBrand';
 
 const SESSION_CHECK_TIMEOUT_MS = 7000;
@@ -29,10 +30,12 @@ export const LoginClient = () => {
     }
 
     try {
+      const activeWorkspace = getActiveWorkspace();
       const response = await fetch('/api/auth/resolve-invitations', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          ...(activeWorkspace.hotelId ? { 'x-staynex-hotel-id': activeWorkspace.hotelId } : {})
         }
       });
       const body = await response.json();
@@ -43,6 +46,17 @@ export const LoginClient = () => {
           hotelName: body.hotel?.name || null,
           role
         }));
+      }
+
+      if (response.ok && body.hotel?.id) {
+        persistWorkspaceSelection({
+          hotelId: body.hotel.id,
+          workspace: {
+            hotel: body.hotel,
+            role,
+            hotelUser: body.hotelUser || null
+          }
+        });
       }
 
       router.replace(response.ok ? (body.defaultRoute || getDefaultRouteForRole(role)) : getDefaultRouteForRole(role));

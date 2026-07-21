@@ -4,13 +4,22 @@ import {
   getUserHotelAssignments,
   resolvePendingInvitationsForUser
 } from '@/lib/user-invitations';
-import { getFirstAllowedRoute, getPermissionsForRole } from '@/lib/permissions';
+import { getPermissionsForRole } from '@/lib/permissions';
+import { resolvePostLoginDestination } from '@/lib/post-login-routing';
+
+const ACTIVE_HOTEL_COOKIE = 'staynex_active_hotel_id';
 
 const getBearerToken = (request) => {
   const header = request.headers.get('authorization') || '';
   const match = header.match(/^Bearer\s+(.+)$/i);
   return match?.[1] || null;
 };
+
+const getRequestedHotelId = (request) => (
+  request.headers.get('x-staynex-hotel-id')
+  || request.cookies.get(ACTIVE_HOTEL_COOKIE)?.value
+  || null
+);
 
 export async function POST(request) {
   try {
@@ -37,7 +46,13 @@ export async function POST(request) {
       email: data.user.email,
       statuses: ['active']
     });
-    const selected = assignments.find((assignment) => assignment.is_default) || assignments[0] || null;
+    const loginDestination = resolvePostLoginDestination({
+      assignments,
+      requestedHotelId: getRequestedHotelId(request)
+    });
+    const selected = loginDestination.selectedHotelId
+      ? assignments.find((assignment) => assignment.hotel_id === loginDestination.selectedHotelId)
+      : assignments.find((assignment) => assignment.is_default) || assignments[0] || null;
     const role = selected?.role || 'owner';
 
     return NextResponse.json({
@@ -46,9 +61,14 @@ export async function POST(request) {
       resolvedCount: resolution.count,
       assignments,
       hotel: selected?.hotel || null,
+      hotelUser: selected || null,
       role,
       permissions: getPermissionsForRole(role),
-      defaultRoute: getFirstAllowedRoute(role)
+      platformRole: loginDestination.platformRole || selected?.platform_role || 'none',
+      defaultRoute: loginDestination.defaultRoute,
+      selectedHotelId: loginDestination.selectedHotelId,
+      routeReason: loginDestination.reason,
+      accessDeniedReason: loginDestination.accessDeniedReason
     });
   } catch (error) {
     console.error('Invitation resolution failed', error);

@@ -363,7 +363,7 @@ const AppShellContent = ({ children }) => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken, workspaceRetryNonce]);
+  }, [authLoading, isAuthenticated, isLoginPage, pathname, sessionAccessToken, workspaceRetryNonce]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isLoginPage) {
@@ -493,6 +493,34 @@ const AppShellContent = ({ children }) => {
       router.replace(getFirstAllowedRoute(activeRole));
     }
   }, [activeRole, authLoading, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, pathname, router]);
+
+  useEffect(() => {
+    if (
+      isLoginPage
+      || authLoading
+      || !isAuthenticated
+      || !hotelContextLoaded
+      || !hotelContext.accessDenied
+      || hotelContext.accessDeniedReason !== 'workspace_required'
+      || !INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole)
+      || pathname.startsWith('/platform')
+    ) {
+      return;
+    }
+
+    clearWorkspaceSelection();
+    router.replace('/platform/hotels');
+  }, [
+    authLoading,
+    hotelContext.accessDenied,
+    hotelContext.accessDeniedReason,
+    hotelContext.platformRole,
+    hotelContextLoaded,
+    isAuthenticated,
+    isLoginPage,
+    pathname,
+    router
+  ]);
 
   const handleLogout = async () => {
     if (logoutLoading) {
@@ -738,7 +766,7 @@ const AppShellContent = ({ children }) => {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
-          {tx('Checking session...')}
+          {tx('Preparing your workspace...')}
         </div>
       </div>
     );
@@ -781,11 +809,25 @@ const AppShellContent = ({ children }) => {
   }
 
   if (hotelContext.accessDenied) {
+    if (
+      hotelContext.accessDeniedReason === 'workspace_required'
+      && INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole)
+      && !pathname.startsWith('/platform')
+    ) {
+      return (
+        <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
+          <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
+            {tx('Preparing your workspace...')}
+          </div>
+        </div>
+      );
+    }
+
     const reasonCopy = {
       disabled: tx('Your Staynex access is disabled. Please contact your hotel administrator.'),
       invitation_pending: tx('Your invitation is still pending. Log in with the invited email or contact your administrator.'),
-      no_active_assignment: tx('No active hotel assignment is available for your user.'),
-      workspace_required: tx('Select a hotel workspace from Platform Hotels before opening hotel operations.')
+      no_active_assignment: tx('Your account does not have a hotel assigned yet. Contact the Staynex administrator.'),
+      workspace_required: tx('Choose a hotel workspace from Platform Hotels before opening hotel operations.')
     };
 
     return (
@@ -806,7 +848,7 @@ const AppShellContent = ({ children }) => {
             className={isLight ? 'mt-6 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'mt-6 inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
           >
             {hotelContext.accessDeniedReason === 'workspace_required'
-              ? tx('Back to Platform Hotels')
+              ? tx('Go to Platform Hotels')
               : logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}
           </button>
         </section>
@@ -818,7 +860,7 @@ const AppShellContent = ({ children }) => {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
-          {tx('Preparing workspace...')}
+          {tx('Preparing your workspace...')}
         </div>
       </div>
     );
@@ -855,7 +897,7 @@ const AppShellContent = ({ children }) => {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
-          {tx('Preparing workspace...')}
+          {tx('Preparing your workspace...')}
         </div>
       </div>
     );
