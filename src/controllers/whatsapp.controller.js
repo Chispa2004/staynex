@@ -1,6 +1,7 @@
 import { findHotelByWhatsappNumber } from '../services/supabase.service.js';
 import { processGuestMessage } from '../services/staynex.service.js';
 import { logger } from '../utils/logger.js';
+import { maskPhoneForLogs } from '../utils/privacy.js';
 
 const emptyTwilioResponse = '<Response></Response>';
 
@@ -20,7 +21,7 @@ export const handleIncomingWhatsApp = async (req, res, next) => {
 
     if (!hotel) {
       logger.warn('No hotel found for incoming WhatsApp number', {
-        hotelWhatsappNumber
+        hotelWhatsappNumber: maskPhoneForLogs(hotelWhatsappNumber)
       });
 
       res.type('text/xml');

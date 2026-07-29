@@ -3,6 +3,10 @@ import {
   getPlatformContext,
   writePlatformAuditLog
 } from '@/lib/platform';
+import {
+  areServerTestRoutesEnabled,
+  getInternalApiHeaders
+} from '@/lib/internal-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +26,13 @@ const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
 export async function POST(request) {
   try {
+    if (!areServerTestRoutesEnabled()) {
+      return NextResponse.json({
+        success: false,
+        error: 'Not found'
+      }, { status: 404, ...jsonOptions });
+    }
+
     const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
     const body = await request.json().catch(() => ({}));
     const to = normalize(body.to);
@@ -37,12 +48,12 @@ export async function POST(request) {
 
     const backendResponse = await fetch(`${getBackendUrl()}/api/platform/test-provider-email`, {
       method: 'POST',
-      headers: {
+      headers: getInternalApiHeaders({
         'Content-Type': 'application/json',
         ...(request.headers.get('authorization')
           ? { Authorization: request.headers.get('authorization') }
           : {})
-      },
+      }),
       cache: 'no-store',
       body: JSON.stringify({
         to,

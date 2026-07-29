@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
-import { PMS_PROVIDERS, getProviderWebhookUrl, redactConnection, saveConnection } from '@/lib/pms-connections';
+import { PMS_PROVIDERS, assertPmsHotelContext, getProviderWebhookUrl, redactConnection, saveConnection } from '@/lib/pms-connections';
 import { canAccess } from '@/lib/permissions';
 
 const jsonOptions = {
@@ -16,16 +16,17 @@ const jsonError = (message, status = 500, extra = {}) => NextResponse.json({
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, role, platformRole } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole, fallback } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections')) {
       return jsonError('Access denied', 403);
     }
+    const hotelId = assertPmsHotelContext({ hotel, fallback });
     const canManage = canAccess(role, 'pms_connections_manage') && platformRole !== 'support';
     const { data, error } = await supabase
       .from('hotel_pms_connections')
       .select('*')
-      .eq('hotel_id', hotel.id)
+      .eq('hotel_id', hotelId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -35,7 +36,7 @@ export async function GET(request) {
     return NextResponse.json({
       ok: true,
       hotel,
-      hotelId: hotel.id,
+      hotelId,
       role,
       platformRole: platformRole || 'none',
       canManage,
@@ -49,13 +50,13 @@ export async function GET(request) {
       }))
     }, jsonOptions);
   } catch (error) {
-    return jsonError(error.message || 'Could not load PMS connections');
+    return jsonError(error.message || 'Could not load PMS connections', error.status || 500);
   }
 }
 
 export async function POST(request) {
   try {
-    const { supabase, hotel, role, platformRole, user } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole, user, fallback } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections_manage')) {
       return jsonError('Access denied', 403);
@@ -63,10 +64,11 @@ export async function POST(request) {
     if (platformRole === 'support') {
       return jsonError('Support sessions are read-only by default', 403);
     }
+    const hotelId = assertPmsHotelContext({ hotel, fallback });
     const payload = await request.json();
     const connection = await saveConnection({
       supabase,
-      hotelId: hotel.id,
+      hotelId,
       payload
     });
 
@@ -76,7 +78,7 @@ export async function POST(request) {
       actor: user,
       actorRole: role,
       actorPlatformRole: platformRole,
-      hotelId: hotel.id,
+      hotelId,
       action: 'pms_settings_changed',
       entityType: 'hotel_pms_connection',
       entityId: connection.id,
@@ -86,7 +88,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       ok: true,
-      hotelId: hotel.id,
+      hotelId,
       connection
     }, jsonOptions);
   } catch (error) {
@@ -94,7 +96,7 @@ export async function POST(request) {
 
     return jsonError(
       error.message || 'Could not save PMS connection',
-      missingEncryptionKey ? 400 : 500,
+      missingEncryptionKey ? 400 : error.status || 500,
       missingEncryptionKey ? { missing_env: ['PMS_SECRET_ENCRYPTION_KEY'] } : {}
     );
   }
@@ -102,7 +104,7 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
-    const { supabase, hotel, role, platformRole, user } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, platformRole, user, fallback } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'pms_connections_manage')) {
       return jsonError('Access denied', 403);
@@ -110,6 +112,7 @@ export async function DELETE(request) {
     if (platformRole === 'support') {
       return jsonError('Support sessions are read-only by default', 403);
     }
+    const hotelId = assertPmsHotelContext({ hotel, fallback });
     const { searchParams } = new URL(request.url);
     const connectionId = searchParams.get('id');
 
@@ -120,14 +123,14 @@ export async function DELETE(request) {
     const { data: existing } = await supabase
       .from('hotel_pms_connections')
       .select('*')
-      .eq('hotel_id', hotel.id)
+      .eq('hotel_id', hotelId)
       .eq('id', connectionId)
       .maybeSingle();
 
     const { error } = await supabase
       .from('hotel_pms_connections')
       .delete()
-      .eq('hotel_id', hotel.id)
+      .eq('hotel_id', hotelId)
       .eq('id', connectionId);
 
     if (error) {
@@ -140,7 +143,7 @@ export async function DELETE(request) {
       actor: user,
       actorRole: role,
       actorPlatformRole: platformRole,
-      hotelId: hotel.id,
+      hotelId,
       action: 'pms_settings_changed',
       entityType: 'hotel_pms_connection',
       entityId: connectionId,
@@ -148,8 +151,8 @@ export async function DELETE(request) {
       metadata: { source: 'dashboard_pms_connections', operation: 'delete' }
     });
 
-    return NextResponse.json({ ok: true, hotelId: hotel.id }, jsonOptions);
+    return NextResponse.json({ ok: true, hotelId }, jsonOptions);
   } catch (error) {
-    return jsonError(error.message || 'Could not delete PMS connection');
+    return jsonError(error.message || 'Could not delete PMS connection', error.status || 500);
   }
 }

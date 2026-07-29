@@ -4,6 +4,12 @@ import { createLuxuryHotelDemoData } from '../services/demo-data.service.js';
 import { sendProviderEmailTest } from '../services/provider-lead-email.service.js';
 import { syncPlatformGoogleSheets } from '../services/platform-sheets-sync.service.js';
 import {
+  requireExplicitHotelId,
+  requireInternalApiToken,
+  requireTestRoutesEnabled
+} from '../middleware/security.middleware.js';
+
+import {
   runStaynexJourneySimulation,
   runStaynexSimulation,
   SIMULATION_HOTEL_TYPES,
@@ -19,6 +25,7 @@ import { getSupabase } from '../services/supabase.service.js';
 
 const router = Router();
 const INTERNAL_PLATFORM_ROLES = ['platform_admin', 'super_admin', 'internal_only'];
+const testRouteGuards = [requireTestRoutesEnabled, requireInternalApiToken];
 
 const isMissingFailureIntelligenceTable = (error) => (
   error?.message?.includes('ai_quality_simulation_runs')
@@ -147,9 +154,9 @@ const verifyPlatformAdminRequest = async (req) => {
   };
 };
 
-router.post('/test-message', handleTestMessage);
+router.post('/test-message', ...testRouteGuards, requireExplicitHotelId, handleTestMessage);
 
-router.get('/api/simulation/catalog', async (req, res, next) => {
+router.get('/api/simulation/catalog', ...testRouteGuards, async (req, res, next) => {
   try {
     await verifyPlatformAdminRequest(req);
     res.status(200).json({
@@ -163,7 +170,7 @@ router.get('/api/simulation/catalog', async (req, res, next) => {
   }
 });
 
-router.post('/api/simulation/run', async (req, res, next) => {
+router.post('/api/simulation/run', ...testRouteGuards, async (req, res, next) => {
   try {
     await verifyPlatformAdminRequest(req);
     const longJourneyMode = req.body?.mode === 'journeys' || req.body?.mode === 'long_journey';
@@ -185,8 +192,9 @@ router.post('/api/simulation/run', async (req, res, next) => {
   }
 });
 
-router.post('/api/platform/test-provider-email', async (req, res, next) => {
+router.post('/api/platform/test-provider-email', ...testRouteGuards, async (req, res, next) => {
   try {
+    await verifyPlatformAdminRequest(req);
     const result = await sendProviderEmailTest({
       to: req.body?.to,
       subject: req.body?.subject,
@@ -199,7 +207,7 @@ router.post('/api/platform/test-provider-email', async (req, res, next) => {
   }
 });
 
-router.post('/api/platform/sync-google-sheets', async (req, res, next) => {
+router.post('/api/platform/sync-google-sheets', ...testRouteGuards, async (req, res, next) => {
   try {
     const { supabase } = await verifyPlatformAdminRequest(req);
     const result = await syncPlatformGoogleSheets({ supabase });
@@ -218,7 +226,7 @@ router.post('/api/platform/sync-google-sheets', async (req, res, next) => {
   }
 });
 
-router.post('/api/platform/ai-quality/run', async (req, res, next) => {
+router.post('/api/platform/ai-quality/run', ...testRouteGuards, async (req, res, next) => {
   try {
     const { supabase, user } = await verifyPlatformAdminRequest(req);
     const longJourneyMode = req.body?.mode === 'journeys' || req.body?.mode === 'long_journey';
@@ -255,7 +263,7 @@ router.post('/api/platform/ai-quality/run', async (req, res, next) => {
   }
 });
 
-router.get('/api/platform/ai-quality/history', async (req, res, next) => {
+router.get('/api/platform/ai-quality/history', ...testRouteGuards, async (req, res, next) => {
   try {
     await verifyPlatformAdminRequest(req);
     res.status(200).json(getFailureIntelligenceHistory());
@@ -272,10 +280,10 @@ router.get('/api/platform/ai-quality/history', async (req, res, next) => {
   }
 });
 
-router.post('/demo-data/luxury', async (req, res, next) => {
+router.post('/demo-data/luxury', ...testRouteGuards, requireExplicitHotelId, async (req, res, next) => {
   try {
     const summary = await createLuxuryHotelDemoData({
-      hotelId: req.body?.hotelId || req.body?.hotel_id || null,
+      hotelId: req.explicitHotelId,
       clean: req.body?.clean !== false,
       applyHotelBranding: req.body?.applyHotelBranding !== false
     });

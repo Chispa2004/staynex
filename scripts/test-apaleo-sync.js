@@ -1,6 +1,25 @@
 import 'dotenv/config';
-import { ApaleoConfigurationError, getApaleoAccessToken } from '../src/integrations/apaleo/apaleo-auth.service.js';
-import { getReservations } from '../src/integrations/apaleo/apaleo-reservations.service.js';
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('Apaleo sync integration test is blocked in production.');
+  process.exit(1);
+}
+
+if (process.env.RUN_EXTERNAL_APALEO_TESTS !== 'true') {
+  console.warn(JSON.stringify({
+    ok: true,
+    skipped: true,
+    missing_flags: ['RUN_EXTERNAL_APALEO_TESTS'],
+    note: 'Set RUN_EXTERNAL_APALEO_TESTS=true to call Apaleo from this script.'
+  }, null, 2));
+  process.exit(0);
+}
+
+const {
+  ApaleoConfigurationError,
+  getApaleoAccessToken
+} = await import('../src/integrations/apaleo/apaleo-auth.service.js');
+const { getReservations } = await import('../src/integrations/apaleo/apaleo-reservations.service.js');
 
 const addDays = (date, days) => {
   const nextDate = new Date(date);

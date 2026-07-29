@@ -1,31 +1,47 @@
 import 'dotenv/config';
-import { validateEnvironment } from '../src/config/env.js';
-import { getSupabase } from '../src/services/supabase.service.js';
-import { seedDefaultAutomationRules } from '../src/services/automation.service.js';
-import { processDueScheduledMessages } from '../src/services/message-queue.service.js';
-import { runAutomationScheduler } from '../src/services/scheduler.service.js';
-import {
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('Mutating automation integration test is blocked in production.');
+  process.exit(1);
+}
+
+if (process.env.RUN_MUTATING_INTEGRATION_TESTS !== 'true') {
+  console.warn(JSON.stringify({
+    ok: true,
+    skipped: true,
+    missing_flags: ['RUN_MUTATING_INTEGRATION_TESTS'],
+    note: 'Set RUN_MUTATING_INTEGRATION_TESTS=true to allow this script to write test rows.'
+  }, null, 2));
+  process.exit(0);
+}
+
+const { validateEnvironment } = await import('../src/config/env.js');
+const { getSupabase } = await import('../src/services/supabase.service.js');
+const { seedDefaultAutomationRules } = await import('../src/services/automation.service.js');
+const { processDueScheduledMessages } = await import('../src/services/message-queue.service.js');
+const { runAutomationScheduler } = await import('../src/services/scheduler.service.js');
+const {
   buildPreCheckoutFolioReminderMessage,
   evaluatePreCheckoutFolioReminder,
   normalizeFolioSummary,
   PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE
-} from '../src/services/pms-folio.service.js';
-import {
+} = await import('../src/services/pms-folio.service.js');
+const {
   analyzePostStayReviewStrategy,
   buildPostStayReviewMessage,
   classifyAiAssistanceFeedback,
   evaluatePostStayReviewIntelligence,
   POST_STAY_REVIEW_INTELLIGENCE_TYPE
-} from '../src/services/post-stay-review-intelligence.service.js';
-import {
+} = await import('../src/services/post-stay-review-intelligence.service.js');
+const {
   buildHotelOperationalHealthSnapshot,
   buildPlatformMonitoringSnapshot,
   hotelHealthContainsTechnicalInternals
-} from '../dashboard/lib/system-health.js';
-import {
+} = await import('../dashboard/lib/system-health.js');
+const {
   evaluateAutomationOpportunity,
   INTELLIGENT_AUTOMATION_TYPES
-} from '../src/services/automation-intelligence.service.js';
+} = await import('../src/services/automation-intelligence.service.js');
 
 validateEnvironment({ exitOnError: true });
 

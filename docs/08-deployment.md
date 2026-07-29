@@ -73,6 +73,24 @@ Main groups:
 - Google Sheets service account variables.
 - automation safety flags.
 
+### HTTP Perimeter Variables
+
+Configure these in both backend and dashboard deployment environments where applicable:
+
+- `STAYNEX_INTERNAL_API_TOKEN`: server-only shared service-to-service token used by dashboard server routes when calling protected backend routes. It must never be exposed as `NEXT_PUBLIC_*`, logged, or sent to the browser.
+- Backend and dashboard must use the same `STAYNEX_INTERNAL_API_TOKEN` value within the same environment. Use different values for local, staging and production.
+- `ENABLE_TEST_ROUTES`: disabled by default. Development and staging test/demo routes only work with `ENABLE_TEST_ROUTES=true` and the correct internal token. Production must never enable this flag; test/demo routes must return 404 in production.
+- `TWILIO_WEBHOOK_PUBLIC_URL`: full and exact public Twilio callback URL when the backend is behind a proxy, including the final path and any supported query string.
+- `TWILIO_WEBHOOK_VALIDATION_BYPASS`: local/test-only bypass; do not enable in production.
+- `RUN_EXTERNAL_APALEO_TESTS`: required before scripts are allowed to call Apaleo.
+- `RUN_MUTATING_INTEGRATION_TESTS`: required before scripts are allowed to write integration test rows, including Supabase-mutating automation or webhook checks.
+
+Production webhook behavior:
+
+- Twilio WhatsApp webhooks require official Twilio signature validation.
+- Apaleo live webhooks remain blocked until the official validation mechanism or documented shared-secret policy is confirmed.
+- Test/debug routes must not be used as production entrypoints.
+
 ## Recommended Process
 
 ```bash
@@ -102,4 +120,5 @@ After deploy:
 - WhatsApp hotel onboarding is required per real hotel.
 - Provider email mode must be configured before production provider flows.
 - SQL migrations must be in sync with code.
-
+- Backend and dashboard must share the same `STAYNEX_INTERNAL_API_TOKEN` before deploying protected internal calls.
+- Production must keep `ENABLE_TEST_ROUTES`, `RUN_EXTERNAL_APALEO_TESTS` and `RUN_MUTATING_INTEGRATION_TESTS` disabled.

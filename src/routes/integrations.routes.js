@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { ApaleoConfigurationError } from '../integrations/apaleo/apaleo-auth.service.js';
 import { syncReservationsFromApaleo } from '../integrations/apaleo/apaleo-sync.service.js';
 import { processApaleoWebhookEvent } from '../integrations/apaleo/apaleo-webhooks.service.js';
-import { getDefaultHotel } from '../services/hotel.service.js';
 import {
   deleteHotelPmsConnection,
   getAvailablePmsProviders,
@@ -17,6 +16,11 @@ import {
   getPmsMaxReservations
 } from '../services/scalability-guard.service.js';
 import { EncryptionConfigurationError } from '../utils/encryption.js';
+import {
+  blockUnverifiedApaleoWebhookInProduction,
+  requireExplicitHotelId,
+  requireInternalApiToken
+} from '../middleware/security.middleware.js';
 
 const router = Router();
 
@@ -34,6 +38,13 @@ const handleKnownError = (error, res) => {
       ok: false,
       error: error.message,
       missing_env: ['PMS_SECRET_ENCRYPTION_KEY']
+    });
+  }
+
+  if (error.statusCode) {
+    return res.status(error.statusCode).json({
+      ok: false,
+      error: error.message
     });
   }
 
@@ -58,11 +69,10 @@ const clampNumber = (value, fallback, min, max) => {
   return Math.max(min, Math.min(max, Math.round(number)));
 };
 
-router.post('/apaleo/sync', async (req, res, next) => {
+router.post('/apaleo/sync', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
-    const hotel = await getDefaultHotel();
     const summary = await syncReservationsFromApaleo({
-      hotelId: hotel?.id || null,
+      hotelId: req.explicitHotelId,
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),
       status: req.body?.status || undefined,
@@ -72,7 +82,7 @@ router.post('/apaleo/sync', async (req, res, next) => {
 
     res.status(200).json({
       ok: true,
-      hotel,
+      hotel: { id: req.explicitHotelId },
       summary
     });
   } catch (error) {
@@ -86,8 +96,7 @@ router.post('/apaleo/sync', async (req, res, next) => {
   }
 });
 
-router.post('/apaleo/webhook', async (req, res) => {
-  // TODO: validate Apaleo signature or a shared webhook secret when enabled in production.
+router.post('/apaleo/webhook', blockUnverifiedApaleoWebhookInProduction, async (req, res) => {
   const result = await processApaleoWebhookEvent(req.body || {}, req.headers || {});
 
   res.status(200).json({
@@ -99,23 +108,22 @@ router.post('/apaleo/webhook', async (req, res) => {
   });
 });
 
-router.get('/pms-connections/providers', (req, res) => {
+router.get('/pms-connections/providers', requireInternalApiToken, (req, res) => {
   res.status(200).json({
     ok: true,
     providers: getAvailablePmsProviders()
   });
 });
 
-router.get('/pms-connections', async (req, res, next) => {
+router.get('/pms-connections', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
-    const hotel = req.query.hotelId ? { id: req.query.hotelId } : await getDefaultHotel();
     const connections = await getHotelPmsConnections({
-      hotelId: hotel?.id || null
+      hotelId: req.explicitHotelId
     });
 
     res.status(200).json({
       ok: true,
-      hotel,
+      hotel: { id: req.explicitHotelId },
       connections,
       providers: getAvailablePmsProviders()
     });
@@ -124,11 +132,10 @@ router.get('/pms-connections', async (req, res, next) => {
   }
 });
 
-router.post('/pms-connections', async (req, res, next) => {
+router.post('/pms-connections', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
-    const hotel = req.body?.hotelId ? { id: req.body.hotelId } : await getDefaultHotel();
     const connection = await saveHotelPmsConnection({
-      hotelId: hotel?.id || null,
+      hotelId: req.explicitHotelId,
       provider: req.body?.provider || 'apaleo',
       clientId: req.body?.client_id || req.body?.clientId,
       clientSecret: req.body?.client_secret || req.body?.clientSecret,
@@ -158,11 +165,11 @@ router.post('/pms-connections', async (req, res, next) => {
   }
 });
 
-router.patch('/pms-connections/:id', async (req, res, next) => {
+router.patch('/pms-connections/:id', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
     const connection = await updateHotelPmsConnection({
       connectionId: req.params.id,
-      hotelId: req.body?.hotelId,
+      hotelId: req.explicitHotelId,
       updates: req.body?.updates || req.body || {}
     });
 
@@ -181,11 +188,11 @@ router.patch('/pms-connections/:id', async (req, res, next) => {
   }
 });
 
-router.delete('/pms-connections/:id', async (req, res, next) => {
+router.delete('/pms-connections/:id', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
     await deleteHotelPmsConnection({
       connectionId: req.params.id,
-      hotelId: req.body?.hotelId || req.query.hotelId
+      hotelId: req.explicitHotelId
     });
 
     res.status(200).json({
@@ -196,10 +203,10 @@ router.delete('/pms-connections/:id', async (req, res, next) => {
   }
 });
 
-router.post('/pms-connections/test', async (req, res, next) => {
+router.post('/pms-connections/test', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
     const result = await testPmsConnection({
-      hotelId: req.body?.hotelId,
+      hotelId: req.explicitHotelId,
       provider: req.body?.provider || 'apaleo'
     });
 
@@ -215,10 +222,10 @@ router.post('/pms-connections/test', async (req, res, next) => {
   }
 });
 
-router.post('/pms-connections/sync', async (req, res, next) => {
+router.post('/pms-connections/sync', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
     const summary = await syncHotelReservations({
-      hotelId: req.body?.hotelId,
+      hotelId: req.explicitHotelId,
       provider: req.body?.provider || 'apaleo',
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),

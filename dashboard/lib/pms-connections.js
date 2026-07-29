@@ -1,4 +1,5 @@
 import { encryptSecret } from './pms-encryption';
+import { getInternalApiHeaders } from './internal-api';
 import { PMS_PROVIDER_CATALOG, getPmsProvider, isPmsProviderConfigurable, isPmsProviderLiveApi } from './pms-providers';
 
 export const PMS_PROVIDERS = PMS_PROVIDER_CATALOG;
@@ -28,6 +29,16 @@ export const getBackendUrl = () => (
 ).replace(/\/$/, '');
 
 export const getProviderWebhookUrl = (provider = 'apaleo') => `${getBackendUrl()}/integrations/${provider}/webhook`;
+
+export const assertPmsHotelContext = ({ hotel, fallback } = {}) => {
+  if (!hotel?.id || fallback) {
+    const error = new Error('Explicit hotel workspace is required for PMS operations');
+    error.status = 400;
+    throw error;
+  }
+
+  return hotel.id;
+};
 
 const fetchWithTimeout = async (url, options = {}, timeoutMs = 22000) => {
   const controller = new AbortController();
@@ -136,9 +147,9 @@ export const proxyBackendPmsAction = async ({
 }) => {
   const response = await fetchWithTimeout(`${getBackendUrl()}/integrations/pms-connections/${action}`, {
     method: 'POST',
-    headers: {
+    headers: getInternalApiHeaders({
       'Content-Type': 'application/json'
-    },
+    }),
     body: JSON.stringify({
       hotelId,
       provider,
@@ -151,7 +162,9 @@ export const proxyBackendPmsAction = async ({
   const body = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(body.error || `${action} failed`);
+    const error = new Error(body.error || `${action} failed`);
+    error.status = response.status;
+    throw error;
   }
 
   return body;

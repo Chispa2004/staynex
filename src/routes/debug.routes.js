@@ -3,10 +3,26 @@ import {
   handleGetAiLogs,
   handleGetReservations
 } from '../controllers/debug.controller.js';
+import {
+  requireInternalApiToken,
+  requirePlatformAdmin,
+  requireTestRoutesEnabled
+} from '../middleware/security.middleware.js';
 
-const router = Router();
+export const createDebugRouter = ({
+  platformAdminGuard = requirePlatformAdmin,
+  controllers = {
+    handleGetAiLogs,
+    handleGetReservations
+  }
+} = {}) => {
+  const router = Router();
+  const debugGuards = [requireTestRoutesEnabled, requireInternalApiToken, platformAdminGuard];
 
-router.get('/ai-logs', handleGetAiLogs);
-router.get('/reservations', handleGetReservations);
+  router.get('/ai-logs', ...debugGuards, controllers.handleGetAiLogs);
+  router.get('/reservations', ...debugGuards, controllers.handleGetReservations);
 
-export default router;
+  return router;
+};
+
+export default createDebugRouter();

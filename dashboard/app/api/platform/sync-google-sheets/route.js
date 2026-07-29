@@ -3,6 +3,10 @@ import {
   getPlatformContext,
   writePlatformAuditLog
 } from '@/lib/platform';
+import {
+  areServerTestRoutesEnabled,
+  getInternalApiHeaders
+} from '@/lib/internal-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,15 +22,22 @@ const getBackendUrl = () => (
 
 export async function POST(request) {
   try {
+    if (!areServerTestRoutesEnabled()) {
+      return NextResponse.json({
+        ok: false,
+        error: 'Not found'
+      }, { status: 404, ...jsonOptions });
+    }
+
     const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
     const backendResponse = await fetch(`${getBackendUrl()}/api/platform/sync-google-sheets`, {
       method: 'POST',
-      headers: {
+      headers: getInternalApiHeaders({
         'Content-Type': 'application/json',
         ...(request.headers.get('authorization')
           ? { Authorization: request.headers.get('authorization') }
           : {})
-      },
+      }),
       cache: 'no-store',
       body: JSON.stringify({})
     });

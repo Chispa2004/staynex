@@ -42,6 +42,7 @@ const pruneBucket = (bucket, now, windowMs) => {
 
 const checkRateLimit = ({ type, id, context = {} }) => {
   const key = `${type}:${id || 'unknown'}`;
+  const logKey = type === 'guest' ? 'guest:redacted' : key;
   const now = Date.now();
   const windowMs = 60000;
   const limit = getWindowLimit({ type });
@@ -53,7 +54,7 @@ const checkRateLimit = ({ type, id, context = {} }) => {
     const logName = type === 'hotel' ? 'hotel_message_rate_limited' : 'guest_message_rate_limited';
     logger.warn(logName, {
       ...context,
-      key,
+      key: logKey,
       limit,
       current: bucket.length
     });
@@ -97,8 +98,7 @@ export const checkInboundMessageRateLimit = ({ hotelId, guestKey, context = {} }
     id: `${hotelId}:${guestKey || 'unknown'}`,
     context: {
       ...context,
-      hotelId,
-      guestKey
+      hotelId
     }
   });
 };

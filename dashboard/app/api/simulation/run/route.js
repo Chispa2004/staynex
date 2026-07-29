@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getBackendUrl } from '@/lib/demo';
+import {
+  areServerTestRoutesEnabled,
+  getInternalApiHeaders
+} from '@/lib/internal-api';
 import { getPlatformContext } from '@/lib/platform';
 
 const jsonOptions = {
@@ -8,15 +12,22 @@ const jsonOptions = {
 
 export async function POST(request) {
   try {
+    if (!areServerTestRoutesEnabled()) {
+      return NextResponse.json(
+        { ok: false, error: 'Not found' },
+        { status: 404, ...jsonOptions }
+      );
+    }
+
     await getPlatformContext(request, { requireAdmin: true });
     const body = await request.json();
     const authorization = request.headers.get('authorization');
     const response = await fetch(`${getBackendUrl()}/api/simulation/run`, {
       method: 'POST',
-      headers: {
+      headers: getInternalApiHeaders({
         'Content-Type': 'application/json',
         ...(authorization ? { Authorization: authorization } : {})
-      },
+      }),
       body: JSON.stringify(body)
     });
     const payload = await response.json();

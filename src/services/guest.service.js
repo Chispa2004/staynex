@@ -6,6 +6,7 @@ import {
 } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 import { detectGuestLanguage } from './language.service.js';
+import { maskPhoneForLogs } from '../utils/privacy.js';
 
 export const extractRoomNumber = (message) => {
   const match = message.match(/\b(?:habitaci[oó]n|hab\.?|room|cuarto|chambre|zimmer)\s*(\d{1,5})\b/i);
@@ -23,19 +24,20 @@ export const findOrCreateGuest = async ({ hotelId, phoneNumber, message }) => {
   const detectedRoom = extractRoomNumber(message);
   const existingGuest = await findGuestByPhone({ hotelId, phoneNumber });
   const detectedLanguage = detectGuestLanguage(message, existingGuest?.preferred_language || 'es');
+  const phoneForLogs = maskPhoneForLogs(phoneNumber);
 
   if (!existingGuest) {
     if (detectedRoom) {
       logger.info('room updated from message', {
         hotelId,
-        phoneNumber,
+        phone: phoneForLogs,
         roomNumber: detectedRoom
       });
     }
 
     logger.info('guest language updated', {
       hotelId,
-      phoneNumber,
+      phone: phoneForLogs,
       language: detectedLanguage
     });
 

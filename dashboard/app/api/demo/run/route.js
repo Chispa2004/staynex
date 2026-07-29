@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
-import { DEMO_SCENARIOS, getBackendUrl } from '@/lib/demo';
+import { assertDemoHotelContext, DEMO_SCENARIOS, getBackendUrl } from '@/lib/demo';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import {
+  areServerTestRoutesEnabled,
+  getInternalApiHeaders
+} from '@/lib/internal-api';
 
 const jsonOptions = {
   headers: { 'Cache-Control': 'no-store' }
@@ -8,8 +12,16 @@ const jsonOptions = {
 
 export async function POST(request) {
   try {
-    const { scenarioId } = await request.json();
-    const { hotel } = await getCurrentHotelForRequest(request);
+    if (!areServerTestRoutesEnabled()) {
+      return NextResponse.json(
+        { error: 'Not found' },
+        { status: 404, ...jsonOptions }
+      );
+    }
+
+    const body = await request.json();
+    const { scenarioId } = body;
+    const { hotel, fallback, platformRole } = await getCurrentHotelForRequest(request);
     const scenario = DEMO_SCENARIOS.find((item) => item.id === scenarioId);
 
     if (!scenario) {
@@ -19,22 +31,29 @@ export async function POST(request) {
       );
     }
 
+    const hotelId = assertDemoHotelContext({
+      hotel,
+      fallback,
+      platformRole,
+      request,
+      body
+    });
+
     const response = await fetch(`${getBackendUrl()}/test-message`, {
       method: 'POST',
-      headers: {
+      headers: getInternalApiHeaders({
         'Content-Type': 'application/json'
-      },
+      }),
       body: JSON.stringify({
         message: scenario.message,
-        phone: scenario.phone,
-        hotelId: hotel?.id || null
+        hotelId
       })
     });
 
     const payload = await response.json();
 
     return NextResponse.json({
-      hotelId: hotel?.id || null,
+      hotelId,
       scenario,
       result: payload
     }, {
@@ -44,7 +63,7 @@ export async function POST(request) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 500, ...jsonOptions }
+      { status: error.status || 500, ...jsonOptions }
     );
   }
 }

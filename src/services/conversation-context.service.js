@@ -8,6 +8,7 @@ import { detectGuestLanguage } from './language.service.js';
 import { getLatestReservationForGuest } from './reservation.service.js';
 import { getHotelProfileForPrompt } from './hotel.service.js';
 import { getGuestMemory } from './guest-memory.service.js';
+import { hasReservationAccessTokenForLogs } from '../utils/privacy.js';
 
 const DEFAULT_OFFER_COOLDOWN_HOURS = 12;
 export const CONVERSATION_AI_MODES = {
@@ -400,11 +401,15 @@ export const buildConversationContext = async ({
   };
 
   if (context.reservation) {
+    const hasReservationAccessToken = hasReservationAccessTokenForLogs(
+      context.reservation.reservation_access_token
+    );
+
     logger.info('reservation context loaded', {
       guestId: guest.id,
       conversationId: conversation.id,
       reservationId: context.reservation.id,
-      reservationAccessToken: context.reservation.reservation_access_token
+      hasReservationAccessToken
     });
   }
 

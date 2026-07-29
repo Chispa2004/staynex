@@ -8,6 +8,10 @@ import debugRoutes from './routes/debug.routes.js';
 import integrationsRoutes from './routes/integrations.routes.js';
 import { validateEnvironment } from './config/env.js';
 import { logger } from './utils/logger.js';
+import {
+  areTestRoutesEnabled,
+  requestIdMiddleware
+} from './middleware/security.middleware.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -16,6 +20,7 @@ validateEnvironment({ exitOnError: true });
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+app.use(requestIdMiddleware);
 
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -37,7 +42,7 @@ app.use('/', testRoutes);
 app.use('/messages', messagesRoutes);
 app.use('/integrations', integrationsRoutes);
 
-if (process.env.NODE_ENV !== 'production') {
+if (areTestRoutesEnabled()) {
   app.use('/debug', debugRoutes);
 }
 

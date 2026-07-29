@@ -9,6 +9,10 @@ import { detectGuestLanguage } from './language.service.js';
 import { randomBytes } from 'node:crypto';
 import { getDefaultHotel, getHotelById } from './hotel.service.js';
 import { persistReservationOperationalContext } from './pms-intelligence.service.js';
+import {
+  hasReservationAccessTokenForLogs,
+  maskPhoneForLogs
+} from '../utils/privacy.js';
 
 const cleanText = (value) => {
   if (typeof value !== 'string') {
@@ -228,7 +232,7 @@ export const createOrUpdateReservation = async (data) => {
 
       logger.info('Reservation guest created from PMS webhook', {
         guestId: guest.id,
-        phone: guestPhone
+        phone: maskPhoneForLogs(guestPhone)
       });
     }
   }
@@ -313,11 +317,15 @@ export const createOrUpdateReservation = async (data) => {
     throw error;
   }
 
+  const hasStoredReservationAccessToken = hasReservationAccessTokenForLogs(
+    reservation.reservation_access_token
+  );
+
   logger.info('Reservation stored from PMS webhook', {
     reservationId: reservation.id,
     pmsProvider: reservation.pms_provider,
     pmsReservationId: reservation.pms_reservation_id,
-    reservationAccessToken: reservation.reservation_access_token
+    hasReservationAccessToken: hasStoredReservationAccessToken
   });
 
   await tryPersistOperationalContext({
@@ -411,10 +419,14 @@ export const linkReservationToGuest = async ({ reservation, guest, message }) =>
     throw error;
   }
 
+  const hasLinkedReservationAccessToken = hasReservationAccessTokenForLogs(
+    data.reservation_access_token
+  );
+
   logger.info('reservation linked', {
     reservationId: data.id,
     guestId: guest.id,
-    reservationAccessToken: data.reservation_access_token
+    hasReservationAccessToken: hasLinkedReservationAccessToken
   });
 
   return data;

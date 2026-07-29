@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { getInternalApiHeaders } from '@/lib/internal-api';
 import { canAccess } from '@/lib/permissions';
 
 const getBackendUrl = () => (
@@ -64,9 +65,9 @@ export async function POST(request) {
 
     const response = await fetch(`${getBackendUrl()}/messages/translate`, {
       method: 'POST',
-      headers: {
+      headers: getInternalApiHeaders({
         'Content-Type': 'application/json'
-      },
+      }),
       body: JSON.stringify({
         text: body.text,
         sourceLanguage: body.sourceLanguage,

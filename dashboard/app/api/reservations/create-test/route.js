@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import {
+  areServerTestRoutesEnabled,
+  getInternalApiHeaders
+} from '@/lib/internal-api';
+import { assertDemoHotelContext } from '@/lib/demo';
 import { canAccess } from '@/lib/permissions';
 
 const getBackendUrl = () => (
@@ -48,6 +53,13 @@ const buildPmsPayload = ({ body, hotel }) => {
 
 export async function POST(request) {
   try {
+    if (!areServerTestRoutesEnabled()) {
+      return NextResponse.json({
+        ok: false,
+        error: 'Not found'
+      }, { status: 404 });
+    }
+
     const body = await request.json();
     const missingField = requiredFields.find((field) => !cleanText(body[field]));
 
@@ -58,19 +70,26 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    const { hotel, role } = await getCurrentHotelForRequest(request);
+    const { hotel, role, fallback, platformRole } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'reservations_manage')) {
       return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403 });
     }
+    assertDemoHotelContext({
+      hotel,
+      fallback,
+      platformRole,
+      request,
+      body
+    });
     const payload = buildPmsPayload({ body, hotel });
 
     // This simulator intentionally enters through the same PMS webhook used by future providers.
     const response = await fetch(`${getBackendUrl()}/webhooks/pms/reservation-created`, {
       method: 'POST',
-      headers: {
+      headers: getInternalApiHeaders({
         'Content-Type': 'application/json'
-      },
+      }),
       body: JSON.stringify(payload)
     });
     const result = await response.json().catch(() => ({}));
@@ -94,6 +113,6 @@ export async function POST(request) {
     return NextResponse.json({
       ok: false,
       error: error.message || 'Create test reservation failed'
-    }, { status: 500 });
+    }, { status: error.status || 500 });
   }
 }

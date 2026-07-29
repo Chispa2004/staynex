@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from './supabase';
-import { getCurrentHotelForRequest } from './current-hotel';
+import { getPlatformContext } from './platform';
 
 export const DEMO_SCENARIOS = [
   {
@@ -54,6 +54,7 @@ export const DEMO_SCENARIOS = [
 ];
 
 export const DEMO_PHONES = DEMO_SCENARIOS.map((scenario) => scenario.phone);
+const INTERNAL_PLATFORM_ROLES = ['platform_admin', 'super_admin', 'internal_only'];
 
 export const getBackendUrl = () => (
   process.env.BACKEND_URL ||
@@ -67,23 +68,88 @@ const startOfTodayIso = () => {
   return date.toISOString();
 };
 
-const getDemoContext = async (request) => {
-  const supabase = getSupabaseAdmin();
-  const context = request
-    ? await getCurrentHotelForRequest(request)
-    : { hotel: null, role: null };
-
-  return {
-    supabase,
-    hotel: context.hotel || null,
-    role: context.role || null
-  };
+const getBearerToken = (request) => {
+  const header = request?.headers?.get('authorization') || '';
+  return header.match(/^Bearer\s+(.+)$/i)?.[1] || null;
 };
 
-export const getDemoStats = async (request) => {
-  const { supabase, hotel } = await getDemoContext(request);
+const createRouteError = (message, status) => {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+};
+
+export const getExplicitDemoStatsHotelId = (request) => {
+  try {
+    const url = request?.url ? new URL(request.url) : null;
+    return url?.searchParams.get('hotelId') || url?.searchParams.get('hotel') || null;
+  } catch {
+    return null;
+  }
+};
+
+export const getExplicitDemoCleanHotelId = (body = {}) => body?.hotelId || body?.hotel_id || null;
+
+export const hasExplicitHotelTarget = (request) => {
+  const headerHotelId = request?.headers?.get('x-staynex-hotel-id');
+  const queryHotelId = getExplicitDemoStatsHotelId(request);
+
+  return Boolean(headerHotelId || queryHotelId);
+};
+
+export const assertDemoHotelContext = ({
+  hotel,
+  fallback,
+  platformRole,
+  request,
+  body = null
+} = {}) => {
+  if (!hotel?.id || fallback) {
+    throw createRouteError('Explicit hotel workspace is required for demo operations', 400);
+  }
+
+  if (INTERNAL_PLATFORM_ROLES.includes(platformRole) && !hasExplicitHotelTarget(request, body)) {
+    throw createRouteError('Explicit hotelId is required for platform demo operations', 400);
+  }
+
+  return hotel.id;
+};
+
+export const getDemoPlatformAdminContext = async (request) => {
+  if (!getBearerToken(request)) {
+    throw createRouteError('Platform admin authorization required', 401);
+  }
+
+  return getPlatformContext(request, { requireAdmin: true });
+};
+
+export const getValidatedDemoHotel = async (supabase, hotelId) => {
+  if (!hotelId) {
+    throw createRouteError('hotelId is required', 400);
+  }
+
+  const { data: hotel, error } = await supabase
+    .from('hotels')
+    .select('*')
+    .eq('id', hotelId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!hotel?.id) {
+    throw createRouteError('Hotel not found', 404);
+  }
+
+  return hotel;
+};
+
+export const getDemoStats = async ({ supabase = getSupabaseAdmin(), hotelId } = {}) => {
+  await getValidatedDemoHotel(supabase, hotelId);
   const today = startOfTodayIso();
-  const scope = (query) => (hotel?.id ? query.eq('hotel_id', hotel.id) : query);
+  const scope = (query) => query.eq('hotel_id', hotelId);
 
   const [
     openTickets,
@@ -119,7 +185,7 @@ export const getDemoStats = async (request) => {
   }
 
   return {
-    hotelId: hotel?.id || null,
+    hotelId,
     openTickets: openTickets.count || 0,
     urgentTickets: urgentTickets.count || 0,
     activeConversations: activeConversations.count || 0,
@@ -127,17 +193,14 @@ export const getDemoStats = async (request) => {
   };
 };
 
-export const cleanDemoData = async (request) => {
-  const { supabase, hotel } = await getDemoContext(request);
+export const cleanDemoData = async ({ supabase = getSupabaseAdmin(), hotelId } = {}) => {
+  await getValidatedDemoHotel(supabase, hotelId);
 
-  let guestsQuery = supabase
+  const guestsQuery = supabase
     .from('guests')
     .select('id')
+    .eq('hotel_id', hotelId)
     .in('phone_number', DEMO_PHONES);
-
-  if (hotel?.id) {
-    guestsQuery = guestsQuery.eq('hotel_id', hotel.id);
-  }
 
   const { data: guests, error: guestsError } = await guestsQuery;
 
@@ -148,17 +211,18 @@ export const cleanDemoData = async (request) => {
   const guestIds = (guests || []).map((guest) => guest.id);
 
   if (guestIds.length === 0) {
-    return { deletedGuests: 0, hotelId: hotel?.id || null };
+    return { deletedGuests: 0, hotelId };
   }
 
   const { error } = await supabase
     .from('guests')
     .delete()
+    .eq('hotel_id', hotelId)
     .in('id', guestIds);
 
   if (error) {
     throw error;
   }
 
-  return { deletedGuests: guestIds.length, hotelId: hotel?.id || null };
+  return { deletedGuests: guestIds.length, hotelId };
 };

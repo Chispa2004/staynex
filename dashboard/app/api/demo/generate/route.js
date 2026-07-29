@@ -1,18 +1,38 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { getBackendUrl } from '@/lib/demo';
+import { assertDemoHotelContext, getBackendUrl } from '@/lib/demo';
+import {
+  areServerTestRoutesEnabled,
+  getInternalApiHeaders
+} from '@/lib/internal-api';
 
 export async function POST(request) {
   try {
-    const { hotel } = await getCurrentHotelForRequest(request);
+    if (!areServerTestRoutesEnabled()) {
+      return NextResponse.json({
+        ok: false,
+        error: 'Not found'
+      }, { status: 404 });
+    }
+
     const body = await request.json().catch(() => ({}));
+    const { hotel, fallback, platformRole } = await getCurrentHotelForRequest(request);
+
+    const hotelId = assertDemoHotelContext({
+      hotel,
+      fallback,
+      platformRole,
+      request,
+      body
+    });
+
     const response = await fetch(`${getBackendUrl()}/demo-data/luxury`, {
       method: 'POST',
-      headers: {
+      headers: getInternalApiHeaders({
         'Content-Type': 'application/json'
-      },
+      }),
       body: JSON.stringify({
-        hotelId: hotel?.id || null,
+        hotelId,
         clean: body.clean !== false,
         applyHotelBranding: body.applyHotelBranding !== false
       })
@@ -32,6 +52,6 @@ export async function POST(request) {
     return NextResponse.json({
       ok: false,
       error: error.message || 'Could not generate demo data'
-    }, { status: 500 });
+    }, { status: error.status || 500 });
   }
 }

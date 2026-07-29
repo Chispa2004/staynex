@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getPlatformContext } from '@/lib/platform';
 import { getBackendUrl } from '@/lib/demo';
+import {
+  areServerTestRoutesEnabled,
+  getInternalApiHeaders
+} from '@/lib/internal-api';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,15 +14,22 @@ const jsonOptions = {
 
 export async function POST(request) {
   try {
+    if (!areServerTestRoutesEnabled()) {
+      return NextResponse.json(
+        { ok: false, error: 'Not found' },
+        { status: 404, ...jsonOptions }
+      );
+    }
+
     await getPlatformContext(request, { requireAdmin: true });
     const body = await request.json();
     const authorization = request.headers.get('authorization');
     const response = await fetch(`${getBackendUrl()}/api/platform/ai-quality/run`, {
       method: 'POST',
-      headers: {
+      headers: getInternalApiHeaders({
         'Content-Type': 'application/json',
         ...(authorization ? { Authorization: authorization } : {})
-      },
+      }),
       cache: 'no-store',
       body: JSON.stringify(body)
     });

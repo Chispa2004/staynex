@@ -1,16 +1,33 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { areServerTestRoutesEnabled } from '@/lib/internal-api';
+import { assertDemoHotelContext } from '@/lib/demo';
 
 const nowIso = () => new Date().toISOString();
 
 export async function POST(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    if (!areServerTestRoutesEnabled()) {
+      return NextResponse.json({
+        ok: false,
+        error: 'Not found'
+      }, { status: 404 });
+    }
+
+    const { supabase, hotel, fallback, platformRole } = await getCurrentHotelForRequest(request);
+
+    const hotelId = assertDemoHotelContext({
+      hotel,
+      fallback,
+      platformRole,
+      request
+    });
+
     const timestamp = Date.now();
     const { data: guest, error: guestError } = await supabase
       .from('guests')
       .insert({
-        hotel_id: hotel.id,
+        hotel_id: hotelId,
         phone_number: `+34000${String(timestamp).slice(-6)}`,
         current_room: '208',
         preferred_language: 'es'
@@ -25,7 +42,7 @@ export async function POST(request) {
     const { data: conversation, error: conversationError } = await supabase
       .from('conversations')
       .insert({
-        hotel_id: hotel.id,
+        hotel_id: hotelId,
         guest_id: guest.id,
         status: 'active',
         last_message_at: nowIso()
@@ -61,7 +78,7 @@ export async function POST(request) {
     const { data: ticket, error: ticketError } = await supabase
       .from('tickets')
       .insert({
-        hotel_id: hotel.id,
+        hotel_id: hotelId,
         guest_id: guest.id,
         conversation_id: conversation.id,
         room_number: '208',
@@ -89,6 +106,6 @@ export async function POST(request) {
     return NextResponse.json({
       ok: false,
       error: error.message || 'Could not create onboarding demo data'
-    }, { status: 400 });
+    }, { status: error.status || 400 });
   }
 }

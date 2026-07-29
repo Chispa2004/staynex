@@ -106,6 +106,10 @@ import {
   persistRevenuePrediction,
   predictLikelyConversions
 } from './revenue-ai.service.js';
+import {
+  hasReservationAccessTokenForLogs,
+  maskPhoneForLogs
+} from '../utils/privacy.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -221,12 +225,13 @@ export const processGuestMessage = async ({
     message
   });
   const cleanPhone = normalizeWhatsappNumber(phone);
+  const phoneForLogs = maskPhoneForLogs(cleanPhone);
   const rateLimit = checkInboundMessageRateLimit({
     hotelId: activeHotel.id,
     guestKey: cleanPhone,
     context: {
       channel,
-      phone: cleanPhone
+      phone: phoneForLogs
     }
   });
 
@@ -271,20 +276,22 @@ export const processGuestMessage = async ({
     channel,
     hotelId: activeHotel.id,
     hotelContextSource,
-    phone: cleanPhone
+    phone: phoneForLogs
   });
 
-  const reservationAccessToken = extractReservationAccessToken(message);
+  const detectedReservationToken = extractReservationAccessToken(message);
   let reservation = null;
 
-  if (reservationAccessToken) {
+  if (detectedReservationToken) {
+    const hasReservationToken = hasReservationAccessTokenForLogs(detectedReservationToken);
+
     logger.info('token detected', {
       hotelId: activeHotel.id,
-      phone: cleanPhone,
-      reservationAccessToken
+      phone: phoneForLogs,
+      hasReservationAccessToken: hasReservationToken
     });
 
-    reservation = await findReservationByAccessToken(reservationAccessToken);
+    reservation = await findReservationByAccessToken(detectedReservationToken);
 
     if (reservation?.hotel_id && reservation.hotel_id !== activeHotel?.id) {
       const reservationHotel = await getHotelById(reservation.hotel_id);
@@ -295,7 +302,7 @@ export const processGuestMessage = async ({
         logger.info('hotel context switched from reservation token', {
           hotelId: activeHotel.id,
           reservationId: reservation.id,
-          reservationAccessToken
+          hasReservationAccessToken: hasReservationToken
         });
       }
     }

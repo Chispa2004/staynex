@@ -6,6 +6,7 @@ import { DemoActionCard } from './DemoActionCard';
 import { DemoStatsPanel } from './DemoStatsPanel';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { getActiveWorkspace } from '@/lib/workspace-context';
 
 export const DemoControlCenter = ({ scenarios }) => {
   const [stats, setStats] = useState(null);
@@ -15,7 +16,11 @@ export const DemoControlCenter = ({ scenarios }) => {
   const [error, setError] = useState(null);
 
   const loadStats = async () => {
-    const response = await fetch('/api/demo/stats', {
+    const { hotelId } = getActiveWorkspace();
+    const url = hotelId
+      ? `/api/demo/stats?hotelId=${encodeURIComponent(hotelId)}`
+      : '/api/demo/stats';
+    const response = await fetch(url, {
       headers: await getAuthHeaders(),
       cache: 'no-store'
     });
@@ -71,9 +76,14 @@ export const DemoControlCenter = ({ scenarios }) => {
     setError(null);
 
     try {
+      const { hotelId } = getActiveWorkspace();
       const response = await fetch('/api/demo/clean', {
         method: 'DELETE',
-        headers: await getAuthHeaders()
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ hotelId })
       });
       const body = await response.json();
 

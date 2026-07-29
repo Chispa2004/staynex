@@ -1,5 +1,28 @@
 import 'dotenv/config';
-import { processApaleoWebhookEvent } from '../src/integrations/apaleo/apaleo-webhooks.service.js';
+
+const requiredFlags = [
+  'RUN_EXTERNAL_APALEO_TESTS',
+  'RUN_MUTATING_INTEGRATION_TESTS'
+];
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('Apaleo webhook integration test is blocked in production.');
+  process.exit(1);
+}
+
+const missingFlags = requiredFlags.filter((flag) => process.env[flag] !== 'true');
+
+if (missingFlags.length > 0) {
+  console.warn(JSON.stringify({
+    ok: true,
+    skipped: true,
+    missing_flags: missingFlags,
+    note: 'Set all required flags to true to run this external mutating integration test.'
+  }, null, 2));
+  process.exit(0);
+}
+
+const { processApaleoWebhookEvent } = await import('../src/integrations/apaleo/apaleo-webhooks.service.js');
 
 const headers = {
   'x-apaleo-account-code': process.env.APALEO_ACCOUNT_CODE || 'staynex-demo'

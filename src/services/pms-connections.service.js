@@ -1,5 +1,4 @@
 import { getSupabase } from './supabase.service.js';
-import { getDefaultHotel } from './hotel.service.js';
 import { encryptSecret, decryptSecret } from '../utils/encryption.js';
 import { logger } from '../utils/logger.js';
 import { getApaleoAccessToken } from '../integrations/apaleo/apaleo-auth.service.js';
@@ -32,19 +31,26 @@ const redactConnection = (connection) => {
   };
 };
 
-const resolveHotelId = async (hotelId) => {
+export class PmsHotelContextRequiredError extends Error {
+  constructor() {
+    super('hotelId is required for PMS operations');
+    this.name = 'PmsHotelContextRequiredError';
+    this.statusCode = 400;
+  }
+}
+
+const requirePmsHotelId = (hotelId) => {
   if (hotelId) {
     return hotelId;
   }
 
-  const hotel = await getDefaultHotel();
-  return hotel?.id || null;
+  throw new PmsHotelContextRequiredError();
 };
 
 export const getAvailablePmsProviders = () => listPmsConnectors();
 
 export const getHotelPmsConnection = async ({ hotelId, provider = 'apaleo' } = {}) => {
-  const resolvedHotelId = await resolveHotelId(hotelId);
+  const resolvedHotelId = requirePmsHotelId(hotelId);
   const client = getSupabase();
   const { data, error } = await client
     .from('hotel_pms_connections')
@@ -62,7 +68,7 @@ export const getHotelPmsConnection = async ({ hotelId, provider = 'apaleo' } = {
 };
 
 export const getHotelPmsConnections = async ({ hotelId } = {}) => {
-  const resolvedHotelId = await resolveHotelId(hotelId);
+  const resolvedHotelId = requirePmsHotelId(hotelId);
   const client = getSupabase();
   const { data, error } = await client
     .from('hotel_pms_connections')
@@ -141,7 +147,7 @@ export const saveHotelPmsConnection = async ({
   activationRequested = false,
   metadata = {}
 } = {}) => {
-  const resolvedHotelId = await resolveHotelId(hotelId);
+  const resolvedHotelId = requirePmsHotelId(hotelId);
 
   if (!getPmsConnectorDefinition(provider)) {
     throw new Error(`Unsupported PMS provider: ${provider}`);
@@ -188,6 +194,7 @@ export const saveHotelPmsConnection = async ({
 };
 
 export const updateHotelPmsConnection = async ({ connectionId, hotelId, updates = {} } = {}) => {
+  const resolvedHotelId = requirePmsHotelId(hotelId);
   const client = getSupabase();
   const updateRecord = {
     updated_at: new Date().toISOString()
@@ -221,9 +228,7 @@ export const updateHotelPmsConnection = async ({ connectionId, hotelId, updates 
     .update(updateRecord)
     .eq('id', connectionId);
 
-  if (hotelId) {
-    query = query.eq('hotel_id', hotelId);
-  }
+  query = query.eq('hotel_id', resolvedHotelId);
 
   const { data, error } = await query.select('*').single();
 
@@ -235,15 +240,14 @@ export const updateHotelPmsConnection = async ({ connectionId, hotelId, updates 
 };
 
 export const deleteHotelPmsConnection = async ({ connectionId, hotelId } = {}) => {
+  const resolvedHotelId = requirePmsHotelId(hotelId);
   const client = getSupabase();
   let query = client
     .from('hotel_pms_connections')
     .delete()
     .eq('id', connectionId);
 
-  if (hotelId) {
-    query = query.eq('hotel_id', hotelId);
-  }
+  query = query.eq('hotel_id', resolvedHotelId);
 
   const { error } = await query;
 
