@@ -24,25 +24,35 @@ import { PremiumLoadingState } from './PremiumLoadingState';
 import { AutomationTestCenter } from './AutomationTestCenter';
 
 const statusOptions = ['all', 'preview', 'scheduled', 'sent', 'failed'];
-const typeOptions = [
-  'all',
-  'welcome_message',
-  'late_checkout_offer',
-  'spa_upsell',
-  'experience_recommendation',
-  'restaurant_promotion',
-  'transfer_offer',
-  'weather_trigger',
-  'vip_followup',
-  'birthday_message',
-  'abandoned_interest_followup',
-  'pre_checkout_folio_reminder',
-  'post_stay_review_intelligence',
-  'pre_arrival_7d',
-  'pre_arrival_1d',
-  'in_stay_upsell',
-  'post_stay_review'
-];
+const defaultTypeOptions = ['all'];
+const folioTypeAliases = ['pre_checkout_folio', 'pre_checkout_folio_reminder'];
+const reviewTypeAliases = ['review_request', 'post_stay_review', 'post_stay_review_intelligence'];
+
+const normalizeTypeToken = (value) => String(value || '').trim().toLowerCase();
+const uniqueTypes = (values = []) => [...new Set(values
+  .flat()
+  .filter(Boolean)
+  .map(normalizeTypeToken)
+  .filter(Boolean))];
+
+const familyFromRecord = (record = {}) => uniqueTypes([
+  record.type,
+  record.automation_type,
+  record.canonical_type,
+  record.canonicalType,
+  record.metadata?.canonical_type,
+  record.metadata?.canonical_automation_type,
+  record.metadata?.legacy_automation_type,
+  record.metadata?.automation_type,
+  record.metadata?.aliases,
+  record.aliases
+]);
+
+const recordMatchesType = (record, typeOrAliases) => {
+  const aliases = uniqueTypes(Array.isArray(typeOrAliases) ? typeOrAliases : [typeOrAliases]);
+  const family = familyFromRecord(record);
+  return family.some((type) => aliases.includes(type));
+};
 
 const formatAutomationLabel = (value) => String(value || '')
   .replace(/_/g, ' ')
@@ -109,11 +119,12 @@ export const AutomationsClient = () => {
   const [automations, setAutomations] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [hotel, setHotel] = useState(null);
+  const [typeOptions, setTypeOptions] = useState(defaultTypeOptions);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [runningScheduler, setRunningScheduler] = useState(false);
+  const [runningPreviewPass, setRunningPreviewPass] = useState(false);
   const [updatingAutomation, setUpdatingAutomation] = useState(null);
   const [runResult, setRunResult] = useState(null);
   const [error, setError] = useState(null);
@@ -143,6 +154,7 @@ export const AutomationsClient = () => {
       setMessages(body.scheduledMessages || []);
       setRules(body.rules || []);
       setAutomations(body.automations || []);
+      setTypeOptions(body.automationTypeOptions?.length ? body.automationTypeOptions : defaultTypeOptions);
       setMetrics(body.metrics || null);
       setHotel(body.hotel || null);
       setMigrationRequired(Boolean(body.migrationRequired));
@@ -187,8 +199,8 @@ export const AutomationsClient = () => {
     loadAutomations();
   }, []);
 
-  const runScheduler = async () => {
-    setRunningScheduler(true);
+  const runPreviewPass = async () => {
+    setRunningPreviewPass(true);
     setRunResult(null);
     setError(null);
 
@@ -200,26 +212,41 @@ export const AutomationsClient = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not run scheduler');
+        throw new Error(body.error || 'Could not generate automation previews');
       }
 
-      setRunResult(`Scheduler completed: ${body.scheduled || 0} messages scheduled.`);
+      const decisions = body.decisions || {};
+      setRunResult(`Preview pass completed: ${body.previewGenerated || body.scheduled || 0} previews generated, ${decisions.skipped || 0} skipped, ${decisions.blocked || 0} blocked.`);
       await loadAutomations();
     } catch (caughtError) {
       setError(caughtError.message);
     } finally {
-      setRunningScheduler(false);
+      setRunningPreviewPass(false);
     }
   };
 
   const filteredMessages = useMemo(() => {
     const query = search.trim().toLowerCase();
+    const typeFamilies = new Map();
+    const rememberFamily = (family) => {
+      family.forEach((type) => {
+        typeFamilies.set(type, uniqueTypes([...(typeFamilies.get(type) || []), family]));
+      });
+    };
+
+    automations.forEach((automation) => rememberFamily(familyFromRecord(automation)));
+    messages.forEach((message) => rememberFamily(familyFromRecord(message)));
 
     return messages.filter((message) => {
       const matchesStatus = statusFilter === 'all' || message.status === statusFilter;
-      const matchesType = typeFilter === 'all' || message.automation_type === typeFilter;
+      const selectedType = normalizeTypeToken(typeFilter);
+      const selectedFamily = typeFamilies.get(selectedType) || [selectedType];
+      const messageFamily = familyFromRecord(message);
+      const matchesType = typeFilter === 'all' || messageFamily.some((type) => selectedFamily.includes(type));
       const haystack = [
         message.automation_type,
+        message.metadata?.canonical_automation_type,
+        message.metadata?.legacy_automation_type,
         message.status,
         message.message_preview,
         message.guest?.phone_number,
@@ -230,7 +257,7 @@ export const AutomationsClient = () => {
 
       return matchesStatus && matchesType && (!query || haystack.includes(query));
     });
-  }, [messages, search, statusFilter, typeFilter]);
+  }, [automations, messages, search, statusFilter, typeFilter]);
 
   const stats = useMemo(() => ({
     scheduled: messages.filter((item) => item.status === 'scheduled').length,
@@ -245,8 +272,8 @@ export const AutomationsClient = () => {
   }), [automations, messages, metrics, rules]);
 
   const folioStats = useMemo(() => {
-    const folioMessages = messages.filter((message) => message.automation_type === 'pre_checkout_folio_reminder');
-    const folioRuns = (metrics?.runs || []).filter((run) => run.automation_type === 'pre_checkout_folio_reminder');
+    const folioMessages = messages.filter((message) => recordMatchesType(message, folioTypeAliases));
+    const folioRuns = (metrics?.runs || []).filter((run) => recordMatchesType(run, folioTypeAliases));
     const skippedReasons = folioRuns.reduce((acc, run) => {
       const reason = run.metadata?.skipped_reason;
       if (reason) {
@@ -266,8 +293,8 @@ export const AutomationsClient = () => {
   }, [messages, metrics]);
 
   const reviewStats = useMemo(() => {
-    const reviewMessages = messages.filter((message) => message.automation_type === 'post_stay_review_intelligence');
-    const reviewRuns = (metrics?.runs || []).filter((run) => run.automation_type === 'post_stay_review_intelligence');
+    const reviewMessages = messages.filter((message) => recordMatchesType(message, reviewTypeAliases));
+    const reviewRuns = (metrics?.runs || []).filter((run) => recordMatchesType(run, reviewTypeAliases));
     const byStrategy = (strategy) => reviewRuns.filter((run) => run.metadata?.strategy === strategy).length
       || reviewMessages.filter((message) => message.metadata?.strategy === strategy).length;
 
@@ -285,8 +312,9 @@ export const AutomationsClient = () => {
   }, [messages, metrics]);
 
   const automationCards = useMemo(() => automations.map((automation) => {
-    const relatedRuns = (metrics?.runs || []).filter((run) => run.automation_type === automation.type);
-    const relatedMessages = messages.filter((message) => message.automation_type === automation.type);
+    const automationFamily = familyFromRecord(automation);
+    const relatedRuns = (metrics?.runs || []).filter((run) => familyFromRecord(run).some((type) => automationFamily.includes(type)));
+    const relatedMessages = messages.filter((message) => familyFromRecord(message).some((type) => automationFamily.includes(type)));
     const lastRun = relatedMessages[0]?.scheduled_for || relatedMessages[0]?.created_at || automation.updated_at || automation.created_at;
     const revenue = relatedMessages.reduce((total, message) => total + Number(message.estimated_revenue || message.metadata?.estimated_revenue || 0), 0);
     const sent = relatedMessages.filter((message) => message.status === 'sent').length;
@@ -331,12 +359,12 @@ export const AutomationsClient = () => {
             </button>
             <button
               type="button"
-              onClick={runScheduler}
-              disabled={runningScheduler}
+              onClick={runPreviewPass}
+              disabled={runningPreviewPass}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-wait disabled:opacity-60"
             >
-              <Bot className={runningScheduler ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
-              Run intelligence pass
+              <Bot className={runningPreviewPass ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
+              Generate preview pass
             </button>
           </div>
         </div>
@@ -555,7 +583,7 @@ export const AutomationsClient = () => {
           <div>
             <p className="text-sm font-semibold">{hotel?.name || 'Current hotel'}</p>
             <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
-              Automated guest messages are prepared as safe previews until live sending is enabled for this hotel.
+              Automation decisions are prepared as safe previews. This pass does not send guest messages.
             </p>
           </div>
           <Badge tone="slate">Preview mode</Badge>

@@ -4,6 +4,9 @@ import OpenAI from 'openai';
 import { getHotelProfileForPrompt } from './hotel.service.js';
 import { getGuestMemory, formatGuestMemoryForPrompt } from './guest-memory.service.js';
 import { getKnowledgeForHotel } from './knowledge.service.js';
+import { getLegacyAutomationTypesMap } from '../../shared/automations/catalog.js';
+import { evaluateAutomationDecision } from '../../shared/automations/runtime.js';
+import { writeAutomationDecisionToQueue } from '../../shared/automations/queue-writer.js';
 
 const addDays = (dateValue, days) => {
   if (!dateValue) {
@@ -20,12 +23,7 @@ const addDays = (dateValue, days) => {
   return date.toISOString();
 };
 
-export const AUTOMATION_TYPES = {
-  PRE_ARRIVAL_7D: 'pre_arrival_7d',
-  PRE_ARRIVAL_1D: 'pre_arrival_1d',
-  IN_STAY_UPSELL: 'in_stay_upsell',
-  POST_STAY_REVIEW: 'post_stay_review'
-};
+export const AUTOMATION_TYPES = getLegacyAutomationTypesMap();
 
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 
@@ -249,6 +247,7 @@ const buildEventPayload = (reservation) => ({
   whatsapp_link: reservation.whatsapp_link
 });
 
+// Legacy reservation timeline only. These rows are not an operational send queue.
 const buildAutomationEvents = (reservation) => {
   const payload = buildEventPayload(reservation);
   const events = [
@@ -489,42 +488,54 @@ export const createScheduledMessage = async ({
     return existing;
   }
 
-  const record = {
-    hotel_id: hotel.id,
-    reservation_id: reservation.id,
-    guest_id: reservation.guest_id || guest?.id || null,
-    conversation_id: conversation?.id || null,
-    automation_rule_id: rule?.id || null,
-    automation_type: rule.automation_type,
-    channel: rule.channel || 'whatsapp',
-    scheduled_for: scheduledFor,
-    send_to: reservation.guest_phone || guest?.phone_number || null,
-    language,
-    message_preview: messageResult.message,
-    status: 'scheduled',
-    ai_provider: messageResult.aiProvider,
-    ai_model: messageResult.aiModel,
-    automation_fallback: Boolean(messageResult.fallbackUsed),
-    metadata,
-    updated_at: new Date().toISOString()
-  };
+  const source = metadata.source || 'legacy_automation_service';
+  const runtimeDecision = evaluateAutomationDecision({
+    hotel,
+    reservation,
+    guest,
+    conversation,
+    automation: rule,
+    automationType: rule.automation_type,
+    legacyType: rule.automation_type,
+    trigger: rule.automation_type,
+    executionMode: 'preview',
+    now: scheduledDate,
+    metadata: {
+      ...metadata,
+      source,
+      legacy_non_operational: true,
+      triggerOccurrence: scheduledFor
+    },
+    source
+  });
 
-  const { data, error } = await client
-    .from('scheduled_messages')
-    .insert(record)
-    .select('*')
-    .single();
+  try {
+    const writeResult = await writeAutomationDecisionToQueue({
+      supabase: client,
+      decision: runtimeDecision,
+      messagePreview: messageResult.message,
+      channel: rule.channel || 'whatsapp',
+      language,
+      source,
+      creationReason: runtimeDecision.triggerReason || runtimeDecision.skipReason || 'legacy_automation_preview',
+      extraMetadata: {
+        ...metadata,
+        ai_provider: messageResult.aiProvider,
+        ai_model: messageResult.aiModel,
+        automation_fallback: Boolean(messageResult.fallbackUsed),
+        legacy_non_operational: true
+      }
+    });
 
-  if (error) {
-    if (isMissingAutomationTables(error)) {
+    return writeResult.scheduledMessage;
+  } catch (error) {
+    if (isMissingAutomationTables(error) || error?.code === '42703') {
       logger.warn('scheduled_messages table missing; skipping scheduled message');
       return null;
     }
 
     throw error;
   }
-
-  return data;
 };
 
 export const getAutomationContextForReservation = async ({

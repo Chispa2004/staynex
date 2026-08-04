@@ -2,6 +2,11 @@ import { createPmsConnector } from '../integrations/pms/registry.js';
 import { isHumanControlledConversation } from './conversation-context.service.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
+import {
+  applyAutomationDecisionOverride,
+  evaluateAutomationDecision
+} from '../../shared/automations/runtime.js';
+import { writeAutomationDecisionToQueue } from '../../shared/automations/queue-writer.js';
 
 export const PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE = 'pre_checkout_folio_reminder';
 
@@ -378,70 +383,6 @@ const safeRows = async (query, fallback = []) => {
   return data || fallback;
 };
 
-const insertFolioAutomationRun = async ({
-  supabase,
-  hotel,
-  reservation,
-  guest = null,
-  conversation = null,
-  scheduledMessage = null,
-  status,
-  reason = null,
-  folio = null,
-  now = new Date()
-}) => {
-  try {
-    const { data, error } = await supabase
-      .from('automation_runs')
-      .insert({
-        automation_id: null,
-        hotel_id: hotel.id || reservation.hotel_id,
-        guest_id: reservation.guest_id || guest?.id || null,
-        reservation_id: reservation.id || null,
-        conversation_id: conversation?.id || null,
-        trigger_type: 'pre_checkout_folio',
-        automation_type: PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE,
-        message_sent: false,
-        translated_language: guest?.preferred_language || reservation.language || hotel.default_language || 'es',
-        converted: false,
-        revenue_generated: 0,
-        revenue_owner: 'hotel',
-        scheduled_message_id: scheduledMessage?.id || null,
-        status,
-        cooldown_applied: false,
-        fatigue_score: 0,
-        metadata: {
-          source: 'pre_checkout_folio_reminder',
-          preview_only: true,
-          skipped_reason: reason,
-          folio_data_quality: folio?.dataQuality || null,
-          folio_warnings: folio?.warnings || [],
-          outstanding_balance: folio?.outstandingBalance || 0,
-          live_sending_disabled: true
-        },
-        updated_at: now.toISOString()
-      })
-      .select('*')
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  } catch (error) {
-    if (!isMissingAutomationTables(error) && error?.code !== '42703') {
-      logger.warn('pre_checkout_folio_run_log_failed', {
-        hotelId: hotel.id || reservation.hotel_id,
-        reservationId: reservation.id,
-        message: error.message
-      });
-    }
-
-    return null;
-  }
-};
-
 export const runPreCheckoutFolioReminder = async ({
   hotelId = null,
   now = new Date(),
@@ -515,6 +456,44 @@ export const runPreCheckoutFolioReminder = async ({
         existingScheduledMessages: existingMessages,
         now
       });
+      const runtimeDecision = evaluateAutomationDecision({
+        hotel,
+        reservation,
+        guest: {
+          ...(guest || {}),
+          folio,
+          balance_due: folio?.outstandingBalance || 0
+        },
+        conversation,
+        conversationState,
+        automation: {
+          type: PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE,
+          active: true
+        },
+        automationType: PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE,
+        legacyType: PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE,
+        trigger: 'pre_checkout_folio',
+        executionMode: 'preview',
+        now,
+        recentScheduledMessages: existingMessages,
+        metadata: {
+          source: 'pre_checkout_folio_reminder',
+          folio,
+          pms_data_complete: Boolean(folio?.available),
+          sendTo: decision.sendTo,
+          language: decision.language || guest?.preferred_language || reservation.language || hotel.default_language || 'es',
+          triggerOccurrence: `pre_checkout_folio:${reservation.id || 'no-reservation'}:${reservation.departure_date || 'no-departure'}`
+        },
+        source: 'pre_checkout_folio_reminder'
+      });
+      const writerMetadata = {
+        folio_last_updated_at: folio?.lastUpdatedAt || null,
+        folio_data_quality: folio?.dataQuality || null,
+        folio_currency: folio?.currency || null,
+        outstanding_balance: folio?.outstandingBalance || 0,
+        line_item_count: folio?.lineItems?.length || 0,
+        folio_warnings: folio?.warnings || []
+      };
 
       if (!decision.eligible) {
         result.skippedCount += 1;
@@ -531,79 +510,53 @@ export const runPreCheckoutFolioReminder = async ({
           reservationId: reservation.id,
           reason: decision.reason
         });
-        await insertFolioAutomationRun({
+        await writeAutomationDecisionToQueue({
           supabase,
-          hotel,
-          reservation,
-          guest,
-          conversation,
-          status: 'skipped',
-          reason: decision.reason,
-          folio,
-          now
+          decision: applyAutomationDecisionOverride(runtimeDecision, {
+            eligible: false,
+            skipReason: decision.reason,
+            metadata: {
+              domain_skip_reason: decision.reason
+            }
+          }),
+          messagePreview: null,
+          language: runtimeDecision.metadata?.language || 'es',
+          source: 'pre_checkout_folio_reminder',
+          creationReason: decision.reason,
+          extraMetadata: writerMetadata
         });
         continue;
       }
 
       result.eligibleGuests += 1;
-      const record = {
-        hotel_id: reservation.hotel_id,
-        reservation_id: reservation.id,
-        guest_id: reservation.guest_id || null,
-        conversation_id: conversation?.id || null,
-        automation_rule_id: null,
-        automation_type: PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE,
-        channel: 'whatsapp',
-        scheduled_for: now.toISOString(),
-        send_to: decision.sendTo,
-        language: decision.language,
-        message_preview: decision.message,
-        status: 'preview',
-        ai_provider: 'none',
-        ai_model: 'pms_folio_template',
-        automation_fallback: false,
-        metadata: {
-          source: 'pre_checkout_folio_reminder',
-          preview_only: true,
-          send_automations: process.env.SEND_AUTOMATIONS === 'true',
-          live_sending_disabled: true,
-          folio_last_updated_at: folio.lastUpdatedAt,
-          folio_data_quality: folio.dataQuality,
-          folio_currency: folio.currency,
-          outstanding_balance: folio.outstandingBalance,
-          line_item_count: folio.lineItems.length
-        },
-        updated_at: now.toISOString()
-      };
-
-      const { data, error } = await supabase
-        .from('scheduled_messages')
-        .insert(record)
-        .select('*')
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      existingMessages.push(data);
-      result.scheduledMessages.push(data);
-      result.previewsGenerated += 1;
-      await insertFolioAutomationRun({
+      const writeResult = await writeAutomationDecisionToQueue({
         supabase,
-        hotel,
-        reservation,
-        guest,
-        conversation,
-        scheduledMessage: data,
-        status: 'preview',
-        folio,
-        now
+        decision: runtimeDecision,
+        messagePreview: decision.message,
+        language: decision.language,
+        source: 'pre_checkout_folio_reminder',
+        creationReason: runtimeDecision.triggerReason || 'departure_tomorrow_with_balance',
+        extraMetadata: {
+          ...writerMetadata,
+          ai_provider: 'none',
+          ai_model: 'pms_folio_template',
+          automation_fallback: false
+        }
       });
+
+      if (writeResult.scheduledMessage) {
+        existingMessages.push(writeResult.scheduledMessage);
+
+        if (!writeResult.duplicate) {
+          result.scheduledMessages.push(writeResult.scheduledMessage);
+          result.previewsGenerated += 1;
+        }
+      }
       logger.info('pre_checkout_folio_preview_generated', {
         hotelId: reservation.hotel_id,
         reservationId: reservation.id,
-        scheduledMessageId: data.id
+        scheduledMessageId: writeResult.scheduledMessage?.id || null,
+        duplicate: writeResult.duplicate
       });
     }
 

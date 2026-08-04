@@ -1,128 +1,19 @@
-export const INTELLIGENT_AUTOMATION_TYPES = {
-  WELCOME_MESSAGE: 'welcome_message',
-  LATE_CHECKOUT_OFFER: 'late_checkout_offer',
-  SPA_UPSELL: 'spa_upsell',
-  EXPERIENCE_RECOMMENDATION: 'experience_recommendation',
-  RESTAURANT_PROMOTION: 'restaurant_promotion',
-  TRANSFER_OFFER: 'transfer_offer',
-  WEATHER_TRIGGER: 'weather_trigger',
-  VIP_FOLLOWUP: 'vip_followup',
-  BIRTHDAY_MESSAGE: 'birthday_message',
-  ABANDONED_INTEREST_FOLLOWUP: 'abandoned_interest_followup',
-  PRE_CHECKOUT_FOLIO_REMINDER: 'pre_checkout_folio_reminder',
-  POST_STAY_REVIEW_INTELLIGENCE: 'post_stay_review_intelligence'
-};
+import {
+  getDefaultAutomationConfigs,
+  getEngineAutomationTypesMap
+} from '../../shared/automations/catalog.js';
 
-export const DEFAULT_INTELLIGENT_AUTOMATIONS = [
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.WELCOME_MESSAGE,
-    name: 'Welcome message',
-    triggerType: 'check_in',
-    audienceType: 'checked_in_guests',
-    cooldownMinutes: 1440,
-    maxPerGuest: 1,
-    revenueEstimate: 0
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.LATE_CHECKOUT_OFFER,
-    name: 'Late checkout offer',
-    triggerType: 'pre_checkout',
-    audienceType: 'departing_guests',
-    cooldownMinutes: 1440,
-    maxPerGuest: 1,
-    revenueEstimate: 45
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.SPA_UPSELL,
-    name: 'Spa / wellness upsell',
-    triggerType: 'high_spa_interest',
-    audienceType: 'wellness_interest',
-    cooldownMinutes: 720,
-    maxPerGuest: 2,
-    revenueEstimate: 85
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.EXPERIENCE_RECOMMENDATION,
-    name: 'Experience recommendation',
-    triggerType: 'experience_interest',
-    audienceType: 'experience_interest',
-    cooldownMinutes: 720,
-    maxPerGuest: 2,
-    revenueEstimate: 95
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.RESTAURANT_PROMOTION,
-    name: 'Restaurant promotion',
-    triggerType: 'low_restaurant_occupancy',
-    audienceType: 'in_house_guests',
-    cooldownMinutes: 1440,
-    maxPerGuest: 1,
-    revenueEstimate: 55
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.TRANSFER_OFFER,
-    name: 'Transfer offer',
-    triggerType: 'pre_arrival_transfer_need',
-    audienceType: 'arriving_guests',
-    cooldownMinutes: 1440,
-    maxPerGuest: 1,
-    revenueEstimate: 60
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.WEATHER_TRIGGER,
-    name: 'Rainy day indoor recommendation',
-    triggerType: 'weather',
-    audienceType: 'in_house_guests',
-    cooldownMinutes: 720,
-    maxPerGuest: 1,
-    revenueEstimate: 70
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.VIP_FOLLOWUP,
-    name: 'VIP follow-up',
-    triggerType: 'vip_high_value',
-    audienceType: 'vip_guests',
-    cooldownMinutes: 1440,
-    maxPerGuest: 2,
-    revenueEstimate: 120
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.BIRTHDAY_MESSAGE,
-    name: 'Birthday message',
-    triggerType: 'birthday',
-    audienceType: 'celebration_guests',
-    cooldownMinutes: 1440,
-    maxPerGuest: 1,
-    revenueEstimate: 35
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.ABANDONED_INTEREST_FOLLOWUP,
-    name: 'Abandoned interest follow-up',
-    triggerType: 'abandoned_interest',
-    audienceType: 'interested_guests',
-    cooldownMinutes: 720,
-    maxPerGuest: 1,
-    revenueEstimate: 80
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.PRE_CHECKOUT_FOLIO_REMINDER,
-    name: 'Pre-checkout Folio Reminder',
-    triggerType: 'pre_checkout_folio',
-    audienceType: 'departing_guests_with_balance',
-    cooldownMinutes: 1440,
-    maxPerGuest: 1,
-    revenueEstimate: 0
-  },
-  {
-    type: INTELLIGENT_AUTOMATION_TYPES.POST_STAY_REVIEW_INTELLIGENCE,
-    name: 'Post-stay Review Intelligence',
-    triggerType: 'post_checkout_24h',
-    audienceType: 'checked_out_guests',
-    cooldownMinutes: 1440,
-    maxPerGuest: 1,
-    revenueEstimate: 0
-  }
-];
+export const INTELLIGENT_AUTOMATION_TYPES = Object.freeze(getEngineAutomationTypesMap());
+
+export const DEFAULT_INTELLIGENT_AUTOMATIONS = getDefaultAutomationConfigs().map((automation) => ({
+  type: automation.type,
+  name: automation.name,
+  triggerType: automation.trigger_type,
+  audienceType: automation.audience_type,
+  cooldownMinutes: automation.cooldown_minutes,
+  maxPerGuest: automation.max_per_guest,
+  revenueEstimate: Number(automation.actions?.estimated_revenue || 0)
+}));
 
 const DAY_MS = 86400000;
 

@@ -670,15 +670,17 @@ const createDemoScheduledMessages = async ({ hotelId, guest, reservation, conver
         automation_type: 'pre_arrival_7d',
         channel: 'whatsapp',
         scheduled_for: new Date(Date.now() + 2 * DAY_MS).toISOString(),
-        send_to: guest.phone_number,
+        send_to: null,
         language: scenario.language,
         message_preview: `Hi ${scenario.name.split(' ')[0]}, we are looking forward to welcoming you soon. Need transfer, parking or recommendations?`,
-        status: 'scheduled',
+        status: 'preview',
         ai_provider: 'demo',
         ai_model: 'commercial-showcase',
         metadata: {
           demo: true,
-          scenario: scenario.key
+          scenario: scenario.key,
+          execution_mode: 'preview',
+          live_sending_disabled: true
         }
       },
       {
@@ -689,15 +691,17 @@ const createDemoScheduledMessages = async ({ hotelId, guest, reservation, conver
         automation_type: 'post_stay_review',
         channel: 'whatsapp',
         scheduled_for: new Date(Date.now() + 14 * DAY_MS).toISOString(),
-        send_to: guest.phone_number,
+        send_to: null,
         language: scenario.language,
         message_preview: `Thank you for staying with us, ${scenario.name.split(' ')[0]}. We would love to hear about your experience.`,
-        status: 'scheduled',
+        status: 'preview',
         ai_provider: 'demo',
         ai_model: 'commercial-showcase',
         metadata: {
           demo: true,
-          scenario: scenario.key
+          scenario: scenario.key,
+          execution_mode: 'preview',
+          live_sending_disabled: true
         }
       }
     ]

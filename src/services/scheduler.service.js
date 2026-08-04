@@ -71,8 +71,17 @@ const shouldConsiderRule = ({ reservation, automationType, now }) => {
 export const runAutomationScheduler = async ({
   hotelId = null,
   now = new Date(),
-  limit = 250
+  limit = 250,
+  legacyRuntimeEnabled = false
 } = {}) => {
+  if (legacyRuntimeEnabled !== true) {
+    logger.warn('Legacy automation scheduler is disabled for Automation Runtime Foundation Phase 1', {
+      hotelId,
+      mode: 'legacy_non_operational'
+    });
+    return [];
+  }
+
   try {
     const reservations = await getCandidateReservations({ hotelId, limit });
     const hotelIds = [...new Set(reservations.map((reservation) => reservation.hotel_id).filter(Boolean))];

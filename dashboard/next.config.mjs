@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 dotenv.config({ path: '../.env' });
@@ -8,12 +8,13 @@ dotenv.config({ path: '.env.local', override: true });
 process.env.NEXT_PUBLIC_SUPABASE_URL ||= process.env.SUPABASE_URL;
 
 const dashboardRoot = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(dashboardRoot, '..');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   ...(process.env.STAYNEX_NEXT_DIST_DIR ? { distDir: process.env.STAYNEX_NEXT_DIST_DIR } : {}),
-  outputFileTracingRoot: dashboardRoot,
+  outputFileTracingRoot: repoRoot,
   async headers() {
     return [
       {

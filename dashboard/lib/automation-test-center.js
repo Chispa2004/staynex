@@ -4,6 +4,11 @@ import {
   mergeAutomationDefaults,
   scheduledForAutomation
 } from './automation-engine.js';
+import {
+  AUTOMATION_RUNTIME_VERSION,
+  getAutomationDefinition
+} from './automation-catalog.js';
+import { evaluateAutomationDecision } from './automation-runtime.js';
 
 export const AUTOMATION_TEST_CENTER_ENABLED = process.env.AUTOMATION_TEST_CENTER_ENABLED !== 'false';
 export const AUTOMATION_TEST_SEND_ENABLED = process.env.AUTOMATION_TEST_SEND_ENABLED === 'true';
@@ -51,23 +56,6 @@ const iso = (date) => date.toISOString();
 const dateOnly = (date) => iso(date).slice(0, 10);
 const addDays = (date, days) => new Date(date.getTime() + days * DAY_MS);
 
-const AUTOMATION_PRIORITIES = {
-  human_escalation: 'CRITICAL',
-  quality_alert: 'CRITICAL',
-  pre_checkout_folio_reminder: 'HIGH',
-  vip_followup: 'HIGH',
-  transfer_offer: 'MEDIUM',
-  experience_recommendation: 'MEDIUM',
-  spa_upsell: 'MEDIUM',
-  restaurant_promotion: 'MEDIUM',
-  late_checkout_offer: 'MEDIUM',
-  post_stay_review_intelligence: 'MEDIUM',
-  welcome_message: 'LOW',
-  weather_trigger: 'LOW',
-  birthday_message: 'LOW',
-  abandoned_interest_followup: 'LOW'
-};
-
 const PRIORITY_WEIGHT = {
   CRITICAL: 4,
   HIGH: 3,
@@ -83,7 +71,7 @@ const priorityForAutomation = ({ automation, scenario }) => {
     return 'CRITICAL';
   }
 
-  return AUTOMATION_PRIORITIES[automation.type] || 'LOW';
+  return getAutomationDefinition(automation.type)?.priority || automation.priority || 'LOW';
 };
 
 const hasWelcomeAlreadyDelivered = (guest = {}, reservation = {}) => (
@@ -118,6 +106,7 @@ export const getAutomationTestCenterConfig = () => ({
   sendEnabled: AUTOMATION_TEST_SEND_ENABLED,
   testNumberConfigured: Boolean(TEST_WHATSAPP_NUMBER),
   sendAutomations: process.env.SEND_AUTOMATIONS === 'true',
+  runtimeVersion: AUTOMATION_RUNTIME_VERSION,
   ubikosTouched: false,
   pmsTouched: false
 });
@@ -468,123 +457,33 @@ const buildInternalReasoning = ({ automation, scenario, decision, priority }) =>
   };
 };
 
-const evaluateType = ({ automation, guest, now }) => {
-  const type = automation.type;
+const evaluateType = ({ automation, scenario, now }) => {
+  const runtimeDecision = evaluateAutomationDecision({
+    hotel: scenario.hotel,
+    reservation: scenario.reservation,
+    guest: scenario.simulatedGuest,
+    conversationState: scenario.simulatedGuest.conversationState || null,
+    automation,
+    automationType: automation.type,
+    legacyType: automation.type,
+    executionMode: 'preview',
+    now,
+    metadata: {
+      source: 'automation_test_center',
+      test_mode: true,
+      scenario_id: scenario.id,
+      folio: scenario.simulatedGuest.folio,
+      pms_data_complete: scenario.simulatedGuest.pms_data_complete
+    },
+    source: 'automation_test_center'
+  });
 
-  if (automation.active === false || automation.is_active === false) {
-    return { eligible: false, reason: 'automation_inactive' };
-  }
-
-  if (!guest.pms_data_complete) {
-    return { eligible: false, reason: 'skipped_missing_pms_data' };
-  }
-
-  if (!guest.phone_number) {
-    return { eligible: false, reason: 'skipped_missing_phone' };
-  }
-
-  if (guest.opt_out) {
-    return { eligible: false, reason: 'skipped_opt_out' };
-  }
-
-  if (guest.human_takeover) {
-    return { eligible: false, reason: 'skipped_human_takeover' };
-  }
-
-  if (type === 'welcome_message') {
-    if (hasWelcomeAlreadyDelivered(guest)) {
-      return {
-        eligible: false,
-        reason: 'welcome_already_delivered',
-        duplicateBlocked: true
-      };
-    }
-
-    return ['checked_in', 'in_house'].includes(guest.status)
-      ? { eligible: true, reason: 'guest_checked_in' }
-      : { eligible: false, reason: 'not_checked_in' };
-  }
-
-  if (type === 'late_checkout_offer') {
-    return isDepartureWithin24h(guest, now)
-      ? { eligible: true, reason: 'departure_within_24h' }
-      : { eligible: false, reason: 'not_departing_tomorrow' };
-  }
-
-  if (type === 'pre_checkout_folio_reminder') {
-    if (!isDepartureWithin24h(guest, now)) {
-      return { eligible: false, reason: 'not_departing_tomorrow' };
-    }
-
-    if (!guest.folio_complete || !guest.folio?.available) {
-      return { eligible: false, reason: 'skipped_incomplete_folio' };
-    }
-
-    if (Number(guest.balance_due || guest.folio?.outstandingBalance || 0) <= 0) {
-      return { eligible: false, reason: 'no_outstanding_balance' };
-    }
-
-    return { eligible: true, reason: 'departure_tomorrow_with_balance' };
-  }
-
-  if (type === 'post_stay_review_intelligence') {
-    if (!isCheckout24hAgo(guest, now)) {
-      return { eligible: false, reason: 'not_checked_out_24h_ago' };
-    }
-
-    return {
-      eligible: true,
-      reason: guest.sentiment === 'negative' ? 'negative_stay_quality_alert' : 'post_checkout_24h_review'
-    };
-  }
-
-  if (type === 'spa_upsell') {
-    return hasInterest(guest, ['spa', 'wellness', 'hammam', 'massage'])
-      ? { eligible: true, reason: 'spa_interest_detected' }
-      : { eligible: false, reason: 'no_spa_interest' };
-  }
-
-  if (type === 'experience_recommendation') {
-    return hasInterest(guest, ['experience', 'excursion', 'tour', 'agafay', 'actividad'])
-      ? { eligible: true, reason: 'experience_interest_detected' }
-      : { eligible: false, reason: 'no_experience_interest' };
-  }
-
-  if (type === 'transfer_offer') {
-    return hasInterest(guest, ['transfer', 'airport']) || guest.arrival_date === dateOnly(addDays(now, 1))
-      ? { eligible: true, reason: 'arrival_or_transfer_need' }
-      : { eligible: false, reason: 'no_transfer_need' };
-  }
-
-  if (type === 'restaurant_promotion') {
-    return ['checked_in', 'in_house'].includes(guest.status)
-      ? { eligible: true, reason: 'in_house_guest' }
-      : { eligible: false, reason: 'not_in_house' };
-  }
-
-  if (type === 'vip_followup') {
-    return hasInterest(guest, ['vip', 'suite', 'premium']) || /suite|vip/i.test(guest.room_type || '')
-      ? { eligible: true, reason: 'vip_guest_detected' }
-      : { eligible: false, reason: 'not_vip' };
-  }
-
-  if (type === 'birthday_message') {
-    return guest.birthday_today || hasInterest(guest, ['birthday', 'cumple', 'celebration'])
-      ? { eligible: true, reason: 'birthday_or_celebration' }
-      : { eligible: false, reason: 'no_birthday_signal' };
-  }
-
-  if (type === 'abandoned_interest_followup') {
-    return hasInterest(guest, ['interested', 'details', 'availability', 'experience', 'spa'])
-      ? { eligible: true, reason: 'abandoned_interest_signal' }
-      : { eligible: false, reason: 'no_abandoned_interest' };
-  }
-
-  if (type === 'weather_trigger') {
-    return { eligible: false, reason: 'weather_signal_not_simulated' };
-  }
-
-  return { eligible: false, reason: 'scenario_not_matching_trigger' };
+  return {
+    eligible: runtimeDecision.eligible,
+    reason: runtimeDecision.skipReason || runtimeDecision.triggerReason,
+    duplicateBlocked: runtimeDecision.duplicateBlocked,
+    runtimeDecision
+  };
 };
 
 const buildPreview = ({ automation, scenario, decision, priority }) => {
@@ -630,6 +529,9 @@ const buildPreview = ({ automation, scenario, decision, priority }) => {
       scenario_id: scenario.id,
       hotel_id: hotel.id,
       priority,
+      runtime_version: decision.runtimeDecision?.runtimeVersion || AUTOMATION_RUNTIME_VERSION,
+      canonical_automation_type: decision.runtimeDecision?.automationType || automation.type,
+      idempotency_key: decision.runtimeDecision?.idempotencyKey || null,
       internal_reasoning: internalReasoning
     }
   };
@@ -728,6 +630,7 @@ export const runAutomationTestCenter = ({
     sendAutomationsEnabled: process.env.SEND_AUTOMATIONS === 'true',
     automationTestSendEnabled: AUTOMATION_TEST_SEND_ENABLED,
     testWhatsappNumberConfigured: Boolean(TEST_WHATSAPP_NUMBER),
+    runtimeVersion: AUTOMATION_RUNTIME_VERSION,
     pmsTouched: false,
     ubikosTouched: false,
     sendTarget: sendTest && AUTOMATION_TEST_SEND_ENABLED && TEST_WHATSAPP_NUMBER ? TEST_WHATSAPP_NUMBER : null,
@@ -749,7 +652,7 @@ export const runAutomationTestCenter = ({
   mergedAutomations.forEach((automation, index) => {
     const decision = evaluateType({
       automation,
-      guest: scenario.simulatedGuest,
+      scenario,
       now
     });
     const priority = priorityForAutomation({ automation, scenario });
@@ -768,7 +671,11 @@ export const runAutomationTestCenter = ({
       metadata: {
         test_mode: true,
         dry_run: true,
-        priority
+        priority,
+        runtime_version: decision.runtimeDecision?.runtimeVersion || AUTOMATION_RUNTIME_VERSION,
+        canonical_automation_type: decision.runtimeDecision?.automationType || automation.type,
+        idempotency_key: decision.runtimeDecision?.idempotencyKey || null,
+        execution_mode: decision.runtimeDecision?.executionMode || 'preview'
       }
     };
 
@@ -847,10 +754,12 @@ export const runAutomationTestCenter = ({
     eligibleAutomations.push({
       type: automation.type,
       name: automation.name,
-      priority,
-      trigger_reason: decision.reason,
-      scheduled_for: preview.scheduled_for
-    });
+        priority,
+        trigger_reason: decision.reason,
+        scheduled_for: preview.scheduled_for,
+        canonical_type: decision.runtimeDecision?.automationType || automation.type,
+        idempotency_key: decision.runtimeDecision?.idempotencyKey || null
+      });
     previews.push(preview);
     automationHealth.generated += 1;
     automationHealth.messagesGenerated += 1;

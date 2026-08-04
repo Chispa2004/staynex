@@ -1,6 +1,11 @@
 import { getSupabase } from './supabase.service.js';
 import { isHumanControlledConversation } from './conversation-context.service.js';
 import { logger } from '../utils/logger.js';
+import {
+  applyAutomationDecisionOverride,
+  evaluateAutomationDecision
+} from '../../shared/automations/runtime.js';
+import { writeAutomationDecisionToQueue } from '../../shared/automations/queue-writer.js';
 
 export const POST_STAY_REVIEW_INTELLIGENCE_TYPE = 'post_stay_review_intelligence';
 
@@ -343,67 +348,6 @@ const safeRows = async (query, fallback = []) => {
   return data || fallback;
 };
 
-const insertAutomationRun = async ({
-  supabase,
-  hotel,
-  reservation,
-  guest = null,
-  conversation = null,
-  scheduledMessage = null,
-  analysis,
-  status,
-  reason = null,
-  now = new Date()
-}) => {
-  try {
-    const { data, error } = await supabase
-      .from('automation_runs')
-      .insert({
-        automation_id: null,
-        hotel_id: hotel.id || reservation.hotel_id,
-        guest_id: reservation.guest_id || guest?.id || null,
-        reservation_id: reservation.id || null,
-        conversation_id: conversation?.id || null,
-        trigger_type: 'post_stay_review_intelligence',
-        automation_type: POST_STAY_REVIEW_INTELLIGENCE_TYPE,
-        message_sent: false,
-        translated_language: guest?.preferred_language || reservation.language || hotel.default_language || 'es',
-        converted: false,
-        revenue_generated: 0,
-        revenue_owner: 'hotel',
-        scheduled_message_id: scheduledMessage?.id || null,
-        status,
-        cooldown_applied: false,
-        fatigue_score: 0,
-        metadata: {
-          source: 'post_stay_review_intelligence',
-          preview_only: true,
-          strategy: analysis?.reviewStrategy || null,
-          stay_sentiment: analysis?.staySentiment || null,
-          confidence: analysis?.confidence || null,
-          review_risk_score: analysis?.reviewRiskScore || 0,
-          skipped_reason: reason,
-          reasons: analysis?.reasons || []
-        },
-        updated_at: now.toISOString()
-      })
-      .select('*')
-      .single();
-
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    if (!isMissingAutomationTables(error) && error?.code !== '42703') {
-      logger.warn('post_stay_review_run_log_failed', {
-        hotelId: hotel.id || reservation.hotel_id,
-        reservationId: reservation.id,
-        message: error.message
-      });
-    }
-    return null;
-  }
-};
-
 const createQualityAlert = async ({ supabase, hotel, reservation, guest, conversation, analysis }) => {
   try {
     const record = {
@@ -573,6 +517,45 @@ export const runPostStayReviewIntelligence = async ({
         analysis,
         now
       });
+      const runtimeDecision = evaluateAutomationDecision({
+        hotel,
+        reservation,
+        guest: {
+          ...(guest || {}),
+          sentiment: analysis.staySentiment
+        },
+        conversation,
+        conversationState,
+        automation: {
+          type: POST_STAY_REVIEW_INTELLIGENCE_TYPE,
+          active: true
+        },
+        automationType: POST_STAY_REVIEW_INTELLIGENCE_TYPE,
+        legacyType: POST_STAY_REVIEW_INTELLIGENCE_TYPE,
+        trigger: 'post_checkout_24h',
+        executionMode: 'preview',
+        now,
+        recentScheduledMessages: existingMessages,
+        recentRuns: existingRuns,
+        metadata: {
+          source: 'post_stay_review_intelligence',
+          strategy: analysis.reviewStrategy,
+          stay_sentiment: analysis.staySentiment,
+          review_risk_score: analysis.reviewRiskScore,
+          sendTo: decision.sendTo,
+          language: decision.language || guest?.preferred_language || reservation.language || hotel.default_language || 'es',
+          triggerOccurrence: `post_stay_review:${reservation.id || 'no-reservation'}:${reservation.departure_date || 'no-departure'}:${analysis.reviewStrategy || 'no-strategy'}`
+        },
+        source: 'post_stay_review_intelligence'
+      });
+      const writerMetadata = {
+        strategy: analysis.reviewStrategy,
+        stay_sentiment: analysis.staySentiment,
+        confidence: analysis.confidence,
+        review_risk_score: analysis.reviewRiskScore,
+        reasons: analysis.reasons,
+        ask_ai_assistance_feedback: analysis.config.askAiAssistanceFeedback
+      };
 
       if (!decision.eligible) {
         result.skippedCount += 1;
@@ -582,16 +565,20 @@ export const runPostStayReviewIntelligence = async ({
           reservationId: reservation.id,
           reason: decision.reason
         });
-        await insertAutomationRun({
+        await writeAutomationDecisionToQueue({
           supabase,
-          hotel,
-          reservation,
-          guest,
-          conversation,
-          analysis,
-          status: 'skipped',
-          reason: decision.reason,
-          now
+          decision: applyAutomationDecisionOverride(runtimeDecision, {
+            eligible: false,
+            skipReason: decision.reason,
+            metadata: {
+              domain_skip_reason: decision.reason
+            }
+          }),
+          messagePreview: null,
+          language: runtimeDecision.metadata?.language || 'es',
+          source: 'post_stay_review_intelligence',
+          creationReason: decision.reason,
+          extraMetadata: writerMetadata
         });
         continue;
       }
@@ -601,90 +588,65 @@ export const runPostStayReviewIntelligence = async ({
       if (decision.strategy === 'alert_quality_team') {
         const alert = await createQualityAlert({ supabase, hotel, reservation, guest, conversation, analysis });
         if (alert) result.qualityAlertsCreated += 1;
-        await insertAutomationRun({
+        await writeAutomationDecisionToQueue({
           supabase,
-          hotel,
-          reservation,
-          guest,
-          conversation,
-          analysis,
-          status: 'quality_alert_created',
-          now
+          decision: runtimeDecision,
+          messagePreview: null,
+          language: decision.language,
+          source: 'post_stay_review_intelligence',
+          creationReason: runtimeDecision.triggerReason || 'quality_alert_created',
+          auditOnlyStatus: 'quality_alert_created',
+          extraMetadata: {
+            ...writerMetadata,
+            quality_alert_created: Boolean(alert),
+            quality_alert_id: alert?.id || null
+          }
         });
         continue;
       }
 
-      const record = {
-        hotel_id: reservation.hotel_id,
-        reservation_id: reservation.id,
-        guest_id: reservation.guest_id || null,
-        conversation_id: conversation?.id || null,
-        automation_rule_id: null,
-        automation_type: POST_STAY_REVIEW_INTELLIGENCE_TYPE,
-        channel: 'whatsapp',
-        scheduled_for: now.toISOString(),
-        send_to: decision.sendTo,
+      const writeResult = await writeAutomationDecisionToQueue({
+        supabase,
+        decision: runtimeDecision,
+        messagePreview: decision.message,
         language: decision.language,
-        message_preview: decision.message,
-        status: 'preview',
-        ai_provider: 'none',
-        ai_model: 'post_stay_review_intelligence_template',
-        automation_fallback: false,
-        metadata: {
-          source: 'post_stay_review_intelligence',
-          preview_only: true,
-          strategy: decision.strategy,
-          stay_sentiment: analysis.staySentiment,
-          confidence: analysis.confidence,
-          review_risk_score: analysis.reviewRiskScore,
-          reasons: analysis.reasons,
-          ask_ai_assistance_feedback: analysis.config.askAiAssistanceFeedback,
-          live_sending_disabled: true
-        },
-        updated_at: now.toISOString()
-      };
+        source: 'post_stay_review_intelligence',
+        creationReason: runtimeDecision.triggerReason || decision.strategy,
+        extraMetadata: {
+          ...writerMetadata,
+          ai_provider: 'none',
+          ai_model: 'post_stay_review_intelligence_template',
+          automation_fallback: false
+        }
+      });
 
-      const { data, error } = await supabase
-        .from('scheduled_messages')
-        .insert(record)
-        .select('*')
-        .single();
+      if (writeResult.scheduledMessage) {
+        existingMessages.push(writeResult.scheduledMessage);
 
-      if (error) throw error;
-
-      existingMessages.push(data);
-      result.scheduledMessages.push(data);
+        if (!writeResult.duplicate) {
+          result.scheduledMessages.push(writeResult.scheduledMessage);
+        }
+      }
 
       if (decision.strategy === 'request_public_review') {
-        result.publicReviewPreviews += 1;
+        result.publicReviewPreviews += writeResult.scheduledMessage && !writeResult.duplicate ? 1 : 0;
         logger.info('public_review_request_preview_generated', {
           hotelId: reservation.hotel_id,
           reservationId: reservation.id,
-          scheduledMessageId: data.id
+          scheduledMessageId: writeResult.scheduledMessage?.id || null,
+          duplicate: writeResult.duplicate
         });
       }
 
       if (decision.strategy === 'request_private_feedback') {
-        result.privateFeedbackPreviews += 1;
+        result.privateFeedbackPreviews += writeResult.scheduledMessage && !writeResult.duplicate ? 1 : 0;
         logger.info('private_feedback_request_sent', {
           hotelId: reservation.hotel_id,
           reservationId: reservation.id,
-          scheduledMessageId: data.id,
+          scheduledMessageId: writeResult.scheduledMessage?.id || null,
           mode: 'preview'
         });
       }
-
-      await insertAutomationRun({
-        supabase,
-        hotel,
-        reservation,
-        guest,
-        conversation,
-        scheduledMessage: data,
-        analysis,
-        status: 'preview',
-        now
-      });
     }
 
     return result;

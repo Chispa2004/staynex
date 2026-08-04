@@ -1,75 +1,23 @@
-export const INTELLIGENT_AUTOMATION_TYPES = [
-  'welcome_message',
-  'late_checkout_offer',
-  'spa_upsell',
-  'experience_recommendation',
-  'restaurant_promotion',
-  'transfer_offer',
-  'weather_trigger',
-  'vip_followup',
-  'birthday_message',
-  'abandoned_interest_followup',
-  'pre_checkout_folio_reminder',
-  'post_stay_review_intelligence'
-];
+import {
+  getAutomationDefinition,
+  getAutomationTypeFamily,
+  getAutomationTypeOptions,
+  getDefaultAutomationConfigs,
+  getEngineAutomationTypes,
+  getLegacyRuleAutomationTypes,
+  normalizeAutomationType
+} from '../../shared/automations/catalog.js';
 
-export const LEGACY_AUTOMATION_TYPES = [
-  'pre_arrival_7d',
-  'pre_arrival_1d',
-  'in_stay_upsell',
-  'post_stay_review'
-];
+export { scheduledForAutomation } from '../../shared/automations/runtime.js';
 
-export const AUTOMATION_TYPE_OPTIONS = [
-  ...LEGACY_AUTOMATION_TYPES,
-  ...INTELLIGENT_AUTOMATION_TYPES
-];
-
-export const DEFAULT_INTELLIGENT_AUTOMATIONS = [
-  ['welcome_message', 'Welcome message', 'check_in', 'checked_in_guests', 1440, 1, 0],
-  ['late_checkout_offer', 'Late checkout offer', 'pre_checkout', 'departing_guests', 1440, 1, 45],
-  ['spa_upsell', 'Spa / wellness upsell', 'high_spa_interest', 'wellness_interest', 720, 2, 85],
-  ['experience_recommendation', 'Experience recommendation', 'experience_interest', 'experience_interest', 720, 2, 95],
-  ['restaurant_promotion', 'Restaurant promotion', 'low_restaurant_occupancy', 'in_house_guests', 1440, 1, 55],
-  ['transfer_offer', 'Transfer offer', 'pre_arrival_transfer_need', 'arriving_guests', 1440, 1, 60],
-  ['weather_trigger', 'Rainy day indoor recommendation', 'weather', 'in_house_guests', 720, 1, 70],
-  ['vip_followup', 'VIP follow-up', 'vip_high_value', 'vip_guests', 1440, 2, 120],
-  ['birthday_message', 'Birthday message', 'birthday', 'celebration_guests', 1440, 1, 35],
-  ['abandoned_interest_followup', 'Abandoned interest follow-up', 'abandoned_interest', 'interested_guests', 720, 1, 80],
-  ['pre_checkout_folio_reminder', 'Pre-checkout Folio Reminder', 'pre_checkout_folio', 'departing_guests_with_balance', 1440, 1, 0],
-  ['post_stay_review_intelligence', 'Post-stay Review Intelligence', 'post_checkout_24h', 'checked_out_guests', 1440, 1, 0]
-].map(([type, name, triggerType, audienceType, cooldownMinutes, maxPerGuest, revenueEstimate]) => ({
-  id: `default-${type}`,
-  name,
-  type,
-  trigger_type: triggerType,
-  active: true,
-  audience_type: audienceType,
-  cooldown_minutes: cooldownMinutes,
-  max_per_guest: maxPerGuest,
-  conditions: {},
-  actions: {
-    channel: 'whatsapp',
-    estimated_revenue: revenueEstimate,
-    message_tone: 'premium_concierge'
-  },
-  metadata: {
-    source: 'default_intelligent_automation'
-  }
-}));
+export const INTELLIGENT_AUTOMATION_TYPES = getEngineAutomationTypes();
+export const LEGACY_AUTOMATION_TYPES = getLegacyRuleAutomationTypes();
+export const AUTOMATION_TYPE_OPTIONS = getAutomationTypeOptions().filter((type) => type !== 'all');
+export const DEFAULT_INTELLIGENT_AUTOMATIONS = getDefaultAutomationConfigs();
 
 const normalizeLanguage = (value) => {
   const language = String(value || '').trim().toLowerCase();
   return ['es', 'en', 'fr', 'de', 'it', 'pt'].includes(language) ? language : 'en';
-};
-
-const dateAtNoon = (value) => value ? `${value}T12:00:00.000Z` : null;
-
-const addHours = (dateValue, hours) => {
-  const date = dateValue ? new Date(dateValue) : new Date();
-  if (Number.isNaN(date.getTime())) return new Date().toISOString();
-  date.setHours(date.getHours() + hours);
-  return date.toISOString();
 };
 
 export const isMissingAutomationEngineTables = (error) => (
@@ -89,22 +37,40 @@ export const isMissingAutomationColumn = (error) => (
 );
 
 export const mergeAutomationDefaults = (rows = []) => {
-  const byType = new Map((rows || []).map((item) => [item.type || item.automation_type, item]));
+  const findPersistedAutomation = (definition) => {
+    const family = getAutomationTypeFamily(definition.type);
+    return (rows || []).find((item) => {
+      const rowTypes = [
+        item.type,
+        item.automation_type,
+        item.canonical_type,
+        item.canonicalType,
+        item.metadata?.canonical_type
+      ].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+
+      return rowTypes.some((type) => family.includes(type));
+    });
+  };
 
   return DEFAULT_INTELLIGENT_AUTOMATIONS.map((definition) => ({
     ...definition,
-    ...(byType.get(definition.type) || {}),
+    ...(findPersistedAutomation(definition) || {}),
+    canonical_type: definition.canonical_type,
+    canonicalType: definition.canonicalType,
+    aliases: definition.aliases,
     metadata: {
       ...definition.metadata,
-      ...(byType.get(definition.type)?.metadata || {})
+      ...(findPersistedAutomation(definition)?.metadata || {}),
+      canonical_type: definition.canonical_type,
+      aliases: definition.aliases
     },
     actions: {
       ...definition.actions,
-      ...(byType.get(definition.type)?.actions || {})
+      ...(findPersistedAutomation(definition)?.actions || {})
     },
     conditions: {
       ...definition.conditions,
-      ...(byType.get(definition.type)?.conditions || {})
+      ...(findPersistedAutomation(definition)?.conditions || {})
     }
   }));
 };
@@ -116,6 +82,11 @@ export const isRealAutomationId = (id) => (
 
 export const buildAutomationPreview = ({ automationType, hotel, reservation, language = 'en' }) => {
   const normalizedLanguage = normalizeLanguage(language);
+  const normalizedType = normalizeAutomationType(automationType);
+  const templateType = normalizedType.definition?.templateType
+    || normalizedType.legacyType
+    || normalizedType.canonicalType
+    || automationType;
   const hotelName = hotel?.name || 'the hotel';
   const firstName = reservation?.guest_name?.split(' ')[0] || '';
   const prefix = firstName ? `${firstName}, ` : '';
@@ -177,39 +148,33 @@ export const buildAutomationPreview = ({ automationType, hotel, reservation, lan
     }
   };
 
-  return templates[automationType]?.[normalizedLanguage] || templates[automationType]?.en || templates.welcome_message.en;
+  return templates[templateType]?.[normalizedLanguage] || templates[templateType]?.en || templates.welcome_message.en;
 };
 
-export const scheduledForAutomation = ({ automationType, reservation }) => {
-  const arrival = dateAtNoon(reservation?.arrival_date);
-  const departure = dateAtNoon(reservation?.departure_date);
+export const normalizeAutomationForInsert = ({ hotelId, automation, userId = null }) => {
+  const definition = getAutomationDefinition(automation.canonical_type || automation.canonicalType || automation.type);
+  const aliases = definition ? getAutomationTypeFamily(definition.type) : [];
 
-  if (automationType === 'welcome_message') return arrival;
-  if (automationType === 'late_checkout_offer') return departure ? addHours(departure, -20) : null;
-  if (automationType === 'pre_checkout_folio_reminder') return departure ? addHours(departure, -24) : null;
-  if (automationType === 'transfer_offer') return arrival ? addHours(arrival, -24) : null;
-  if (automationType === 'post_stay_review') return departure ? addHours(departure, 24) : null;
-  if (automationType === 'post_stay_review_intelligence') return departure ? addHours(departure, 24) : null;
-  if (automationType === 'pre_arrival_7d') return arrival ? addHours(arrival, -24 * 7) : null;
-  if (automationType === 'pre_arrival_1d') return arrival ? addHours(arrival, -24) : null;
-  if (automationType === 'in_stay_upsell') return arrival;
-  return addHours(new Date().toISOString(), 2);
+  return {
+    hotel_id: hotelId,
+    name: automation.name,
+    type: automation.type,
+    trigger_type: automation.trigger_type || automation.triggerType || definition?.trigger || 'manual',
+    active: automation.active !== false,
+    audience_type: automation.audience_type || automation.audienceType || definition?.audienceType || 'all_guests',
+    conditions: automation.conditions || {},
+    actions: automation.actions || {},
+    cooldown_minutes: Number(automation.cooldown_minutes || automation.cooldownMinutes || definition?.cooldownMinutes || 1440),
+    max_per_guest: Number(automation.max_per_guest || automation.maxPerGuest || definition?.maxPerGuest || 1),
+    created_by: userId,
+    metadata: {
+      ...(automation.metadata || {}),
+      canonical_type: definition?.type || automation.canonical_type || automation.canonicalType || automation.type,
+      aliases
+    },
+    updated_at: new Date().toISOString()
+  };
 };
-
-export const normalizeAutomationForInsert = ({ hotelId, automation, userId = null }) => ({
-  hotel_id: hotelId,
-  name: automation.name,
-  type: automation.type,
-  trigger_type: automation.trigger_type || automation.triggerType || 'manual',
-  active: automation.active !== false,
-  audience_type: automation.audience_type || automation.audienceType || 'all_guests',
-  conditions: automation.conditions || {},
-  actions: automation.actions || {},
-  cooldown_minutes: Number(automation.cooldown_minutes || automation.cooldownMinutes || 1440),
-  max_per_guest: Number(automation.max_per_guest || automation.maxPerGuest || 1),
-  created_by: userId,
-  updated_at: new Date().toISOString()
-});
 
 export const calculateAutomationCenterMetrics = ({ automations = [], runs = [], scheduledMessages = [] }) => {
   const activeAutomations = automations.filter((item) => item.active !== false && item.is_active !== false).length;

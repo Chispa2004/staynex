@@ -8,6 +8,21 @@ Staynex automations help hotels send or preview timely guest-facing messages bas
 
 The current system is designed to be safe before the first PMS pilot. It emphasizes preview mode, dry-run tests, deduplication and fatigue protection.
 
+## Automation Runtime Foundation
+
+Phase 1 canonical architecture is documented in [Automation Runtime Foundation - Phase 1](automation-runtime-foundation-phase-1.md).
+
+Summary:
+
+- `scheduled_messages` is the only operational automation message queue.
+- `automation_runs` records decisions, modes, statuses and skip reasons.
+- `ai_logs` stores AI generation/provider traceability only.
+- `automation_events` remains a legacy reservation event timeline, not a send queue.
+- `message-queue.service.js` is the only future candidate processor for `scheduled_messages`, but no worker or cron is registered in Phase 1.
+- `SEND_AUTOMATIONS=false` remains the final global send gate.
+- All current catalog entries are `uncertified` and capped at preview.
+- Shared automation modules live in `shared/automations/`; dashboard modules are compatibility wrappers.
+
 ## Existing Playbooks
 
 Current intelligent automation types include:
@@ -149,4 +164,3 @@ Relevant variables include:
 - `RESEND_API_KEY`
 
 Do not put secrets in documentation or Git.
-

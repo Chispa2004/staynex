@@ -8,6 +8,11 @@ import {
   mergeAutomationDefaults,
   normalizeAutomationForInsert
 } from '@/lib/automation-engine';
+import {
+  getAutomationTypeFamily,
+  getAutomationTypeOptions,
+  normalizeAutomationType
+} from '@/lib/automation-catalog';
 
 const isMissingAutomationTables = (error) => (
   error?.message?.includes('automation_rules')
@@ -50,11 +55,23 @@ export async function GET(request) {
     const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'automations')) {
-      return NextResponse.json({ hotel, scheduledMessages: [], rules: [], error: 'Access denied' }, { status: 403 });
+      return NextResponse.json({
+        hotel,
+        scheduledMessages: [],
+        rules: [],
+        automationTypeOptions: getAutomationTypeOptions(),
+        error: 'Access denied'
+      }, { status: 403 });
     }
 
     if (!hotel?.id) {
-      return NextResponse.json({ hotel, hotelId: null, scheduledMessages: [], rules: [] });
+      return NextResponse.json({
+        hotel,
+        hotelId: null,
+        scheduledMessages: [],
+        rules: [],
+        automationTypeOptions: getAutomationTypeOptions()
+      });
     }
 
     let migrationRequired = false;
@@ -124,6 +141,7 @@ export async function GET(request) {
       hotelId: hotel.id,
       rules: rules || [],
       automations,
+      automationTypeOptions: getAutomationTypeOptions(),
       automationRuns,
       metrics,
       migrationRequired,
@@ -139,6 +157,7 @@ export async function GET(request) {
         scheduledMessages: [],
         rules: [],
         automations: DEFAULT_INTELLIGENT_AUTOMATIONS,
+        automationTypeOptions: getAutomationTypeOptions(),
         automationRuns: [],
         error: error.message
       },
@@ -161,7 +180,11 @@ export async function PATCH(request) {
 
     const body = await request.json();
     const automationType = body?.automationType || body?.type;
-    const defaultAutomation = DEFAULT_INTELLIGENT_AUTOMATIONS.find((item) => item.type === automationType);
+    const requestedFamily = getAutomationTypeFamily(normalizeAutomationType(automationType).canonicalType || automationType);
+    const defaultAutomation = DEFAULT_INTELLIGENT_AUTOMATIONS.find((item) => (
+      getAutomationTypeFamily(item.canonical_type || item.canonicalType || item.type)
+        .some((type) => requestedFamily.includes(type))
+    ));
 
     if (!defaultAutomation) {
       return NextResponse.json({ ok: false, error: 'Unknown automation type' }, { status: 400 });

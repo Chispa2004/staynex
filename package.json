@@ -45,6 +45,8 @@
     "test:upsells": "node scripts/test-upsells.js",
     "test:mutating:automations": "node scripts/test-automations.js",
     "test:automation-test-center": "node scripts/test-automation-test-center.js",
+    "test:automation-runtime-foundation": "node scripts/test-automation-runtime-foundation.js",
+    "test:dashboard-shared-tracing": "node scripts/test-dashboard-shared-tracing.js",
     "test:external:apaleo-sync": "node scripts/test-apaleo-sync.js",
     "test:external:mutating:apaleo-webhook": "node scripts/test-apaleo-webhook.js",
     "jobs:cleanup": "node scripts/jobs-cleanup.js",

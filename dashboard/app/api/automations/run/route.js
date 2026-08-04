@@ -29,7 +29,7 @@ export async function POST(request) {
       );
     }
 
-    const scheduledMessages = await runDashboardAutomationScheduler({
+    const result = await runDashboardAutomationScheduler({
       supabase,
       hotel
     });
@@ -37,11 +37,14 @@ export async function POST(request) {
     return NextResponse.json({
       ok: true,
       hotel,
-      scheduled: scheduledMessages.length,
-      scheduledMessages
+      scheduled: result.summary.preview,
+      previewGenerated: result.summary.preview,
+      decisions: result.summary,
+      skipReasons: result.summary.skipReasons,
+      scheduledMessages: result.scheduledMessages
     });
   } catch (error) {
-    console.error('Automation scheduler run failed', error);
+    console.error('Automation preview run failed', error);
 
     return NextResponse.json(
       {

@@ -47,6 +47,7 @@ Scripts are defined in root `package.json` and dashboard `package.json`.
 | `npm run test:upsells` | Validate upsell logic. |
 | `npm run test:automations` | Validate automation services and jobs. |
 | `npm run test:automation-test-center` | Validate Automation Test Center. |
+| `npm run test:automation-runtime-foundation` | Validate Phase 1 automation catalog, evaluator, writer, preview gates and idempotency. |
 | `npm run test:apaleo-sync` | Validate Apaleo sync script. |
 | `npm run test:apaleo-webhook` | Validate Apaleo webhook script. |
 
@@ -77,3 +78,5 @@ The following non-destructive checks were executed during this audit:
 ## Notes
 
 Some tests may depend on Supabase schema, environment variables or mock flags. Do not run live-send tests against guest numbers unless explicitly configured for internal test numbers.
+
+For Automation Runtime Foundation migrations, run the read-only `supabase/sql/preflight_automation_runtime_foundation_phase1.sql` before the additive migration and keep `supabase/sql/rollback_automation_runtime_foundation_phase1.sql` available for manual rollback planning.

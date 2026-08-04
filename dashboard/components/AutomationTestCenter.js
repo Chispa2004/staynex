@@ -159,7 +159,7 @@ export function AutomationTestCenter() {
       ['No guest messages', safety.noGuestMessages ?? safety.liveGuestMessagesBlocked],
       ['Dry-run default', safety.dryRun ?? safety.dryRunDefault],
       ['Live sending blocked', safety.liveSendingBlocked ?? safety.liveGuestMessagesBlocked],
-      ['SEND_AUTOMATIONS=true', safety.sendAutomationsEnabled ?? safety.sendAutomations],
+      ['SEND_AUTOMATIONS enabled', safety.sendAutomationsEnabled ?? safety.sendAutomations],
       ['Test send enabled', safety.automationTestSendEnabled ?? safety.sendEnabled],
       ['Internal number configured', safety.testWhatsappNumberConfigured ?? safety.testNumberConfigured],
       ['PMS untouched', safety.pmsTouched === false],

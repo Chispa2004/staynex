@@ -3,16 +3,100 @@ import { getConversationContext, isHumanControlledConversation } from './convers
 import { getSupabase } from './supabase.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
 import { logger } from '../utils/logger.js';
+import {
+  CERTIFICATION_STATUSES,
+  EXECUTION_MODES,
+  normalizeAutomationType
+} from '../../shared/automations/catalog.js';
 
 const isSendAutomationsEnabled = () => process.env.SEND_AUTOMATIONS === 'true';
-const PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE = 'pre_checkout_folio_reminder';
-const POST_STAY_REVIEW_INTELLIGENCE_TYPE = 'post_stay_review_intelligence';
 
 const isMissingScheduledMessagesTable = (error) => (
   error?.message?.includes('scheduled_messages')
   || error?.details?.includes('scheduled_messages')
   || error?.hint?.includes('scheduled_messages')
 );
+
+const previewOnlyAutomationTypes = new Set([
+  'pre_checkout_folio',
+  'pre_checkout_folio_reminder',
+  'review_request',
+  'post_stay_review',
+  'post_stay_review_intelligence'
+]);
+
+export const liveGateForScheduledMessage = (scheduledMessage = {}) => {
+  const executionMode = String(
+    scheduledMessage.execution_mode
+    || scheduledMessage.metadata?.execution_mode
+    || EXECUTION_MODES.PREVIEW
+  );
+  const certificationStatus = String(
+    scheduledMessage.certification_status
+    || scheduledMessage.metadata?.certification_status
+    || normalizeAutomationType(scheduledMessage.automation_type).definition?.certificationStatus
+    || CERTIFICATION_STATUSES.UNCERTIFIED
+  );
+
+  if (![EXECUTION_MODES.LIVE_LIMITED, EXECUTION_MODES.LIVE].includes(executionMode)) {
+    return { allowed: false, reason: 'automation_mode_not_live' };
+  }
+
+  if (certificationStatus !== CERTIFICATION_STATUSES.CERTIFIED) {
+    return { allowed: false, reason: 'automation_uncertified' };
+  }
+
+  return { allowed: true, reason: null };
+};
+
+export const isHotelAutomationLiveExplicitlyEnabled = (hotel = {}) => {
+  const metadata = hotel.metadata || {};
+  const mode = String(
+    metadata.automation_execution_mode
+    || metadata.automation_mode
+    || hotel.automation_execution_mode
+    || hotel.execution_mode
+    || ''
+  ).toLowerCase();
+
+  return (
+    metadata.automation_live_enabled === true
+    && [EXECUTION_MODES.LIVE_LIMITED, EXECUTION_MODES.LIVE].includes(mode)
+    && Boolean(metadata.automation_live_approved_at)
+    && Boolean(metadata.automation_live_approved_by || metadata.automation_live_approval_id)
+  );
+};
+
+const getHotelLiveAutomationGate = async (scheduledMessage = {}) => {
+  if (!scheduledMessage.hotel_id) {
+    return { allowed: false, reason: 'hotel_live_config_missing' };
+  }
+
+  try {
+    const { data, error } = await getSupabase()
+      .from('hotels')
+      .select('id, metadata')
+      .eq('id', scheduledMessage.hotel_id)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || !isHotelAutomationLiveExplicitlyEnabled(data)) {
+      return { allowed: false, reason: 'hotel_live_config_missing' };
+    }
+
+    return { allowed: true, reason: null };
+  } catch (error) {
+    logger.warn('automation_hotel_live_gate_unavailable', {
+      scheduledMessageId: scheduledMessage.id,
+      hotelId: scheduledMessage.hotel_id,
+      message: error.message
+    });
+    return { allowed: false, reason: 'hotel_live_config_unavailable' };
+  }
+};
 
 export const getDueScheduledMessages = async ({
   now = new Date(),
@@ -58,7 +142,15 @@ const updateScheduledMessageStatus = async (id, updates) => {
 };
 
 export const processScheduledMessage = async (scheduledMessage) => {
-  if ([PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE, POST_STAY_REVIEW_INTELLIGENCE_TYPE].includes(scheduledMessage.automation_type)) {
+  const normalizedAutomation = normalizeAutomationType(scheduledMessage.automation_type);
+  const automationTypeFamily = [
+    normalizedAutomation.inputType,
+    normalizedAutomation.canonicalType,
+    scheduledMessage.metadata?.canonical_automation_type,
+    scheduledMessage.metadata?.legacy_automation_type
+  ].filter(Boolean);
+
+  if (automationTypeFamily.some((type) => previewOnlyAutomationTypes.has(type))) {
     logger.info('automation_send_blocked_preview_only', {
       scheduledMessageId: scheduledMessage.id,
       automationType: scheduledMessage.automation_type
@@ -80,6 +172,34 @@ export const processScheduledMessage = async (scheduledMessage) => {
       ...scheduledMessage,
       skipped: true
     };
+  }
+
+  const liveGate = liveGateForScheduledMessage(scheduledMessage);
+  if (!liveGate.allowed) {
+    logger.info('automation_send_blocked_by_runtime_gate', {
+      scheduledMessageId: scheduledMessage.id,
+      automationType: scheduledMessage.automation_type,
+      reason: liveGate.reason
+    });
+
+    return updateScheduledMessageStatus(scheduledMessage.id, {
+      status: 'preview',
+      error_message: liveGate.reason
+    });
+  }
+
+  const hotelLiveGate = await getHotelLiveAutomationGate(scheduledMessage);
+  if (!hotelLiveGate.allowed) {
+    logger.info('automation_send_blocked_by_hotel_live_gate', {
+      scheduledMessageId: scheduledMessage.id,
+      automationType: scheduledMessage.automation_type,
+      reason: hotelLiveGate.reason
+    });
+
+    return updateScheduledMessageStatus(scheduledMessage.id, {
+      status: 'preview',
+      error_message: hotelLiveGate.reason
+    });
   }
 
   if (!scheduledMessage.send_to) {

@@ -47,6 +47,13 @@ Likely deployment target:
 
 - Vercel with root directory `dashboard`.
 
+Vercel dashboard settings:
+
+- Keep Root Directory as `dashboard`.
+- Enable inclusion of source files outside the root directory.
+- `dashboard/next.config.mjs` sets `outputFileTracingRoot` to the repository root so server routes trace `shared/automations/*`.
+- `shared/automations/queue-writer.js` is server-only. Do not import it from `"use client"` components or browser bundles.
+
 ## Supabase
 
 Supabase hosts:
