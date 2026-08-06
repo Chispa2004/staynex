@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { runDashboardAutomationScheduler } from '@/lib/automation-runner';
+import {
+  buildAutomationRunErrorResponse,
+  handleAutomationRunPost
+} from '@/lib/automation-run-api';
 import { canAccess } from '@/lib/permissions';
 
 export async function GET() {
@@ -12,47 +16,22 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
-
-    if (!canAccess(role, 'automations')) {
-      return NextResponse.json({ ok: false, scheduled: 0, error: 'Access denied' }, { status: 403 });
-    }
-
-    if (!hotel?.id) {
-      return NextResponse.json(
-        {
-          ok: false,
-          scheduled: 0,
-          error: 'No hotel available for scheduler'
-        },
-        { status: 400 }
-      );
-    }
-
-    const result = await runDashboardAutomationScheduler({
-      supabase,
-      hotel
+    const result = await handleAutomationRunPost({
+      request,
+      getCurrentHotelForRequest,
+      runDashboardAutomationScheduler,
+      canAccess
     });
 
-    return NextResponse.json({
-      ok: true,
-      hotel,
-      scheduled: result.summary.preview,
-      previewGenerated: result.summary.preview,
-      decisions: result.summary,
-      skipReasons: result.summary.skipReasons,
-      scheduledMessages: result.scheduledMessages
-    });
+    return NextResponse.json(result.body, { status: result.status });
   } catch (error) {
     console.error('Automation preview run failed', error);
+    const failure = buildAutomationRunErrorResponse({
+      status: 500,
+      error: error.message,
+      request
+    });
 
-    return NextResponse.json(
-      {
-        ok: false,
-        scheduled: 0,
-        error: error.message
-      },
-      { status: 500 }
-    );
+    return NextResponse.json(failure.body, { status: failure.status });
   }
 }

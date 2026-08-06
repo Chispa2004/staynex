@@ -93,9 +93,10 @@ export const validateWorkspaceAccess = ({ hotelId, availableHotels = [] }) => {
   return availableHotels.some((assignment) => assignment.hotel?.id === hotelId);
 };
 
-export const getWorkspaceRequestHeaders = () => {
+export const getWorkspaceRequestHeaders = ({ hotelId: explicitHotelId = null } = {}) => {
   const { hotelId } = getActiveWorkspace();
-  return hotelId ? { 'x-staynex-hotel-id': hotelId } : {};
+  const resolvedHotelId = explicitHotelId || hotelId;
+  return resolvedHotelId ? { 'x-staynex-hotel-id': resolvedHotelId } : {};
 };
 
 export const switchWorkspace = async ({ hotelId, accessToken }) => {

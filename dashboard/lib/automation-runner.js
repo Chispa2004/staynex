@@ -191,6 +191,7 @@ export const runDashboardAutomationScheduler = async ({
   const { recentScheduledMessages, recentRuns } = await loadExistingDecisionContext({ supabase, hotelId: hotel.id });
   const summary = {
     mode: 'preview',
+    evaluatedReservations: reservations.length,
     eligible: 0,
     skipped: 0,
     preview: 0,

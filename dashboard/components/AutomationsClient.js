@@ -16,9 +16,11 @@ import {
   Zap
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
+import { buildPreviewPassResultMessage } from '@/lib/automation-run-client';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
+import { WORKSPACE_SELECTION_EVENT } from '@/lib/workspace-context';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { PremiumLoadingState } from './PremiumLoadingState';
 import { AutomationTestCenter } from './AutomationTestCenter';
@@ -197,6 +199,17 @@ export const AutomationsClient = () => {
 
   useEffect(() => {
     loadAutomations();
+
+    const handleWorkspaceChange = () => {
+      setRunResult(null);
+      loadAutomations();
+    };
+
+    window.addEventListener(WORKSPACE_SELECTION_EVENT, handleWorkspaceChange);
+
+    return () => {
+      window.removeEventListener(WORKSPACE_SELECTION_EVENT, handleWorkspaceChange);
+    };
   }, []);
 
   const runPreviewPass = async () => {
@@ -205,9 +218,13 @@ export const AutomationsClient = () => {
     setError(null);
 
     try {
+      if (!hotel?.id) {
+        throw new Error('Select a hotel workspace before generating automation previews.');
+      }
+
       const response = await fetch('/api/automations/run', {
         method: 'POST',
-        headers: await getAuthHeaders()
+        headers: await getAuthHeaders({ hotelId: hotel.id })
       });
       const body = await response.json();
 
@@ -215,8 +232,11 @@ export const AutomationsClient = () => {
         throw new Error(body.error || 'Could not generate automation previews');
       }
 
-      const decisions = body.decisions || {};
-      setRunResult(`Preview pass completed: ${body.previewGenerated || body.scheduled || 0} previews generated, ${decisions.skipped || 0} skipped, ${decisions.blocked || 0} blocked.`);
+      if (!shouldAcceptTenantPayload(body, 'automations-run')) {
+        throw new Error('Automation preview result did not match the active hotel workspace.');
+      }
+
+      setRunResult(buildPreviewPassResultMessage(body));
       await loadAutomations();
     } catch (caughtError) {
       setError(caughtError.message);
