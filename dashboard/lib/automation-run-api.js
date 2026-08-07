@@ -1,8 +1,84 @@
 import { AUTOMATION_RUNTIME_VERSION } from './automation-catalog.js';
 
 export const AUTOMATION_RUN_HOTEL_HEADER = 'x-staynex-hotel-id';
+export const UNKNOWN_SUPABASE_PROJECT_REF = 'unknown';
 
 const numberOrZero = (value) => Number(value || 0);
+
+export const getSupabaseProjectRefFromUrl = (value) => {
+  const text = String(value || '').trim();
+
+  if (!text) {
+    return UNKNOWN_SUPABASE_PROJECT_REF;
+  }
+
+  try {
+    const url = new URL(text);
+
+    if (
+      url.protocol !== 'https:'
+      || url.username
+      || url.password
+      || url.port
+    ) {
+      return UNKNOWN_SUPABASE_PROJECT_REF;
+    }
+
+    const hostnameParts = url.hostname.toLowerCase().split('.');
+
+    if (hostnameParts.length !== 3) {
+      return UNKNOWN_SUPABASE_PROJECT_REF;
+    }
+
+    const [projectRef, domain, tld] = hostnameParts;
+
+    return domain === 'supabase' && tld === 'co' && /^[a-z0-9-]+$/.test(projectRef) && projectRef
+      ? projectRef
+      : UNKNOWN_SUPABASE_PROJECT_REF;
+  } catch {
+    return UNKNOWN_SUPABASE_PROJECT_REF;
+  }
+};
+
+export const buildAutomationEnvironmentDiagnostic = ({ env = process.env } = {}) => {
+  const serverSupabaseProjectRef = getSupabaseProjectRefFromUrl(env?.SUPABASE_URL);
+  const publicSupabaseProjectRef = getSupabaseProjectRefFromUrl(env?.NEXT_PUBLIC_SUPABASE_URL);
+  const projectsMatch = (
+    serverSupabaseProjectRef !== UNKNOWN_SUPABASE_PROJECT_REF
+    && publicSupabaseProjectRef !== UNKNOWN_SUPABASE_PROJECT_REF
+    && serverSupabaseProjectRef === publicSupabaseProjectRef
+  );
+
+  return {
+    serverSupabaseProjectRef,
+    publicSupabaseProjectRef,
+    projectsMatch
+  };
+};
+
+export const logAutomationEnvironmentDiagnostic = ({
+  request = null,
+  hotel = null,
+  environmentDiagnostic = buildAutomationEnvironmentDiagnostic(),
+  logger = console
+} = {}) => {
+  const logPayload = {
+    event: 'automation_preview_environment',
+    requestId: getAutomationRunRequestId(request),
+    hotelId: hotel?.id || null,
+    serverSupabaseProjectRef: environmentDiagnostic.serverSupabaseProjectRef,
+    publicSupabaseProjectRef: environmentDiagnostic.publicSupabaseProjectRef,
+    supabaseProjectsMatch: environmentDiagnostic.projectsMatch
+  };
+
+  if (typeof logger?.info === 'function') {
+    logger.info(logPayload);
+  } else if (typeof logger?.log === 'function') {
+    logger.log(logPayload);
+  }
+
+  return logPayload;
+};
 
 export const getExplicitAutomationRunHotelId = (request) => (
   String(request?.headers?.get?.(AUTOMATION_RUN_HOTEL_HEADER) || '').trim()
@@ -26,7 +102,8 @@ export const getAutomationRunRequestId = (request) => (
 export const buildAutomationRunResponse = ({
   hotel,
   summary = {},
-  request = null
+  request = null,
+  environmentDiagnostic = buildAutomationEnvironmentDiagnostic()
 } = {}) => {
   const mode = summary.mode || 'preview';
   const evaluatedReservations = numberOrZero(summary.evaluatedReservations);
@@ -55,6 +132,7 @@ export const buildAutomationRunResponse = ({
     runtimeVersion: AUTOMATION_RUNTIME_VERSION,
     executionMode: mode,
     requestId: getAutomationRunRequestId(request),
+    environmentDiagnostic,
     decisions: {
       mode,
       evaluatedReservations,
@@ -96,7 +174,9 @@ export const handleAutomationRunPost = async ({
   request,
   getCurrentHotelForRequest,
   runDashboardAutomationScheduler,
-  canAccess
+  canAccess,
+  env = process.env,
+  logger = console
 }) => {
   const explicitHotelId = getExplicitAutomationRunHotelId(request);
 
@@ -142,6 +222,14 @@ export const handleAutomationRunPost = async ({
     });
   }
 
+  const environmentDiagnostic = buildAutomationEnvironmentDiagnostic({ env });
+  logAutomationEnvironmentDiagnostic({
+    request,
+    hotel: context.hotel,
+    environmentDiagnostic,
+    logger
+  });
+
   const result = await runDashboardAutomationScheduler({
     supabase: context.supabase,
     hotel: context.hotel
@@ -152,7 +240,8 @@ export const handleAutomationRunPost = async ({
     body: buildAutomationRunResponse({
       hotel: context.hotel,
       summary: result.summary,
-      request
+      request,
+      environmentDiagnostic
     })
   };
 };
