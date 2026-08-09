@@ -3,9 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  buildAutomationEnvironmentDiagnostic,
   buildAutomationRunResponse,
-  getSupabaseProjectRefFromUrl,
   handleAutomationRunPost
 } from '../dashboard/lib/automation-run-api.js';
 import { buildPreviewPassResultMessage } from '../dashboard/lib/automation-run-client.js';
@@ -20,15 +18,6 @@ const hotelOther = {
   id: '22222222-2222-4222-9222-222222222222',
   name: 'Other Hotel'
 };
-const fixtureProjectRef = 'vblxmnqbatqrynfaasmf';
-const otherProjectRef = 'otherprojectref12345';
-const defaultEnv = {
-  SUPABASE_URL: `https://${fixtureProjectRef}.supabase.co`,
-  NEXT_PUBLIC_SUPABASE_URL: `https://${fixtureProjectRef}.supabase.co`,
-  SUPABASE_SERVICE_ROLE_KEY: 'service-role-key-should-not-appear',
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key-should-not-appear'
-};
-const silentLogger = { info: () => {} };
 
 const requestForHotel = (hotelId, headers = {}) => new Request('https://dashboard.example/api/automations/run', {
   method: 'POST',
@@ -41,16 +30,12 @@ const requestForHotel = (hotelId, headers = {}) => new Request('https://dashboar
 const createDeps = ({
   context,
   summary = {},
-  canAccessResult = true,
-  env = defaultEnv,
-  logger = silentLogger,
-  onRunner = null
+  canAccessResult = true
 } = {}) => {
   const calls = {
     context: 0,
     runner: 0,
-    runnerHotelIds: [],
-    log: 0
+    runnerHotelIds: []
   };
 
   return {
@@ -62,7 +47,6 @@ const createDeps = ({
     runDashboardAutomationScheduler: async ({ hotel }) => {
       calls.runner += 1;
       calls.runnerHotelIds.push(hotel.id);
-      onRunner?.();
       return {
         summary: {
           mode: 'preview',
@@ -82,14 +66,7 @@ const createDeps = ({
         }]
       };
     },
-    canAccess: () => canAccessResult,
-    env,
-    logger: {
-      info: (payload) => {
-        calls.log += 1;
-        logger.info(payload);
-      }
-    }
+    canAccess: () => canAccessResult
   };
 };
 
@@ -104,52 +81,6 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
 });
 
 {
-  assert.equal(
-    getSupabaseProjectRefFromUrl(`https://${fixtureProjectRef}.supabase.co`),
-    fixtureProjectRef
-  );
-  assert.equal(
-    getSupabaseProjectRefFromUrl(`  https://${fixtureProjectRef}.supabase.co  `),
-    fixtureProjectRef
-  );
-  assert.equal(getSupabaseProjectRefFromUrl(undefined), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl(null), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl(''), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl('not-a-url'), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl(`http://${fixtureProjectRef}.supabase.co`), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl(`ftp://${fixtureProjectRef}.supabase.co`), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl(`https://${fixtureProjectRef}.supabase.co.evil.com`), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl('https://foo.bar.supabase.co'), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl('https://supabase.co'), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl('https://example.com'), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl(`https://user:pass@${fixtureProjectRef}.supabase.co`), 'unknown');
-  assert.equal(getSupabaseProjectRefFromUrl(`https://${fixtureProjectRef}.supabase.co:5432`), 'unknown');
-}
-
-{
-  assert.deepEqual(buildAutomationEnvironmentDiagnostic({
-    env: {
-      SUPABASE_URL: `https://${fixtureProjectRef}.supabase.co`,
-      NEXT_PUBLIC_SUPABASE_URL: `https://${fixtureProjectRef}.supabase.co`
-    }
-  }), {
-    serverSupabaseProjectRef: fixtureProjectRef,
-    publicSupabaseProjectRef: fixtureProjectRef,
-    projectsMatch: true
-  });
-  assert.deepEqual(buildAutomationEnvironmentDiagnostic({
-    env: {
-      SUPABASE_URL: `https://${fixtureProjectRef}.supabase.co`,
-      NEXT_PUBLIC_SUPABASE_URL: `https://${otherProjectRef}.supabase.co`
-    }
-  }), {
-    serverSupabaseProjectRef: fixtureProjectRef,
-    publicSupabaseProjectRef: otherProjectRef,
-    projectsMatch: false
-  });
-}
-
-{
   const deps = createDeps({
     context: authedContext({ hotel: hotelMarruecos, platformRole: 'platform_admin' })
   });
@@ -160,13 +91,7 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
 
   assert.equal(result.status, 200);
   assert.equal(result.body.hotel.id, hotelMarruecos.id);
-  assert.deepEqual(result.body.environmentDiagnostic, {
-    serverSupabaseProjectRef: fixtureProjectRef,
-    publicSupabaseProjectRef: fixtureProjectRef,
-    projectsMatch: true
-  });
   assert.equal(deps.calls.runner, 1);
-  assert.equal(deps.calls.log, 1);
   assert.deepEqual(deps.calls.runnerHotelIds, [hotelMarruecos.id]);
 }
 
@@ -196,7 +121,6 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
   assert.equal(result.status, 400);
   assert.equal(deps.calls.context, 0);
   assert.equal(deps.calls.runner, 0);
-  assert.equal(deps.calls.log, 0);
 }
 
 {
@@ -210,7 +134,6 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
 
   assert.equal(result.status, 403);
   assert.equal(deps.calls.runner, 0);
-  assert.equal(deps.calls.log, 0);
 }
 
 {
@@ -235,7 +158,6 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
 
   assert.equal(otherHotelResult.status, 403);
   assert.equal(otherHotelDeps.calls.runner, 0);
-  assert.equal(otherHotelDeps.calls.log, 0);
 }
 
 {
@@ -250,7 +172,6 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
 
   assert.equal(result.status, 403);
   assert.equal(deps.calls.runner, 0);
-  assert.equal(deps.calls.log, 0);
 }
 
 {
@@ -267,8 +188,7 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
       blocked: 0,
       skipReasons: {}
     },
-    request: requestForHotel(hotelMarruecos.id, { 'x-request-id': 'req-1' }),
-    environmentDiagnostic: buildAutomationEnvironmentDiagnostic({ env: defaultEnv })
+    request: requestForHotel(hotelMarruecos.id, { 'x-request-id': 'req-1' })
   });
 
   assert.equal(response.hotel.id, hotelMarruecos.id);
@@ -277,11 +197,6 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
   assert.equal(response.runtimeVersion, 'automation-runtime-foundation-phase1');
   assert.equal(response.executionMode, 'preview');
   assert.equal(response.requestId, 'req-1');
-  assert.deepEqual(response.environmentDiagnostic, {
-    serverSupabaseProjectRef: fixtureProjectRef,
-    publicSupabaseProjectRef: fixtureProjectRef,
-    projectsMatch: true
-  });
 
   const message = buildPreviewPassResultMessage(response);
   assert.match(message, /Hotel Marruecos/);
@@ -314,54 +229,6 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
 }
 
 {
-  const observed = [];
-  let loggedPayload = null;
-  const sensitiveEnv = {
-    SUPABASE_URL: `https://${fixtureProjectRef}.supabase.co`,
-    NEXT_PUBLIC_SUPABASE_URL: `https://${otherProjectRef}.supabase.co`,
-    SUPABASE_SERVICE_ROLE_KEY: 'SERVICE_ROLE_KEY_SHOULD_NOT_LEAK',
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'ANON_KEY_SHOULD_NOT_LEAK'
-  };
-  const deps = createDeps({
-    context: authedContext({ hotel: hotelMarruecos }),
-    env: sensitiveEnv,
-    logger: {
-      info: (payload) => {
-        observed.push('log');
-        loggedPayload = payload;
-      }
-    },
-    onRunner: () => observed.push('runner')
-  });
-  const result = await handleAutomationRunPost({
-    request: requestForHotel(hotelMarruecos.id, { 'x-request-id': 'diag-req' }),
-    ...deps
-  });
-  const serialized = JSON.stringify(result.body);
-
-  assert.equal(result.status, 200);
-  assert.deepEqual(observed, ['log', 'runner']);
-  assert.deepEqual(loggedPayload, {
-    event: 'automation_preview_environment',
-    requestId: 'diag-req',
-    hotelId: hotelMarruecos.id,
-    serverSupabaseProjectRef: fixtureProjectRef,
-    publicSupabaseProjectRef: otherProjectRef,
-    supabaseProjectsMatch: false
-  });
-  assert.deepEqual(result.body.environmentDiagnostic, {
-    serverSupabaseProjectRef: fixtureProjectRef,
-    publicSupabaseProjectRef: otherProjectRef,
-    projectsMatch: false
-  });
-  assert.equal(serialized.includes('https://'), false);
-  assert.equal(serialized.includes('supabase.co'), false);
-  assert.equal(serialized.includes('SERVICE_ROLE_KEY_SHOULD_NOT_LEAK'), false);
-  assert.equal(serialized.includes('ANON_KEY_SHOULD_NOT_LEAK'), false);
-  assert.equal(serialized.includes('token'), false);
-}
-
-{
   assert.deepEqual(getWorkspaceRequestHeaders({ hotelId: hotelMarruecos.id }), {
     'x-staynex-hotel-id': hotelMarruecos.id
   });
@@ -386,7 +253,6 @@ const authedContext = ({ hotel, role = 'owner', platformRole = 'none', fallback 
   );
   assert.equal(routeSource.includes('scheduledMessages: result.scheduledMessages'), false);
   const runnerSource = readFileSync(join(root, 'dashboard/lib/automation-runner.js'), 'utf8');
-  assert.equal(runnerSource.includes('environmentDiagnostic'), false);
   assert.equal(runnerSource.includes('SUPABASE_URL'), false);
 }
 
