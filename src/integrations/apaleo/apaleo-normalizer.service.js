@@ -1,3 +1,5 @@
+import { normalizeReservationLifecycleStatus } from '../../../shared/automations/reservation-lifecycle.js';
+
 const text = (value) => {
   if (value === undefined || value === null) {
     return null;
@@ -37,14 +39,10 @@ const personName = (person = {}) => {
 };
 
 const normalizeStatus = (status) => {
-  const normalized = text(status)?.toLowerCase();
+  const normalized = normalizeReservationLifecycleStatus(text(status));
 
   if (!normalized) {
     return 'confirmed';
-  }
-
-  if (['canceled', 'cancelled', 'no_show', 'noshow'].includes(normalized)) {
-    return 'cancelled';
   }
 
   if (['checkedout', 'checked_out', 'departed'].includes(normalized)) {

@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 import { scheduleReservationAutomations } from '../../services/automation.service.js';
+import { reconcileReservationAutomationLifecycle } from '../../services/automation-reconciliation.service.js';
 import { connectionToApaleoConfig } from '../../services/pms-connections.service.js';
 import { createOrUpdateReservation } from '../../services/reservation.service.js';
 import { getSupabase } from '../../services/supabase.service.js';
 import { logger } from '../../utils/logger.js';
 import { getReservationById } from './apaleo-reservations.service.js';
 import { normalizeApaleoReservation } from './apaleo-normalizer.service.js';
+import { isReservationTerminalForAutomations } from '../../../shared/automations/reservation-lifecycle.js';
 
 const RESERVATION_ACTIONS = {
   created: 'created',
@@ -340,12 +342,58 @@ const createWebhookEvent = async ({ parsed, connection }) => {
   }
 };
 
-const markLocalReservationStatus = async ({ reservationId, status, hotelId }) => {
+const reconcileApaleoReservationStatusChange = async ({
+  previousReservation,
+  currentReservation,
+  sourceEventId
+}) => {
+  try {
+    await reconcileReservationAutomationLifecycle({
+      previousReservation,
+      currentReservation,
+      source: 'apaleo_webhook',
+      sourceEventId
+    });
+  } catch (error) {
+    logger.warn('Apaleo reservation automation reconciliation skipped', {
+      reservationId: currentReservation?.id || previousReservation?.id || null,
+      hotelId: currentReservation?.hotel_id || previousReservation?.hotel_id || null,
+      sourceEventId,
+      error: error.message
+    });
+  }
+};
+
+const markLocalReservationStatus = async ({
+  reservationId,
+  status,
+  hotelId,
+  sourceEventId = null
+}) => {
   if (!reservationId) {
     return null;
   }
 
-  let query = getSupabase()
+  const client = getSupabase();
+  let lookup = client
+    .from('reservations')
+    .select('*')
+    .eq('pms_provider', 'apaleo')
+    .eq('pms_reservation_id', reservationId);
+
+  if (hotelId) {
+    lookup = lookup.eq('hotel_id', hotelId);
+  }
+
+  const { data: previousReservation, error: lookupError } = await lookup
+    .limit(1)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw lookupError;
+  }
+
+  let query = client
     .from('reservations')
     .update({
       status,
@@ -362,6 +410,14 @@ const markLocalReservationStatus = async ({ reservationId, status, hotelId }) =>
 
   if (error) {
     throw error;
+  }
+
+  if (data) {
+    await reconcileApaleoReservationStatusChange({
+      previousReservation,
+      currentReservation: data,
+      sourceEventId
+    });
   }
 
   return data;
@@ -388,7 +444,8 @@ const syncFetchedReservation = async ({ connection, parsed, statusOverride = nul
       const updatedReservation = await markLocalReservationStatus({
         reservationId: parsed.externalResourceId,
         status: statusOverride,
-        hotelId: connection?.hotel_id || null
+        hotelId: connection?.hotel_id || null,
+        sourceEventId: parsed.externalEventId
       });
 
       return {
@@ -400,9 +457,10 @@ const syncFetchedReservation = async ({ connection, parsed, statusOverride = nul
     throw new Error(`Apaleo reservation not found: ${parsed.externalResourceId}`);
   }
 
+  const normalizedReservation = normalizeApaleoReservation(rawReservation);
   const normalized = {
-    ...normalizeApaleoReservation(rawReservation),
-    status: statusOverride || normalizeApaleoReservation(rawReservation)?.status
+    ...normalizedReservation,
+    status: statusOverride || normalizedReservation?.status
   };
 
   if (!normalized?.pms_reservation_id) {
@@ -412,9 +470,12 @@ const syncFetchedReservation = async ({ connection, parsed, statusOverride = nul
   const { reservation } = await createOrUpdateReservation({
     ...normalized,
     hotel_id: connection?.hotel_id || null
+  }, {
+    source: 'apaleo_webhook',
+    sourceEventId: parsed.externalEventId
   });
 
-  if (!['cancelled', 'canceled', 'deleted'].includes(String(reservation.status || '').toLowerCase())) {
+  if (!isReservationTerminalForAutomations(reservation.status)) {
     await scheduleReservationAutomations(reservation);
   }
 

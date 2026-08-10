@@ -1,3 +1,5 @@
+import { normalizeReservationLifecycleStatus } from '../../../../shared/automations/reservation-lifecycle.js';
+
 const STATUS_MAP = {
   CONFIRMADA: 'confirmed',
   CONFIRMADO: 'confirmed',
@@ -70,7 +72,9 @@ export const normalizeUbikosReservation = (raw = {}) => {
   const guestName = normalizeString(raw.guest_name || raw.titular || raw.cliente || raw.name);
   const arrivalDate = normalizeDate(raw.arrival_date || raw.entrada || raw.check_in);
   const departureDate = normalizeDate(raw.departure_date || raw.salida || raw.check_out);
-  const status = STATUS_MAP[String(raw.status || raw.estado || '').trim().toUpperCase()] || normalizeString(raw.status || raw.estado, 'unknown');
+  const rawStatus = STATUS_MAP[String(raw.status || raw.estado || '').trim().toUpperCase()]
+    || normalizeString(raw.status || raw.estado, 'unknown');
+  const status = normalizeReservationLifecycleStatus(rawStatus) || rawStatus;
 
   return {
     reservation_id: reservationId,

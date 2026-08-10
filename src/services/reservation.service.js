@@ -9,6 +9,7 @@ import { detectGuestLanguage } from './language.service.js';
 import { randomBytes } from 'node:crypto';
 import { getDefaultHotel, getHotelById } from './hotel.service.js';
 import { persistReservationOperationalContext } from './pms-intelligence.service.js';
+import { reconcileReservationAutomationLifecycle } from './automation-reconciliation.service.js';
 import {
   hasReservationAccessTokenForLogs,
   maskPhoneForLogs
@@ -203,10 +204,39 @@ const tryPersistOperationalContext = async ({ reservation, guest }) => {
   }
 };
 
-export const createOrUpdateReservation = async (data) => {
+const tryReconcileReservationAutomationLifecycle = async ({
+  previousReservation,
+  currentReservation,
+  source,
+  sourceEventId
+}) => {
+  try {
+    await reconcileReservationAutomationLifecycle({
+      previousReservation,
+      currentReservation,
+      source,
+      sourceEventId
+    });
+  } catch (error) {
+    logger.warn('Reservation automation reconciliation skipped', {
+      reservationId: currentReservation?.id || previousReservation?.id || null,
+      hotelId: currentReservation?.hotel_id || previousReservation?.hotel_id || null,
+      source,
+      sourceEventId,
+      error: error.message
+    });
+  }
+};
+
+export const createOrUpdateReservation = async (data, options = {}) => {
   const client = getSupabase();
   const pmsProvider = cleanText(data.pms_provider) || 'mock';
   const pmsReservationId = cleanText(data.pms_reservation_id);
+  const reconciliationSource = options.source || 'reservation_mutation';
+  const reconciliationSourceEventId = options.sourceEventId
+    || data.sourceEventId
+    || data.source_event_id
+    || null;
   const requestedHotelId = data.hotel_id || data.hotelId;
   const hotel = requestedHotelId
     ? await getHotelById(requestedHotelId) || { id: requestedHotelId }
@@ -307,6 +337,13 @@ export const createOrUpdateReservation = async (data) => {
       guest
     });
 
+    await tryReconcileReservationAutomationLifecycle({
+      previousReservation: existingReservation,
+      currentReservation: normalizedLegacyReservation,
+      source: reconciliationSource,
+      sourceEventId: reconciliationSourceEventId
+    });
+
     return {
       reservation: normalizedLegacyReservation,
       guest
@@ -331,6 +368,13 @@ export const createOrUpdateReservation = async (data) => {
   await tryPersistOperationalContext({
     reservation,
     guest
+  });
+
+  await tryReconcileReservationAutomationLifecycle({
+    previousReservation: existingReservation,
+    currentReservation: reservation,
+    source: reconciliationSource,
+    sourceEventId: reconciliationSourceEventId
   });
 
   return {

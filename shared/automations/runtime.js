@@ -6,6 +6,10 @@ import {
   getAutomationDefinition,
   normalizeAutomationType
 } from './catalog.js';
+import {
+  getReservationAutomationTerminalReason,
+  isReservationAutomationEligibleStatus
+} from './reservation-lifecycle.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -508,6 +512,12 @@ export const evaluateAutomationDecision = ({
     triggerDecision = { eligible: false, reason: 'execution_mode_disabled' };
   } else if (guest?.pms_data_complete === false || metadata.pms_data_complete === false) {
     triggerDecision = { eligible: false, reason: 'skipped_missing_pms_data' };
+  } else if (!isReservationAutomationEligibleStatus(reservation.status || reservation.pms_status)) {
+    triggerDecision = {
+      eligible: false,
+      reason: getReservationAutomationTerminalReason(reservation.status || reservation.pms_status)
+        || 'reservation_terminal_for_automations'
+    };
   } else if (!recipientAvailable) {
     triggerDecision = { eligible: false, reason: 'skipped_missing_phone' };
   } else if (isOptedOut({ reservation, guest: guest || {} })) {

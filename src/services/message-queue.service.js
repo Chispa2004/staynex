@@ -4,10 +4,16 @@ import { getSupabase } from './supabase.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
 import { logger } from '../utils/logger.js';
 import {
+  AUTOMATION_RUNTIME_VERSION,
   CERTIFICATION_STATUSES,
   EXECUTION_MODES,
   normalizeAutomationType
 } from '../../shared/automations/catalog.js';
+import {
+  getReservationAutomationTerminalReason,
+  isCanonicalAutomationScheduledMessage,
+  isReservationTerminalForAutomations
+} from '../../shared/automations/reservation-lifecycle.js';
 
 const isSendAutomationsEnabled = () => process.env.SEND_AUTOMATIONS === 'true';
 
@@ -15,6 +21,15 @@ const isMissingScheduledMessagesTable = (error) => (
   error?.message?.includes('scheduled_messages')
   || error?.details?.includes('scheduled_messages')
   || error?.hint?.includes('scheduled_messages')
+);
+
+const isMissingScheduledMessagesRuntimeColumn = (error) => (
+  error?.code === '42703'
+  || ['idempotency_key', 'execution_mode', 'runtime_version'].some((column) => (
+    error?.message?.includes(column)
+    || error?.details?.includes(column)
+    || error?.hint?.includes(column)
+  ))
 );
 
 const previewOnlyAutomationTypes = new Set([
@@ -67,13 +82,13 @@ export const isHotelAutomationLiveExplicitlyEnabled = (hotel = {}) => {
   );
 };
 
-const getHotelLiveAutomationGate = async (scheduledMessage = {}) => {
+const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = getSupabase() } = {}) => {
   if (!scheduledMessage.hotel_id) {
     return { allowed: false, reason: 'hotel_live_config_missing' };
   }
 
   try {
-    const { data, error } = await getSupabase()
+    const { data, error } = await supabase
       .from('hotels')
       .select('id, metadata')
       .eq('id', scheduledMessage.hotel_id)
@@ -98,32 +113,82 @@ const getHotelLiveAutomationGate = async (scheduledMessage = {}) => {
   }
 };
 
+export const getReservationSendTimeGate = async ({
+  scheduledMessage = {},
+  supabase = getSupabase()
+} = {}) => {
+  if (!scheduledMessage.hotel_id || !scheduledMessage.reservation_id) {
+    return { allowed: false, reason: 'reservation_context_missing' };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('id, hotel_id, status')
+      .eq('id', scheduledMessage.reservation_id)
+      .eq('hotel_id', scheduledMessage.hotel_id)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      return { allowed: false, reason: 'reservation_missing' };
+    }
+
+    if (isReservationTerminalForAutomations(data.status)) {
+      return {
+        allowed: false,
+        reason: getReservationAutomationTerminalReason(data.status) || 'reservation_terminal_for_automations',
+        reservationStatus: data.status
+      };
+    }
+
+    return {
+      allowed: true,
+      reason: null,
+      reservationStatus: data.status
+    };
+  } catch (error) {
+    logger.warn('automation_reservation_send_time_gate_unavailable', {
+      scheduledMessageId: scheduledMessage.id,
+      hotelId: scheduledMessage.hotel_id,
+      reservationId: scheduledMessage.reservation_id,
+      message: error.message
+    });
+    return { allowed: false, reason: 'reservation_lookup_failed' };
+  }
+};
+
 export const getDueScheduledMessages = async ({
   now = new Date(),
-  limit = 50
+  limit = 50,
+  supabase = getSupabase()
 } = {}) => {
-  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('scheduled_messages')
     .select('*')
     .eq('status', 'scheduled')
     .lte('scheduled_for', now.toISOString())
+    .not('idempotency_key', 'is', null)
+    .not('execution_mode', 'is', null)
+    .in('runtime_version', [AUTOMATION_RUNTIME_VERSION])
     .order('scheduled_for', { ascending: true })
     .limit(limit);
 
   if (error) {
-    if (isMissingScheduledMessagesTable(error)) {
+    if (isMissingScheduledMessagesTable(error) || isMissingScheduledMessagesRuntimeColumn(error)) {
       return [];
     }
 
     throw error;
   }
 
-  return data || [];
+  return (data || []).filter(isCanonicalAutomationScheduledMessage);
 };
 
-const updateScheduledMessageStatus = async (id, updates) => {
-  const supabase = getSupabase();
+const updateScheduledMessageStatus = async (id, updates, { supabase = getSupabase() } = {}) => {
   const { data, error } = await supabase
     .from('scheduled_messages')
     .update({
@@ -141,7 +206,27 @@ const updateScheduledMessageStatus = async (id, updates) => {
   return data;
 };
 
-export const processScheduledMessage = async (scheduledMessage) => {
+export const processScheduledMessage = async (scheduledMessage, options = {}) => {
+  let scopedSupabase = options.supabase || null;
+  const getQueueSupabase = () => {
+    scopedSupabase ||= getSupabase();
+    return scopedSupabase;
+  };
+
+  if (!isCanonicalAutomationScheduledMessage(scheduledMessage)) {
+    logger.info('automation_legacy_message_quarantined', {
+      scheduledMessageId: scheduledMessage.id,
+      automationType: scheduledMessage.automation_type
+    });
+
+    return {
+      ...scheduledMessage,
+      skipped: true,
+      blocked: true,
+      reason: 'legacy_automation_message_quarantined'
+    };
+  }
+
   const normalizedAutomation = normalizeAutomationType(scheduledMessage.automation_type);
   const automationTypeFamily = [
     normalizedAutomation.inputType,
@@ -159,7 +244,7 @@ export const processScheduledMessage = async (scheduledMessage) => {
     return updateScheduledMessageStatus(scheduledMessage.id, {
       status: 'preview',
       error_message: null
-    });
+    }, { supabase: getQueueSupabase() });
   }
 
   if (!isSendAutomationsEnabled()) {
@@ -185,10 +270,10 @@ export const processScheduledMessage = async (scheduledMessage) => {
     return updateScheduledMessageStatus(scheduledMessage.id, {
       status: 'preview',
       error_message: liveGate.reason
-    });
+    }, { supabase: getQueueSupabase() });
   }
 
-  const hotelLiveGate = await getHotelLiveAutomationGate(scheduledMessage);
+  const hotelLiveGate = await getHotelLiveAutomationGate(scheduledMessage, { supabase: getQueueSupabase() });
   if (!hotelLiveGate.allowed) {
     logger.info('automation_send_blocked_by_hotel_live_gate', {
       scheduledMessageId: scheduledMessage.id,
@@ -199,7 +284,38 @@ export const processScheduledMessage = async (scheduledMessage) => {
     return updateScheduledMessageStatus(scheduledMessage.id, {
       status: 'preview',
       error_message: hotelLiveGate.reason
+    }, { supabase: getQueueSupabase() });
+  }
+
+  const reservationGate = await getReservationSendTimeGate({
+    scheduledMessage,
+    supabase: getQueueSupabase()
+  });
+  if (!reservationGate.allowed) {
+    const checkedAt = new Date().toISOString();
+    const terminalReason = getReservationAutomationTerminalReason(reservationGate.reservationStatus);
+    logger.info('automation_send_blocked_by_reservation_lifecycle', {
+      scheduledMessageId: scheduledMessage.id,
+      hotelId: scheduledMessage.hotel_id,
+      reservationId: scheduledMessage.reservation_id,
+      automationType: scheduledMessage.automation_type,
+      reason: reservationGate.reason
     });
+
+    return updateScheduledMessageStatus(scheduledMessage.id, {
+      status: terminalReason ? 'cancelled' : 'failed',
+      failed_at: terminalReason ? null : checkedAt,
+      error_message: reservationGate.reason,
+      metadata: {
+        ...(scheduledMessage.metadata || {}),
+        send_time_guard: {
+          reason: reservationGate.reason,
+          reservation_status: reservationGate.reservationStatus || null,
+          runtime_version: AUTOMATION_RUNTIME_VERSION,
+          checked_at: checkedAt
+        }
+      }
+    }, { supabase: getQueueSupabase() });
   }
 
   if (!scheduledMessage.send_to) {
@@ -207,7 +323,7 @@ export const processScheduledMessage = async (scheduledMessage) => {
       status: 'failed',
       failed_at: new Date().toISOString(),
       error_message: 'Missing send_to'
-    });
+    }, { supabase: getQueueSupabase() });
   }
 
   if (scheduledMessage.conversation_id && scheduledMessage.hotel_id) {
@@ -227,7 +343,7 @@ export const processScheduledMessage = async (scheduledMessage) => {
       return updateScheduledMessageStatus(scheduledMessage.id, {
         status: 'failed',
         error_message: 'Human takeover active for conversation'
-      });
+      }, { supabase: getQueueSupabase() });
     }
   }
 
@@ -240,7 +356,7 @@ export const processScheduledMessage = async (scheduledMessage) => {
       status: 'sent',
       sent_at: new Date().toISOString(),
       error_message: null
-    });
+    }, { supabase: getQueueSupabase() });
 
     await createAiLog({
       guestId: scheduledMessage.guest_id || null,
@@ -272,19 +388,20 @@ export const processScheduledMessage = async (scheduledMessage) => {
       status: 'failed',
       failed_at: new Date().toISOString(),
       error_message: error.message
-    });
+    }, { supabase: getQueueSupabase() });
   }
 };
 
 export const processDueScheduledMessages = async ({
   now = new Date(),
-  limit = 50
+  limit = 50,
+  supabase = getSupabase()
 } = {}) => {
-  const dueMessages = await getDueScheduledMessages({ now, limit });
+  const dueMessages = await getDueScheduledMessages({ now, limit, supabase });
   const results = [];
 
   for (const message of dueMessages) {
-    results.push(await processScheduledMessage(message));
+    results.push(await processScheduledMessage(message, { supabase }));
   }
 
   return results;
