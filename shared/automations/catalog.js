@@ -26,6 +26,11 @@ export const CERTIFICATION_STATUSES = {
   CERTIFIED: 'certified'
 };
 
+export const RESERVATION_DATE_DEPENDENCIES = {
+  ARRIVAL: 'arrival_date',
+  DEPARTURE: 'departure_date'
+};
+
 const CURRENT_ALLOWED_MODES = [
   EXECUTION_MODES.DISABLED,
   EXECUTION_MODES.PREVIEW
@@ -56,7 +61,8 @@ const baseDefinition = ({
   maxPerGuest = 1,
   estimatedRevenue = 0,
   templateType = null,
-  scheduleAnchor = 'reservation_window'
+  scheduleAnchor = 'reservation_window',
+  reservationDateDependencies = []
 }) => ({
   type,
   canonicalType: type,
@@ -82,7 +88,8 @@ const baseDefinition = ({
   maxPerGuest,
   estimatedRevenue,
   templateType: templateType || engineDefaultType || type,
-  scheduleAnchor
+  scheduleAnchor,
+  reservationDateDependencies
 });
 
 export const CANONICAL_AUTOMATION_DEFINITIONS = [
@@ -98,6 +105,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'guestId', 'recipient'],
     templateType: 'welcome_message',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.ARRIVAL],
     priority: 'LOW'
   }),
   baseDefinition({
@@ -112,6 +120,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'arrivalDate', 'recipient'],
     templateType: 'pre_arrival_1d',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.ARRIVAL],
     priority: 'LOW'
   }),
   baseDefinition({
@@ -125,6 +134,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'arrivalDate', 'recipient'],
     templateType: 'welcome_message',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.ARRIVAL],
     priority: 'MEDIUM'
   }),
   baseDefinition({
@@ -139,6 +149,10 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'stayPhase', 'recipient'],
     templateType: 'weather_trigger',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [
+      RESERVATION_DATE_DEPENDENCIES.ARRIVAL,
+      RESERVATION_DATE_DEPENDENCIES.DEPARTURE
+    ],
     priority: 'LOW',
     estimatedRevenue: 70,
     cooldownMinutes: 720
@@ -156,6 +170,10 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'guestSignals', 'recipient'],
     templateType: 'abandoned_interest_followup',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [
+      RESERVATION_DATE_DEPENDENCIES.ARRIVAL,
+      RESERVATION_DATE_DEPENDENCIES.DEPARTURE
+    ],
     priority: 'MEDIUM',
     humanApprovalRequired: true,
     estimatedRevenue: 80,
@@ -173,6 +191,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'arrivalDate', 'guestSignals', 'recipient'],
     templateType: 'transfer_offer',
     scheduleAnchor: 'arrival_minus_24h',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.ARRIVAL],
     priority: 'MEDIUM',
     humanApprovalRequired: true,
     estimatedRevenue: 60
@@ -189,6 +208,10 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'stayPhase', 'recipient'],
     templateType: 'restaurant_promotion',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [
+      RESERVATION_DATE_DEPENDENCIES.ARRIVAL,
+      RESERVATION_DATE_DEPENDENCIES.DEPARTURE
+    ],
     priority: 'MEDIUM',
     humanApprovalRequired: true,
     estimatedRevenue: 55
@@ -205,6 +228,10 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'guestSignals', 'recipient'],
     templateType: 'spa_upsell',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [
+      RESERVATION_DATE_DEPENDENCIES.ARRIVAL,
+      RESERVATION_DATE_DEPENDENCIES.DEPARTURE
+    ],
     priority: 'MEDIUM',
     humanApprovalRequired: true,
     estimatedRevenue: 85,
@@ -223,6 +250,10 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'guestSignals', 'recipient'],
     templateType: 'experience_recommendation',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [
+      RESERVATION_DATE_DEPENDENCIES.ARRIVAL,
+      RESERVATION_DATE_DEPENDENCIES.DEPARTURE
+    ],
     priority: 'MEDIUM',
     humanApprovalRequired: true,
     estimatedRevenue: 95,
@@ -241,6 +272,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'departureDate', 'recipient'],
     templateType: 'late_checkout_offer',
     scheduleAnchor: 'departure_minus_20h',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.DEPARTURE],
     priority: 'MEDIUM',
     humanApprovalRequired: true,
     estimatedRevenue: 45
@@ -256,6 +288,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'departureDate', 'recipient'],
     templateType: 'late_checkout_offer',
     scheduleAnchor: 'departure',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.DEPARTURE],
     priority: 'MEDIUM'
   }),
   baseDefinition({
@@ -270,6 +303,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'departureDate', 'folio', 'recipient'],
     templateType: 'pre_checkout_folio_reminder',
     scheduleAnchor: 'departure_minus_24h',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.DEPARTURE],
     priority: 'HIGH',
     requiresRealPms: true,
     humanApprovalRequired: true
@@ -285,6 +319,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'departureDate', 'recipient'],
     templateType: 'post_stay_review_intelligence',
     scheduleAnchor: 'departure_plus_24h',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.DEPARTURE],
     priority: 'LOW'
   }),
   baseDefinition({
@@ -300,6 +335,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'departureDate', 'sentiment', 'recipient'],
     templateType: 'post_stay_review_intelligence',
     scheduleAnchor: 'departure_plus_24h',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.DEPARTURE],
     priority: 'MEDIUM',
     humanApprovalRequired: true
   }),
@@ -315,6 +351,10 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'vipSignals', 'recipient'],
     templateType: 'vip_followup',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [
+      RESERVATION_DATE_DEPENDENCIES.ARRIVAL,
+      RESERVATION_DATE_DEPENDENCIES.DEPARTURE
+    ],
     priority: 'HIGH',
     humanApprovalRequired: true,
     estimatedRevenue: 120,
@@ -332,6 +372,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     requiredData: ['hotelId', 'reservationId', 'celebrationSignals', 'recipient'],
     templateType: 'birthday_message',
     scheduleAnchor: 'arrival',
+    reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.ARRIVAL],
     priority: 'LOW',
     estimatedRevenue: 35
   })
@@ -378,6 +419,22 @@ export const normalizeAutomationType = (value) => {
 };
 
 export const getAutomationDefinition = (value) => normalizeAutomationType(value).definition;
+
+export const normalizeReservationDateDependencies = (dependencies = []) => {
+  const normalized = Array.isArray(dependencies) ? dependencies : [dependencies];
+  const allowed = new Set(Object.values(RESERVATION_DATE_DEPENDENCIES));
+
+  return [...new Set(normalized
+    .map((dependency) => String(dependency || '').trim().toLowerCase())
+    .filter((dependency) => allowed.has(dependency)))]
+    .sort();
+};
+
+export const getReservationDateDependenciesForAutomation = (value) => (
+  normalizeReservationDateDependencies(
+    getAutomationDefinition(value)?.reservationDateDependencies || []
+  )
+);
 
 export const isCanonicalAutomationType = (value) => (
   Boolean(value) && definitionsByType.has(String(value).trim().toLowerCase())

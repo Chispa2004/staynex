@@ -7,8 +7,10 @@ import {
   normalizeAutomationType
 } from './catalog.js';
 import {
+  buildReservationScheduleFingerprint,
   getReservationAutomationTerminalReason,
-  isReservationAutomationEligibleStatus
+  isReservationAutomationEligibleStatus,
+  normalizeReservationStayDate
 } from './reservation-lifecycle.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -23,8 +25,7 @@ const normalizeDate = (value) => {
 };
 
 const dateOnly = (value) => {
-  const date = normalizeDate(value);
-  return date ? date.toISOString().slice(0, 10) : null;
+  return normalizeReservationStayDate(value);
 };
 
 const dateAtNoon = (value) => {
@@ -154,11 +155,8 @@ const hasWelcomeAlreadyDelivered = ({ reservation = {}, guest = {}, recentRuns =
 
 const hoursUntilDeparture = ({ reservation = {}, now }) => {
   if (!reservation.departure_date) return null;
-  const departure = normalizeDate(
-    String(reservation.departure_date).includes('T')
-      ? reservation.departure_date
-      : `${reservation.departure_date}T12:00:00.000Z`
-  );
+  const departureDay = dateOnly(reservation.departure_date);
+  const departure = departureDay ? normalizeDate(`${departureDay}T12:00:00.000Z`) : null;
   return departure ? (departure.getTime() - now.getTime()) / HOUR_MS : null;
 };
 
@@ -384,13 +382,15 @@ const resolveTriggerOccurrence = ({
   reservation = {},
   reservationId = null,
   scheduledFor = null,
-  trigger
+  trigger,
+  scheduleFingerprint = null
 }) => (
   metadata.triggerOccurrence
   || metadata.pmsEventId
   || metadata.pms_event_id
   || metadata.eventId
   || metadata.event_id
+  || (scheduleFingerprint ? `schedule:${scheduleFingerprint}` : null)
   || scheduledFor
   || stableReservationWindow({ reservation, reservationId, trigger })
 );
@@ -478,12 +478,19 @@ export const evaluateAutomationDecision = ({
     automationType: resolvedLegacyType || canonicalType,
     reservation
   });
+  const reservationDateDependencies = definition?.reservationDateDependencies || [];
+  const reservationScheduleFingerprint = buildReservationScheduleFingerprint({
+    reservation,
+    automationType: canonicalType,
+    dependencies: reservationDateDependencies
+  });
   const triggerOccurrence = resolveTriggerOccurrence({
     metadata,
     reservation,
     reservationId,
     scheduledFor,
-    trigger: resolvedTrigger
+    trigger: resolvedTrigger,
+    scheduleFingerprint: reservationScheduleFingerprint
   });
   const idempotencyKey = buildAutomationIdempotencyKey({
     hotelId,
@@ -575,12 +582,17 @@ export const evaluateAutomationDecision = ({
     duplicateBlocked: Boolean(triggerDecision.duplicateBlocked),
     sendable: false,
     runtimeVersion: AUTOMATION_RUNTIME_VERSION,
+    reservationDateDependencies,
+    reservationScheduleFingerprint,
     metadata: {
       ...safeMetadata(metadata),
       source,
       category: definition.category,
       required_data: definition.requiredData,
       rule_version: definition.ruleVersion,
+      reservation_date_dependencies: reservationDateDependencies,
+      reservation_schedule_fingerprint: reservationScheduleFingerprint,
+      schedule_fingerprint_version: reservationScheduleFingerprint ? 'reservation-schedule-fingerprint-v1' : null,
       certification_status: definition.certificationStatus,
       requested_execution_mode: requestedMode,
       execution_mode: resolvedMode,

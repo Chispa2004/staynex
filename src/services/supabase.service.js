@@ -132,10 +132,8 @@ export const getHotelKnowledge = async (hotelId) => {
   return data || [];
 };
 
-export const findGuestByPhone = async ({ hotelId, phoneNumber }) => {
-  const client = getSupabase();
-
-  const { data, error } = await client
+export const findGuestByPhone = async ({ hotelId, phoneNumber, supabase = getSupabase() }) => {
+  const { data, error } = await supabase
     .from('guests')
     .select('*')
     .eq('hotel_id', hotelId)
@@ -150,9 +148,13 @@ export const findGuestByPhone = async ({ hotelId, phoneNumber }) => {
   return data;
 };
 
-export const createGuest = async ({ hotelId, phoneNumber, roomNumber, preferredLanguage = 'es' }) => {
-  const client = getSupabase();
-
+export const createGuest = async ({
+  hotelId,
+  phoneNumber,
+  roomNumber,
+  preferredLanguage = 'es',
+  supabase = getSupabase()
+}) => {
   const guestRecord = {
     hotel_id: hotelId,
     phone_number: phoneNumber,
@@ -160,14 +162,14 @@ export const createGuest = async ({ hotelId, phoneNumber, roomNumber, preferredL
     preferred_language: preferredLanguage
   };
 
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('guests')
     .insert(guestRecord)
     .select('*')
     .single();
 
   if (error && isMissingPreferredLanguageColumn(error)) {
-    const { data: fallbackData, error: fallbackError } = await client
+    const { data: fallbackData, error: fallbackError } = await supabase
       .from('guests')
       .insert({
         hotel_id: hotelId,
@@ -194,10 +196,12 @@ export const createGuest = async ({ hotelId, phoneNumber, roomNumber, preferredL
   return data;
 };
 
-export const updateGuestLanguage = async ({ guestId, preferredLanguage }) => {
-  const client = getSupabase();
-
-  const { data, error } = await client
+export const updateGuestLanguage = async ({
+  guestId,
+  preferredLanguage,
+  supabase = getSupabase()
+}) => {
+  const { data, error } = await supabase
     .from('guests')
     .update({
       preferred_language: preferredLanguage
@@ -207,7 +211,7 @@ export const updateGuestLanguage = async ({ guestId, preferredLanguage }) => {
     .single();
 
   if (error && isMissingPreferredLanguageColumn(error)) {
-    const { data: guest, error: guestError } = await client
+    const { data: guest, error: guestError } = await supabase
       .from('guests')
       .select('*')
       .eq('id', guestId)

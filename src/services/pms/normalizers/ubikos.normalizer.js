@@ -1,4 +1,7 @@
-import { normalizeReservationLifecycleStatus } from '../../../../shared/automations/reservation-lifecycle.js';
+import {
+  normalizeReservationLifecycleStatus,
+  normalizeReservationStayDate
+} from '../../../../shared/automations/reservation-lifecycle.js';
 
 const STATUS_MAP = {
   CONFIRMADA: 'confirmed',
@@ -53,16 +56,7 @@ const toNumber = (value, fallback = 0) => {
 };
 
 const normalizeDate = (value) => {
-  if (!value) return null;
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
-  const text = String(value).trim();
-  const ddmmyyyy = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  if (ddmmyyyy) {
-    const [, day, month, year] = ddmmyyyy;
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-  }
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+  return normalizeReservationStayDate(value);
 };
 
 const collectWarnings = (checks = []) => checks.filter(Boolean);

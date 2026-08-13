@@ -19,6 +19,10 @@ const RESERVATION_ACTIONS = {
   deleted: 'deleted'
 };
 
+const WEBHOOK_CLAIMABLE_STATUSES = ['received', 'failed'];
+const WEBHOOK_TERMINAL_STATUSES = ['processed', 'ignored'];
+const WEBHOOK_PROCESSING_STATUS = 'processing';
+
 const readHeader = (headers, name) => {
   if (!headers) {
     return null;
@@ -48,6 +52,12 @@ const getNested = (object, paths) => {
 const stableHash = (value) => createHash('sha256')
   .update(JSON.stringify(value))
   .digest('hex');
+
+const isUniqueViolation = (error) => (
+  error?.code === '23505'
+  || String(error?.message || '').toLowerCase().includes('duplicate key')
+  || String(error?.details || '').toLowerCase().includes('already exists')
+);
 
 const normalizeAction = (eventType, explicitAction) => {
   const candidates = [
@@ -136,13 +146,13 @@ export const parseApaleoWebhookEvent = (payload = {}, headers = {}) => {
   };
 };
 
-const safeUpdateConnection = async (connectionId, updates) => {
+const safeUpdateConnection = async (connectionId, updates, { supabase = getSupabase() } = {}) => {
   if (!connectionId) {
     return;
   }
 
   try {
-    const { error } = await getSupabase()
+    const { error } = await supabase
       .from('hotel_pms_connections')
       .update({
         ...updates,
@@ -164,13 +174,13 @@ const safeUpdateConnection = async (connectionId, updates) => {
   }
 };
 
-const updateWebhookEvent = async (eventId, updates) => {
+const updateWebhookEvent = async (eventId, updates, { supabase = getSupabase() } = {}) => {
   if (!eventId) {
     return null;
   }
 
   try {
-    const { data, error } = await getSupabase()
+    const { data, error } = await supabase
       .from('pms_webhook_events')
       .update(updates)
       .eq('id', eventId)
@@ -195,9 +205,9 @@ const updateWebhookEvent = async (eventId, updates) => {
   }
 };
 
-const findExistingWebhookEvent = async (parsed) => {
+const findExistingWebhookEvent = async (parsed, { supabase = getSupabase() } = {}) => {
   try {
-    const { data, error } = await getSupabase()
+    const { data, error } = await supabase
       .from('pms_webhook_events')
       .select('*')
       .eq('provider', parsed.provider)
@@ -217,12 +227,84 @@ const findExistingWebhookEvent = async (parsed) => {
   }
 };
 
-const shouldIgnoreExistingEvent = (event) => ['processed', 'ignored'].includes(event?.status);
+const findWebhookEventById = async (eventId, { supabase = getSupabase() } = {}) => {
+  if (!eventId) {
+    return null;
+  }
 
-export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = {}) => {
+  try {
+    const { data, error } = await supabase
+      .from('pms_webhook_events')
+      .select('*')
+      .eq('id', eventId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn('PMS webhook claim reread failed', {
+        eventId,
+        error: error.message
+      });
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    logger.warn('PMS webhook claim reread failed', {
+      eventId,
+      error: error.message
+    });
+    return null;
+  }
+};
+
+const getWebhookEventStatus = (event) => String(event?.status || '').toLowerCase();
+
+const shouldIgnoreExistingEvent = (event) => WEBHOOK_TERMINAL_STATUSES.includes(getWebhookEventStatus(event));
+
+const classifyUnclaimedWebhookEvent = (event) => {
+  const status = getWebhookEventStatus(event);
+
+  if (status === WEBHOOK_PROCESSING_STATUS) {
+    return {
+      status: 'duplicate_processing',
+      reason: 'already_processing'
+    };
+  }
+
+  if (status === 'processed') {
+    return {
+      status: 'ignored',
+      reason: 'already_processed'
+    };
+  }
+
+  if (status === 'ignored') {
+    return {
+      status: 'ignored',
+      reason: 'already_ignored'
+    };
+  }
+
+  return {
+    status: 'duplicate_processing',
+    reason: 'claim_conflict'
+  };
+};
+
+const buildSafeWebhookEventPayload = (parsed) => ({
+  provider: parsed.provider,
+  external_event_id: parsed.externalEventId,
+  external_resource_id: parsed.externalResourceId,
+  event_type: parsed.eventType,
+  event_action: parsed.eventAction,
+  account_code_present: Boolean(parsed.accountCode),
+  connection_id_present: Boolean(parsed.connectionId)
+});
+
+export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = {}, { supabase = getSupabase() } = {}) => {
   const parsed = parseApaleoWebhookEvent(payload, headers);
-  const client = getSupabase();
-  let query = client
+  let query = supabase
     .from('hotel_pms_connections')
     .select('*')
     .eq('provider', 'apaleo');
@@ -247,8 +329,8 @@ export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = 
   return data;
 };
 
-const createWebhookEvent = async ({ parsed, connection }) => {
-  const existing = await findExistingWebhookEvent(parsed);
+const createWebhookEvent = async ({ parsed, connection, supabase }) => {
+  const existing = await findExistingWebhookEvent(parsed, { supabase });
 
   if (shouldIgnoreExistingEvent(existing)) {
     logger.info('Apaleo webhook duplicate ignored', {
@@ -257,26 +339,22 @@ const createWebhookEvent = async ({ parsed, connection }) => {
     });
     return {
       event: existing,
-      duplicate: true
+      duplicate: true,
+      reason: getWebhookEventStatus(existing) === 'processed'
+        ? 'already_processed'
+        : 'already_ignored'
     };
   }
 
   if (existing) {
-    const updated = await updateWebhookEvent(existing.id, {
-      status: 'received',
-      error: null,
-      payload: parsed.payload,
-      processed_at: null
-    });
-
     return {
-      event: updated || existing,
+      event: existing,
       duplicate: false
     };
   }
 
   try {
-    const { data, error } = await getSupabase()
+    const { data, error } = await supabase
       .from('pms_webhook_events')
       .insert({
         hotel_id: connection?.hotel_id || null,
@@ -287,40 +365,33 @@ const createWebhookEvent = async ({ parsed, connection }) => {
         event_type: parsed.eventType,
         event_action: parsed.eventAction,
         status: 'received',
-        payload: parsed.payload
+        payload: buildSafeWebhookEventPayload(parsed)
       })
       .select('*')
       .single();
 
     if (error) {
-      if (error.code === '23505') {
-        const existingAfterConflict = await findExistingWebhookEvent(parsed);
+      if (isUniqueViolation(error)) {
+        const existingAfterConflict = await findExistingWebhookEvent(parsed, { supabase });
 
         if (shouldIgnoreExistingEvent(existingAfterConflict)) {
           return {
             event: existingAfterConflict,
-            duplicate: true
+            duplicate: true,
+            reason: getWebhookEventStatus(existingAfterConflict) === 'processed'
+              ? 'already_processed'
+              : 'already_ignored'
           };
         }
 
         if (existingAfterConflict) {
-          const updated = await updateWebhookEvent(existingAfterConflict.id, {
-            status: 'received',
-            error: null,
-            payload: parsed.payload,
-            processed_at: null
-          });
-
           return {
-            event: updated || existingAfterConflict,
+            event: existingAfterConflict,
             duplicate: false
           };
         }
 
-        return {
-          event: null,
-          duplicate: true
-        };
+        throw new Error('PMS webhook unique conflict could not be resolved');
       }
 
       throw error;
@@ -331,51 +402,141 @@ const createWebhookEvent = async ({ parsed, connection }) => {
       duplicate: false
     };
   } catch (error) {
-    logger.warn('PMS webhook event persistence failed; continuing processing', {
+    logger.warn('PMS webhook event persistence failed', {
       error: error.message
     });
 
+    throw error;
+  }
+};
+
+export const claimWebhookEventForProcessing = async ({
+  event,
+  parsed,
+  connection = null,
+  supabase = getSupabase()
+} = {}) => {
+  if (!event?.id) {
     return {
-      event: null,
-      duplicate: false
+      claimed: false,
+      event: event || null,
+      duplicate: true,
+      status: 'duplicate_processing',
+      reason: 'missing_event_id'
     };
   }
+
+  const previousStatus = getWebhookEventStatus(event);
+  const claimUpdates = {
+    hotel_id: connection?.hotel_id || event.hotel_id || null,
+    connection_id: connection?.id || event.connection_id || null,
+    external_resource_id: parsed?.externalResourceId || event.external_resource_id || null,
+    event_type: parsed?.eventType || event.event_type,
+    event_action: parsed?.eventAction || event.event_action || null,
+    status: WEBHOOK_PROCESSING_STATUS,
+    payload: parsed ? buildSafeWebhookEventPayload(parsed) : event.payload || {},
+    error: null,
+    processed_at: null
+  };
+
+  const { data, error } = await supabase
+    .from('pms_webhook_events')
+    .update(claimUpdates)
+    .eq('id', event.id)
+    .in('status', WEBHOOK_CLAIMABLE_STATUSES)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    logger.warn('Apaleo webhook event claim failed', {
+      eventId: event.id,
+      provider: parsed?.provider || event.provider || null,
+      externalEventId: parsed?.externalEventId || event.external_event_id || null,
+      previousStatus,
+      error: error.message
+    });
+    throw error;
+  }
+
+  if (data) {
+    const claimResult = previousStatus === 'failed' ? 'retry_claimed' : 'claimed';
+    logger.info('Apaleo webhook event claim acquired', {
+      eventId: data.id,
+      provider: data.provider || parsed?.provider || null,
+      externalEventId: data.external_event_id || parsed?.externalEventId || null,
+      previousStatus,
+      status: data.status,
+      claimResult
+    });
+
+    return {
+      claimed: true,
+      event: data,
+      duplicate: false,
+      status: 'claimed',
+      reason: claimResult
+    };
+  }
+
+  const current = parsed?.provider && parsed?.externalEventId
+    ? await findExistingWebhookEvent(parsed, { supabase })
+    : await findWebhookEventById(event.id, { supabase });
+  const currentEvent = current || event;
+  const classification = classifyUnclaimedWebhookEvent(currentEvent);
+
+  logger.info('Apaleo webhook event claim skipped', {
+    eventId: currentEvent?.id || event.id,
+    provider: parsed?.provider || currentEvent?.provider || null,
+    externalEventId: parsed?.externalEventId || currentEvent?.external_event_id || null,
+    observedStatus: currentEvent?.status || null,
+    claimResult: classification.reason
+  });
+
+  return {
+    claimed: false,
+    event: currentEvent,
+    duplicate: true,
+    ...classification
+  };
 };
 
 const reconcileApaleoReservationStatusChange = async ({
   previousReservation,
   currentReservation,
-  sourceEventId
+  sourceEventId,
+  supabase
 }) => {
   try {
     await reconcileReservationAutomationLifecycle({
       previousReservation,
       currentReservation,
       source: 'apaleo_webhook',
-      sourceEventId
+      sourceEventId,
+      supabase
     });
   } catch (error) {
-    logger.warn('Apaleo reservation automation reconciliation skipped', {
+    logger.warn('Apaleo reservation automation reconciliation failed', {
       reservationId: currentReservation?.id || previousReservation?.id || null,
       hotelId: currentReservation?.hotel_id || previousReservation?.hotel_id || null,
       sourceEventId,
       error: error.message
     });
+    throw error;
   }
 };
 
-const markLocalReservationStatus = async ({
+export const markLocalReservationStatus = async ({
   reservationId,
   status,
   hotelId,
-  sourceEventId = null
+  sourceEventId = null,
+  supabase = getSupabase()
 }) => {
   if (!reservationId) {
     return null;
   }
 
-  const client = getSupabase();
-  let lookup = client
+  let lookup = supabase
     .from('reservations')
     .select('*')
     .eq('pms_provider', 'apaleo')
@@ -393,7 +554,7 @@ const markLocalReservationStatus = async ({
     throw lookupError;
   }
 
-  let query = client
+  let query = supabase
     .from('reservations')
     .update({
       status,
@@ -416,20 +577,27 @@ const markLocalReservationStatus = async ({
     await reconcileApaleoReservationStatusChange({
       previousReservation,
       currentReservation: data,
-      sourceEventId
+      sourceEventId,
+      supabase
     });
   }
 
   return data;
 };
 
-const syncFetchedReservation = async ({ connection, parsed, statusOverride = null }) => {
+const syncFetchedReservation = async ({
+  connection,
+  parsed,
+  statusOverride = null,
+  supabase,
+  fetchReservationById = getReservationById
+}) => {
   if (!parsed.externalResourceId) {
     throw new Error('Apaleo webhook did not include a reservation id');
   }
 
   const config = connection ? connectionToApaleoConfig(connection) : null;
-  const rawReservation = await getReservationById({
+  const rawReservation = await fetchReservationById({
     credentials: config,
     reservationId: parsed.externalResourceId
   });
@@ -445,7 +613,8 @@ const syncFetchedReservation = async ({ connection, parsed, statusOverride = nul
         reservationId: parsed.externalResourceId,
         status: statusOverride,
         hotelId: connection?.hotel_id || null,
-        sourceEventId: parsed.externalEventId
+        sourceEventId: parsed.externalEventId,
+        supabase
       });
 
       return {
@@ -472,11 +641,12 @@ const syncFetchedReservation = async ({ connection, parsed, statusOverride = nul
     hotel_id: connection?.hotel_id || null
   }, {
     source: 'apaleo_webhook',
-    sourceEventId: parsed.externalEventId
+    sourceEventId: parsed.externalEventId,
+    supabase
   });
 
   if (!isReservationTerminalForAutomations(reservation.status)) {
-    await scheduleReservationAutomations(reservation);
+    await scheduleReservationAutomations(reservation, { supabase });
   }
 
   logger.info('Apaleo webhook reservation synced', {
@@ -491,43 +661,51 @@ const syncFetchedReservation = async ({ connection, parsed, statusOverride = nul
   };
 };
 
-export const handleReservationCreated = async ({ connection, parsed }) => syncFetchedReservation({
-  connection,
-  parsed
-});
-
-export const handleReservationAmended = async ({ connection, parsed }) => syncFetchedReservation({
-  connection,
-  parsed
-});
-
-export const handleReservationCanceled = async ({ connection, parsed }) => syncFetchedReservation({
+export const handleReservationCreated = async ({ connection, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
   connection,
   parsed,
+  supabase,
+  fetchReservationById
+});
+
+export const handleReservationAmended = async ({ connection, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
+  connection,
+  parsed,
+  supabase,
+  fetchReservationById
+});
+
+export const handleReservationCanceled = async ({ connection, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
+  connection,
+  parsed,
+  supabase,
+  fetchReservationById,
   statusOverride: 'cancelled'
 });
 
-export const handleReservationDeleted = async ({ connection, parsed }) => syncFetchedReservation({
+export const handleReservationDeleted = async ({ connection, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
   connection,
   parsed,
+  supabase,
+  fetchReservationById,
   statusOverride: 'deleted'
 });
 
-const runActionHandler = async ({ connection, parsed }) => {
+const runActionHandler = async ({ connection, parsed, supabase, fetchReservationById }) => {
   if (parsed.eventAction === 'created') {
-    return handleReservationCreated({ connection, parsed });
+    return handleReservationCreated({ connection, parsed, supabase, fetchReservationById });
   }
 
   if (parsed.eventAction === 'amended') {
-    return handleReservationAmended({ connection, parsed });
+    return handleReservationAmended({ connection, parsed, supabase, fetchReservationById });
   }
 
   if (parsed.eventAction === 'canceled') {
-    return handleReservationCanceled({ connection, parsed });
+    return handleReservationCanceled({ connection, parsed, supabase, fetchReservationById });
   }
 
   if (parsed.eventAction === 'deleted') {
-    return handleReservationDeleted({ connection, parsed });
+    return handleReservationDeleted({ connection, parsed, supabase, fetchReservationById });
   }
 
   return {
@@ -536,8 +714,10 @@ const runActionHandler = async ({ connection, parsed }) => {
   };
 };
 
-export const processApaleoWebhookEvent = async (payload = {}, headers = {}) => {
+export const processApaleoWebhookEvent = async (payload = {}, headers = {}, options = {}) => {
   const parsed = parseApaleoWebhookEvent(payload, headers);
+  const supabase = options.supabase || getSupabase();
+  const fetchReservationById = options.fetchReservationById || getReservationById;
 
   logger.info('Apaleo webhook received', {
     eventType: parsed.eventType,
@@ -548,18 +728,20 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}) => {
 
   let connection = null;
   let storedEvent = null;
+  let hasProcessingClaim = false;
 
   try {
-    connection = await resolveHotelConnectionFromWebhook(payload, headers);
+    connection = await resolveHotelConnectionFromWebhook(payload, headers, { supabase });
     logger.info('Apaleo webhook connection resolved', {
       connectionId: connection?.id || null,
       hotelId: connection?.hotel_id || null,
       accountCode: connection?.account_code || parsed.accountCode || null
     });
 
-    const { event, duplicate } = await createWebhookEvent({
+    const { event, duplicate, reason } = await createWebhookEvent({
       parsed,
-      connection
+      connection,
+      supabase
     });
     storedEvent = event;
 
@@ -568,16 +750,37 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}) => {
         ok: true,
         status: 'ignored',
         duplicate: true,
+        reason,
         event: storedEvent
       };
     }
+
+    const claim = await claimWebhookEventForProcessing({
+      event: storedEvent,
+      parsed,
+      connection,
+      supabase
+    });
+    storedEvent = claim.event;
+
+    if (!claim.claimed) {
+      return {
+        ok: true,
+        status: claim.status,
+        duplicate: true,
+        reason: claim.reason,
+        event: storedEvent
+      };
+    }
+
+    hasProcessingClaim = true;
 
     if (!parsed.eventAction) {
       await updateWebhookEvent(storedEvent?.id, {
         status: 'ignored',
         error: 'Unsupported or unknown Apaleo event action',
         processed_at: new Date().toISOString()
-      });
+      }, { supabase });
       return {
         ok: true,
         status: 'ignored',
@@ -587,7 +790,9 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}) => {
 
     const result = await runActionHandler({
       connection,
-      parsed
+      parsed,
+      supabase,
+      fetchReservationById
     });
 
     if (result.ignored) {
@@ -595,7 +800,7 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}) => {
         status: 'ignored',
         error: result.reason,
         processed_at: new Date().toISOString()
-      });
+      }, { supabase });
       return {
         ok: true,
         status: 'ignored',
@@ -606,13 +811,13 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}) => {
     await updateWebhookEvent(storedEvent?.id, {
       status: 'processed',
       processed_at: new Date().toISOString()
-    });
+    }, { supabase });
     await safeUpdateConnection(connection?.id, {
       webhook_enabled: true,
       webhook_status: 'received',
       last_webhook_at: new Date().toISOString(),
       last_webhook_error: null
-    });
+    }, { supabase });
 
     logger.info('Apaleo webhook event processed', {
       eventId: storedEvent?.id || null,
@@ -633,16 +838,19 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}) => {
       error: error.message
     });
 
-    await updateWebhookEvent(storedEvent?.id, {
-      status: 'failed',
-      error: error.message,
-      processed_at: new Date().toISOString()
-    });
+    if (hasProcessingClaim) {
+      await updateWebhookEvent(storedEvent?.id, {
+        status: 'failed',
+        error: error.message,
+        processed_at: null
+      }, { supabase });
+    }
+
     await safeUpdateConnection(connection?.id, {
       webhook_status: 'failed',
       last_webhook_at: new Date().toISOString(),
       last_webhook_error: error.message
-    });
+    }, { supabase });
 
     return {
       ok: false,

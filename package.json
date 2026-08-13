@@ -47,6 +47,7 @@
     "test:automation-test-center": "node scripts/test-automation-test-center.js",
     "test:automation-runtime-foundation": "node scripts/test-automation-runtime-foundation.js",
     "test:automation-runtime-phase2a1": "node scripts/test-automation-runtime-phase2a1.js",
+    "test:automation-runtime-phase2a2": "node scripts/test-automation-runtime-phase2a2.js",
     "test:dashboard-shared-tracing": "node scripts/test-dashboard-shared-tracing.js",
     "test:external:apaleo-sync": "node scripts/test-apaleo-sync.js",
     "test:external:mutating:apaleo-webhook": "node scripts/test-apaleo-webhook.js",

@@ -7,6 +7,7 @@ import {
   OPERATIONAL_STATUSES
 } from '../shared/automations/catalog.js';
 import {
+  buildReservationScheduleFingerprint,
   evaluateReservationLifecyclePolicy,
   isCanonicalAutomationScheduledMessage,
   isReservationTerminalForAutomations,
@@ -53,6 +54,40 @@ const cancelledReservation = {
   ...previousReservation,
   status: 'cancelled',
   updated_at: '2026-08-10T09:00:00.000Z'
+};
+
+const withFixedSystemTime = async (isoTimestamp, callback) => {
+  const RealDate = Date;
+  const fixedTime = new RealDate(isoTimestamp).getTime();
+
+  globalThis.Date = class FixedDate extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) {
+        super(fixedTime);
+        return;
+      }
+
+      super(...args);
+    }
+
+    static now() {
+      return fixedTime;
+    }
+
+    static parse(value) {
+      return RealDate.parse(value);
+    }
+
+    static UTC(...args) {
+      return RealDate.UTC(...args);
+    }
+  };
+
+  try {
+    return await callback();
+  } finally {
+    globalThis.Date = RealDate;
+  }
 };
 
 class QueryBuilder {
@@ -105,6 +140,11 @@ class QueryBuilder {
     }
 
     this.filters.push((row) => row[column] !== value);
+    return this;
+  }
+
+  contains(column, value = {}) {
+    this.filters.push((row) => Object.entries(value).every(([key, expected]) => row[column]?.[key] === expected));
     return this;
   }
 
@@ -579,29 +619,61 @@ assert.equal(thirdTerminalRun.action, 'cancel_pending');
 assert.equal(thirdTerminalRun.rowsCancelled, 0, 'Third terminal reconciliation should be a no-op');
 assert.equal(retrySupabase.db.automation_runs.length, 1, 'No duplicate audit run should be created when nothing changed');
 
-const rescheduleSupabase = createMockSupabase({
-  scheduled_messages: [canonicalMessage({ id: 'date-change-scheduled' })]
-});
-const dateChangeResult = await reconcileReservationAutomationLifecycle({
-  previousReservation,
-  currentReservation: {
-    ...previousReservation,
-    arrival_date: '2026-08-12'
-  },
-  source: 'reservation_mutation',
-  supabase: rescheduleSupabase
-});
+const runDateChangeReplacementScenario = () => {
+  const rescheduleSupabase = createMockSupabase({
+    scheduled_messages: [canonicalMessage({ id: 'date-change-scheduled' })]
+  });
+
+  return reconcileReservationAutomationLifecycle({
+    previousReservation,
+    currentReservation: {
+      ...previousReservation,
+      arrival_date: '2026-08-12'
+    },
+    source: 'reservation_mutation',
+    supabase: rescheduleSupabase
+  }).then((dateChangeResult) => ({
+    dateChangeResult,
+    rescheduleSupabase
+  }));
+};
+
+const { dateChangeResult, rescheduleSupabase } = await withFixedSystemTime(
+  '2026-08-11T10:00:00.000Z',
+  runDateChangeReplacementScenario
+);
 assert.equal(dateChangeResult.action, 'future_reschedule');
-assert.equal(dateChangeResult.rowsCancelled, 0, 'Date changes are marked for future reschedule without queue mutation in Phase 2A1');
-assert.equal(rescheduleSupabase.db.scheduled_messages[0].status, OPERATIONAL_STATUSES.SCHEDULED);
-const pureDateChangeResult = await reconcileReservationAutomationLifecycle({
-  previousReservation,
-  currentReservation: {
-    ...previousReservation,
-    departure_date: '2026-08-14'
-  }
-});
-assert.equal(pureDateChangeResult.action, 'future_reschedule', 'Future reschedule detection does not require a Supabase client');
+assert.equal(dateChangeResult.staleRows, 1, 'Date changes supersede stale canonical messages in Phase 2A2');
+assert.equal(dateChangeResult.replacementsCreated, 1, 'A replacement is created before stale cancellation');
+assert.equal(dateChangeResult.rowsCancelled, 1, 'Stale date-dependent messages are cancelled after replacement');
+assert.equal(rescheduleSupabase.db.scheduled_messages[0].status, OPERATIONAL_STATUSES.CANCELLED);
+assert.equal(rescheduleSupabase.db.scheduled_messages.length, 2);
+assert.equal(rescheduleSupabase.db.scheduled_messages[1].status, OPERATIONAL_STATUSES.PREVIEW);
+const originalSupabaseUrl = process.env.SUPABASE_URL;
+const originalSupabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+delete process.env.SUPABASE_URL;
+delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+await assert.rejects(
+  () => reconcileReservationAutomationLifecycle({
+    previousReservation,
+    currentReservation: {
+      ...previousReservation,
+      departure_date: '2026-08-14'
+    }
+  }),
+  { message: 'Supabase environment variables are not configured' },
+  'No-terminal date change without a DB client must fail explicitly instead of succeeding as a no-op'
+);
+if (originalSupabaseUrl === undefined) {
+  delete process.env.SUPABASE_URL;
+} else {
+  process.env.SUPABASE_URL = originalSupabaseUrl;
+}
+if (originalSupabaseServiceRoleKey === undefined) {
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+} else {
+  process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseServiceRoleKey;
+}
 
 const dueSupabase = createMockSupabase({
   scheduled_messages: [
@@ -720,7 +792,17 @@ await assertLookupFailureFailsClosed({
 const activeProcessSupabase = createMockSupabase({
   hotels: [hotel],
   reservations: [previousReservation],
-  scheduled_messages: [canonicalMessage({ id: 'active-next-gate', send_to: null })]
+  scheduled_messages: [canonicalMessage({
+    id: 'active-next-gate',
+    send_to: null,
+    metadata: {
+      reservation_schedule_fingerprint: buildReservationScheduleFingerprint({
+        reservation: previousReservation,
+        automationType: 'transfer'
+      }),
+      schedule_fingerprint_version: 'reservation-schedule-fingerprint-v1'
+    }
+  })]
 });
 const activeGate = await getReservationSendTimeGate({
   scheduledMessage: activeProcessSupabase.db.scheduled_messages[0],

@@ -85,6 +85,11 @@ const buildBaseMetadata = ({ decision, source, creationReason, extraMetadata = {
   canonical_automation_type: decision.automationType,
   legacy_automation_type: decision.legacyType,
   trigger: decision.trigger,
+  reservation_date_dependencies: decision.reservationDateDependencies || decision.metadata?.reservation_date_dependencies || [],
+  reservation_schedule_fingerprint: decision.reservationScheduleFingerprint || decision.metadata?.reservation_schedule_fingerprint || null,
+  schedule_fingerprint_version: (decision.reservationScheduleFingerprint || decision.metadata?.reservation_schedule_fingerprint)
+    ? 'reservation-schedule-fingerprint-v1'
+    : null,
   trigger_reason: decision.triggerReason,
   skip_reason: decision.skipReason,
   certification_status: decision.certificationStatus,

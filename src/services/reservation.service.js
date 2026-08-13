@@ -113,10 +113,8 @@ const withoutColumns = (record, columns) => Object.entries(record).reduce((nextR
   return nextRecord;
 }, {});
 
-const findReservationByPmsId = async ({ pmsProvider, pmsReservationId }) => {
-  const client = getSupabase();
-
-  const { data, error } = await client
+const findReservationByPmsId = async ({ pmsProvider, pmsReservationId, supabase = getSupabase() }) => {
+  const { data, error } = await supabase
     .from('reservations')
     .select('*')
     .eq('pms_provider', pmsProvider)
@@ -131,10 +129,8 @@ const findReservationByPmsId = async ({ pmsProvider, pmsReservationId }) => {
   return data;
 };
 
-const isTokenAvailable = async (token, existingReservationId = null) => {
-  const client = getSupabase();
-
-  const { data, error } = await client
+const isTokenAvailable = async (token, existingReservationId = null, { supabase = getSupabase() } = {}) => {
+  const { data, error } = await supabase
     .from('reservations')
     .select('id')
     .eq('reservation_access_token', token)
@@ -153,11 +149,11 @@ const isTokenAvailable = async (token, existingReservationId = null) => {
   return !data || data.id === existingReservationId;
 };
 
-const generateUniqueReservationAccessToken = async (existingReservationId = null) => {
+const generateUniqueReservationAccessToken = async (existingReservationId = null, { supabase = getSupabase() } = {}) => {
   for (let attempt = 0; attempt < 12; attempt += 1) {
     const token = generateReservationAccessToken();
 
-    if (await isTokenAvailable(token, existingReservationId)) {
+    if (await isTokenAvailable(token, existingReservationId, { supabase })) {
       return token;
     }
   }
@@ -188,13 +184,14 @@ const getReservationRecord = ({ data, hotelId, guestId, guestPhone, accessToken,
   updated_at: new Date().toISOString()
 });
 
-const tryPersistOperationalContext = async ({ reservation, guest }) => {
+const tryPersistOperationalContext = async ({ reservation, guest, supabase }) => {
   try {
     await persistReservationOperationalContext({
       reservation: {
         ...reservation,
         guest_id: reservation.guest_id || guest?.id || null
-      }
+      },
+      supabase
     });
   } catch (error) {
     logger.warn('Reservation PMS intelligence context skipped', {
@@ -208,28 +205,31 @@ const tryReconcileReservationAutomationLifecycle = async ({
   previousReservation,
   currentReservation,
   source,
-  sourceEventId
+  sourceEventId,
+  supabase
 }) => {
   try {
     await reconcileReservationAutomationLifecycle({
       previousReservation,
       currentReservation,
       source,
-      sourceEventId
+      sourceEventId,
+      supabase
     });
   } catch (error) {
-    logger.warn('Reservation automation reconciliation skipped', {
+    logger.warn('Reservation automation reconciliation failed', {
       reservationId: currentReservation?.id || previousReservation?.id || null,
       hotelId: currentReservation?.hotel_id || previousReservation?.hotel_id || null,
       source,
       sourceEventId,
       error: error.message
     });
+    throw error;
   }
 };
 
 export const createOrUpdateReservation = async (data, options = {}) => {
-  const client = getSupabase();
+  const client = options.supabase || getSupabase();
   const pmsProvider = cleanText(data.pms_provider) || 'mock';
   const pmsReservationId = cleanText(data.pms_reservation_id);
   const reconciliationSource = options.source || 'reservation_mutation';
@@ -239,8 +239,8 @@ export const createOrUpdateReservation = async (data, options = {}) => {
     || null;
   const requestedHotelId = data.hotel_id || data.hotelId;
   const hotel = requestedHotelId
-    ? await getHotelById(requestedHotelId) || { id: requestedHotelId }
-    : await getDefaultHotel();
+    ? await getHotelById(requestedHotelId, { supabase: client }) || { id: requestedHotelId }
+    : await getDefaultHotel({ supabase: client });
   const hotelId = hotel.id;
   const guestPhone = normalizePhoneIfNeeded(data.guest_phone || data.guestPhone);
 
@@ -249,7 +249,8 @@ export const createOrUpdateReservation = async (data, options = {}) => {
   if (guestPhone) {
     guest = await findGuestByPhone({
       hotelId,
-      phoneNumber: guestPhone
+      phoneNumber: guestPhone,
+      supabase: client
     });
 
     if (!guest) {
@@ -257,7 +258,8 @@ export const createOrUpdateReservation = async (data, options = {}) => {
         hotelId,
         phoneNumber: guestPhone,
         roomNumber: null,
-        preferredLanguage: 'es'
+        preferredLanguage: 'es',
+        supabase: client
       });
 
       logger.info('Reservation guest created from PMS webhook', {
@@ -269,10 +271,11 @@ export const createOrUpdateReservation = async (data, options = {}) => {
 
   const existingReservation = await findReservationByPmsId({
     pmsProvider,
-    pmsReservationId
+    pmsReservationId,
+    supabase: client
   });
   const accessToken = existingReservation?.reservation_access_token
-    || await generateUniqueReservationAccessToken(existingReservation?.id || null);
+    || await generateUniqueReservationAccessToken(existingReservation?.id || null, { supabase: client });
   const whatsappLink = generateReservationWhatsAppLink({
     guest_name: data.guest_name,
     reservation_access_token: accessToken,
@@ -334,14 +337,16 @@ export const createOrUpdateReservation = async (data, options = {}) => {
 
     await tryPersistOperationalContext({
       reservation: normalizedLegacyReservation,
-      guest
+      guest,
+      supabase: client
     });
 
     await tryReconcileReservationAutomationLifecycle({
       previousReservation: existingReservation,
       currentReservation: normalizedLegacyReservation,
       source: reconciliationSource,
-      sourceEventId: reconciliationSourceEventId
+      sourceEventId: reconciliationSourceEventId,
+      supabase: client
     });
 
     return {
@@ -367,14 +372,16 @@ export const createOrUpdateReservation = async (data, options = {}) => {
 
   await tryPersistOperationalContext({
     reservation,
-    guest
+    guest,
+    supabase: client
   });
 
   await tryReconcileReservationAutomationLifecycle({
     previousReservation: existingReservation,
     currentReservation: reservation,
     source: reconciliationSource,
-    sourceEventId: reconciliationSourceEventId
+    sourceEventId: reconciliationSourceEventId,
+    supabase: client
   });
 
   return {

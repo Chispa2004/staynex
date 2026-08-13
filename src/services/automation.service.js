@@ -313,8 +313,8 @@ const buildAutomationEvents = (reservation) => {
   return events;
 };
 
-export const scheduleReservationAutomations = async (reservation) => {
-  const client = getSupabase();
+export const scheduleReservationAutomations = async (reservation, { supabase = getSupabase() } = {}) => {
+  const client = supabase;
   const events = buildAutomationEvents(reservation);
 
   const { error: deleteError } = await client

@@ -10,6 +10,7 @@ import {
   normalizeAutomationType
 } from '../../shared/automations/catalog.js';
 import {
+  evaluateMessageScheduleStaleness,
   getReservationAutomationTerminalReason,
   isCanonicalAutomationScheduledMessage,
   isReservationTerminalForAutomations
@@ -124,7 +125,7 @@ export const getReservationSendTimeGate = async ({
   try {
     const { data, error } = await supabase
       .from('reservations')
-      .select('id, hotel_id, status')
+      .select('id, hotel_id, status, arrival_date, departure_date')
       .eq('id', scheduledMessage.reservation_id)
       .eq('hotel_id', scheduledMessage.hotel_id)
       .maybeSingle();
@@ -141,14 +142,16 @@ export const getReservationSendTimeGate = async ({
       return {
         allowed: false,
         reason: getReservationAutomationTerminalReason(data.status) || 'reservation_terminal_for_automations',
-        reservationStatus: data.status
+        reservationStatus: data.status,
+        reservation: data
       };
     }
 
     return {
       allowed: true,
       reason: null,
-      reservationStatus: data.status
+      reservationStatus: data.status,
+      reservation: data
     };
   } catch (error) {
     logger.warn('automation_reservation_send_time_gate_unavailable', {
@@ -159,6 +162,46 @@ export const getReservationSendTimeGate = async ({
     });
     return { allowed: false, reason: 'reservation_lookup_failed' };
   }
+};
+
+export const getReservationScheduleSendTimeGate = ({
+  scheduledMessage = {},
+  reservation = null
+} = {}) => {
+  const staleness = evaluateMessageScheduleStaleness({
+    message: scheduledMessage,
+    reservation
+  });
+
+  if (!staleness.dateDependent) {
+    return {
+      allowed: true,
+      reason: null,
+      dateDependent: false
+    };
+  }
+
+  if (staleness.unverifiable) {
+    return {
+      allowed: false,
+      reason: 'reservation_schedule_unverifiable',
+      dateDependent: true
+    };
+  }
+
+  if (staleness.stale) {
+    return {
+      allowed: false,
+      reason: 'reservation_schedule_stale',
+      dateDependent: true
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: null,
+    dateDependent: true
+  };
 };
 
 export const getDueScheduledMessages = async ({
@@ -311,6 +354,35 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
         send_time_guard: {
           reason: reservationGate.reason,
           reservation_status: reservationGate.reservationStatus || null,
+          runtime_version: AUTOMATION_RUNTIME_VERSION,
+          checked_at: checkedAt
+        }
+      }
+    }, { supabase: getQueueSupabase() });
+  }
+
+  const scheduleGate = getReservationScheduleSendTimeGate({
+    scheduledMessage,
+    reservation: reservationGate.reservation
+  });
+  if (!scheduleGate.allowed) {
+    const checkedAt = new Date().toISOString();
+    logger.info('automation_send_blocked_by_reservation_schedule', {
+      scheduledMessageId: scheduledMessage.id,
+      hotelId: scheduledMessage.hotel_id,
+      reservationId: scheduledMessage.reservation_id,
+      automationType: scheduledMessage.automation_type,
+      reason: scheduleGate.reason
+    });
+
+    return updateScheduledMessageStatus(scheduledMessage.id, {
+      status: 'failed',
+      failed_at: checkedAt,
+      error_message: scheduleGate.reason,
+      metadata: {
+        ...(scheduledMessage.metadata || {}),
+        send_time_guard: {
+          reason: scheduleGate.reason,
           runtime_version: AUTOMATION_RUNTIME_VERSION,
           checked_at: checkedAt
         }

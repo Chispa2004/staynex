@@ -1,4 +1,7 @@
-import { normalizeReservationLifecycleStatus } from '../../../shared/automations/reservation-lifecycle.js';
+import {
+  normalizeReservationLifecycleStatus,
+  normalizeReservationStayDate
+} from '../../../shared/automations/reservation-lifecycle.js';
 
 const text = (value) => {
   if (value === undefined || value === null) {
@@ -14,13 +17,7 @@ const text = (value) => {
 };
 
 const dateOnly = (value) => {
-  const normalized = text(value);
-
-  if (!normalized) {
-    return null;
-  }
-
-  return normalized.slice(0, 10);
+  return normalizeReservationStayDate(value);
 };
 
 const firstDefined = (...values) => values.find((value) => value !== undefined && value !== null && value !== '');

@@ -12,9 +12,8 @@ const isMissingHotelIdentitySchema = (error) => (
   || error?.hint?.includes('slug')
 );
 
-const firstHotelFallback = async () => {
-  const client = getSupabase();
-  const { data, error } = await client
+const firstHotelFallback = async ({ supabase = getSupabase() } = {}) => {
+  const { data, error } = await supabase
     .from('hotels')
     .select('*')
     .order('created_at', { ascending: true })
@@ -28,8 +27,7 @@ const firstHotelFallback = async () => {
   return data;
 };
 
-const createDemoHotel = async () => {
-  const client = getSupabase();
+const createDemoHotel = async ({ supabase = getSupabase() } = {}) => {
   const demoRecord = {
     name: 'Staynex Demo Hotel',
     brand_name: 'Staynex',
@@ -42,7 +40,7 @@ const createDemoHotel = async () => {
     description: 'Hotel demo de Staynex para pruebas operativas.'
   };
 
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('hotels')
     .insert(demoRecord)
     .select('*')
@@ -56,7 +54,7 @@ const createDemoHotel = async () => {
     throw error;
   }
 
-  const { data: legacyData, error: legacyError } = await client
+  const { data: legacyData, error: legacyError } = await supabase
     .from('hotels')
     .insert({
       name: demoRecord.name,
@@ -72,13 +70,12 @@ const createDemoHotel = async () => {
   return legacyData;
 };
 
-export const getHotelById = async (hotelId) => {
+export const getHotelById = async (hotelId, { supabase = getSupabase() } = {}) => {
   if (!hotelId) {
     return null;
   }
 
-  const client = getSupabase();
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('hotels')
     .select('*')
     .eq('id', hotelId)
@@ -92,9 +89,8 @@ export const getHotelById = async (hotelId) => {
   return data;
 };
 
-const getHotelBySlug = async (slug) => {
-  const client = getSupabase();
-  const { data, error } = await client
+const getHotelBySlug = async (slug, { supabase = getSupabase() } = {}) => {
+  const { data, error } = await supabase
     .from('hotels')
     .select('*')
     .eq('slug', slug)
@@ -104,7 +100,7 @@ const getHotelBySlug = async (slug) => {
   if (error) {
     if (isMissingHotelIdentitySchema(error)) {
       logger.warn('Hotel identity schema missing; using first hotel fallback');
-      return firstHotelFallback();
+      return firstHotelFallback({ supabase });
     }
 
     throw error;
@@ -113,9 +109,9 @@ const getHotelBySlug = async (slug) => {
   return data;
 };
 
-export const getDefaultHotel = async () => {
+export const getDefaultHotel = async ({ supabase = getSupabase() } = {}) => {
   if (process.env.DEFAULT_HOTEL_ID) {
-    const configuredHotel = await getHotelById(process.env.DEFAULT_HOTEL_ID);
+    const configuredHotel = await getHotelById(process.env.DEFAULT_HOTEL_ID, { supabase });
 
     if (configuredHotel) {
       return configuredHotel;
@@ -126,15 +122,15 @@ export const getDefaultHotel = async () => {
     });
   }
 
-  const demoHotel = await getHotelBySlug(DEMO_HOTEL_SLUG);
+  const demoHotel = await getHotelBySlug(DEMO_HOTEL_SLUG, { supabase });
 
   if (demoHotel) {
     return demoHotel;
   }
 
-  const fallbackHotel = await firstHotelFallback();
+  const fallbackHotel = await firstHotelFallback({ supabase });
 
-  return fallbackHotel || await createDemoHotel();
+  return fallbackHotel || await createDemoHotel({ supabase });
 };
 
 export const getHotelForAuthUser = async (userId) => {

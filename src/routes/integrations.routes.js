@@ -98,9 +98,10 @@ router.post('/apaleo/sync', requireInternalApiToken, requireExplicitHotelId, asy
 
 router.post('/apaleo/webhook', blockUnverifiedApaleoWebhookInProduction, async (req, res) => {
   const result = await processApaleoWebhookEvent(req.body || {}, req.headers || {});
+  const statusCode = result.ok === false ? 500 : 200;
 
-  res.status(200).json({
-    ok: true,
+  res.status(statusCode).json({
+    ok: result.ok !== false,
     received: true,
     processed: result.status === 'processed',
     status: result.status,
