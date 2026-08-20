@@ -48,6 +48,7 @@
     "test:automation-runtime-foundation": "node scripts/test-automation-runtime-foundation.js",
     "test:automation-runtime-phase2a1": "node scripts/test-automation-runtime-phase2a1.js",
     "test:automation-runtime-phase2a2": "node scripts/test-automation-runtime-phase2a2.js",
+    "test:automation-runtime-phase2b1": "node scripts/test-automation-runtime-phase2b1.js",
     "test:dashboard-shared-tracing": "node scripts/test-dashboard-shared-tracing.js",
     "test:external:apaleo-sync": "node scripts/test-apaleo-sync.js",
     "test:external:mutating:apaleo-webhook": "node scripts/test-apaleo-webhook.js",
@@ -64,6 +65,7 @@
     "jobs:readiness-checks": "node scripts/jobs-readiness-checks.js"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
     "@supabase/supabase-js": "^2.105.4",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
