@@ -10,6 +10,7 @@
     "start": "next start -p 3001"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
     "@supabase/supabase-js": "^2.49.1",
     "dotenv": "^16.4.7",
     "lucide-react": "^0.468.0",
