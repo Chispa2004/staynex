@@ -104,7 +104,10 @@ export const writePlatformAuditLog = async ({
   hotelId = null,
   targetUserId = null,
   targetEmail = null,
-  metadata = {}
+  metadata = {},
+  entityType = 'platform_event',
+  oldValues = {},
+  newValues = {}
 }) => {
   try {
     await supabase.from('platform_audit_logs').insert({
@@ -130,7 +133,9 @@ export const writePlatformAuditLog = async ({
     actorPlatformRole: platformRole,
     hotelId,
     action,
-    entityType: 'platform_event',
+    entityType,
+    oldValues,
+    newValues,
     metadata: {
       ...metadata,
       target_user_id: targetUserId,

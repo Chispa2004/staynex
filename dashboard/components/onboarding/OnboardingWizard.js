@@ -38,6 +38,7 @@ export const OnboardingWizard = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [access, setAccess] = useState({ role: null, platformRole: null, fallback: false });
 
   const completedSteps = useMemo(() => state?.completed_steps || [], [state]);
   const currentIndex = stepIndex(currentStep);
@@ -56,6 +57,11 @@ export const OnboardingWizard = () => {
       }
 
       setHotel(body.hotel || null);
+      setAccess({
+        role: body.role || null,
+        platformRole: body.platformRole || null,
+        fallback: Boolean(body.fallback)
+      });
       setState(body.state || null);
       setCurrentStep(body.state?.current_step || steps[0].id);
     } catch (caughtError) {
@@ -120,7 +126,14 @@ export const OnboardingWizard = () => {
 
   const renderStep = () => {
     if (currentStep === 'hotel_setup') {
-      return <StepHotelSetup hotel={hotel} onSaved={setHotel} />;
+      const canManageHotelSetup = !access.fallback
+        && access.platformRole !== 'support'
+        && (
+          ['owner', 'admin', 'manager'].includes(access.role)
+          || ['platform_admin', 'super_admin', 'internal_only'].includes(access.platformRole)
+        );
+
+      return <StepHotelSetup hotel={hotel} canEdit={canManageHotelSetup} onSaved={setHotel} />;
     }
 
     if (currentStep === 'pms_connection') {

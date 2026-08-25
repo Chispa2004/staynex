@@ -83,6 +83,12 @@ const readinessTone = (status) => {
   return 'slate';
 };
 
+const integrityTone = (status) => {
+  if (status === 'verified' || status === 'manual_override') return 'emerald';
+  if (status === 'mismatch') return 'red';
+  return 'amber';
+};
+
 const GoLiveReadinessPanel = ({ readiness, isLight, liveModeEnabled, saving, onEnable }) => {
   const checks = readiness?.checks || [];
   const blockers = readiness?.criticalIssues || [];
@@ -231,7 +237,10 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
         name: body.hotel.name || '',
         brand_name: body.hotel.brand_name || '',
         slug: body.hotel.workspace_slug || body.hotel.slug || '',
-        timezone: body.hotel.timezone || 'Europe/Madrid',
+        country_code: body.hotel.country_code || '',
+        city: body.hotel.city || '',
+        timezone: body.hotel.timezone || '',
+        timezone_integrity_status: body.hotel.timezone_integrity_status || 'unverified',
         default_language: body.hotel.default_language || 'es',
         whatsapp_number: body.hotel.whatsapp_number || '',
         support_email: body.hotel.support_email || '',
@@ -278,6 +287,42 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
       }
 
       setNotice('Hotel branding and plan updated.');
+      await loadDetail();
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmTimezoneIntegrity = async (status) => {
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const response = await fetch('/api/platform/hotels', {
+        method: 'PATCH',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id: hotelId,
+          action: 'confirm_timezone_integrity',
+          timezone_integrity_status: status,
+          country_code: form.country_code,
+          city: form.city,
+          timezone: form.timezone
+        })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not confirm timezone integrity');
+      }
+
+      setNotice(status === 'manual_override' ? 'Timezone integrity manually overridden.' : 'Timezone integrity verified.');
       await loadDetail();
     } catch (caughtError) {
       setError(caughtError.message);
@@ -464,6 +509,18 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
                 <input className={cn('w-full', ui.input(isLight))} value={form.slug} onChange={(event) => updateForm('slug', event.target.value)} />
               </label>
               <label className="space-y-1.5">
+                <span className={ui.text.eyebrow(isLight)}>Country code</span>
+                <input className={cn('w-full', ui.input(isLight))} value={form.country_code} onChange={(event) => updateForm('country_code', event.target.value)} maxLength={2} />
+              </label>
+              <label className="space-y-1.5">
+                <span className={ui.text.eyebrow(isLight)}>City</span>
+                <input className={cn('w-full', ui.input(isLight))} value={form.city} onChange={(event) => updateForm('city', event.target.value)} />
+              </label>
+              <label className="space-y-1.5">
+                <span className={ui.text.eyebrow(isLight)}>Timezone</span>
+                <input className={cn('w-full', ui.input(isLight))} value={form.timezone} onChange={(event) => updateForm('timezone', event.target.value)} placeholder="Europe/Madrid" />
+              </label>
+              <label className="space-y-1.5">
                 <span className={ui.text.eyebrow(isLight)}>Plan</span>
                 <select className={cn('w-full', ui.input(isLight))} value={form.subscription_plan} onChange={(event) => updateForm('subscription_plan', event.target.value)}>
                   {plans.map((plan) => <option key={plan} value={plan}>{plan.replaceAll('_', ' ')}</option>)}
@@ -485,6 +542,20 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
                 <span className={ui.text.eyebrow(isLight)}>WhatsApp</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.whatsapp_number} onChange={(event) => updateForm('whatsapp_number', event.target.value)} />
               </label>
+              <div className="flex flex-col gap-3 md:col-span-2 md:flex-row md:items-center md:justify-between">
+                <span className={ui.badge(isLight, integrityTone(form.timezone_integrity_status), true)}>
+                  Timezone integrity: {form.timezone_integrity_status || 'unverified'}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('verified')} className={ui.button(isLight, 'secondary')}>
+                    <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                    Verify timezone
+                  </button>
+                  <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('manual_override')} className={ui.button(isLight, 'ghost')}>
+                    Manual override
+                  </button>
+                </div>
+              </div>
               <div className="md:col-span-2">
                 <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
                   <Save className="h-4 w-4" aria-hidden="true" />

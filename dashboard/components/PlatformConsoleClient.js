@@ -50,7 +50,9 @@ const initialForm = {
   name: '',
   brand_name: '',
   slug: '',
-  timezone: 'Europe/Madrid',
+  country_code: '',
+  city: '',
+  timezone: '',
   default_language: 'es',
   whatsapp_number: '',
   support_email: '',
@@ -425,8 +427,16 @@ const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
           <input className={cn('w-full', ui.input(isLight))} type="email" value={form.admin_email} onChange={(event) => update('admin_email', event.target.value)} required />
         </label>
         <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>{tx('Country code')}</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.country_code} onChange={(event) => update('country_code', event.target.value)} maxLength={2} required />
+        </label>
+        <label className="space-y-1.5">
+          <span className={ui.text.eyebrow(isLight)}>{tx('City')}</span>
+          <input className={cn('w-full', ui.input(isLight))} value={form.city} onChange={(event) => update('city', event.target.value)} required />
+        </label>
+        <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Timezone')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.timezone} onChange={(event) => update('timezone', event.target.value)} />
+          <input className={cn('w-full', ui.input(isLight))} value={form.timezone} onChange={(event) => update('timezone', event.target.value)} placeholder="Europe/Madrid" required />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Language')}</span>

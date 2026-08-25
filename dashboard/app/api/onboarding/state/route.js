@@ -13,12 +13,13 @@ const normalizeStep = (step) => (
 
 export async function GET(request) {
   try {
-    const { hotel, role, fallback, state, schemaReady, warning } = await getOnboardingContext(request);
+    const { hotel, role, platformRole, fallback, state, schemaReady, warning } = await getOnboardingContext(request);
 
     return NextResponse.json({
       ok: true,
       hotel,
       role,
+      platformRole,
       fallback,
       state,
       schemaReady,

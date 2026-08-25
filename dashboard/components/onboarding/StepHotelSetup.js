@@ -16,7 +16,7 @@ const labelClass = (isLight) => (
   isLight ? 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500'
 );
 
-export const StepHotelSetup = ({ hotel, onSaved }) => {
+export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [form, setForm] = useState({});
@@ -27,7 +27,10 @@ export const StepHotelSetup = ({ hotel, onSaved }) => {
     setForm({
       name: hotel?.name || '',
       brand_name: hotel?.brand_name || '',
-      timezone: hotel?.timezone || 'Europe/Madrid',
+      country_code: hotel?.country_code || '',
+      city: hotel?.city || '',
+      timezone: hotel?.timezone || '',
+      timezone_integrity_status: hotel?.timezone_integrity_status || 'unverified',
       default_language: hotel?.default_language || 'es',
       check_in_time: hotel?.check_in_time || '15:00',
       check_out_time: hotel?.check_out_time || '11:00',
@@ -39,6 +42,38 @@ export const StepHotelSetup = ({ hotel, onSaved }) => {
   }, [hotel]);
 
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+
+  const confirmTimezoneIntegrity = async (status) => {
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch('/api/onboarding/hotel', {
+        method: 'PATCH',
+        headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'confirm_timezone_integrity',
+          hotelId: hotel?.id,
+          timezone_integrity_status: status,
+          country_code: form.country_code,
+          city: form.city,
+          timezone: form.timezone
+        })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || 'Could not confirm timezone integrity');
+      }
+
+      setMessage({ type: 'success', text: status === 'manual_override' ? 'Timezone integrity manually overridden.' : 'Timezone integrity verified.' });
+      onSaved?.(body.hotel);
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const save = async (event) => {
     event.preventDefault();
@@ -77,11 +112,13 @@ export const StepHotelSetup = ({ hotel, onSaved }) => {
         <Building2 className="h-6 w-6 text-emerald-400" />
       </div>
 
-      <form onSubmit={save} className="space-y-5">
+      <form onSubmit={canEdit ? save : (event) => event.preventDefault()} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           {[
             ['name', 'Hotel name'],
             ['brand_name', 'Brand name'],
+            ['country_code', 'Country code'],
+            ['city', 'City'],
             ['timezone', 'Timezone'],
             ['default_language', 'Default language'],
             ['check_in_time', 'Check-in time'],
@@ -91,28 +128,43 @@ export const StepHotelSetup = ({ hotel, onSaved }) => {
           ].map(([field, label]) => (
             <label key={field} className="space-y-2">
               <span className={labelClass(isLight)}>{label}</span>
-              <input className={inputClass(isLight)} value={form[field] || ''} onChange={(event) => update(field, event.target.value)} />
+              <input className={inputClass(isLight)} value={form[field] || ''} onChange={(event) => update(field, event.target.value)} readOnly={!canEdit} />
             </label>
           ))}
         </div>
 
         <label className="space-y-2">
           <span className={labelClass(isLight)}>Address</span>
-          <input className={inputClass(isLight)} value={form.address || ''} onChange={(event) => update('address', event.target.value)} />
+          <input className={inputClass(isLight)} value={form.address || ''} onChange={(event) => update('address', event.target.value)} readOnly={!canEdit} />
         </label>
 
         <label className="space-y-2">
           <span className={labelClass(isLight)}>Short description</span>
-          <textarea rows={3} className={inputClass(isLight)} value={form.description || ''} onChange={(event) => update('description', event.target.value)} />
+          <textarea rows={3} className={inputClass(isLight)} value={form.description || ''} onChange={(event) => update('description', event.target.value)} readOnly={!canEdit} />
         </label>
 
         {message ? (
           <p className={message.type === 'error' ? 'text-sm text-red-400' : 'text-sm text-emerald-500'}>{message.text}</p>
         ) : null}
 
-        <button type="submit" disabled={saving} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:opacity-60">
-          {saving ? 'Saving...' : 'Save hotel setup'}
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className={isLight ? 'rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800' : 'rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100'}>
+            Timezone integrity: {form.timezone_integrity_status || 'unverified'}
+          </span>
+          {canEdit ? (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('verified')} className={isLight ? 'rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60' : 'rounded-lg border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/[0.05] disabled:opacity-60'}>
+                Verify timezone
+              </button>
+              <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('manual_override')} className={isLight ? 'rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60' : 'rounded-lg border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/[0.05] disabled:opacity-60'}>
+                Manual override
+              </button>
+              <button type="submit" disabled={saving} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:opacity-60">
+                {saving ? 'Saving...' : 'Save hotel setup'}
+              </button>
+            </div>
+          ) : null}
+        </div>
       </form>
     </ExecutiveCard>
   );

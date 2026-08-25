@@ -6,6 +6,12 @@ import {
   slugify,
   writePlatformAuditLog
 } from '@/lib/platform';
+import {
+  buildSafeLocationChangeAudit,
+  confirmHotelTimezoneIntegrity,
+  buildValidatedHotelCreationInput,
+  buildValidatedHotelProfileUpdate
+} from '../../../../../shared/location/hotel-location-integrity.js';
 
 const validPlans = ['starter', 'professional', 'enterprise', 'enterprise_demo', 'pro_demo', 'workspace_trial'];
 
@@ -25,7 +31,6 @@ const buildHotelPayload = (body = {}) => {
     brand_name: normalizeOptional(body.brand_name || body.brandName) || name,
     slug: baseSlug,
     workspace_slug: slugify(body.workspace_slug || body.workspaceSlug || baseSlug),
-    timezone: normalizeOptional(body.timezone) || 'Europe/Madrid',
     default_language: normalizeOptional(body.default_language || body.defaultLanguage) || 'es',
     whatsapp_number: normalizeOptional(body.whatsapp_number || body.whatsappNumber),
     support_email: normalizeOptional(body.support_email || body.supportEmail),
@@ -108,6 +113,7 @@ export async function POST(request) {
     const body = await request.json();
     const adminEmail = normalizeOptional(body.admin_email || body.adminEmail)?.toLowerCase();
     const payload = buildHotelPayload(body);
+    const locationPayload = buildValidatedHotelCreationInput(body);
     const uniqueSlug = await getUniqueSlug({ supabase, slug: payload.slug });
 
     if (!adminEmail || !adminEmail.includes('@')) {
@@ -118,6 +124,7 @@ export async function POST(request) {
       .from('hotels')
       .insert({
         ...payload,
+        ...locationPayload,
         slug: uniqueSlug,
         workspace_slug: uniqueSlug
       })
@@ -167,7 +174,8 @@ export async function POST(request) {
       targetEmail: adminEmail,
       metadata: {
         subscription_plan: hotel.subscription_plan,
-        workspace_slug: hotel.workspace_slug
+        workspace_slug: hotel.workspace_slug,
+        timezone_integrity_status: hotel.timezone_integrity_status
       }
     });
 
@@ -192,6 +200,37 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Hotel id is required' }, { status: 400 });
     }
 
+    if (body.action === 'confirm_timezone_integrity') {
+      const { hotel: confirmedHotel, confirmation } = await confirmHotelTimezoneIntegrity({
+        supabase,
+        hotelId: body.id,
+        body
+      });
+
+      const audit = buildSafeLocationChangeAudit({
+        previousValues: confirmation.previousValues,
+        newValues: confirmation.newValues,
+        changedFields: confirmation.changedFields
+      });
+
+      await writePlatformAuditLog({
+        supabase,
+        actor: user,
+        platformRole,
+        action: 'hotel_timezone_integrity_confirmed',
+        hotelId: confirmedHotel.id,
+        entityType: 'hotel',
+        oldValues: audit.previous_values,
+        newValues: audit.new_values,
+        metadata: {
+          event_type: 'hotel_timezone_integrity_confirmed',
+          ...audit
+        }
+      });
+
+      return NextResponse.json({ hotel: confirmedHotel });
+    }
+
     const { data: existingHotel, error: lookupError } = await supabase
       .from('hotels')
       .select('*')
@@ -207,6 +246,7 @@ export async function PATCH(request) {
       ...body,
       name: body.name || existingHotel.name
     });
+    const locationUpdate = buildValidatedHotelProfileUpdate({ body, existingHotel });
     const uniqueSlug = await getUniqueSlug({
       supabase,
       slug: payload.slug,
@@ -216,6 +256,7 @@ export async function PATCH(request) {
       .from('hotels')
       .update({
         ...payload,
+        ...locationUpdate.updates,
         slug: uniqueSlug,
         workspace_slug: uniqueSlug
       })
@@ -227,15 +268,29 @@ export async function PATCH(request) {
       throw error;
     }
 
+    const locationAudit = buildSafeLocationChangeAudit({
+      previousValues: locationUpdate.previousValues,
+      newValues: locationUpdate.newValues,
+      changedFields: [
+        ...locationUpdate.changedLocationFields,
+        ...(locationUpdate.changedLocationFields.length ? ['timezone_integrity_status'] : [])
+      ]
+    });
+
     await writePlatformAuditLog({
       supabase,
       actor: user,
       platformRole,
       action: 'hotel_branding_updated',
       hotelId: hotel.id,
+      entityType: 'hotel',
+      oldValues: locationAudit.previous_values,
+      newValues: locationAudit.new_values,
       metadata: {
         subscription_plan: hotel.subscription_plan,
-        workspace_slug: hotel.workspace_slug
+        workspace_slug: hotel.workspace_slug,
+        event_type: locationAudit.changed_fields.length ? 'hotel_location_timezone_changed' : 'hotel_branding_updated',
+        ...locationAudit
       }
     });
 

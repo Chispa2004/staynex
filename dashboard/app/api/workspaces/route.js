@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { buildValidatedHotelCreationInput } from '../../../../shared/location/hotel-location-integrity.js';
 
 const slugify = (value) => String(value || 'hotel')
   .trim()
@@ -26,6 +27,7 @@ export async function POST(request) {
 
     const body = await request.json();
     const name = normalizeOptional(body.name);
+    const locationPayload = buildValidatedHotelCreationInput(body);
 
     if (!name) {
       return NextResponse.json({ error: 'Hotel name is required' }, { status: 400 });
@@ -42,7 +44,10 @@ export async function POST(request) {
         brand_name: normalizeOptional(body.brandName) || name,
         slug,
         workspace_slug: slug,
-        timezone: normalizeOptional(body.timezone) || 'Europe/Madrid',
+        country_code: locationPayload.country_code,
+        city: locationPayload.city,
+        timezone: locationPayload.timezone,
+        timezone_integrity_status: locationPayload.timezone_integrity_status,
         default_language: normalizeOptional(body.defaultLanguage) || 'es',
         brand_color: normalizeOptional(body.brandColor) || '#34d399',
         secondary_color: normalizeOptional(body.secondaryColor) || '#0f766e',
@@ -83,6 +88,6 @@ export async function POST(request) {
     console.error('Workspace creation failed', error);
     return NextResponse.json({
       error: error.message || 'Could not create workspace'
-    }, { status: 500 });
+    }, { status: error.status || 500 });
   }
 }

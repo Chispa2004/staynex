@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
+import { evaluateHotelLocationTimezoneIntegrity } from '../../shared/location/hotel-location-integrity.js';
 
 export const READINESS_STATUS = {
   HEALTHY: 'healthy',
@@ -20,6 +21,7 @@ const statusScore = {
 };
 
 const criticalCheckTypes = new Set([
+  'hotel_location_timezone_integrity',
   'pms_connected',
   'whatsapp_connected',
   'webhook_healthy',
@@ -70,6 +72,7 @@ export const generateReadinessRecommendations = (checks = []) => checks
   .map((item) => {
     const suggestions = {
       pms_connected: 'Connect a PMS or save a pending setup before onboarding live guests.',
+      hotel_location_timezone_integrity: 'Verify the hotel country, city and IANA timezone before canonical timezone scheduling.',
       pms_sync_healthy: 'Run a fresh PMS sync and confirm reservations appear in Staynex.',
       whatsapp_connected: 'Configure the hotel WhatsApp number before go-live.',
       whatsapp_business_verified: 'Verify WhatsApp Business profile and branding.',
@@ -139,8 +142,23 @@ export const buildReadinessChecksFromContext = ({
   const resendConfigured = Boolean(env.RESEND_API_KEY && (env.RESEND_FROM || env.EMAIL_FROM));
   const sheetsConfigured = Boolean(env.GOOGLE_SHEETS_CLIENT_EMAIL && env.GOOGLE_SHEETS_PRIVATE_KEY && env.GOOGLE_SHEETS_SPREADSHEET_ID);
   const automationsPreview = env.SEND_AUTOMATIONS !== 'true';
+  const locationIntegrity = evaluateHotelLocationTimezoneIntegrity(hotel);
 
   return [
+    check({
+      checkType: 'hotel_location_timezone_integrity',
+      category: 'Hotel profile',
+      status: locationIntegrity.ready ? READINESS_STATUS.HEALTHY : READINESS_STATUS.CRITICAL,
+      message: locationIntegrity.ready
+        ? 'Hotel country, city and timezone integrity are verified.'
+        : `Hotel location/timezone integrity is not ready: ${locationIntegrity.reason || 'unverified'}.`,
+      details: {
+        countryCode: locationIntegrity.countryCode,
+        city: locationIntegrity.city,
+        timezone: locationIntegrity.timezone,
+        timezoneIntegrityStatus: locationIntegrity.timezoneIntegrityStatus
+      }
+    }),
     check({
       checkType: 'pms_connected',
       category: 'PMS',

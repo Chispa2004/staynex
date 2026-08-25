@@ -1,3 +1,5 @@
+import { evaluateHotelLocationTimezoneIntegrity } from '../../shared/location/hotel-location-integrity.js';
+
 export const READINESS_STATUS = {
   HEALTHY: 'healthy',
   WARNING: 'warning',
@@ -17,6 +19,7 @@ const statusScore = {
 };
 
 const criticalCheckTypes = new Set([
+  'hotel_location_timezone_integrity',
   'pms_connected',
   'whatsapp_connected',
   'webhook_healthy',
@@ -56,6 +59,7 @@ export const generateReadinessRecommendations = (checks = []) => checks
   .map((item) => {
     const suggestions = {
       pms_connected: 'Connect or configure the PMS before onboarding live guests.',
+      hotel_location_timezone_integrity: 'Verify the hotel country, city and IANA timezone before canonical timezone scheduling.',
       pms_sync_healthy: 'Run a fresh PMS sync and verify reservations.',
       whatsapp_connected: 'Configure the hotel WhatsApp number before go-live.',
       webhook_healthy: 'Send a test guest message to confirm inbound webhooks.',
@@ -115,8 +119,23 @@ export const buildReadinessForHotel = ({
   const aiHandled = aiLogs.filter((item) => item.ai_resolution_estimate || item.openai_concierge_used || item.response_text || item.generated_response).length || stats.aiHandled || 0;
   const providerBookings = experienceBookings.filter((item) => item.provider_id || item.revenue_owner === 'staynex' || item.revenue_type === 'partner_marketplace').length || stats.partnerBookings || 0;
   const failedProviderEmails = experienceBookings.filter((item) => (item.lead_status || item.metadata?.provider_email_status) === 'failed').length;
+  const locationIntegrity = evaluateHotelLocationTimezoneIntegrity(hotel);
 
   const checks = [
+    check({
+      checkType: 'hotel_location_timezone_integrity',
+      category: 'Hotel profile',
+      status: locationIntegrity.ready ? 'healthy' : 'critical',
+      message: locationIntegrity.ready
+        ? 'Hotel country, city and timezone integrity are verified.'
+        : `Hotel location/timezone integrity is not ready: ${locationIntegrity.reason || 'unverified'}.`,
+      details: {
+        countryCode: locationIntegrity.countryCode,
+        city: locationIntegrity.city,
+        timezone: locationIntegrity.timezone,
+        timezoneIntegrityStatus: locationIntegrity.timezoneIntegrityStatus
+      }
+    }),
     check({
       checkType: 'pms_connected',
       category: 'PMS',
