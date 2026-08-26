@@ -1,6 +1,11 @@
 import { getSupabase } from './supabase.service.js';
 import { encryptSecret, decryptSecret } from '../utils/encryption.js';
 import { logger } from '../utils/logger.js';
+import {
+  pmsConnectionSelectForSurface,
+  sanitizePmsConnectionMetadata,
+  serializePmsConnectionSafe
+} from '../../shared/pms/safe-connection.js';
 import { getApaleoAccessToken } from '../integrations/apaleo/apaleo-auth.service.js';
 import { apaleoFetch } from '../integrations/apaleo/apaleo-client.service.js';
 import { syncReservationsFromApaleo } from '../integrations/apaleo/apaleo-sync.service.js';
@@ -15,20 +20,20 @@ import {
   getPmsMaxReservations
 } from './scalability-guard.service.js';
 
-const redactConnection = (connection) => {
+const serializeTenantConnection = (connection) => serializePmsConnectionSafe(connection, { surface: 'tenant_settings' });
+const PMS_TENANT_SELECT = pmsConnectionSelectForSurface('tenant_settings');
+
+export const resolvePmsWebhookSecret = (connection) => {
   if (!connection) {
     return null;
   }
 
-  return {
-    ...connection,
-    encrypted_client_secret: undefined,
-    metadata: {
-      ...(connection.metadata || {}),
-      credentials_encrypted: undefined
-    },
-    has_client_secret: Boolean(connection.encrypted_client_secret)
-  };
+  if (connection.encrypted_webhook_secret) {
+    return decryptSecret(connection.encrypted_webhook_secret);
+  }
+
+  // Stage A legacy fallback only. Remove this plaintext path in Stage B.
+  return connection.webhook_secret || null;
 };
 
 export class PmsHotelContextRequiredError extends Error {
@@ -54,7 +59,7 @@ export const getHotelPmsConnection = async ({ hotelId, provider = 'apaleo' } = {
   const client = getSupabase();
   const { data, error } = await client
     .from('hotel_pms_connections')
-    .select('*')
+    .select(PMS_TENANT_SELECT)
     .eq('hotel_id', resolvedHotelId)
     .eq('provider', provider)
     .limit(1)
@@ -72,7 +77,7 @@ export const getHotelPmsConnections = async ({ hotelId } = {}) => {
   const client = getSupabase();
   const { data, error } = await client
     .from('hotel_pms_connections')
-    .select('*')
+    .select(PMS_TENANT_SELECT)
     .eq('hotel_id', resolvedHotelId)
     .order('created_at', { ascending: false });
 
@@ -80,7 +85,7 @@ export const getHotelPmsConnections = async ({ hotelId } = {}) => {
     throw error;
   }
 
-  return (data || []).map(redactConnection);
+  return (data || []).map(serializeTenantConnection);
 };
 
 const buildConnectionRecord = ({
@@ -90,6 +95,7 @@ const buildConnectionRecord = ({
   clientSecret,
   accountCode,
   apiKey,
+  webhookSecret,
   propertyId,
   baseUrl,
   enabled = true,
@@ -100,18 +106,18 @@ const buildConnectionRecord = ({
 }) => {
   const definition = getPmsConnectorDefinition(provider);
   const pendingSetup = !isPmsConnectorLiveApi(provider);
+  const cleanMetadata = sanitizePmsConnectionMetadata(metadata);
   const safeMetadata = {
-    ...metadata,
+    ...cleanMetadata,
     connection_mode: connectionMode || definition?.configurationMode || 'manual_setup',
-    property_id: propertyId || accountCode || metadata.property_id || null,
-    notes: notes || metadata.notes || null,
+    property_id: propertyId || accountCode || cleanMetadata.property_id || null,
+    notes: notes || cleanMetadata.notes || null,
     setup_status: pendingSetup ? 'pending_setup' : 'live_api',
-    activation_requested_at: activationRequested ? new Date().toISOString() : metadata.activation_requested_at || null
+    activation_requested_at: activationRequested ? new Date().toISOString() : cleanMetadata.activation_requested_at || null
   };
 
   if (apiKey) {
     safeMetadata.credentials_encrypted = {
-      ...(metadata.credentials_encrypted || {}),
       api_key: encryptSecret(apiKey)
     };
   }
@@ -125,6 +131,7 @@ const buildConnectionRecord = ({
     base_url: baseUrl || definition?.defaultBaseUrl || null,
     enabled: Boolean(enabled),
     metadata: safeMetadata,
+    ...(webhookSecret ? { encrypted_webhook_secret: encryptSecret(webhookSecret) } : {}),
     sync_status: pendingSetup ? 'pending_setup' : 'configured',
     webhook_url: `${process.env.PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:3000'}/integrations/${provider}/webhook`,
     webhook_status: 'not_configured',
@@ -139,13 +146,15 @@ export const saveHotelPmsConnection = async ({
   clientSecret,
   accountCode,
   apiKey,
+  webhookSecret,
   propertyId,
   baseUrl,
   enabled = true,
   connectionMode,
   notes,
   activationRequested = false,
-  metadata = {}
+  metadata = {},
+  supabase = getSupabase()
 } = {}) => {
   const resolvedHotelId = requirePmsHotelId(hotelId);
 
@@ -157,7 +166,7 @@ export const saveHotelPmsConnection = async ({
     throw new Error(`${getPmsConnectorDefinition(provider).name} is registered in Staynex but setup is not enabled yet`);
   }
 
-  const client = getSupabase();
+  const client = supabase;
   const record = buildConnectionRecord({
     hotelId: resolvedHotelId,
     provider,
@@ -165,6 +174,7 @@ export const saveHotelPmsConnection = async ({
     clientSecret,
     accountCode,
     apiKey: apiKey || metadata.api_key || metadata.apiKey,
+    webhookSecret: webhookSecret || metadata.webhook_secret || metadata.webhookSecret,
     propertyId: propertyId || metadata.property_id || metadata.propertyId,
     baseUrl,
     enabled,
@@ -178,7 +188,7 @@ export const saveHotelPmsConnection = async ({
     .upsert(record, {
       onConflict: 'hotel_id,provider'
     })
-    .select('*')
+    .select(PMS_TENANT_SELECT)
     .single();
 
   if (error) {
@@ -190,12 +200,17 @@ export const saveHotelPmsConnection = async ({
     provider
   });
 
-  return redactConnection(data);
+  return serializeTenantConnection(data);
 };
 
-export const updateHotelPmsConnection = async ({ connectionId, hotelId, updates = {} } = {}) => {
+export const updateHotelPmsConnection = async ({
+  connectionId,
+  hotelId,
+  updates = {},
+  supabase = getSupabase()
+} = {}) => {
   const resolvedHotelId = requirePmsHotelId(hotelId);
-  const client = getSupabase();
+  const client = supabase;
   const updateRecord = {
     updated_at: new Date().toISOString()
   };
@@ -207,7 +222,6 @@ export const updateHotelPmsConnection = async ({ connectionId, hotelId, updates 
     'enabled',
     'sync_status',
     'webhook_url',
-    'webhook_secret',
     'webhook_enabled',
     'webhook_status',
     'last_webhook_at',
@@ -223,6 +237,11 @@ export const updateHotelPmsConnection = async ({ connectionId, hotelId, updates 
     updateRecord.encrypted_client_secret = encryptSecret(updates.clientSecret);
   }
 
+  const webhookSecret = updates.webhookSecret || updates.webhook_secret;
+  if (webhookSecret) {
+    updateRecord.encrypted_webhook_secret = encryptSecret(webhookSecret);
+  }
+
   let query = client
     .from('hotel_pms_connections')
     .update(updateRecord)
@@ -230,13 +249,13 @@ export const updateHotelPmsConnection = async ({ connectionId, hotelId, updates 
 
   query = query.eq('hotel_id', resolvedHotelId);
 
-  const { data, error } = await query.select('*').single();
+  const { data, error } = await query.select(PMS_TENANT_SELECT).single();
 
   if (error) {
     throw error;
   }
 
-  return redactConnection(data);
+  return serializeTenantConnection(data);
 };
 
 export const deleteHotelPmsConnection = async ({ connectionId, hotelId } = {}) => {
@@ -300,7 +319,7 @@ export const testPmsConnection = async ({ hotelId, provider = 'apaleo' } = {}) =
       ok: true,
       provider,
       status: 'pending_setup',
-      connection: redactConnection({
+      connection: serializeTenantConnection({
         ...connection,
         sync_status: 'pending_setup',
         metadata: {
@@ -335,7 +354,7 @@ export const testPmsConnection = async ({ hotelId, provider = 'apaleo' } = {}) =
   return {
     ok: true,
     provider,
-    connection: redactConnection({
+    connection: serializeTenantConnection({
       ...connection,
       sync_status: 'connected',
       last_sync_error: null

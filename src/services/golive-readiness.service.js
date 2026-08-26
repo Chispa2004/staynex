@@ -1,6 +1,12 @@
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 import { evaluateHotelLocationTimezoneIntegrity } from '../../shared/location/hotel-location-integrity.js';
+import {
+  pmsConnectionSelectForSurface,
+  serializePmsConnectionsSafe
+} from '../../shared/pms/safe-connection.js';
+
+const PMS_READINESS_SELECT = pmsConnectionSelectForSurface('health');
 
 export const READINESS_STATUS = {
   HEALTHY: 'healthy',
@@ -321,7 +327,7 @@ export const runHotelReadinessChecks = async (hotelId, { persist = true } = {}) 
     guestStayContexts
   ] = await Promise.all([
     supabase.from('hotels').select('*').eq('id', hotelId).single(),
-    supabase.from('hotel_pms_connections').select('*').eq('hotel_id', hotelId),
+    supabase.from('hotel_pms_connections').select(PMS_READINESS_SELECT).eq('hotel_id', hotelId),
     supabase.from('reservations').select('*').eq('hotel_id', hotelId).limit(100),
     supabase.from('conversations').select('*').eq('hotel_id', hotelId).limit(100),
     supabase.from('ai_logs').select('*').eq('hotel_id', hotelId).limit(100),
@@ -339,9 +345,10 @@ export const runHotelReadinessChecks = async (hotelId, { persist = true } = {}) 
   if (hotelResult.error) throw hotelResult.error;
 
   const latestOccupancy = occupancyRows.data?.[0] || null;
+  const safePmsConnections = serializePmsConnectionsSafe(pmsConnections.data || [], { surface: 'health' });
   const checks = buildReadinessChecksFromContext({
     hotel: hotelResult.data,
-    pmsConnections: pmsConnections.data || [],
+    pmsConnections: safePmsConnections,
     reservations: reservations.data || [],
     conversations: conversations.data || [],
     aiLogs: aiLogs.data || [],
@@ -352,7 +359,7 @@ export const runHotelReadinessChecks = async (hotelId, { persist = true } = {}) 
     knowledgeEntries: knowledgeEntries.data || [],
     dataRetentionAuditLogs: dataRetentionAuditLogs.data || [],
     pmsIntelligenceHealth: {
-      lastPmsSync: (pmsConnections.data || [])[0]?.last_sync_at || null,
+      lastPmsSync: safePmsConnections[0]?.last_sync_at || null,
       roomStatusAvailable: Boolean(roomStatusRows.data?.length),
       occupancyAvailable: Boolean(latestOccupancy),
       operationalContextHealth: roomStatusRows.data?.length || latestOccupancy || guestStayContexts.data?.length ? 'active' : 'fallback'

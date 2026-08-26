@@ -7,8 +7,10 @@ import {
   evaluateAutomationDecision
 } from '../../shared/automations/runtime.js';
 import { writeAutomationDecisionToQueue } from '../../shared/automations/queue-writer.js';
+import { pmsConnectionSelectForSurface } from '../../shared/pms/safe-connection.js';
 
 export const PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE = 'pre_checkout_folio_reminder';
+const PMS_FOLIO_SELECT = pmsConnectionSelectForSurface('tenant_settings');
 
 const ACTIVE_RESERVATION_STATUSES = new Set(['confirmed', 'checked_in', 'in_house']);
 const VALID_CURRENCIES = new Set(['EUR', 'USD', 'GBP', 'MAD']);
@@ -145,7 +147,7 @@ const findMockFolio = ({ connection, reservationId, roomNumber }) => {
 const getEnabledPmsConnection = async ({ hotelId, supabase }) => {
   const { data, error } = await supabase
     .from('hotel_pms_connections')
-    .select('*')
+    .select(PMS_FOLIO_SELECT)
     .eq('hotel_id', hotelId)
     .eq('enabled', true)
     .order('updated_at', { ascending: false })

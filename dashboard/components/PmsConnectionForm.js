@@ -101,7 +101,7 @@ export const PmsConnectionForm = ({
               className={inputClass}
               value={form.api_key}
               onChange={(event) => setForm((current) => ({ ...current, api_key: event.target.value }))}
-              placeholder={initialConnection?.metadata?.credentials_encrypted?.api_key ? 'Leave blank to keep existing API key' : `${provider.name} API key`}
+              placeholder={initialConnection?.api_key_configured ? 'Leave blank to keep existing API key' : `${provider.name} API key`}
             />
           </label>
           <label className="space-y-2">

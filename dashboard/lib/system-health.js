@@ -1,3 +1,10 @@
+import {
+  pmsConnectionSelectForSurface,
+  serializePmsConnectionsSafe
+} from '../../shared/pms/safe-connection.js';
+
+const PMS_HEALTH_SELECT = pmsConnectionSelectForSurface('health');
+
 const TECHNICAL_SIGNAL_LABELS = [
   'OpenAI retries',
   'Twilio failures',
@@ -345,7 +352,7 @@ export const getHotelOperationalHealth = async ({ supabase, hotelId, hotel }) =>
     reservations,
     aiLogs
   ] = await Promise.all([
-    safeRows(supabase.from('hotel_pms_connections').select('*').eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(10)),
+    safeRows(supabase.from('hotel_pms_connections').select(PMS_HEALTH_SELECT).eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(10)),
     safeRows(supabase.from('tickets').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250)),
     safeRows(supabase.from('conversations').select('*').eq('hotel_id', hotelId).order('last_message_at', { ascending: false, nullsFirst: false }).limit(250)),
     safeRows(supabase.from('conversation_ai_state').select('*').eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(250)),
@@ -358,7 +365,7 @@ export const getHotelOperationalHealth = async ({ supabase, hotelId, hotel }) =>
 
   return buildHotelOperationalHealthSnapshot({
     hotel,
-    pmsConnections,
+    pmsConnections: serializePmsConnectionsSafe(pmsConnections, { surface: 'health' }),
     tickets,
     conversations,
     conversationStates,
@@ -683,7 +690,7 @@ export const getPlatformMonitoring = async ({ supabase }) => {
     platformAuditLogs
   ] = await Promise.all([
     safeRows(supabase.from('hotels').select('*').order('created_at', { ascending: false }).limit(500)),
-    safeRows(supabase.from('hotel_pms_connections').select('*').order('updated_at', { ascending: false }).limit(1000)),
+    safeRows(supabase.from('hotel_pms_connections').select(PMS_HEALTH_SELECT).order('updated_at', { ascending: false }).limit(1000)),
     safeRows(supabase.from('tickets').select('*').order('created_at', { ascending: false }).limit(1000)),
     safeRows(supabase.from('conversations').select('*').order('last_message_at', { ascending: false, nullsFirst: false }).limit(1000)),
     safeRows(supabase.from('conversation_ai_state').select('*').order('updated_at', { ascending: false }).limit(1000)),
@@ -695,7 +702,7 @@ export const getPlatformMonitoring = async ({ supabase }) => {
 
   return buildPlatformMonitoringSnapshot({
     hotels,
-    pmsConnections,
+    pmsConnections: serializePmsConnectionsSafe(pmsConnections, { surface: 'health' }),
     tickets,
     conversations,
     conversationStates,

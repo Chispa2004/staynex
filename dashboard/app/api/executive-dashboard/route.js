@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess } from '@/lib/permissions';
+import {
+  pmsConnectionSelectForSurface,
+  serializePmsConnectionsSafe
+} from '../../../../shared/pms/safe-connection.js';
+
+const PMS_EXECUTIVE_SELECT = pmsConnectionSelectForSurface('tenant_settings');
 
 const startOfTodayIso = () => {
   const date = new Date();
@@ -367,7 +373,7 @@ export async function GET(request) {
       recentGuestProfiles,
       reservationsToday,
       activeGuestsRows,
-      pmsConnections,
+      rawPmsConnections,
       onboardingRows,
       localKnowledgeRows,
       roomStatusRows,
@@ -452,7 +458,7 @@ export async function GET(request) {
         hotelId
       ).not('guest_id', 'is', null).limit(500)),
       safeRows(withHotel(
-        supabase.from('hotel_pms_connections').select('id, provider, enabled, sync_status, last_sync_at, last_sync_error, metadata, webhook_url, webhook_enabled, webhook_status, last_webhook_at, last_webhook_error, updated_at'),
+        supabase.from('hotel_pms_connections').select(PMS_EXECUTIVE_SELECT),
         hotelId
       ).order('updated_at', { ascending: false }).limit(10))
       ,
@@ -501,6 +507,7 @@ export async function GET(request) {
       ).order('created_at', { ascending: false }).limit(200))
     ]);
 
+    const pmsConnections = serializePmsConnectionsSafe(rawPmsConnections, { surface: 'tenant_settings' });
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
     const upsellTypeCounts = countBy(recentUpsells, 'upsell_type');
     const acceptedConversions = recentConversions.filter((item) => item.status === 'accepted');

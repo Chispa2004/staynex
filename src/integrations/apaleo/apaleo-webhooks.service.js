@@ -8,6 +8,7 @@ import { logger } from '../../utils/logger.js';
 import { getReservationById } from './apaleo-reservations.service.js';
 import { normalizeApaleoReservation } from './apaleo-normalizer.service.js';
 import { isReservationTerminalForAutomations } from '../../../shared/automations/reservation-lifecycle.js';
+import { pmsConnectionSelectForSurface } from '../../../shared/pms/safe-connection.js';
 
 const RESERVATION_ACTIONS = {
   created: 'created',
@@ -22,6 +23,7 @@ const RESERVATION_ACTIONS = {
 const WEBHOOK_CLAIMABLE_STATUSES = ['received', 'failed'];
 const WEBHOOK_TERMINAL_STATUSES = ['processed', 'ignored'];
 const WEBHOOK_PROCESSING_STATUS = 'processing';
+const PMS_WEBHOOK_CONNECTION_SELECT = pmsConnectionSelectForSurface('tenant_settings');
 
 const readHeader = (headers, name) => {
   if (!headers) {
@@ -306,7 +308,7 @@ export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = 
   const parsed = parseApaleoWebhookEvent(payload, headers);
   let query = supabase
     .from('hotel_pms_connections')
-    .select('*')
+    .select(PMS_WEBHOOK_CONNECTION_SELECT)
     .eq('provider', 'apaleo');
 
   if (parsed.connectionId) {

@@ -1,6 +1,12 @@
 import { syncAllSheets } from './google-sheets.service.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
+import {
+  pmsConnectionSelectForSurface,
+  serializePmsConnectionsSafe
+} from '../../shared/pms/safe-connection.js';
+
+const PMS_SHEETS_SELECT = pmsConnectionSelectForSurface('health');
 
 const safeRows = async (query, tableName = 'table') => {
   const { data, error } = await query;
@@ -111,7 +117,7 @@ export const loadPlatformSheetsData = async (supabase = getSupabase()) => {
     safeRows(supabase.from('experience_booking_requests').select('*').order('created_at', { ascending: false }).limit(5000), 'experience_booking_requests'),
     safeRows(supabase.from('automations').select('*').order('created_at', { ascending: false }).limit(1000), 'automations'),
     safeRows(supabase.from('automation_runs').select('*').order('created_at', { ascending: false }).limit(5000), 'automation_runs'),
-    safeRows(supabase.from('hotel_pms_connections').select('*').order('updated_at', { ascending: false }), 'hotel_pms_connections'),
+    safeRows(supabase.from('hotel_pms_connections').select(PMS_SHEETS_SELECT).order('updated_at', { ascending: false }), 'hotel_pms_connections'),
     safeRows(supabase.from('conversations').select('*').order('last_message_at', { ascending: false }).limit(5000), 'conversations'),
     safeRows(supabase.from('ai_logs').select('*').order('created_at', { ascending: false }).limit(5000), 'ai_logs'),
     safeRows(supabase.from('tickets').select('*').order('created_at', { ascending: false }).limit(2000), 'tickets'),
@@ -128,7 +134,7 @@ export const loadPlatformSheetsData = async (supabase = getSupabase()) => {
     experienceBookings,
     automations,
     automationRuns,
-    pmsConnections,
+    pmsConnections: serializePmsConnectionsSafe(pmsConnections, { surface: 'health' }),
     conversations,
     aiLogs,
     tickets,

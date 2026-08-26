@@ -1,24 +1,19 @@
 import { encryptSecret } from './pms-encryption';
 import { getInternalApiHeaders } from './internal-api';
 import { PMS_PROVIDER_CATALOG, getPmsProvider, isPmsProviderConfigurable, isPmsProviderLiveApi } from './pms-providers';
+import {
+  pmsConnectionSelectForSurface,
+  sanitizePmsConnectionMetadata,
+  serializePmsConnectionSafe
+} from '../../shared/pms/safe-connection.js';
 
 export const PMS_PROVIDERS = PMS_PROVIDER_CATALOG;
+export const PMS_CONNECTION_SELECT = pmsConnectionSelectForSurface('tenant_settings');
 
-export const redactConnection = (connection) => {
-  if (!connection) {
-    return null;
-  }
-
-  return {
-    ...connection,
-    encrypted_client_secret: undefined,
-    metadata: {
-      ...(connection.metadata || {}),
-      credentials_encrypted: undefined
-    },
-    has_client_secret: Boolean(connection.encrypted_client_secret)
-  };
-};
+export const safePmsConnectionDto = (connection, options = {}) => serializePmsConnectionSafe(connection, {
+  surface: 'tenant_settings',
+  ...options
+});
 
 export const getBackendUrl = () => (
   process.env.PUBLIC_BACKEND_URL
@@ -68,7 +63,7 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
 
   const existingResult = await supabase
     .from('hotel_pms_connections')
-    .select('*')
+    .select(PMS_CONNECTION_SELECT)
     .eq('hotel_id', hotelId)
     .eq('provider', provider)
     .limit(1)
@@ -81,9 +76,10 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
   const existing = existingResult.data;
   const connectionMode = payload.connection_mode || payload.connectionMode || providerDefinition.configurationMode || 'manual_setup';
   const pendingSetup = !isPmsProviderLiveApi(providerDefinition);
+  const existingEncryptedCredentials = existing?.metadata?.credentials_encrypted;
   const metadata = {
-    ...(existing?.metadata || {}),
-    ...(payload.metadata || {}),
+    ...sanitizePmsConnectionMetadata(existing?.metadata || {}),
+    ...sanitizePmsConnectionMetadata(payload.metadata || {}),
     connection_mode: connectionMode,
     property_id: payload.property_id || payload.propertyId || payload.account_code || payload.accountCode || existing?.metadata?.property_id || null,
     notes: payload.notes || existing?.metadata?.notes || null,
@@ -93,9 +89,11 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
 
   if (payload.api_key || payload.apiKey) {
     metadata.credentials_encrypted = {
-      ...(existing?.metadata?.credentials_encrypted || {}),
+      ...(existingEncryptedCredentials || {}),
       api_key: encryptSecret(payload.api_key || payload.apiKey)
     };
+  } else if (existingEncryptedCredentials) {
+    metadata.credentials_encrypted = existingEncryptedCredentials;
   }
 
   const record = {
@@ -121,19 +119,26 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
     record.encrypted_client_secret = existing.encrypted_client_secret;
   }
 
+  const webhookSecret = payload.webhook_secret || payload.webhookSecret;
+  if (webhookSecret) {
+    record.encrypted_webhook_secret = encryptSecret(webhookSecret);
+  } else if (existing?.encrypted_webhook_secret) {
+    record.encrypted_webhook_secret = existing.encrypted_webhook_secret;
+  }
+
   const { data, error } = await supabase
     .from('hotel_pms_connections')
     .upsert(record, {
       onConflict: 'hotel_id,provider'
     })
-    .select('*')
+    .select(PMS_CONNECTION_SELECT)
     .single();
 
   if (error) {
     throw error;
   }
 
-  return redactConnection(data);
+  return safePmsConnectionDto(data);
 };
 
 export const proxyBackendPmsAction = async ({

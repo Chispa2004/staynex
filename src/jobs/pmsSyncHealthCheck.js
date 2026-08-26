@@ -1,5 +1,11 @@
 import { getSupabase } from '../services/supabase.service.js';
 import { logger } from '../utils/logger.js';
+import {
+  pmsConnectionSelectForSurface,
+  serializePmsConnectionsSafe
+} from '../../shared/pms/safe-connection.js';
+
+const PMS_HEALTH_CHECK_SELECT = pmsConnectionSelectForSurface('health');
 
 const staleHours = () => {
   const parsed = Number(process.env.PMS_SYNC_STALE_HOURS || 24);
@@ -29,12 +35,13 @@ export const pmsSyncHealthCheck = async () => {
   const connections = await safeRows(
     supabase
       .from('hotel_pms_connections')
-      .select('id, hotel_id, provider, enabled, sync_status, last_sync_at, last_sync_error, metadata')
+      .select(PMS_HEALTH_CHECK_SELECT)
       .order('updated_at', { ascending: false }),
     'hotel_pms_connections'
   );
+  const safeConnections = serializePmsConnectionsSafe(connections, { surface: 'health' });
   const staleCutoff = Date.now() - staleHours() * 60 * 60 * 1000;
-  const enabledConnections = connections.filter((item) => item.enabled);
+  const enabledConnections = safeConnections.filter((item) => item.enabled);
   const failed = enabledConnections.filter((item) => item.sync_status === 'failed' || item.last_sync_error);
   const stale = enabledConnections.filter((item) => {
     if (!item.last_sync_at) {
@@ -46,7 +53,7 @@ export const pmsSyncHealthCheck = async () => {
 
   const summary = {
     jobName: 'pmsSyncHealthCheck',
-    totalConnections: connections.length,
+    totalConnections: safeConnections.length,
     enabledConnections: enabledConnections.length,
     failedConnections: failed.length,
     staleConnections: stale.length,

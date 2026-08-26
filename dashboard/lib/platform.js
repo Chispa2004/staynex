@@ -8,8 +8,13 @@ import {
   isArchivedHotel
 } from './platform-delete';
 import { buildReadinessForHotel } from './golive-readiness';
+import {
+  pmsConnectionSelectForSurface,
+  serializePmsConnectionsSafe
+} from '../../shared/pms/safe-connection.js';
 
 const INTERNAL_PLATFORM_ROLES = ['platform_admin', 'super_admin', 'internal_only'];
+const PMS_PLATFORM_SELECT = pmsConnectionSelectForSurface('platform_summary');
 
 export const PLAN_LABELS = {
   starter: 'Starter',
@@ -386,7 +391,7 @@ export const getPlatformOverview = async (supabase) => {
     safeRows(supabase.from('ai_logs').select('*'), 'ai_logs'),
     safeRows(supabase.from('tickets').select('*'), 'tickets'),
     safeRows(supabase.from('reservations').select('*'), 'reservations'),
-    safeRows(supabase.from('hotel_pms_connections').select('*'), 'hotel_pms_connections'),
+    safeRows(supabase.from('hotel_pms_connections').select(PMS_PLATFORM_SELECT), 'hotel_pms_connections'),
     safeRows(supabase.from('hotel_onboarding_state').select('*'), 'hotel_onboarding_state'),
     safeRows(supabase.from('upsell_conversions').select('*'), 'upsell_conversions'),
     safeRows(supabase.from('ai_offers').select('*'), 'ai_offers'),
@@ -403,7 +408,7 @@ export const getPlatformOverview = async (supabase) => {
   const scopedAiLogs = scopedRows(aiLogs);
   const scopedTickets = scopedRows(tickets);
   const scopedReservations = scopedRows(reservations);
-  const scopedPmsConnections = scopedRows(pmsConnections);
+  const scopedPmsConnections = serializePmsConnectionsSafe(scopedRows(pmsConnections), { surface: 'platform_summary' });
   const scopedOnboardingStates = scopedRows(onboardingStates);
   const scopedConversions = scopedRows(conversions);
   const scopedOffers = scopedRows(offers);
@@ -764,7 +769,7 @@ export const getPlatformOverview = async (supabase) => {
       aiLogs: scopedAiLogs,
       tickets: scopedTickets,
       reservations: scopedReservations,
-      pmsConnections: scopedPmsConnections,
+      pmsConnectionSummaries: scopedPmsConnections,
       onboardingStates: scopedOnboardingStates,
       conversions: scopedConversions,
       offers: scopedOffers,
@@ -807,7 +812,7 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
     pmsIntelligenceLogs
   ] = await Promise.all([
     safeRows(supabase.from('hotel_users').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }), 'hotel_users'),
-    safeRows(supabase.from('hotel_pms_connections').select('*').eq('hotel_id', hotelId).order('updated_at', { ascending: false }), 'hotel_pms_connections'),
+    safeRows(supabase.from('hotel_pms_connections').select(PMS_PLATFORM_SELECT).eq('hotel_id', hotelId).order('updated_at', { ascending: false }), 'hotel_pms_connections'),
     safeRows(supabase.from('reservations').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(25), 'reservations'),
     safeRows(supabase.from('conversations').select('*').eq('hotel_id', hotelId).order('last_message_at', { ascending: false }).limit(25), 'conversations'),
     safeRows(supabase.from('ai_logs').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(25), 'ai_logs'),
@@ -825,9 +830,10 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
     safeRows(supabase.from('guest_stay_context').select('*').eq('hotel_id', hotelId).order('last_updated_at', { ascending: false }).limit(500), 'guest_stay_context'),
     safeRows(supabase.from('pms_intelligence_logs').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(25), 'pms_intelligence_logs')
   ]);
+  const safePmsConnections = serializePmsConnectionsSafe(pmsConnections, { surface: 'platform_summary' });
   const latestOccupancy = occupancyRows[0] || null;
   const pmsIntelligenceHealth = {
-    lastPmsSync: pmsConnections[0]?.last_sync_at || null,
+    lastPmsSync: safePmsConnections[0]?.last_sync_at || null,
     reservationsSynced: reservations.length,
     roomStatusAvailable: roomStatusRows.length > 0,
     occupancyAvailable: Boolean(latestOccupancy),
@@ -844,7 +850,7 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
   const readiness = buildReadinessForHotel({
     hotel,
     users,
-    pmsConnections,
+    pmsConnections: safePmsConnections,
     reservations,
     conversations,
     aiLogs,
@@ -859,7 +865,7 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
   return {
     hotel,
     users,
-    pmsConnections,
+    pmsConnections: safePmsConnections,
     reservations,
     conversations,
     aiLogs,

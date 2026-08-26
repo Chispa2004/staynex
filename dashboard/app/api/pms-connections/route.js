@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
-import { PMS_PROVIDERS, assertPmsHotelContext, getProviderWebhookUrl, redactConnection, saveConnection } from '@/lib/pms-connections';
+import { PMS_CONNECTION_SELECT, PMS_PROVIDERS, assertPmsHotelContext, getProviderWebhookUrl, safePmsConnectionDto, saveConnection } from '@/lib/pms-connections';
 import { canAccess } from '@/lib/permissions';
 
 const jsonOptions = {
@@ -25,7 +25,7 @@ export async function GET(request) {
     const canManage = canAccess(role, 'pms_connections_manage') && platformRole !== 'support';
     const { data, error } = await supabase
       .from('hotel_pms_connections')
-      .select('*')
+      .select(PMS_CONNECTION_SELECT)
       .eq('hotel_id', hotelId)
       .order('created_at', { ascending: false });
 
@@ -45,7 +45,7 @@ export async function GET(request) {
         webhookUrl: getProviderWebhookUrl(provider.key)
       })),
       connections: (data || []).map((connection) => ({
-        ...redactConnection(connection),
+        ...safePmsConnectionDto(connection),
         webhook_url: connection.webhook_url || getProviderWebhookUrl(connection.provider)
       }))
     }, jsonOptions);
@@ -82,7 +82,7 @@ export async function POST(request) {
       action: 'pms_settings_changed',
       entityType: 'hotel_pms_connection',
       entityId: connection.id,
-      newValues: connection,
+      newValues: safePmsConnectionDto(connection, { surface: 'audit' }),
       metadata: { provider: connection.provider, source: 'dashboard_pms_connections' }
     });
 
@@ -122,7 +122,7 @@ export async function DELETE(request) {
 
     const { data: existing } = await supabase
       .from('hotel_pms_connections')
-      .select('*')
+      .select(PMS_CONNECTION_SELECT)
       .eq('hotel_id', hotelId)
       .eq('id', connectionId)
       .maybeSingle();
@@ -147,7 +147,7 @@ export async function DELETE(request) {
       action: 'pms_settings_changed',
       entityType: 'hotel_pms_connection',
       entityId: connectionId,
-      oldValues: existing ? redactConnection(existing) : {},
+      oldValues: existing ? safePmsConnectionDto(existing, { surface: 'audit' }) : {},
       metadata: { source: 'dashboard_pms_connections', operation: 'delete' }
     });
 
