@@ -2,7 +2,7 @@ import { getSupabase } from './supabase.service.js';
 import { encryptSecret, decryptSecret } from '../utils/encryption.js';
 import { logger } from '../utils/logger.js';
 import {
-  pmsConnectionSelectForSurface,
+  pmsConnectionInternalSelectForSurface,
   sanitizePmsConnectionMetadata,
   serializePmsConnectionSafe
 } from '../../shared/pms/safe-connection.js';
@@ -21,7 +21,7 @@ import {
 } from './scalability-guard.service.js';
 
 const serializeTenantConnection = (connection) => serializePmsConnectionSafe(connection, { surface: 'tenant_settings' });
-const PMS_TENANT_SELECT = pmsConnectionSelectForSurface('tenant_settings');
+const PMS_TENANT_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings');
 
 export const resolvePmsWebhookSecret = (connection) => {
   if (!connection) {

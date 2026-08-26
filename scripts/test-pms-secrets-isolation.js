@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  PMS_CONNECTION_PRODUCTION_COLUMNS,
+  pmsConnectionInternalSelectForSurface,
+  pmsConnectionSelectForSurface,
   sanitizePmsConnectionMetadata,
   serializePmsConnectionSafe,
   serializePmsConnectionsSafe
@@ -118,6 +121,225 @@ const forbiddenSecrets = [
   'metadata-array-token',
   'should-not-leak'
 ];
+
+const productionSchemaColumns = [
+  'id',
+  'hotel_id',
+  'provider',
+  'client_id',
+  'encrypted_client_secret',
+  'account_code',
+  'base_url',
+  'enabled',
+  'sync_status',
+  'last_sync_at',
+  'last_sync_error',
+  'webhook_enabled',
+  'webhook_status',
+  'metadata',
+  'created_at',
+  'updated_at',
+  'webhook_url',
+  'webhook_secret',
+  'last_webhook_at',
+  'last_webhook_error',
+  'encrypted_webhook_secret'
+];
+const productionSchemaColumnSet = new Set(productionSchemaColumns);
+const unsupportedPmsConnectionColumns = [
+  'property_id',
+  'status',
+  'last_test_at',
+  'notes',
+  'credentials_encrypted',
+  'connection_mode'
+];
+const secretStateColumns = [
+  'encrypted_client_secret',
+  'webhook_secret',
+  'encrypted_webhook_secret'
+];
+const safePmsSurfaces = ['tenant_settings', 'platform_summary', 'health', 'audit'];
+const parsePmsSelectColumns = (select) => String(select || '')
+  .split(',')
+  .map((column) => column.trim())
+  .filter(Boolean);
+
+const assertPmsSelectUsesOnlyProductionColumns = (select, label) => {
+  const columns = parsePmsSelectColumns(select);
+  assert.ok(columns.length > 0, `${label} must select explicit columns`);
+  assert.equal(new Set(columns).size, columns.length, `${label} must not contain duplicate columns`);
+
+  for (const column of columns) {
+    assert.ok(productionSchemaColumnSet.has(column), `${label} must not select unsupported PMS column ${column}`);
+  }
+
+  for (const column of unsupportedPmsConnectionColumns) {
+    assert.equal(columns.includes(column), false, `${label} must not select ${column}`);
+  }
+};
+
+const assertSafePmsSelect = (select, label) => {
+  assertPmsSelectUsesOnlyProductionColumns(select, label);
+  const columns = parsePmsSelectColumns(select);
+
+  for (const column of secretStateColumns) {
+    assert.equal(columns.includes(column), false, `${label} must not select ${column}`);
+  }
+};
+
+const assertInternalPmsSelect = (select, label) => {
+  assertPmsSelectUsesOnlyProductionColumns(select, label);
+  const columns = parsePmsSelectColumns(select);
+
+  for (const column of secretStateColumns) {
+    assert.ok(columns.includes(column), `${label} must include ${column} for internal secret state`);
+  }
+
+  assert.equal(columns.includes('credentials_encrypted'), false, `${label} must not select missing top-level credentials_encrypted`);
+};
+
+const projectRows = (rows = [], select) => {
+  const columns = parsePmsSelectColumns(select);
+  return (rows || []).map((row) => columns.reduce((projected, column) => {
+    if (Object.prototype.hasOwnProperty.call(row, column)) {
+      projected[column] = row[column];
+    }
+
+    return projected;
+  }, {}));
+};
+
+const createProductionPmsReadSupabaseMock = (tableRows) => {
+  const queries = [];
+
+  return {
+    queries,
+    from(table) {
+      const query = {
+        table,
+        columns: null,
+        select(columns) {
+          query.columns = columns;
+          queries.push({ table, columns });
+
+          if (table === 'hotel_pms_connections') {
+            assertPmsSelectUsesOnlyProductionColumns(columns, `${table} mock select`);
+          }
+
+          return query;
+        },
+        eq() {
+          return query;
+        },
+        order() {
+          return query;
+        },
+        limit() {
+          return query;
+        },
+        async maybeSingle() {
+          const rows = projectRows(tableRows[table] || [], query.columns);
+          return { data: rows[0] || null, error: null };
+        },
+        async single() {
+          const rows = projectRows(tableRows[table] || [], query.columns);
+          return { data: rows[0] || null, error: null };
+        },
+        then(resolve, reject) {
+          return Promise.resolve({
+            data: projectRows(tableRows[table] || [], query.columns),
+            error: null
+          }).then(resolve, reject);
+        }
+      };
+
+      return query;
+    }
+  };
+};
+
+assert.deepEqual(PMS_CONNECTION_PRODUCTION_COLUMNS, productionSchemaColumns, 'canonical PMS production column list matches deployed schema');
+for (const surface of safePmsSurfaces) {
+  assertSafePmsSelect(pmsConnectionSelectForSurface(surface), `${surface} safe PMS selector`);
+}
+assertSafePmsSelect(pmsConnectionSelectForSurface('unknown_surface'), 'unknown surface safe PMS selector');
+assertInternalPmsSelect(pmsConnectionInternalSelectForSurface('tenant_settings'), 'tenant settings internal PMS selector');
+assertInternalPmsSelect(pmsConnectionInternalSelectForSurface('unknown_surface'), 'unknown surface internal PMS selector');
+
+const productionSchemaConnection = productionSchemaColumns.reduce((row, column) => {
+  row[column] = sampleConnection[column] ?? null;
+  return row;
+}, {});
+productionSchemaConnection.metadata = {
+  credentials_encrypted: {
+    api_key: 'production-metadata-api-key'
+  },
+  property_id: 'metadata-property-id',
+  notes: 'metadata notes are allowed in jsonb',
+  last_test_at: '2026-08-26T10:01:00.000Z',
+  visible: 'safe metadata value'
+};
+const productionMockSecrets = [
+  'cipher-client-secret',
+  'plain-webhook-secret',
+  'cipher-webhook-secret',
+  'production-metadata-api-key'
+];
+
+const pmsSettingsSupabase = createProductionPmsReadSupabaseMock({
+  hotel_pms_connections: [productionSchemaConnection]
+});
+const pmsSettingsRows = await pmsSettingsSupabase
+  .from('hotel_pms_connections')
+  .select(pmsConnectionInternalSelectForSurface('tenant_settings'))
+  .eq('hotel_id', 'hotel-1')
+  .order('created_at', { ascending: false });
+const pmsSettingsDtos = serializePmsConnectionsSafe(pmsSettingsRows.data, { surface: 'tenant_settings' });
+assert.equal(pmsSettingsRows.error, null, 'PMS Settings mock loads without schema errors');
+assert.equal(pmsSettingsDtos.length, 1, 'PMS Settings mock returns PMS connection DTOs');
+assert.equal(pmsSettingsDtos[0].id, 'connection-1', 'PMS Settings DTO includes connection id');
+assert.equal(pmsSettingsDtos[0].credential_configured, true, 'PMS Settings DTO keeps internal credential flag');
+assert.equal(pmsSettingsDtos[0].webhook_secret_configured, true, 'PMS Settings DTO keeps internal webhook flag');
+assert.equal(Object.prototype.hasOwnProperty.call(pmsSettingsDtos[0], 'encrypted_client_secret'), false, 'PMS Settings DTO strips encrypted_client_secret');
+assert.equal(Object.prototype.hasOwnProperty.call(pmsSettingsDtos[0], 'webhook_secret'), false, 'PMS Settings DTO strips webhook_secret');
+assert.equal(Object.prototype.hasOwnProperty.call(pmsSettingsDtos[0], 'encrypted_webhook_secret'), false, 'PMS Settings DTO strips encrypted_webhook_secret');
+assertNoSerializedLeak(pmsSettingsDtos, productionMockSecrets, 'PMS Settings mock DTOs');
+
+const platformSupabase = createProductionPmsReadSupabaseMock({
+  hotel_pms_connections: [productionSchemaConnection]
+});
+const platformRows = await platformSupabase
+  .from('hotel_pms_connections')
+  .select(pmsConnectionSelectForSurface('platform_summary'));
+const platformDtos = serializePmsConnectionsSafe(platformRows.data, { surface: 'platform_summary' });
+assert.equal(platformRows.error, null, 'Platform mock loads without schema errors');
+assert.equal(platformDtos[0].provider, 'apaleo', 'Platform safe DTO loads provider');
+assert.equal(platformDtos[0].credential_configured, false, 'Platform safe DTO does not depend on secret columns');
+assertNoSerializedLeak(platformDtos, productionMockSecrets, 'Platform mock DTOs');
+
+const healthSupabase = createProductionPmsReadSupabaseMock({
+  hotel_pms_connections: [productionSchemaConnection]
+});
+const healthRows = await healthSupabase
+  .from('hotel_pms_connections')
+  .select(pmsConnectionSelectForSurface('health'));
+const healthDtos = serializePmsConnectionsSafe(healthRows.data, { surface: 'health' });
+assert.equal(healthRows.error, null, 'Health mock loads without schema errors');
+assert.equal(healthDtos[0].metadata.visible, 'safe metadata value', 'Health safe DTO keeps non-secret metadata');
+assert.equal(healthDtos[0].metadata.credentials_encrypted, undefined, 'Health safe DTO strips nested credentials_encrypted');
+assertNoSerializedLeak(healthDtos, productionMockSecrets, 'Health mock DTOs');
+
+const readinessSupabase = createProductionPmsReadSupabaseMock({
+  hotel_pms_connections: [productionSchemaConnection]
+});
+const readinessRows = await readinessSupabase
+  .from('hotel_pms_connections')
+  .select(pmsConnectionSelectForSurface('health'))
+  .eq('hotel_id', 'hotel-1');
+const readinessDtos = serializePmsConnectionsSafe(readinessRows.data, { surface: 'health' });
+assert.equal(readinessRows.error, null, 'Readiness mock loads without schema errors');
+assert.equal(readinessDtos[0].enabled, true, 'Readiness safe DTO loads enabled connection');
 
 const tenantDto = serializePmsConnectionSafe(sampleConnection, { surface: 'tenant_settings' });
 
@@ -652,6 +874,7 @@ assert.ok(pmsRouteSource.includes("newValues: safePmsConnectionDto(connection, {
 assert.ok(pmsRouteSource.includes("oldValues: existing ? safePmsConnectionDto(existing, { surface: 'audit' }) : {}"), 'PMS audit oldValues are safe');
 
 const dashboardPmsSource = readSource('dashboard/lib/pms-connections.js');
+assert.ok(dashboardPmsSource.includes("PMS_CONNECTION_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings')"), 'PMS Settings uses internal production-safe secret-state select');
 assert.equal(dashboardPmsSource.includes('redactConnection'), false, 'dashboard PMS lib should not keep a partial redactor alias');
 assert.ok(dashboardPmsSource.includes('record.encrypted_webhook_secret = encryptSecret(webhookSecret)'), 'new dashboard webhook secret writes encrypted field');
 assert.equal(/record\.webhook_secret\s*=/.test(dashboardPmsSource), false, 'dashboard writes must not populate plaintext webhook_secret');
@@ -659,6 +882,7 @@ assert.ok(dashboardPmsSource.includes('sanitizePmsConnectionMetadata(payload.met
 assert.ok(dashboardPmsSource.includes('return safePmsConnectionDto(data)'), 'dashboard update response returns safe DTO');
 
 const backendPmsSource = readSource('src/services/pms-connections.service.js');
+assert.ok(backendPmsSource.includes("PMS_TENANT_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings')"), 'backend PMS service uses internal production-safe secret-state select');
 assert.ok(backendPmsSource.includes('encrypted_webhook_secret: encryptSecret(webhookSecret)'), 'backend save writes encrypted webhook secret');
 assert.ok(backendPmsSource.includes('updateRecord.encrypted_webhook_secret = encryptSecret(webhookSecret)'), 'backend update writes encrypted webhook secret');
 assert.ok(backendPmsSource.includes('Stage A legacy fallback only'), 'legacy fallback is clearly marked');
@@ -765,6 +989,7 @@ assert.equal(/JSON\.stringify\(result/i.test(backfillSource), false, 'backfill m
 const apaleoWebhookSource = readSource('src/integrations/apaleo/apaleo-webhooks.service.js');
 assert.ok(apaleoWebhookSource.includes('hotel_id: connection?.hotel_id || null'), 'new webhook events assign hotel_id when connection is resolved');
 assert.ok(apaleoWebhookSource.includes('connection_id: connection?.id || null'), 'new webhook events assign connection_id when connection is resolved');
+assert.ok(apaleoWebhookSource.includes("PMS_WEBHOOK_CONNECTION_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings')"), 'Apaleo webhook resolver keeps internal secret-state select for provider operations');
 
 const testSource = readSource('scripts/test-pms-secrets-isolation.js');
 const forbiddenRuntimeCalls = ['get' + 'Supabase(', 'create' + 'Client(', 'fetch' + '('];

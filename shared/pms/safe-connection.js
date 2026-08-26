@@ -19,6 +19,37 @@ const SECRET_FIELD_NAMES = new Set([
 
 const SECRET_KEY_PATTERN = /(secret|token|password|authorization|api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|credentials?[_-]?encrypted)/i;
 
+export const PMS_CONNECTION_PRODUCTION_COLUMNS = [
+  'id',
+  'hotel_id',
+  'provider',
+  'client_id',
+  'encrypted_client_secret',
+  'account_code',
+  'base_url',
+  'enabled',
+  'sync_status',
+  'last_sync_at',
+  'last_sync_error',
+  'webhook_enabled',
+  'webhook_status',
+  'metadata',
+  'created_at',
+  'updated_at',
+  'webhook_url',
+  'webhook_secret',
+  'last_webhook_at',
+  'last_webhook_error',
+  'encrypted_webhook_secret'
+];
+
+const PMS_CONNECTION_PRODUCTION_COLUMN_SET = new Set(PMS_CONNECTION_PRODUCTION_COLUMNS);
+const PMS_CONNECTION_SECRET_STATE_COLUMNS = [
+  'encrypted_client_secret',
+  'webhook_secret',
+  'encrypted_webhook_secret'
+];
+
 const SURFACE_FIELDS = {
   tenant_settings: [
     'id',
@@ -94,6 +125,75 @@ const SURFACE_FIELDS = {
     'last_sync_at',
     'last_sync_error',
     'last_test_at',
+    'webhook_enabled',
+    'webhook_status',
+    'last_webhook_at',
+    'last_webhook_error',
+    'created_at',
+    'updated_at'
+  ]
+};
+
+const SURFACE_SELECT_FIELDS = {
+  tenant_settings: [
+    'id',
+    'hotel_id',
+    'provider',
+    'client_id',
+    'account_code',
+    'base_url',
+    'enabled',
+    'sync_status',
+    'last_sync_at',
+    'last_sync_error',
+    'webhook_url',
+    'webhook_enabled',
+    'webhook_status',
+    'last_webhook_at',
+    'last_webhook_error',
+    'metadata',
+    'created_at',
+    'updated_at'
+  ],
+  platform_summary: [
+    'id',
+    'hotel_id',
+    'provider',
+    'enabled',
+    'sync_status',
+    'last_sync_at',
+    'last_sync_error',
+    'webhook_enabled',
+    'webhook_status',
+    'last_webhook_at',
+    'last_webhook_error',
+    'created_at',
+    'updated_at'
+  ],
+  health: [
+    'id',
+    'hotel_id',
+    'provider',
+    'enabled',
+    'sync_status',
+    'last_sync_at',
+    'last_sync_error',
+    'webhook_enabled',
+    'webhook_status',
+    'last_webhook_at',
+    'last_webhook_error',
+    'metadata',
+    'created_at',
+    'updated_at'
+  ],
+  audit: [
+    'id',
+    'hotel_id',
+    'provider',
+    'enabled',
+    'sync_status',
+    'last_sync_at',
+    'last_sync_error',
     'webhook_enabled',
     'webhook_status',
     'last_webhook_at',
@@ -208,15 +308,20 @@ export const serializePmsConnectionsSafe = (connections = [], options = {}) => (
   (connections || []).map((connection) => serializePmsConnectionSafe(connection, options)).filter(Boolean)
 );
 
-export const pmsConnectionSelectForSurface = (surface = STRICT_SURFACE) => {
-  const surfaceFields = SURFACE_FIELDS[surface] || SURFACE_FIELDS[STRICT_SURFACE];
-  const fields = new Set([
-    ...surfaceFields,
-    'encrypted_client_secret',
-    'webhook_secret',
-    'encrypted_webhook_secret',
-    'credentials_encrypted'
-  ]);
+const buildProductionSelect = (fields = []) => {
+  const productionFields = fields.filter((field) => PMS_CONNECTION_PRODUCTION_COLUMN_SET.has(field));
+  return [...new Set(productionFields)].join(', ');
+};
 
-  return [...fields].join(', ');
+export const pmsConnectionSelectForSurface = (surface = STRICT_SURFACE) => {
+  const surfaceFields = SURFACE_SELECT_FIELDS[surface] || SURFACE_SELECT_FIELDS[STRICT_SURFACE];
+  return buildProductionSelect(surfaceFields);
+};
+
+export const pmsConnectionInternalSelectForSurface = (surface = STRICT_SURFACE) => {
+  const surfaceFields = SURFACE_SELECT_FIELDS[surface] || SURFACE_SELECT_FIELDS[STRICT_SURFACE];
+  return buildProductionSelect([
+    ...surfaceFields,
+    ...PMS_CONNECTION_SECRET_STATE_COLUMNS
+  ]);
 };

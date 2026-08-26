@@ -2,13 +2,13 @@ import { encryptSecret } from './pms-encryption';
 import { getInternalApiHeaders } from './internal-api';
 import { PMS_PROVIDER_CATALOG, getPmsProvider, isPmsProviderConfigurable, isPmsProviderLiveApi } from './pms-providers';
 import {
-  pmsConnectionSelectForSurface,
+  pmsConnectionInternalSelectForSurface,
   sanitizePmsConnectionMetadata,
   serializePmsConnectionSafe
 } from '../../shared/pms/safe-connection.js';
 
 export const PMS_PROVIDERS = PMS_PROVIDER_CATALOG;
-export const PMS_CONNECTION_SELECT = pmsConnectionSelectForSurface('tenant_settings');
+export const PMS_CONNECTION_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings');
 
 export const safePmsConnectionDto = (connection, options = {}) => serializePmsConnectionSafe(connection, {
   surface: 'tenant_settings',
