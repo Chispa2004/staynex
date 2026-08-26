@@ -21,6 +21,12 @@ export const sendStaffMessage = async ({
     throw new Error('message is required');
   }
 
+  if (!hotelId) {
+    const error = new Error('hotelId is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const conversation = await findConversationWithGuest(conversationId);
 
   if (!conversation) {
@@ -60,6 +66,7 @@ export const sendStaffMessage = async ({
 
   const staffMessage = await createMessage({
     conversationId,
+    hotelId,
     senderType: 'staff',
     content: message.trim(),
     originalLanguage: detectedStaffLanguage,

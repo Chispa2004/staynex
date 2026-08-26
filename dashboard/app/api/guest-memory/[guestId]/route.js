@@ -151,7 +151,7 @@ export async function GET(request, { params }) {
     const [messages, scheduledMessages] = await Promise.all([
       conversationIds.length
         ? safeRows(
-          supabase.from('messages').select('*').in('conversation_id', conversationIds).order('created_at', { ascending: false }).limit(200),
+          supabase.from('messages').select('*').eq('hotel_id', hotel.id).in('conversation_id', conversationIds).order('created_at', { ascending: false }).limit(200),
           'messages'
         )
         : [],

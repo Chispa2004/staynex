@@ -121,7 +121,8 @@ export const getTicketDetail = async (ticketId, { supabase = getSupabaseAdmin(),
 
   const { data: messages, error: messagesError } = await supabase
     .from('messages')
-    .select('id, sender_type, content, created_at')
+    .select('id, conversation_id, hotel_id, sender_type, content, created_at')
+    .eq('hotel_id', hotelId)
     .eq('conversation_id', ticket.conversation_id)
     .order('created_at', { ascending: true });
 

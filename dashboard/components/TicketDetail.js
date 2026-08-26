@@ -60,8 +60,9 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
+    const activeHotelId = initialTicket.hotel_id || null;
 
-    if (!supabase) {
+    if (!supabase || !activeHotelId) {
       return undefined;
     }
 
@@ -89,9 +90,13 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${initialTicket.conversation_id}`
+          filter: `hotel_id=eq.${activeHotelId}`
         },
         (payload) => {
+          if (payload?.new?.hotel_id !== activeHotelId || payload?.new?.conversation_id !== initialTicket.conversation_id) {
+            return;
+          }
+
           setMessages((current) => {
             if (current.some((message) => message.id === payload.new.id)) {
               return current;
@@ -109,7 +114,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
       supabase.removeChannel(ticketChannel);
       supabase.removeChannel(messagesChannel);
     };
-  }, [initialTicket.id, initialTicket.conversation_id]);
+  }, [initialTicket.id, initialTicket.conversation_id, initialTicket.hotel_id]);
 
   const updateStatus = async (status) => {
     setUpdating(true);

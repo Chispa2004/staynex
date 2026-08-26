@@ -98,6 +98,7 @@ export const messageRetentionHealthCheck = async () => {
         supabase
           .from('messages')
           .select('id', { count: 'exact', head: true })
+          .eq('hotel_id', hotel.id)
           .in('conversation_id', conversationIds)
           .lt('created_at', cutoff.toISOString()),
         'messages'

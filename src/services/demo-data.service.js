@@ -362,7 +362,7 @@ const recreateConversation = async ({ hotelId, guest, scenario, offset }) => {
   const conversationIds = (existingConversations || []).map((item) => item.id);
 
   if (conversationIds.length) {
-    await client.from('messages').delete().in('conversation_id', conversationIds);
+    await client.from('messages').delete().eq('hotel_id', hotelId).in('conversation_id', conversationIds);
     await client.from('tickets').delete().in('conversation_id', conversationIds);
     await client.from('ai_upsells').delete().in('conversation_id', conversationIds);
     await client.from('ai_offers').delete().in('conversation_id', conversationIds);
@@ -391,6 +391,7 @@ const recreateConversation = async ({ hotelId, guest, scenario, offset }) => {
 
   const messages = scenario.messages.map(([senderType, content], index) => ({
     conversation_id: conversation.id,
+    hotel_id: hotelId,
     sender_type: senderType,
     content,
     created_at: addMinutesIso(offset - (scenario.messages.length - index) * 2)
@@ -768,7 +769,7 @@ const clearExistingDemoData = async ({ hotelId }) => {
   const reservationIds = (reservations || []).map((reservation) => reservation.id);
 
   if (conversationIds.length) {
-    await client.from('messages').delete().in('conversation_id', conversationIds);
+    await client.from('messages').delete().eq('hotel_id', hotelId).in('conversation_id', conversationIds);
     await client.from('tickets').delete().in('conversation_id', conversationIds);
     await client.from('ai_logs').delete().in('conversation_id', conversationIds);
     await safeDelete({ table: 'ai_upsells', apply: (query) => query.in('conversation_id', conversationIds) });

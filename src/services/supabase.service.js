@@ -312,20 +312,71 @@ export const touchConversation = async (conversationId) => {
   return data;
 };
 
+export const resolveConversationHotelId = async ({
+  conversationId,
+  expectedHotelId = null,
+  client = getSupabase()
+} = {}) => {
+  if (!conversationId) {
+    const error = new Error('conversationId is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { data: conversation, error } = await client
+    .from('conversations')
+    .select('hotel_id')
+    .eq('id', conversationId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!conversation) {
+    const missingError = new Error('Conversation not found');
+    missingError.statusCode = 404;
+    throw missingError;
+  }
+
+  const conversationHotelId = conversation.hotel_id || null;
+
+  if (!conversationHotelId) {
+    const tenantError = new Error('Conversation tenant could not be resolved');
+    tenantError.statusCode = 500;
+    throw tenantError;
+  }
+
+  if (expectedHotelId && conversationHotelId !== expectedHotelId) {
+    const mismatchError = new Error('Conversation not found in active workspace');
+    mismatchError.statusCode = 404;
+    throw mismatchError;
+  }
+
+  return conversationHotelId;
+};
+
 export const createMessage = async ({
   conversationId,
   senderType,
   content,
+  hotelId = null,
   originalLanguage = null,
   translatedLanguage = null,
   translatedText = null,
   translationProvider = null,
   translationConfidence = null,
-  metadata = null
+  metadata = null,
+  client = getSupabase()
 }) => {
-  const client = getSupabase();
+  const conversationHotelId = await resolveConversationHotelId({
+    conversationId,
+    expectedHotelId: hotelId,
+    client
+  });
   const messageRecord = {
     conversation_id: conversationId,
+    hotel_id: conversationHotelId,
     sender_type: senderType,
     content,
     original_language: originalLanguage,
@@ -347,6 +398,7 @@ export const createMessage = async ({
       .from('messages')
       .insert({
         conversation_id: conversationId,
+        hotel_id: conversationHotelId,
         sender_type: senderType,
         content
       })
@@ -364,13 +416,18 @@ export const createMessage = async ({
   return data;
 };
 
-export const getRecentMessages = async ({ conversationId, limit = 8 }) => {
+export const getRecentMessages = async ({ conversationId, hotelId = null, limit = 8 }) => {
+  if (!conversationId || !hotelId) {
+    return [];
+  }
+
   const client = getSupabase();
 
   const { data, error } = await client
     .from('messages')
-    .select('id, sender_type, content, created_at')
+    .select('id, conversation_id, hotel_id, sender_type, content, created_at')
     .eq('conversation_id', conversationId)
+    .eq('hotel_id', hotelId)
     .order('created_at', { ascending: false })
     .limit(limit);
 

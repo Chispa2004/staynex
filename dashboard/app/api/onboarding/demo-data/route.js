@@ -59,12 +59,14 @@ export async function POST(request) {
       .insert([
         {
           conversation_id: conversation.id,
+          hotel_id: hotelId,
           sender_type: 'guest',
           content: 'Necesito dos toallas en la habitacion 208',
           created_at: nowIso()
         },
         {
           conversation_id: conversation.id,
+          hotel_id: hotelId,
           sender_type: 'ai',
           content: 'Claro. Aviso al equipo para llevarte las toallas a la habitacion 208.',
           created_at: nowIso()

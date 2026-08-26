@@ -336,6 +336,7 @@ export const processGuestMessage = async ({
 
   const guestMessage = await createMessage({
     conversationId: conversation.id,
+    hotelId: activeHotel.id,
     senderType: 'guest',
     content: message,
     originalLanguage: staffTranslation.sourceLanguage || guestLanguage,
@@ -1235,6 +1236,7 @@ export const processGuestMessage = async ({
 
     await createMessage({
       conversationId: conversation.id,
+      hotelId: activeHotel.id,
       senderType: 'ai',
       content: `Provider experience request created: ${experienceBookingRequest.experience_title}. Availability is not confirmed until the provider replies.`,
       originalLanguage: 'en',
@@ -1473,6 +1475,7 @@ export const processGuestMessage = async ({
 
   const aiMessage = await createMessage({
     conversationId: conversation.id,
+    hotelId: activeHotel.id,
     senderType: 'ai',
     content: aiResponseWithUpsell.reply,
     originalLanguage: conversationContext.language,

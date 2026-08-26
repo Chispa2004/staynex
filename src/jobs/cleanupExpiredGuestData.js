@@ -182,6 +182,7 @@ const anonymizeHotelData = async ({ supabase, hotel, dryRun, now, limit }) => {
         supabase
           .from('messages')
           .select('id')
+          .eq('hotel_id', hotelId)
           .in('conversation_id', conversationIds)
           .lt('created_at', messageCutoff)
           .limit(limit),
@@ -250,6 +251,7 @@ const anonymizeHotelData = async ({ supabase, hotel, dryRun, now, limit }) => {
             retention_job: JOB_NAME
           }
         })
+        .eq('hotel_id', hotelId)
         .in('conversation_id', conversationIds)
         .lt('created_at', messageCutoff)
         .select('id')

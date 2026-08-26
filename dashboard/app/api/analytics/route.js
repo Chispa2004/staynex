@@ -202,7 +202,8 @@ export async function GET(request) {
         ? safeRows(
           supabase
             .from('messages')
-            .select('id, conversation_id, sender_type, content, created_at')
+            .select('id, conversation_id, hotel_id, sender_type, content, created_at')
+            .eq('hotel_id', hotelId)
             .in('conversation_id', conversationIds)
             .gte('created_at', sinceIso)
             .order('created_at', { ascending: true })

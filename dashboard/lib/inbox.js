@@ -26,12 +26,17 @@ const isMissingMessageTranslationFields = (error) => (
   || error?.details?.includes('metadata')
 );
 
-const getMessagesForConversations = async ({ supabase, conversationIds }) => {
-  const baseSelect = 'id, conversation_id, sender_type, content, created_at';
+const getMessagesForConversations = async ({ supabase, conversationIds, hotelId }) => {
+  if (!hotelId || !conversationIds.length) {
+    return [];
+  }
+
+  const baseSelect = 'id, conversation_id, hotel_id, sender_type, content, created_at';
   const extendedSelect = `${baseSelect}, original_language, translated_language, translated_text, translation_provider, translation_confidence, metadata`;
   let { data, error } = await supabase
     .from('messages')
     .select(extendedSelect)
+    .eq('hotel_id', hotelId)
     .in('conversation_id', conversationIds)
     .order('created_at', { ascending: true })
     .limit(INBOX_MESSAGE_LIMIT);
@@ -40,6 +45,7 @@ const getMessagesForConversations = async ({ supabase, conversationIds }) => {
     const fallback = await supabase
       .from('messages')
       .select(baseSelect)
+      .eq('hotel_id', hotelId)
       .in('conversation_id', conversationIds)
       .order('created_at', { ascending: true })
       .limit(INBOX_MESSAGE_LIMIT);
@@ -415,7 +421,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
 
   const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, intelligenceByGuest] = await Promise.all([
     guestsQuery,
-    getMessagesForConversations({ supabase, conversationIds }),
+    getMessagesForConversations({ supabase, conversationIds, hotelId: resolvedHotelId }),
     getLatestAiLogsByConversation({ supabase, conversationIds }),
     getActiveUpsellsByConversation({ supabase, conversationIds }),
     getActiveOffersByConversation({ supabase, conversationIds }),

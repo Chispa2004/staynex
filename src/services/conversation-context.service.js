@@ -358,6 +358,7 @@ export const buildConversationContext = async ({
   const [recentMessages, openTickets, hotelProfile, guestMemory] = await Promise.all([
     getRecentMessages({
       conversationId: conversation.id,
+      hotelId: hotel?.id || null,
       limit: 8
     }),
     getOpenTicketsForGuest({

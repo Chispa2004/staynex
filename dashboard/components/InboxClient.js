@@ -796,6 +796,7 @@ export const InboxClient = ({ conversations }) => {
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
+    const activeHotelId = currentHotel?.id || null;
 
     if (!supabase) {
       console.warn('Inbox Realtime unavailable: missing Supabase browser client');
@@ -803,16 +804,33 @@ export const InboxClient = ({ conversations }) => {
       return undefined;
     }
 
+    if (!activeHotelId) {
+      console.warn('Inbox Realtime unavailable: active hotel is required');
+      setRealtimeStatus('fallback');
+      return undefined;
+    }
+
     const channel = supabase
-      .channel(`dashboard-inbox-${currentHotel?.id || 'all'}`)
+      .channel(`dashboard-inbox-${activeHotelId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'messages'
+          table: 'messages',
+          filter: `hotel_id=eq.${activeHotelId}`
         },
         (payload) => {
+          const payloadHotelId = payload?.new?.hotel_id || null;
+
+          if (payloadHotelId !== activeHotelId) {
+            console.warn('Inbox Realtime ignored message outside active hotel', {
+              expectedHotelId: activeHotelId,
+              receivedHotelId: payloadHotelId || 'missing'
+            });
+            return;
+          }
+
           debugInbox('Message INSERT received', payload.new);
           scheduleRealtimeReload('message_insert');
         }
@@ -823,7 +841,7 @@ export const InboxClient = ({ conversations }) => {
           event: 'UPDATE',
           schema: 'public',
           table: 'conversations',
-          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+          filter: `hotel_id=eq.${activeHotelId}`
         },
         (payload) => {
           debugInbox('Conversation UPDATE received', payload.new);
@@ -836,7 +854,7 @@ export const InboxClient = ({ conversations }) => {
           event: 'INSERT',
           schema: 'public',
           table: 'conversations',
-          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+          filter: `hotel_id=eq.${activeHotelId}`
         },
         (payload) => {
           debugInbox('Conversation INSERT received', payload.new);
@@ -849,7 +867,7 @@ export const InboxClient = ({ conversations }) => {
           event: '*',
           schema: 'public',
           table: 'ai_offers',
-          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+          filter: `hotel_id=eq.${activeHotelId}`
         },
         (payload) => {
           debugInbox('AI Offer change received', payload.new || payload.old);
@@ -862,7 +880,7 @@ export const InboxClient = ({ conversations }) => {
           event: '*',
           schema: 'public',
           table: 'conversation_ai_state',
-          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+          filter: `hotel_id=eq.${activeHotelId}`
         },
         (payload) => {
           debugInbox('AI Conversation State change received', payload.new || payload.old);
@@ -875,7 +893,7 @@ export const InboxClient = ({ conversations }) => {
           event: '*',
           schema: 'public',
           table: 'experience_booking_requests',
-          ...(currentHotel?.id ? { filter: `hotel_id=eq.${currentHotel.id}` } : {})
+          filter: `hotel_id=eq.${activeHotelId}`
         },
         (payload) => {
           debugInbox('Experience booking request change received', payload.new || payload.old);

@@ -29,6 +29,7 @@ create table if not exists conversations (
 create table if not exists messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references conversations(id) on delete cascade,
+  hotel_id uuid not null references hotels(id) on delete cascade,
   sender_type text not null,
   content text not null,
   created_at timestamp with time zone not null default now(),
@@ -78,8 +79,14 @@ create index if not exists guests_hotel_phone_idx
 create index if not exists conversations_hotel_guest_status_idx
   on conversations (hotel_id, guest_id, status);
 
+create unique index if not exists conversations_id_hotel_id_unique_idx
+  on conversations (id, hotel_id);
+
 create index if not exists messages_conversation_created_at_idx
   on messages (conversation_id, created_at);
+
+create index if not exists messages_hotel_conversation_created_idx
+  on messages (hotel_id, conversation_id, created_at);
 
 create index if not exists tickets_hotel_status_priority_idx
   on tickets (hotel_id, status, priority);
@@ -89,6 +96,23 @@ create index if not exists hotel_knowledge_hotel_key_idx
 
 alter table public.tickets replica identity full;
 alter table public.messages replica identity full;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'messages_conversation_hotel_match_fk'
+      and conrelid = 'public.messages'::regclass
+  ) then
+    alter table public.messages
+      add constraint messages_conversation_hotel_match_fk
+      foreign key (conversation_id, hotel_id)
+      references public.conversations(id, hotel_id)
+      on update cascade
+      on delete cascade;
+  end if;
+end $$;
 
 do $$
 begin
