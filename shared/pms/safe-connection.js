@@ -37,7 +37,6 @@ export const PMS_CONNECTION_PRODUCTION_COLUMNS = [
   'created_at',
   'updated_at',
   'webhook_url',
-  'webhook_secret',
   'last_webhook_at',
   'last_webhook_error',
   'encrypted_webhook_secret'
@@ -46,7 +45,6 @@ export const PMS_CONNECTION_PRODUCTION_COLUMNS = [
 const PMS_CONNECTION_PRODUCTION_COLUMN_SET = new Set(PMS_CONNECTION_PRODUCTION_COLUMNS);
 const PMS_CONNECTION_SECRET_STATE_COLUMNS = [
   'encrypted_client_secret',
-  'webhook_secret',
   'encrypted_webhook_secret'
 ];
 
@@ -260,7 +258,7 @@ export const getPmsConnectionSecretFlags = (connection = {}) => {
     || connection.api_key_configured === true;
   const credentialConfigured = hasClientSecret || hasApiKey || hasValue(metadataCredentials) || hasValue(topLevelCredentials)
     || connection.credential_configured === true;
-  const webhookSecretConfigured = hasValue(connection.encrypted_webhook_secret) || hasValue(connection.webhook_secret)
+  const webhookSecretConfigured = hasValue(connection.encrypted_webhook_secret)
     || connection.webhook_secret_configured === true;
 
   return {

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -140,7 +140,6 @@ const productionSchemaColumns = [
   'created_at',
   'updated_at',
   'webhook_url',
-  'webhook_secret',
   'last_webhook_at',
   'last_webhook_error',
   'encrypted_webhook_secret'
@@ -156,7 +155,6 @@ const unsupportedPmsConnectionColumns = [
 ];
 const secretStateColumns = [
   'encrypted_client_secret',
-  'webhook_secret',
   'encrypted_webhook_secret'
 ];
 const safePmsSurfaces = ['tenant_settings', 'platform_summary', 'health', 'audit'];
@@ -259,13 +257,20 @@ const createProductionPmsReadSupabaseMock = (tableRows) => {
   };
 };
 
-assert.deepEqual(PMS_CONNECTION_PRODUCTION_COLUMNS, productionSchemaColumns, 'canonical PMS production column list matches deployed schema');
+assert.deepEqual(PMS_CONNECTION_PRODUCTION_COLUMNS, productionSchemaColumns, 'canonical PMS Stage B selectable column list excludes legacy webhook_secret');
 for (const surface of safePmsSurfaces) {
   assertSafePmsSelect(pmsConnectionSelectForSurface(surface), `${surface} safe PMS selector`);
 }
 assertSafePmsSelect(pmsConnectionSelectForSurface('unknown_surface'), 'unknown surface safe PMS selector');
 assertInternalPmsSelect(pmsConnectionInternalSelectForSurface('tenant_settings'), 'tenant settings internal PMS selector');
 assertInternalPmsSelect(pmsConnectionInternalSelectForSurface('unknown_surface'), 'unknown surface internal PMS selector');
+for (const select of [
+  ...safePmsSurfaces.map((surface) => pmsConnectionSelectForSurface(surface)),
+  pmsConnectionInternalSelectForSurface('tenant_settings'),
+  pmsConnectionInternalSelectForSurface('health')
+]) {
+  assert.equal(parsePmsSelectColumns(select).includes('webhook_secret'), false, 'Stage B production selectors never request webhook_secret');
+}
 
 const productionSchemaConnection = productionSchemaColumns.reduce((row, column) => {
   row[column] = sampleConnection[column] ?? null;
@@ -361,6 +366,17 @@ assert.equal(tenantDto.last_sync_error, 'redacted_sensitive_error', 'serializer 
 assert.equal(tenantDto.last_webhook_error, 'redacted_sensitive_error', 'serializer sanitizes secret-like webhook errors');
 assertNoSerializedLeak(tenantDto, forbiddenSecrets, 'tenant PMS DTO');
 
+const plaintextOnlyDto = serializePmsConnectionSafe({
+  id: 'legacy-plaintext-only',
+  hotel_id: 'hotel-1',
+  provider: 'apaleo',
+  enabled: true,
+  webhook_secret: 'legacy-webhook-secret'
+}, { surface: 'tenant_settings' });
+assert.equal(plaintextOnlyDto.webhook_secret_configured, false, 'Stage B serializer does not treat plaintext-only webhook_secret as configured');
+assert.equal(Object.prototype.hasOwnProperty.call(plaintextOnlyDto, 'webhook_secret'), false, 'Stage B serializer still strips defensive webhook_secret field');
+assertNoSerializedLeak(plaintextOnlyDto, ['legacy-webhook-secret'], 'plaintext-only PMS DTO');
+
 const strictDto = serializePmsConnectionSafe(sampleConnection, { surface: 'unexpected_surface' });
 assert.equal(strictDto.metadata, undefined, 'unknown surface uses strict output without metadata');
 assert.equal(strictDto.client_id, undefined, 'unknown surface does not expose client id');
@@ -395,18 +411,6 @@ const {
   loadPlatformSheetsData
 } = await import('../src/services/platform-sheets-sync.service.js');
 
-const backfillImportLogs = [];
-const originalConsoleLog = console.log;
-console.log = (...items) => {
-  backfillImportLogs.push(items.map((item) => String(item)).join(' '));
-};
-const backfillModule = await import('../scripts/backfill-encrypted-webhook-secrets.js');
-console.log = originalConsoleLog;
-
-assert.deepEqual(backfillImportLogs, [], 'importing backfill module must not run main or print output');
-
-const { parseBackfillOptions, runBackfillEncryptedWebhookSecrets } = backfillModule;
-
 const syntheticWebhookSecret = 'synthetic-webhook-secret';
 const encryptedWebhookSecret = encryptSecret(syntheticWebhookSecret);
 assert.match(encryptedWebhookSecret, /^v1:/, 'encrypted webhook secret uses PMS encryption format');
@@ -428,8 +432,8 @@ assert.equal(
 );
 assert.equal(
   resolvePmsWebhookSecret({ webhook_secret: 'legacy-webhook-secret' }),
-  'legacy-webhook-secret',
-  'legacy plaintext fallback remains internal for Stage A'
+  null,
+  'Stage B does not consume plaintext-only legacy webhook_secret'
 );
 assert.equal(resolvePmsWebhookSecret({}), null, 'missing webhook secret resolves to null');
 assert.equal(resolvePmsWebhookSecret(null), null, 'missing connection resolves to null');
@@ -521,9 +525,11 @@ const { result: savedConnection, output: saveOutput } = await withCapturedConsol
     visible: 'kept'
   }
 }));
-const saveRecord = saveSupabase.calls.find((call) => call.action === 'upsert').record;
+const saveCall = saveSupabase.calls.find((call) => call.action === 'upsert');
+const saveRecord = saveCall.record;
 assert.match(saveRecord.encrypted_webhook_secret, /^v1:/, 'save path persists encrypted webhook secret');
 assert.equal(Object.prototype.hasOwnProperty.call(saveRecord, 'webhook_secret'), false, 'save path never writes plaintext webhook_secret');
+assert.equal(parsePmsSelectColumns(saveCall.select).includes('webhook_secret'), false, 'save path select does not request legacy webhook_secret');
 assert.equal(saveRecord.metadata.webhook_secret, undefined, 'save path strips webhook_secret from metadata before storage');
 assert.equal(saveRecord.metadata.credentials_encrypted, undefined, 'save path strips secret-bearing metadata before storage');
 assert.equal(savedConnection.webhook_secret_configured, true, 'save response reports safe webhook flag');
@@ -548,9 +554,11 @@ const updatedConnection = await updateHotelPmsConnection({
     }
   }
 });
-const updateRecord = updateSupabase.calls.find((call) => call.action === 'update').record;
+const updateCall = updateSupabase.calls.find((call) => call.action === 'update');
+const updateRecord = updateCall.record;
 assert.match(updateRecord.encrypted_webhook_secret, /^v1:/, 'update path persists encrypted webhook secret');
 assert.equal(Object.prototype.hasOwnProperty.call(updateRecord, 'webhook_secret'), false, 'update path never writes plaintext webhook_secret');
+assert.equal(parsePmsSelectColumns(updateCall.select).includes('webhook_secret'), false, 'update path select does not request legacy webhook_secret');
 assert.equal(updatedConnection.webhook_secret_configured, true, 'update response reports safe webhook flag');
 assertNoSerializedLeak(updatedConnection, [
   'synthetic-update-webhook-secret',
@@ -668,185 +676,6 @@ assertNoSerializedLeak(sheetsData.pmsConnections, forbiddenSecrets, 'Sheets load
 const sheetsRows = buildPlatformSheetsRows(sheetsData);
 assertNoSerializedLeak(sheetsRows, forbiddenSecrets, 'Sheets rows');
 
-assert.equal(parseBackfillOptions({ args: [], env: {} }).dryRun, true, 'backfill defaults to dry-run');
-assert.equal(
-  parseBackfillOptions({
-    args: [],
-    env: { BACKFILL_ENCRYPTED_WEBHOOK_SECRETS: 'true' }
-  }).dryRun,
-  true,
-  'backfill env alone remains dry-run'
-);
-assert.throws(
-  () => parseBackfillOptions({ args: ['--mutate'], env: {} }),
-  /Mutating mode requires BACKFILL_ENCRYPTED_WEBHOOK_SECRETS=true and --mutate/,
-  'backfill mutate flag without env is rejected'
-);
-assert.equal(
-  parseBackfillOptions({
-    args: ['--mutate'],
-    env: { BACKFILL_ENCRYPTED_WEBHOOK_SECRETS: 'true' }
-  }).dryRun,
-  false,
-  'backfill mutation requires env plus flag'
-);
-
-const createBackfillSupabaseMock = ({
-  rows,
-  updateFailures = new Set(),
-  selectError = null
-}) => {
-  const updates = [];
-
-  return {
-    updates,
-    from(table) {
-      assert.equal(table, 'hotel_pms_connections', 'backfill only touches PMS connections table');
-      const state = {
-        filters: []
-      };
-      const query = {
-        select(columns) {
-          state.select = columns;
-          return query;
-        },
-        order(column, options) {
-          state.order = { column, options };
-          return query;
-        },
-        async limit(limit) {
-          state.limit = limit;
-          return {
-            data: selectError ? null : rows,
-            error: selectError
-          };
-        },
-        update(record) {
-          state.update = record;
-          return query;
-        },
-        eq(key, value) {
-          state.filters.push({ key, value });
-          return query;
-        },
-        is(key, value) {
-          state.filters.push({ key, value });
-          return query;
-        },
-        async maybeSingle() {
-          const id = state.filters.find((filter) => filter.key === 'id')?.value;
-          const row = rows.find((item) => item.id === id);
-
-          if (updateFailures.has(id)) {
-            return { data: null, error: { message: 'safe update failure' } };
-          }
-
-          if (!row || row.encrypted_webhook_secret) {
-            return { data: null, error: null };
-          }
-
-          row.encrypted_webhook_secret = state.update.encrypted_webhook_secret;
-          updates.push({ id, record: state.update });
-
-          return { data: { id }, error: null };
-        }
-      };
-
-      return query;
-    }
-  };
-};
-
-const backfillRows = [
-  { id: 'conn-a', webhook_secret: 'alpha-plain-secret', encrypted_webhook_secret: null },
-  { id: 'conn-b', webhook_secret: 'bravo-plain-secret', encrypted_webhook_secret: 'v1:existing-bravo' },
-  { id: 'conn-c', webhook_secret: null, encrypted_webhook_secret: 'v1:existing-charlie' },
-  { id: 'conn-d', webhook_secret: 'delta-plain-secret', encrypted_webhook_secret: null },
-  { id: 'conn-e', webhook_secret: 'echo-plain-secret', encrypted_webhook_secret: null }
-];
-const backfillDryRun = await runBackfillEncryptedWebhookSecrets({
-  supabase: createBackfillSupabaseMock({ rows: backfillRows.map((row) => ({ ...row })) }),
-  encrypt: () => {
-    throw new Error('dry-run must not encrypt');
-  },
-  options: parseBackfillOptions({ args: ['--show-ids'], env: {} })
-});
-assert.deepEqual(backfillDryRun.candidateIds, ['conn-a', 'conn-d', 'conn-e'], 'dry-run reports only plaintext-only candidate IDs');
-assert.equal(backfillDryRun.updated, 0, 'dry-run does not update rows');
-assert.equal(backfillDryRun.skippedAlreadyEncrypted, 1, 'plaintext plus encrypted row is skipped');
-assert.equal(backfillDryRun.skippedMissingPlaintext, 1, 'encrypted-only row is skipped as missing plaintext');
-assertNoSerializedLeak(backfillDryRun, ['alpha-plain-secret', 'bravo-plain-secret', 'delta-plain-secret', 'echo-plain-secret'], 'backfill dry-run summary');
-
-let encryptedSequence = 0;
-const encryptedBySecret = new Map();
-const encryptCounts = new Map();
-const deterministicEncrypt = (secret) => {
-  encryptCounts.set(secret, (encryptCounts.get(secret) || 0) + 1);
-
-  if (secret === 'delta-plain-secret') {
-    throw new Error('synthetic encryption failure');
-  }
-
-  if (!encryptedBySecret.has(secret)) {
-    encryptedSequence += 1;
-    encryptedBySecret.set(secret, `v1:test-cipher-${encryptedSequence}`);
-  }
-
-  return encryptedBySecret.get(secret);
-};
-
-const mutatingSupabase = createBackfillSupabaseMock({
-  rows: backfillRows,
-  updateFailures: new Set(['conn-e'])
-});
-const firstMutation = await runBackfillEncryptedWebhookSecrets({
-  supabase: mutatingSupabase,
-  encrypt: deterministicEncrypt,
-  options: parseBackfillOptions({
-    args: ['--mutate'],
-    env: { BACKFILL_ENCRYPTED_WEBHOOK_SECRETS: 'true' }
-  })
-});
-assert.equal(firstMutation.candidates, 3, 'mutating backfill finds plaintext-only candidates');
-assert.equal(firstMutation.updated, 1, 'mutating backfill updates successful candidate');
-assert.equal(firstMutation.failed, 2, 'mutating backfill counts encryption and update failures safely');
-assert.equal(firstMutation.skippedAlreadyEncrypted, 1, 'mutating backfill skips row that already has encrypted value');
-assert.equal(firstMutation.skippedMissingPlaintext, 1, 'mutating backfill skips encrypted-only row');
-assert.equal(backfillRows.find((row) => row.id === 'conn-a').encrypted_webhook_secret, 'v1:test-cipher-1', 'successful candidate is marked encrypted');
-assert.equal(backfillRows.find((row) => row.id === 'conn-e').encrypted_webhook_secret, null, 'update failure remains rerunnable');
-assertNoSerializedLeak(firstMutation, ['alpha-plain-secret', 'delta-plain-secret', 'echo-plain-secret'], 'first backfill mutation summary');
-
-const retrySupabase = createBackfillSupabaseMock({ rows: backfillRows });
-const secondMutation = await runBackfillEncryptedWebhookSecrets({
-  supabase: retrySupabase,
-  encrypt: deterministicEncrypt,
-  options: parseBackfillOptions({
-    args: ['--mutate'],
-    env: { BACKFILL_ENCRYPTED_WEBHOOK_SECRETS: 'true' }
-  })
-});
-assert.equal(secondMutation.candidates, 2, 'retry only sees rows that still need encrypted values');
-assert.equal(secondMutation.updated, 1, 'retry can update the previous update failure');
-assert.equal(secondMutation.failed, 1, 'retry still reports encryption failure safely');
-assert.equal(encryptCounts.get('alpha-plain-secret'), 1, 'second run does not re-encrypt row already migrated');
-assert.equal(backfillRows.find((row) => row.id === 'conn-e').encrypted_webhook_secret, 'v1:test-cipher-2', 'rerun can complete previous update failure');
-assertNoSerializedLeak(secondMutation, ['delta-plain-secret', 'echo-plain-secret'], 'second backfill mutation summary');
-
-let selectFailure;
-try {
-  await runBackfillEncryptedWebhookSecrets({
-    supabase: createBackfillSupabaseMock({
-      rows: [],
-      selectError: { message: 'alpha-plain-secret should never be exposed' }
-    }),
-    options: parseBackfillOptions({ args: [], env: {} })
-  });
-} catch (error) {
-  selectFailure = error;
-}
-assert.ok(selectFailure, 'backfill select failure is reported');
-assert.equal(selectFailure.message.includes('alpha-plain-secret'), false, 'backfill select errors are sanitized');
-
 const platformSource = readSource('dashboard/lib/platform.js');
 const platformRawStart = platformSource.indexOf('raw: {');
 const platformRawEnd = platformSource.indexOf('\n  };\n};', platformRawStart);
@@ -885,7 +714,8 @@ const backendPmsSource = readSource('src/services/pms-connections.service.js');
 assert.ok(backendPmsSource.includes("PMS_TENANT_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings')"), 'backend PMS service uses internal production-safe secret-state select');
 assert.ok(backendPmsSource.includes('encrypted_webhook_secret: encryptSecret(webhookSecret)'), 'backend save writes encrypted webhook secret');
 assert.ok(backendPmsSource.includes('updateRecord.encrypted_webhook_secret = encryptSecret(webhookSecret)'), 'backend update writes encrypted webhook secret');
-assert.ok(backendPmsSource.includes('Stage A legacy fallback only'), 'legacy fallback is clearly marked');
+assert.equal(backendPmsSource.includes('Stage A legacy fallback only'), false, 'Stage B removes legacy fallback comment');
+assert.equal(/return\s+connection\.webhook_secret/.test(backendPmsSource), false, 'Stage B removes plaintext webhook_secret fallback');
 const updateAllowListStart = backendPmsSource.indexOf("  [\n    'client_id'");
 const updateAllowListEnd = backendPmsSource.indexOf('].forEach', updateAllowListStart);
 assert.equal(
@@ -972,19 +802,87 @@ assert.ok(rollbackSource.includes('Do not run this DB rollback first while Stage
 assert.equal(/disable\s+row\s+level\s+security/i.test(rollbackSource), false, 'rollback must never disable RLS');
 assert.equal(/delete\s+from\s+public\.hotel_pms_connections/i.test(rollbackSource), false, 'rollback must not delete PMS rows');
 
-const backfillSource = readSource('scripts/backfill-encrypted-webhook-secrets.js');
-assert.ok(backfillSource.includes('export const main'), 'backfill exports main for CLI execution');
-assert.ok(backfillSource.includes('isDirectCliRun'), 'backfill has a direct CLI guard');
-assert.ok(backfillSource.includes(".select('id, webhook_secret, encrypted_webhook_secret')"), 'backfill selects only id and webhook secret columns');
-assert.ok(backfillSource.includes("BACKFILL_ENCRYPTED_WEBHOOK_SECRETS === 'true'"), 'backfill requires env opt-in for mutation');
-assert.ok(backfillSource.includes("args.includes(flag)"), 'backfill parses mutate flag from CLI args');
-assert.ok(backfillSource.includes("mode: options.dryRun ? 'dry_run' : 'mutating'"), 'backfill is dry-run by default');
-assert.ok(backfillSource.includes('skippedAlreadyEncrypted'), 'backfill reports already encrypted skips');
-assert.ok(backfillSource.includes('!row.encrypted_webhook_secret'), 'backfill only candidates missing encrypted value');
-assert.ok(backfillSource.includes(".is('encrypted_webhook_secret', null)"), 'backfill avoids overwriting concurrently encrypted rows');
-assert.equal(/console\.log\([^)]*row/i.test(backfillSource), false, 'backfill must not log row objects');
-assert.equal(/JSON\.stringify\(rows/i.test(backfillSource), false, 'backfill must not print rows');
-assert.equal(/JSON\.stringify\(result/i.test(backfillSource), false, 'backfill must not print select results');
+const stageBDocsSource = readSource('docs/badar-p0-2a-pms-secrets-stage-b.md');
+assert.ok(stageBDocsSource.includes('Stage B is CODE FIRST'), 'Stage B docs explicitly require code-first rollout');
+assert.ok(
+  stageBDocsSource.indexOf('Deploy Stage B application code')
+    < stageBDocsSource.indexOf('Run `supabase/sql/preflight_p0_2a_pms_secrets_stage_b.sql`'),
+  'Stage B docs order code deploy before DB preflight'
+);
+assert.ok(stageBDocsSource.includes('Do not use a migration-first rollout for Stage B'), 'Stage B docs prohibit migration-first rollout');
+assert.ok(stageBDocsSource.includes('Rollback re-adds `webhook_secret text null` only'), 'Stage B docs document rollback data limits');
+assert.ok(stageBDocsSource.includes('PMS webhook event tenant hardening is not part of Stage B'), 'Stage B docs keep event hardening out of scope');
+assert.ok(stageBDocsSource.includes('Backfill dry-run inspected 4 rows'), 'Stage B docs keep production dry-run inspected count');
+assert.ok(stageBDocsSource.includes('plaintext-only candidates = 0'), 'Stage B docs keep production zero-candidate basis');
+assert.ok(stageBDocsSource.includes('mutations = 0'), 'Stage B docs keep production zero-mutation basis');
+assert.ok(stageBDocsSource.includes('RETIRED AFTER CLEAN PRODUCTION DRY-RUN'), 'Stage B docs mark Stage A backfill utility retired');
+
+const stageBPreflightSource = readSource('supabase/sql/preflight_p0_2a_pms_secrets_stage_b.sql');
+for (const requiredMetric of [
+  'table_exists',
+  'encrypted_webhook_secret_column_exists',
+  'encrypted_webhook_secret_column_type',
+  'webhook_secret_column_exists',
+  'total_connections',
+  'webhook_secret_non_null_count',
+  'plaintext_webhook_secret_count',
+  'encrypted_webhook_secret_non_null_count',
+  'rls_enabled',
+  'browser_grant_count',
+  'dangerous_browser_policy_count',
+  'service_role_expected_privilege_count',
+  'schema_compatible',
+  'ready_for_stage_b',
+  'readiness',
+  'blockers'
+]) {
+  assert.ok(stageBPreflightSource.includes(requiredMetric), `Stage B preflight includes ${requiredMetric}`);
+}
+assert.equal(/select\s+webhook_secret\b/i.test(stageBPreflightSource), false, 'Stage B preflight must not select webhook_secret values');
+assert.equal(/select\s+encrypted_webhook_secret\b/i.test(stageBPreflightSource), false, 'Stage B preflight must not select encrypted_webhook_secret values');
+assert.equal(/insert\s+into\s+public\./i.test(stageBPreflightSource), false, 'Stage B preflight must not insert production rows');
+assert.equal(/update\s+public\./i.test(stageBPreflightSource), false, 'Stage B preflight must not update production rows');
+assert.equal(/delete\s+from\s+public\./i.test(stageBPreflightSource), false, 'Stage B preflight must not delete production rows');
+assert.equal(/alter\s+table\s+public\./i.test(stageBPreflightSource), false, 'Stage B preflight must not alter production tables');
+assert.equal(/drop\s+column/i.test(stageBPreflightSource), false, 'Stage B preflight must not drop columns');
+
+const stageBMigrationSource = readSource('supabase/sql/p0_2a_pms_secrets_stage_b.sql');
+const stageBDropColumns = [...stageBMigrationSource.matchAll(/drop\s+column\s+(?:if\s+exists\s+)?([a-z_]+)/gi)].map((match) => match[1]);
+assert.deepEqual(stageBDropColumns, ['webhook_secret'], 'Stage B migration drops only webhook_secret');
+assert.ok(/where\s+webhook_secret\s+is\s+not\s+null/i.test(stageBMigrationSource), 'Stage B migration guards legacy plaintext count before drop');
+assert.ok(/raise\s+exception[\s\S]*legacy plaintext webhook_secret values remain/i.test(stageBMigrationSource), 'Stage B migration aborts if legacy plaintext remains');
+assert.ok(stageBMigrationSource.includes('encrypted_webhook_secret'), 'Stage B migration verifies encrypted_webhook_secret before dropping legacy column');
+assert.equal(/update\s+public\./i.test(stageBMigrationSource), false, 'Stage B migration must not update PMS rows');
+assert.equal(/insert\s+into\s+public\./i.test(stageBMigrationSource), false, 'Stage B migration must not insert PMS rows');
+assert.equal(/delete\s+from\s+public\./i.test(stageBMigrationSource), false, 'Stage B migration must not delete PMS rows');
+assert.equal(/disable\s+row\s+level\s+security/i.test(stageBMigrationSource), false, 'Stage B migration must never disable RLS');
+assert.equal(/pms_webhook_events/i.test(stageBMigrationSource), false, 'Stage B migration must not touch PMS webhook events');
+assert.equal(/alter\s+column\s+hotel_id\s+set\s+not\s+null/i.test(stageBMigrationSource), false, 'Stage B migration must not harden event hotel_id');
+assert.equal(/drop\s+column\s+(?:if\s+exists\s+)?encrypted_webhook_secret/i.test(stageBMigrationSource), false, 'Stage B migration must not drop encrypted_webhook_secret');
+
+const stageBRollbackSource = readSource('supabase/sql/rollback_p0_2a_pms_secrets_stage_b.sql');
+assert.ok(/add\s+column\s+if\s+not\s+exists\s+webhook_secret\s+text\s+null/i.test(stageBRollbackSource), 'Stage B rollback re-adds nullable webhook_secret');
+assert.ok(stageBRollbackSource.includes('badar.stage_b_db_rollback_confirmed'), 'Stage B rollback requires explicit DB rollback confirmation');
+assert.ok(stageBRollbackSource.includes('cannot reconstruct historical plaintext values'), 'Stage B rollback documents unrecoverable plaintext values');
+assert.equal(/pms_webhook_events/i.test(stageBRollbackSource), false, 'Stage B rollback must not touch PMS webhook events');
+assert.equal(/disable\s+row\s+level\s+security/i.test(stageBRollbackSource), false, 'Stage B rollback must never disable RLS');
+assert.equal(/update\s+public\./i.test(stageBRollbackSource), false, 'Stage B rollback must not update PMS rows');
+assert.equal(/delete\s+from\s+public\./i.test(stageBRollbackSource), false, 'Stage B rollback must not delete PMS rows');
+assert.equal(/drop\s+column/i.test(stageBRollbackSource), false, 'Stage B rollback must not drop columns');
+
+const backfillPath = join(root, 'scripts/backfill-encrypted-webhook-secrets.js');
+assert.equal(existsSync(backfillPath), false, 'Stage A backfill executable is retired before Stage B cutover');
+
+const packageJsonSource = readSource('package.json');
+assert.equal(packageJsonSource.includes('scripts/backfill-encrypted-webhook-secrets.js'), false, 'package commands must not invoke retired backfill executable');
+assert.equal(packageJsonSource.includes('backfill-encrypted-webhook-secrets'), false, 'package commands must not reference retired backfill utility');
+assert.equal(packageJsonSource.includes('BACKFILL_ENCRYPTED_WEBHOOK_SECRETS'), false, 'package commands must not expose retired backfill mutation opt-in');
+
+const stageADocsSource = readSource('docs/badar-p0-2a-pms-secrets-isolation-stage-a.md');
+assert.ok(stageADocsSource.includes('RETIRED AFTER CLEAN PRODUCTION DRY-RUN'), 'Stage A docs mark backfill tool retired after clean production dry-run');
+assert.ok(stageADocsSource.includes('candidates = 0'), 'Stage A docs keep historical backfill candidate count');
+assert.ok(stageADocsSource.includes('mutations = 0'), 'Stage A docs keep historical zero-mutation result');
+assert.equal(/Run controlled mutating backfill/i.test(stageADocsSource), false, 'Stage A docs no longer instruct running mutating backfill');
 
 const apaleoWebhookSource = readSource('src/integrations/apaleo/apaleo-webhooks.service.js');
 assert.ok(apaleoWebhookSource.includes('hotel_id: connection?.hotel_id || null'), 'new webhook events assign hotel_id when connection is resolved');

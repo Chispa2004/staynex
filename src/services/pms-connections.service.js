@@ -32,8 +32,7 @@ export const resolvePmsWebhookSecret = (connection) => {
     return decryptSecret(connection.encrypted_webhook_secret);
   }
 
-  // Stage A legacy fallback only. Remove this plaintext path in Stage B.
-  return connection.webhook_secret || null;
+  return null;
 };
 
 export class PmsHotelContextRequiredError extends Error {

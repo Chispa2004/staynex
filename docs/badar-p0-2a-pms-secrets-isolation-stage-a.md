@@ -113,21 +113,25 @@ Recommended rollout:
 4. Verify schema, RLS, and grants.
 5. Deploy application code.
 6. Smoke test PMS API, dashboard, platform, health, audit, and Sheets surfaces.
-7. Run the backfill script in dry-run mode.
-8. Run controlled mutating backfill only after dry-run review.
-9. Verify encrypted-copy counts and secret-safe outputs.
-10. Keep Stage B pending until its own review.
+7. Production dry-run inspected 4 rows.
+8. Production dry-run found candidates = 0, plaintext + encrypted = 0,
+   empty/no secret = 4, failures = 0, and mutations = 0.
+9. Mutating backfill was not required and was not executed.
+10. The Stage A backfill utility was retired before Stage B cutover work.
 
 Do not use a code-first rollout for P0-2A. If preflight shows dangerous browser policies, pause for manual review before production migration. Direct browser grants are visible in preflight and are revoked by the migration, but unexpected grant drift should still be reviewed before proceeding.
 
 ## Backfill
 
-`scripts/backfill-encrypted-webhook-secrets.js` is prepared for a later one-off run. It selects only `id`, `webhook_secret`, and `encrypted_webhook_secret`. Dry-run is default. Mutating mode requires both:
+RETIRED AFTER CLEAN PRODUCTION DRY-RUN.
 
-- `BACKFILL_ENCRYPTED_WEBHOOK_SECRETS=true`
-- `--mutate`
+The Stage A backfill tool existed only as a one-off transition utility. The
+production dry-run inspected 4 rows, found candidates = 0, plaintext + encrypted
+= 0, empty/no secret = 4, failures = 0, and mutations = 0.
 
-It never logs secret values or row objects. It skips rows that already have `encrypted_webhook_secret`.
+Mutating backfill was never executed. No secret values were documented. The
+utility was deleted before Stage B cutover so no executable reader remains for
+the legacy plaintext `webhook_secret` column.
 
 ## Rollback
 
@@ -141,14 +145,14 @@ Do not run the DB rollback first while new code is deployed: removing `encrypted
 
 The rollback is conservative: it never disables RLS and never restores browser grants automatically because production drift must be reviewed before reopening direct access.
 
-## Stage B Pending
+## Stage B Handoff
 
-Stage B still must:
+Stage B takes over the remaining secrets cutover:
 
-- remove plaintext `webhook_secret`;
+- remove plaintext `webhook_secret` after code-first deployment and DB guards;
 - remove the legacy plaintext fallback;
-- decide whether `pms_webhook_events.hotel_id` can become `NOT NULL`;
-- run any approved backfill and rotation plan;
-- complete secret rotation if exposure is confirmed or required by policy.
+- keep `pms_webhook_events.hotel_id` hardening for P0-2B;
+- skip mutating backfill because production dry-run found no candidates;
+- complete secret rotation only if exposure is confirmed or required by policy.
 
-Stage A does not claim plaintext has been removed.
+Stage A alone does not claim plaintext has been removed.
