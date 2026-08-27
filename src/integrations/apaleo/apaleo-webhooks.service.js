@@ -1,8 +1,16 @@
-import { createHash } from 'node:crypto';
 import { scheduleReservationAutomations } from '../../services/automation.service.js';
 import { reconcileReservationAutomationLifecycle } from '../../services/automation-reconciliation.service.js';
 import { connectionToApaleoConfig } from '../../services/pms-connections.service.js';
-import { createOrUpdateReservation } from '../../services/reservation.service.js';
+import {
+  PmsReservationTenantCollisionError,
+  assertTenantScopedPmsReservationIdentity,
+  createOrUpdateReservation
+} from '../../services/reservation.service.js';
+import {
+  hashSafeWebhookValue,
+  sanitizeWebhookErrorCode,
+  writePmsWebhookQuarantine
+} from '../../services/pms-webhook-quarantine.service.js';
 import { getSupabase } from '../../services/supabase.service.js';
 import { logger } from '../../utils/logger.js';
 import { getReservationById } from './apaleo-reservations.service.js';
@@ -51,15 +59,29 @@ const getNested = (object, paths) => {
   return null;
 };
 
-const stableHash = (value) => createHash('sha256')
-  .update(JSON.stringify(value))
-  .digest('hex');
-
 const isUniqueViolation = (error) => (
   error?.code === '23505'
   || String(error?.message || '').toLowerCase().includes('duplicate key')
   || String(error?.details || '').toLowerCase().includes('already exists')
 );
+
+export class PmsWebhookRuntimeBlockedError extends Error {
+  constructor(reasonCode, message = reasonCode, details = {}) {
+    super(message);
+    this.name = 'PmsWebhookRuntimeBlockedError';
+    this.reasonCode = reasonCode;
+    this.safeFlags = details.safeFlags || {};
+    this.candidateConnectionId = details.candidateConnectionId || null;
+  }
+}
+
+const safeRuntimeErrorMessage = (error) => sanitizeWebhookErrorCode(error);
+
+const assertRuntimeCondition = (condition, reasonCode, message, details = {}) => {
+  if (!condition) {
+    throw new PmsWebhookRuntimeBlockedError(reasonCode, message, details);
+  }
+};
 
 const normalizeAction = (eventType, explicitAction) => {
   const candidates = [
@@ -114,14 +136,7 @@ export const parseApaleoWebhookEvent = (payload = {}, headers = {}) => {
     payload.eventId,
     payload.event_id,
     payload.event?.id
-  ) || stableHash({
-    provider: 'apaleo',
-    eventType,
-    eventAction,
-    externalResourceId,
-    createdAt: payload.createdAt || payload.created_at || payload.timestamp || null,
-    payload
-  });
+  );
   const accountCode = firstText(
     readHeader(headers, 'x-apaleo-account-code'),
     payload.accountCode,
@@ -165,13 +180,13 @@ const safeUpdateConnection = async (connectionId, updates, { supabase = getSupab
     if (error) {
       logger.warn('Apaleo webhook connection status update failed', {
         connectionId,
-        error: error.message
+        error: safeRuntimeErrorMessage(error)
       });
     }
   } catch (error) {
     logger.warn('Apaleo webhook connection status update failed', {
       connectionId,
-      error: error.message
+      error: safeRuntimeErrorMessage(error)
     });
   }
 };
@@ -192,7 +207,7 @@ const updateWebhookEvent = async (eventId, updates, { supabase = getSupabase() }
     if (error) {
       logger.warn('PMS webhook event update failed', {
         eventId,
-        error: error.message
+        error: safeRuntimeErrorMessage(error)
       });
       return null;
     }
@@ -201,31 +216,64 @@ const updateWebhookEvent = async (eventId, updates, { supabase = getSupabase() }
   } catch (error) {
     logger.warn('PMS webhook event update failed', {
       eventId,
-      error: error.message
+      error: safeRuntimeErrorMessage(error)
     });
     return null;
   }
 };
 
-const findExistingWebhookEvent = async (parsed, { supabase = getSupabase() } = {}) => {
+const findExistingWebhookEvent = async (parsed, {
+  connectionId,
+  supabase = getSupabase()
+} = {}) => {
+  if (!parsed?.provider || !parsed?.externalEventId || !connectionId) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('pms_webhook_events')
+      .select('*')
+      .eq('provider', parsed.provider)
+      .eq('connection_id', connectionId)
+      .eq('external_event_id', parsed.externalEventId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn('PMS webhook duplicate lookup failed', { error: safeRuntimeErrorMessage(error) });
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    logger.warn('PMS webhook duplicate lookup failed', { error: safeRuntimeErrorMessage(error) });
+    return null;
+  }
+};
+
+const findLegacyGlobalWebhookEvents = async (parsed, { supabase = getSupabase() } = {}) => {
+  if (!parsed?.provider || !parsed?.externalEventId) {
+    return [];
+  }
+
   try {
     const { data, error } = await supabase
       .from('pms_webhook_events')
       .select('*')
       .eq('provider', parsed.provider)
       .eq('external_event_id', parsed.externalEventId)
-      .limit(1)
-      .maybeSingle();
+      .limit(2);
 
     if (error) {
-      logger.warn('PMS webhook duplicate lookup failed', { error: error.message });
-      return null;
+      logger.warn('PMS webhook legacy identity lookup failed', { error: safeRuntimeErrorMessage(error) });
+      return [];
     }
 
-    return data;
+    return data || [];
   } catch (error) {
-    logger.warn('PMS webhook duplicate lookup failed', { error: error.message });
-    return null;
+    logger.warn('PMS webhook legacy identity lookup failed', { error: safeRuntimeErrorMessage(error) });
+    return [];
   }
 };
 
@@ -245,7 +293,7 @@ const findWebhookEventById = async (eventId, { supabase = getSupabase() } = {}) 
     if (error) {
       logger.warn('PMS webhook claim reread failed', {
         eventId,
-        error: error.message
+        error: safeRuntimeErrorMessage(error)
       });
       return null;
     }
@@ -254,7 +302,7 @@ const findWebhookEventById = async (eventId, { supabase = getSupabase() } = {}) 
   } catch (error) {
     logger.warn('PMS webhook claim reread failed', {
       eventId,
-      error: error.message
+      error: safeRuntimeErrorMessage(error)
     });
     return null;
   }
@@ -304,8 +352,211 @@ const buildSafeWebhookEventPayload = (parsed) => ({
   connection_id_present: Boolean(parsed.connectionId)
 });
 
-export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = {}, { supabase = getSupabase() } = {}) => {
-  const parsed = parseApaleoWebhookEvent(payload, headers);
+const buildQuarantineHashes = (parsed) => ({
+  requestHash: hashSafeWebhookValue({
+    provider: parsed.provider,
+    event_type: parsed.eventType || null,
+    event_action: parsed.eventAction || null,
+    external_event_id_present: Boolean(parsed.externalEventId),
+    external_resource_id_present: Boolean(parsed.externalResourceId),
+    account_code_present: Boolean(parsed.accountCode),
+    connection_id_present: Boolean(parsed.connectionId)
+  }),
+  eventHash: parsed.externalEventId
+    ? hashSafeWebhookValue({
+      provider: parsed.provider,
+      external_event_id: parsed.externalEventId
+    })
+    : null
+});
+
+const quarantineWebhookRuntimeBlock = async ({
+  parsed,
+  reasonCode,
+  candidateConnectionId = null,
+  safeFlags = {},
+  supabase
+}) => {
+  const hashes = buildQuarantineHashes(parsed);
+  const quarantineResult = await writePmsWebhookQuarantine({
+    provider: parsed.provider || 'unknown',
+    reasonCode,
+    requestHash: hashes.requestHash,
+    eventHash: hashes.eventHash,
+    candidateConnectionId,
+    safeFlags: {
+      provider: parsed.provider || 'unknown',
+      event_type: parsed.eventType || null,
+      event_action: parsed.eventAction || null,
+      external_event_id_present: Boolean(parsed.externalEventId),
+      external_resource_id_present: Boolean(parsed.externalResourceId),
+      reservation_identity_present: Boolean(parsed.externalResourceId),
+      account_code_present: Boolean(parsed.accountCode),
+      connection_id_present: Boolean(parsed.connectionId),
+      ...safeFlags
+    },
+    supabase
+  });
+
+  return {
+    ok: quarantineResult.ok,
+    status: quarantineResult.ok ? 'quarantined' : 'quarantine_failed',
+    reason: reasonCode,
+    quarantine: quarantineResult.quarantine || null,
+    error: quarantineResult.ok ? null : quarantineResult.errorCode
+  };
+};
+
+const validateApaleoWebhookRequest = async ({
+  payload,
+  headers,
+  parsed,
+  options
+}) => {
+  if (options.validationResult) {
+    return options.validationResult;
+  }
+
+  if (typeof options.validateWebhookRequest !== 'function') {
+    return {
+      ok: false,
+      reasonCode: 'VALIDATION_NOT_CONFIGURED',
+      safeFlags: {
+        validation_configured: false,
+        validation_result: 'not_configured'
+      }
+    };
+  }
+
+  const validation = await options.validateWebhookRequest({
+    payload,
+    headers,
+    parsed
+  });
+
+  if (validation?.ok === true) {
+    return {
+      ok: true,
+      safeFlags: {
+        validation_configured: true,
+        validation_result: 'valid'
+      }
+    };
+  }
+
+  return {
+    ok: false,
+    reasonCode: validation?.reasonCode === 'MISSING_SIGNATURE'
+      ? 'MISSING_SIGNATURE'
+      : 'INVALID_SIGNATURE',
+    safeFlags: {
+      validation_configured: true,
+      validation_result: validation?.reasonCode === 'MISSING_SIGNATURE' ? 'missing' : 'invalid'
+    }
+  };
+};
+
+const normalizeValidatedConnectionContext = (context = {}) => {
+  if (!context) {
+    return null;
+  }
+
+  const connection = context.connection || context;
+
+  if (!connection?.id || !connection?.hotel_id) {
+    return null;
+  }
+
+  return {
+    provider: context.provider || connection.provider || 'apaleo',
+    connectionId: context.connectionId || connection.id,
+    hotelId: context.hotelId || connection.hotel_id,
+    connection
+  };
+};
+
+const classifyConnectionRows = ({ rows, parsed }) => {
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      reasonCode: 'UNKNOWN_CONNECTION',
+      candidateConnectionId: parsed.connectionId || null,
+      safeFlags: {
+        connection_lookup: parsed.connectionId ? 'connection_id_not_found' : 'account_code_not_found'
+      }
+    };
+  }
+
+  if (rows.length > 1) {
+    return {
+      ok: false,
+      reasonCode: 'AMBIGUOUS_CONNECTION',
+      candidateConnectionId: null,
+      safeFlags: {
+        connection_lookup: 'ambiguous'
+      }
+    };
+  }
+
+  const connection = rows[0];
+
+  if (connection.enabled === false) {
+    return {
+      ok: false,
+      reasonCode: 'CONNECTION_DISABLED',
+      candidateConnectionId: connection.id || parsed.connectionId || null,
+      safeFlags: {
+        connection_lookup: 'disabled'
+      }
+    };
+  }
+
+  if (!connection.hotel_id) {
+    return {
+      ok: false,
+      reasonCode: 'TENANT_MISMATCH',
+      candidateConnectionId: connection.id || parsed.connectionId || null,
+      safeFlags: {
+        connection_lookup: 'missing_hotel_id',
+        hotel_id_present: false
+      }
+    };
+  }
+
+  return {
+    ok: true,
+    context: normalizeValidatedConnectionContext({
+      provider: 'apaleo',
+      connection,
+      connectionId: connection.id,
+      hotelId: connection.hotel_id
+    }),
+    safeFlags: {
+      connection_lookup: parsed.connectionId ? 'connection_id' : 'account_code',
+      hotel_id_present: true,
+      tenant_context_present: true
+    }
+  };
+};
+
+const resolveValidatedApaleoConnection = async (parsed, {
+  supabase = getSupabase(),
+  validatedConnectionContext = null
+} = {}) => {
+  const providedContext = normalizeValidatedConnectionContext(validatedConnectionContext);
+
+  if (providedContext) {
+    return {
+      ok: true,
+      context: providedContext,
+      safeFlags: {
+        connection_lookup: 'provided_validated_context',
+        hotel_id_present: true,
+        tenant_context_present: true
+      }
+    };
+  }
+
   let query = supabase
     .from('hotel_pms_connections')
     .select(PMS_WEBHOOK_CONNECTION_SELECT)
@@ -316,28 +567,118 @@ export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = 
   } else if (parsed.accountCode) {
     query = query.eq('account_code', parsed.accountCode);
   } else {
-    query = query.eq('enabled', true);
+    return {
+      ok: false,
+      reasonCode: 'UNKNOWN_CONNECTION',
+      candidateConnectionId: null,
+      safeFlags: {
+        connection_lookup: 'missing_connection_hint'
+      }
+    };
   }
 
   const { data, error } = await query
     .order('updated_at', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(2);
 
   if (error) {
     throw error;
   }
 
-  return data;
+  return classifyConnectionRows({
+    rows: data || [],
+    parsed
+  });
 };
 
-const createWebhookEvent = async ({ parsed, connection, supabase }) => {
-  const existing = await findExistingWebhookEvent(parsed, { supabase });
+export const resolveHotelConnectionFromWebhook = async (payload = {}, headers = {}, options = {}) => {
+  const parsed = parseApaleoWebhookEvent(payload, headers);
+
+  assertRuntimeCondition(
+    options.validationResult?.ok === true || options.validatedConnectionContext,
+    'VALIDATION_NOT_CONFIGURED',
+    'Apaleo webhook connection resolution requires prior validation',
+    {
+      candidateConnectionId: parsed.connectionId,
+      safeFlags: {
+        validation_configured: false,
+        validation_result: 'not_configured'
+      }
+    }
+  );
+
+  const resolved = await resolveValidatedApaleoConnection(parsed, {
+    supabase: options.supabase || getSupabase(),
+    validatedConnectionContext: options.validatedConnectionContext
+  });
+
+  if (!resolved.ok) {
+    throw new PmsWebhookRuntimeBlockedError(resolved.reasonCode, 'Apaleo webhook connection could not be resolved', {
+      candidateConnectionId: resolved.candidateConnectionId,
+      safeFlags: resolved.safeFlags || {}
+    });
+  }
+
+  return resolved.context || null;
+};
+
+const isSameTenantWebhookEvent = (event, context) => (
+  event?.provider === context.provider
+  && event?.connection_id === context.connectionId
+  && event?.hotel_id === context.hotelId
+);
+
+const getLegacyGlobalWebhookCollision = async ({ parsed, context, supabase }) => {
+  const globalMatches = await findLegacyGlobalWebhookEvents(parsed, { supabase });
+
+  return globalMatches.find((event) => !isSameTenantWebhookEvent(event, context)) || null;
+};
+
+const assertWebhookEventMatchesTenant = (event, context) => {
+  if (!event) {
+    return;
+  }
+
+  if (event.connection_id === context.connectionId && event.hotel_id !== context.hotelId) {
+    throw new PmsWebhookRuntimeBlockedError('TENANT_MISMATCH', 'PMS webhook event tenant mismatch', {
+      candidateConnectionId: context.connectionId,
+      safeFlags: {
+        connection_lookup: 'event_tenant_mismatch'
+      }
+    });
+  }
+
+  assertRuntimeCondition(
+    isSameTenantWebhookEvent(event, context),
+    'LEGACY_GLOBAL_EVENT_COLLISION',
+    'PMS webhook legacy global event collision',
+    {
+      candidateConnectionId: context.connectionId,
+      safeFlags: {
+        connection_lookup: 'legacy_global_event_collision'
+      }
+    }
+  );
+};
+
+const createWebhookEvent = async ({ parsed, context, supabase }) => {
+  assertRuntimeCondition(parsed.externalEventId, 'MISSING_EVENT_ID', 'Apaleo webhook did not include an event id', {
+    candidateConnectionId: context.connectionId
+  });
+  assertRuntimeCondition(context?.connectionId && context?.hotelId, 'TENANT_MISMATCH', 'PMS webhook missing tenant context');
+
+  const existing = await findExistingWebhookEvent(parsed, {
+    connectionId: context.connectionId,
+    supabase
+  });
 
   if (shouldIgnoreExistingEvent(existing)) {
+    assertWebhookEventMatchesTenant(existing, context);
     logger.info('Apaleo webhook duplicate ignored', {
       eventId: existing.id,
-      externalEventId: parsed.externalEventId
+      externalEventId: parsed.externalEventId,
+      connectionId: context.connectionId,
+      hotelId: context.hotelId
     });
     return {
       event: existing,
@@ -349,19 +690,41 @@ const createWebhookEvent = async ({ parsed, connection, supabase }) => {
   }
 
   if (existing) {
+    assertWebhookEventMatchesTenant(existing, context);
     return {
       event: existing,
       duplicate: false
     };
   }
 
+  const legacyCollision = await getLegacyGlobalWebhookCollision({
+    parsed,
+    context,
+    supabase
+  });
+
+  if (legacyCollision) {
+    throw new PmsWebhookRuntimeBlockedError(
+      legacyCollision.connection_id === context.connectionId
+        ? 'TENANT_MISMATCH'
+        : 'LEGACY_GLOBAL_EVENT_COLLISION',
+      'PMS webhook legacy global event collision',
+      {
+        candidateConnectionId: context.connectionId,
+        safeFlags: {
+          connection_lookup: 'legacy_global_event_collision'
+        }
+      }
+    );
+  }
+
   try {
     const { data, error } = await supabase
       .from('pms_webhook_events')
       .insert({
-        hotel_id: connection?.hotel_id || null,
+        hotel_id: context.hotelId,
         provider: parsed.provider,
-        connection_id: connection?.id || null,
+        connection_id: context.connectionId,
         external_event_id: parsed.externalEventId,
         external_resource_id: parsed.externalResourceId,
         event_type: parsed.eventType,
@@ -374,9 +737,13 @@ const createWebhookEvent = async ({ parsed, connection, supabase }) => {
 
     if (error) {
       if (isUniqueViolation(error)) {
-        const existingAfterConflict = await findExistingWebhookEvent(parsed, { supabase });
+        const existingAfterConflict = await findExistingWebhookEvent(parsed, {
+          connectionId: context.connectionId,
+          supabase
+        });
 
         if (shouldIgnoreExistingEvent(existingAfterConflict)) {
+          assertWebhookEventMatchesTenant(existingAfterConflict, context);
           return {
             event: existingAfterConflict,
             duplicate: true,
@@ -387,13 +754,44 @@ const createWebhookEvent = async ({ parsed, connection, supabase }) => {
         }
 
         if (existingAfterConflict) {
+          assertWebhookEventMatchesTenant(existingAfterConflict, context);
           return {
             event: existingAfterConflict,
             duplicate: false
           };
         }
 
-        throw new Error('PMS webhook unique conflict could not be resolved');
+        const conflictingLegacyEvent = await getLegacyGlobalWebhookCollision({
+          parsed,
+          context,
+          supabase
+        });
+
+        if (conflictingLegacyEvent) {
+          throw new PmsWebhookRuntimeBlockedError(
+            conflictingLegacyEvent.connection_id === context.connectionId
+              ? 'TENANT_MISMATCH'
+              : 'LEGACY_GLOBAL_EVENT_COLLISION',
+            'PMS webhook legacy global event collision',
+            {
+              candidateConnectionId: context.connectionId,
+              safeFlags: {
+                connection_lookup: 'legacy_global_event_collision'
+              }
+            }
+          );
+        }
+
+        throw new PmsWebhookRuntimeBlockedError(
+          'LEGACY_GLOBAL_EVENT_COLLISION',
+          'PMS webhook unique conflict could not be resolved safely',
+          {
+            candidateConnectionId: context.connectionId,
+            safeFlags: {
+              connection_lookup: 'unresolved_unique_conflict'
+            }
+          }
+        );
       }
 
       throw error;
@@ -405,7 +803,7 @@ const createWebhookEvent = async ({ parsed, connection, supabase }) => {
     };
   } catch (error) {
     logger.warn('PMS webhook event persistence failed', {
-      error: error.message
+      error: safeRuntimeErrorMessage(error)
     });
 
     throw error;
@@ -416,6 +814,7 @@ export const claimWebhookEventForProcessing = async ({
   event,
   parsed,
   connection = null,
+  validatedContext = null,
   supabase = getSupabase()
 } = {}) => {
   if (!event?.id) {
@@ -428,10 +827,19 @@ export const claimWebhookEventForProcessing = async ({
     };
   }
 
+  const context = normalizeValidatedConnectionContext(validatedContext || connection);
+
+  assertRuntimeCondition(
+    context?.connectionId && context?.hotelId,
+    'TENANT_MISMATCH',
+    'PMS webhook claim missing validated tenant context'
+  );
+  assertWebhookEventMatchesTenant(event, context);
+
   const previousStatus = getWebhookEventStatus(event);
   const claimUpdates = {
-    hotel_id: connection?.hotel_id || event.hotel_id || null,
-    connection_id: connection?.id || event.connection_id || null,
+    hotel_id: context.hotelId,
+    connection_id: context.connectionId,
     external_resource_id: parsed?.externalResourceId || event.external_resource_id || null,
     event_type: parsed?.eventType || event.event_type,
     event_action: parsed?.eventAction || event.event_action || null,
@@ -445,6 +853,9 @@ export const claimWebhookEventForProcessing = async ({
     .from('pms_webhook_events')
     .update(claimUpdates)
     .eq('id', event.id)
+    .eq('provider', context.provider)
+    .eq('connection_id', context.connectionId)
+    .eq('hotel_id', context.hotelId)
     .in('status', WEBHOOK_CLAIMABLE_STATUSES)
     .select('*')
     .maybeSingle();
@@ -455,7 +866,7 @@ export const claimWebhookEventForProcessing = async ({
       provider: parsed?.provider || event.provider || null,
       externalEventId: parsed?.externalEventId || event.external_event_id || null,
       previousStatus,
-      error: error.message
+      error: safeRuntimeErrorMessage(error)
     });
     throw error;
   }
@@ -466,6 +877,8 @@ export const claimWebhookEventForProcessing = async ({
       eventId: data.id,
       provider: data.provider || parsed?.provider || null,
       externalEventId: data.external_event_id || parsed?.externalEventId || null,
+      connectionId: context.connectionId,
+      hotelId: context.hotelId,
       previousStatus,
       status: data.status,
       claimResult
@@ -481,7 +894,10 @@ export const claimWebhookEventForProcessing = async ({
   }
 
   const current = parsed?.provider && parsed?.externalEventId
-    ? await findExistingWebhookEvent(parsed, { supabase })
+    ? await findExistingWebhookEvent(parsed, {
+      connectionId: context.connectionId,
+      supabase
+    })
     : await findWebhookEventById(event.id, { supabase });
   const currentEvent = current || event;
   const classification = classifyUnclaimedWebhookEvent(currentEvent);
@@ -490,6 +906,8 @@ export const claimWebhookEventForProcessing = async ({
     eventId: currentEvent?.id || event.id,
     provider: parsed?.provider || currentEvent?.provider || null,
     externalEventId: parsed?.externalEventId || currentEvent?.external_event_id || null,
+    connectionId: context.connectionId,
+    hotelId: context.hotelId,
     observedStatus: currentEvent?.status || null,
     claimResult: classification.reason
   });
@@ -521,7 +939,7 @@ const reconcileApaleoReservationStatusChange = async ({
       reservationId: currentReservation?.id || previousReservation?.id || null,
       hotelId: currentReservation?.hotel_id || previousReservation?.hotel_id || null,
       sourceEventId,
-      error: error.message
+      error: safeRuntimeErrorMessage(error)
     });
     throw error;
   }
@@ -538,15 +956,18 @@ export const markLocalReservationStatus = async ({
     return null;
   }
 
-  let lookup = supabase
+  assertRuntimeCondition(
+    hotelId,
+    'TENANT_MISMATCH',
+    'Apaleo webhook reservation status update missing hotel context'
+  );
+
+  const lookup = supabase
     .from('reservations')
     .select('*')
     .eq('pms_provider', 'apaleo')
-    .eq('pms_reservation_id', reservationId);
-
-  if (hotelId) {
-    lookup = lookup.eq('hotel_id', hotelId);
-  }
+    .eq('pms_reservation_id', reservationId)
+    .eq('hotel_id', hotelId);
 
   const { data: previousReservation, error: lookupError } = await lookup
     .limit(1)
@@ -556,20 +977,17 @@ export const markLocalReservationStatus = async ({
     throw lookupError;
   }
 
-  let query = supabase
+  const { data, error } = await supabase
     .from('reservations')
     .update({
       status,
       updated_at: new Date().toISOString()
     })
     .eq('pms_provider', 'apaleo')
-    .eq('pms_reservation_id', reservationId);
-
-  if (hotelId) {
-    query = query.eq('hotel_id', hotelId);
-  }
-
-  const { data, error } = await query.select('*').maybeSingle();
+    .eq('pms_reservation_id', reservationId)
+    .eq('hotel_id', hotelId)
+    .select('*')
+    .maybeSingle();
 
   if (error) {
     throw error;
@@ -589,6 +1007,7 @@ export const markLocalReservationStatus = async ({
 
 const syncFetchedReservation = async ({
   connection,
+  validatedContext = null,
   parsed,
   statusOverride = null,
   supabase,
@@ -598,7 +1017,15 @@ const syncFetchedReservation = async ({
     throw new Error('Apaleo webhook did not include a reservation id');
   }
 
-  const config = connection ? connectionToApaleoConfig(connection) : null;
+  const context = normalizeValidatedConnectionContext(validatedContext || connection);
+
+  assertRuntimeCondition(
+    context?.connectionId && context?.hotelId,
+    'TENANT_MISMATCH',
+    'Apaleo webhook reservation fetch missing validated tenant context'
+  );
+
+  const config = connectionToApaleoConfig(context.connection);
   const rawReservation = await fetchReservationById({
     credentials: config,
     reservationId: parsed.externalResourceId
@@ -614,7 +1041,7 @@ const syncFetchedReservation = async ({
       const updatedReservation = await markLocalReservationStatus({
         reservationId: parsed.externalResourceId,
         status: statusOverride,
-        hotelId: connection?.hotel_id || null,
+        hotelId: context.hotelId,
         sourceEventId: parsed.externalEventId,
         supabase
       });
@@ -640,10 +1067,12 @@ const syncFetchedReservation = async ({
 
   const { reservation } = await createOrUpdateReservation({
     ...normalized,
-    hotel_id: connection?.hotel_id || null
+    hotel_id: context.hotelId
   }, {
     source: 'apaleo_webhook',
     sourceEventId: parsed.externalEventId,
+    requireExplicitHotelId: true,
+    tenantScopedPmsIdentity: true,
     supabase
   });
 
@@ -653,6 +1082,7 @@ const syncFetchedReservation = async ({
 
   logger.info('Apaleo webhook reservation synced', {
     reservationId: reservation.id,
+    hotelId: reservation.hotel_id || context.hotelId,
     pmsReservationId: reservation.pms_reservation_id,
     status: reservation.status
   });
@@ -663,51 +1093,55 @@ const syncFetchedReservation = async ({
   };
 };
 
-export const handleReservationCreated = async ({ connection, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
+export const handleReservationCreated = async ({ connection, validatedContext, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
   connection,
+  validatedContext,
   parsed,
   supabase,
   fetchReservationById
 });
 
-export const handleReservationAmended = async ({ connection, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
+export const handleReservationAmended = async ({ connection, validatedContext, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
   connection,
+  validatedContext,
   parsed,
   supabase,
   fetchReservationById
 });
 
-export const handleReservationCanceled = async ({ connection, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
+export const handleReservationCanceled = async ({ connection, validatedContext, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
   connection,
+  validatedContext,
   parsed,
   supabase,
   fetchReservationById,
   statusOverride: 'cancelled'
 });
 
-export const handleReservationDeleted = async ({ connection, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
+export const handleReservationDeleted = async ({ connection, validatedContext, parsed, supabase, fetchReservationById }) => syncFetchedReservation({
   connection,
+  validatedContext,
   parsed,
   supabase,
   fetchReservationById,
   statusOverride: 'deleted'
 });
 
-const runActionHandler = async ({ connection, parsed, supabase, fetchReservationById }) => {
+const runActionHandler = async ({ connection, validatedContext, parsed, supabase, fetchReservationById }) => {
   if (parsed.eventAction === 'created') {
-    return handleReservationCreated({ connection, parsed, supabase, fetchReservationById });
+    return handleReservationCreated({ connection, validatedContext, parsed, supabase, fetchReservationById });
   }
 
   if (parsed.eventAction === 'amended') {
-    return handleReservationAmended({ connection, parsed, supabase, fetchReservationById });
+    return handleReservationAmended({ connection, validatedContext, parsed, supabase, fetchReservationById });
   }
 
   if (parsed.eventAction === 'canceled') {
-    return handleReservationCanceled({ connection, parsed, supabase, fetchReservationById });
+    return handleReservationCanceled({ connection, validatedContext, parsed, supabase, fetchReservationById });
   }
 
   if (parsed.eventAction === 'deleted') {
-    return handleReservationDeleted({ connection, parsed, supabase, fetchReservationById });
+    return handleReservationDeleted({ connection, validatedContext, parsed, supabase, fetchReservationById });
   }
 
   return {
@@ -729,20 +1163,78 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}, opti
   });
 
   let connection = null;
+  let validatedContext = null;
   let storedEvent = null;
   let hasProcessingClaim = false;
 
   try {
-    connection = await resolveHotelConnectionFromWebhook(payload, headers, { supabase });
-    logger.info('Apaleo webhook connection resolved', {
-      connectionId: connection?.id || null,
-      hotelId: connection?.hotel_id || null,
-      accountCode: connection?.account_code || parsed.accountCode || null
+    const validation = await validateApaleoWebhookRequest({
+      payload,
+      headers,
+      parsed,
+      options
     });
+
+    if (!validation.ok) {
+      return quarantineWebhookRuntimeBlock({
+        parsed,
+        reasonCode: validation.reasonCode || 'INVALID_SIGNATURE',
+        candidateConnectionId: parsed.connectionId,
+        safeFlags: validation.safeFlags || {},
+        supabase
+      });
+    }
+
+    const connectionResult = await resolveValidatedApaleoConnection(parsed, {
+      supabase,
+      validatedConnectionContext: options.validatedConnectionContext
+    });
+
+    if (!connectionResult.ok) {
+      return quarantineWebhookRuntimeBlock({
+        parsed,
+        reasonCode: connectionResult.reasonCode,
+        candidateConnectionId: connectionResult.candidateConnectionId,
+        safeFlags: {
+          ...(validation.safeFlags || {}),
+          ...(connectionResult.safeFlags || {})
+        },
+        supabase
+      });
+    }
+
+    validatedContext = connectionResult.context;
+    connection = validatedContext.connection;
+    logger.info('Apaleo webhook connection resolved', {
+      connectionId: validatedContext.connectionId,
+      hotelId: validatedContext.hotelId
+    });
+
+    if (!parsed.externalEventId) {
+      return quarantineWebhookRuntimeBlock({
+        parsed,
+        reasonCode: 'MISSING_EVENT_ID',
+        candidateConnectionId: validatedContext.connectionId,
+        safeFlags: {
+          ...(validation.safeFlags || {}),
+          ...(connectionResult.safeFlags || {})
+        },
+        supabase
+      });
+    }
+
+    if (parsed.eventAction && parsed.externalResourceId) {
+      await assertTenantScopedPmsReservationIdentity({
+        hotelId: validatedContext.hotelId,
+        pmsProvider: parsed.provider,
+        pmsReservationId: parsed.externalResourceId,
+        supabase
+      });
+    }
 
     const { event, duplicate, reason } = await createWebhookEvent({
       parsed,
-      connection,
+      context: validatedContext,
       supabase
     });
     storedEvent = event;
@@ -760,7 +1252,7 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}, opti
     const claim = await claimWebhookEventForProcessing({
       event: storedEvent,
       parsed,
-      connection,
+      validatedContext,
       supabase
     });
     storedEvent = claim.event;
@@ -792,6 +1284,7 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}, opti
 
     const result = await runActionHandler({
       connection,
+      validatedContext,
       parsed,
       supabase,
       fetchReservationById
@@ -824,6 +1317,8 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}, opti
     logger.info('Apaleo webhook event processed', {
       eventId: storedEvent?.id || null,
       externalEventId: parsed.externalEventId,
+      connectionId: validatedContext.connectionId,
+      hotelId: validatedContext.hotelId,
       reservationId: result.reservation?.id || null
     });
 
@@ -834,16 +1329,48 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}, opti
       reservation: result.reservation || null
     };
   } catch (error) {
+    if (error instanceof PmsReservationTenantCollisionError) {
+      const quarantine = await quarantineWebhookRuntimeBlock({
+        parsed,
+        reasonCode: error.reasonCode,
+        candidateConnectionId: validatedContext?.connectionId || parsed.connectionId || null,
+        safeFlags: {
+          connection_lookup: 'reservation_identity_collision',
+          tenant_context_present: Boolean(validatedContext?.hotelId)
+        },
+        supabase
+      });
+
+      if (!hasProcessingClaim) {
+        return quarantine;
+      }
+    }
+
+    if (error instanceof PmsWebhookRuntimeBlockedError) {
+      const quarantine = await quarantineWebhookRuntimeBlock({
+        parsed,
+        reasonCode: error.reasonCode,
+        candidateConnectionId: error.candidateConnectionId || validatedContext?.connectionId || parsed.connectionId || null,
+        safeFlags: error.safeFlags || {},
+        supabase
+      });
+
+      if (!hasProcessingClaim) {
+        return quarantine;
+      }
+    }
+
+    const safeError = safeRuntimeErrorMessage(error);
     logger.warn('Apaleo webhook event failed', {
       externalEventId: parsed.externalEventId,
       externalResourceId: parsed.externalResourceId,
-      error: error.message
+      error: safeError
     });
 
     if (hasProcessingClaim) {
       await updateWebhookEvent(storedEvent?.id, {
         status: 'failed',
-        error: error.message,
+        error: safeError,
         processed_at: null
       }, { supabase });
     }
@@ -851,13 +1378,13 @@ export const processApaleoWebhookEvent = async (payload = {}, headers = {}, opti
     await safeUpdateConnection(connection?.id, {
       webhook_status: 'failed',
       last_webhook_at: new Date().toISOString(),
-      last_webhook_error: error.message
+      last_webhook_error: safeError
     }, { supabase });
 
     return {
       ok: false,
       status: 'failed',
-      error: error.message,
+      error: safeError,
       event: storedEvent
     };
   }

@@ -4,10 +4,20 @@ import { logger } from '../../utils/logger.js';
 import { decryptSecret } from '../../utils/encryption.js';
 import { getReservations } from './apaleo-reservations.service.js';
 import { normalizeApaleoReservation } from './apaleo-normalizer.service.js';
+import { sanitizeWebhookErrorCode } from '../../services/pms-webhook-quarantine.service.js';
 import {
   getPmsBatchSize,
   getPmsMaxReservations
 } from '../../services/scalability-guard.service.js';
+
+export class ApaleoTenantSyncConfigurationError extends Error {
+  constructor(reasonCode, message) {
+    super(message || reasonCode);
+    this.name = 'ApaleoTenantSyncConfigurationError';
+    this.reasonCode = reasonCode;
+    this.statusCode = 400;
+  }
+}
 
 const connectionToConfig = (connection) => {
   if (!connection) {
@@ -23,16 +33,59 @@ const connectionToConfig = (connection) => {
   };
 };
 
+const assertTenantConnectionForSync = ({ hotelId, connection }) => {
+  if (!hotelId) {
+    throw new ApaleoTenantSyncConfigurationError(
+      'TENANT_MISMATCH',
+      'hotelId is required for tenant Apaleo sync'
+    );
+  }
+
+  if (!connection) {
+    throw new ApaleoTenantSyncConfigurationError(
+      'UNKNOWN_CONNECTION',
+      'Tenant Apaleo connection is required for sync'
+    );
+  }
+
+  if (connection.provider !== 'apaleo') {
+    throw new ApaleoTenantSyncConfigurationError(
+      'UNSUPPORTED_PROVIDER',
+      'Tenant Apaleo sync requires an Apaleo connection'
+    );
+  }
+
+  if (connection.hotel_id !== hotelId) {
+    throw new ApaleoTenantSyncConfigurationError(
+      'TENANT_MISMATCH',
+      'Tenant Apaleo connection does not match the requested hotel'
+    );
+  }
+
+  if (!connection.enabled) {
+    throw new ApaleoTenantSyncConfigurationError(
+      'CONNECTION_DISABLED',
+      'Tenant Apaleo connection is disabled'
+    );
+  }
+
+  return connection;
+};
+
 export const syncReservationsFromApaleo = async ({
   hotelId,
   from,
   to,
   status,
   connection = null,
+  requireTenantConnection = Boolean(hotelId || connection),
   pageSize = getPmsBatchSize(),
   maxReservations = getPmsMaxReservations()
 } = {}) => {
-  const config = connectionToConfig(connection);
+  const tenantConnection = requireTenantConnection
+    ? assertTenantConnectionForSync({ hotelId, connection })
+    : connection;
+  const config = connectionToConfig(tenantConnection);
   const batchSize = Math.max(1, Number(pageSize) || getPmsBatchSize());
   const reservationLimit = Math.max(1, Number(maxReservations) || getPmsMaxReservations());
 
@@ -111,6 +164,10 @@ export const syncReservationsFromApaleo = async ({
         const { reservation } = await createOrUpdateReservation({
           ...normalized,
           hotel_id: hotelId
+        }, {
+          requireExplicitHotelId: true,
+          tenantScopedPmsIdentity: true,
+          source: 'apaleo_sync'
         });
 
         await scheduleReservationAutomations(reservation);
@@ -128,17 +185,18 @@ export const syncReservationsFromApaleo = async ({
 
         summary.synced += 1;
       } catch (error) {
+        const safeError = sanitizeWebhookErrorCode(error);
         summary.skipped += 1;
         summary.totalSkipped += 1;
         batchSummary.skipped += 1;
         batchSummary.errors += 1;
         summary.errors.push({
           pms_reservation_id: normalized.pms_reservation_id,
-          error: error.message
+          error: safeError
         });
         logger.warn('Apaleo reservation sync skipped one reservation', {
           pmsReservationId: normalized.pms_reservation_id,
-          error: error.message
+          error: safeError
         });
       }
     }

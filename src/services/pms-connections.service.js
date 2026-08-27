@@ -9,6 +9,7 @@ import {
 import { getApaleoAccessToken } from '../integrations/apaleo/apaleo-auth.service.js';
 import { apaleoFetch } from '../integrations/apaleo/apaleo-client.service.js';
 import { syncReservationsFromApaleo } from '../integrations/apaleo/apaleo-sync.service.js';
+import { sanitizeWebhookErrorCode } from './pms-webhook-quarantine.service.js';
 import {
   getPmsConnectorDefinition,
   isPmsConnectorConfigurable,
@@ -22,6 +23,16 @@ import {
 
 const serializeTenantConnection = (connection) => serializePmsConnectionSafe(connection, { surface: 'tenant_settings' });
 const PMS_TENANT_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings');
+
+class PmsConnectionSyncError extends Error {
+  constructor(error) {
+    const safeCode = sanitizeWebhookErrorCode(error);
+    super(safeCode);
+    this.name = 'PmsConnectionSyncError';
+    this.safeErrorCode = safeCode;
+    this.statusCode = error?.statusCode || error?.status || 500;
+  }
+}
 
 export const resolvePmsWebhookSecret = (connection) => {
   if (!connection) {
@@ -260,20 +271,46 @@ export const updateHotelPmsConnection = async ({
 export const deleteHotelPmsConnection = async ({ connectionId, hotelId } = {}) => {
   const resolvedHotelId = requirePmsHotelId(hotelId);
   const client = getSupabase();
-  let query = client
+  const { data: existing, error: existingError } = await client
     .from('hotel_pms_connections')
-    .delete()
-    .eq('id', connectionId);
+    .select(PMS_TENANT_SELECT)
+    .eq('id', connectionId)
+    .eq('hotel_id', resolvedHotelId)
+    .limit(1)
+    .maybeSingle();
 
-  query = query.eq('hotel_id', resolvedHotelId);
+  if (existingError) {
+    throw existingError;
+  }
 
-  const { error } = await query;
+  const { data, error } = await client
+    .from('hotel_pms_connections')
+    .update({
+      enabled: false,
+      webhook_enabled: false,
+      webhook_status: 'not_configured',
+      last_webhook_error: null,
+      sync_status: 'pending_setup',
+      metadata: {
+        ...(existing?.metadata || {}),
+        disabled_reason: 'user_deleted_connection',
+        disabled_at: new Date().toISOString()
+      },
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', connectionId)
+    .eq('hotel_id', resolvedHotelId)
+    .select(PMS_TENANT_SELECT)
+    .single();
 
   if (error) {
     throw error;
   }
 
-  return { ok: true };
+  return {
+    ok: true,
+    connection: serializeTenantConnection(data)
+  };
 };
 
 export const connectionToApaleoConfig = (connection) => {
@@ -388,7 +425,8 @@ export const syncHotelReservations = async ({
         last_sync_error: 'Connector activation required before syncing',
         updated_at: new Date().toISOString()
       })
-      .eq('id', connection.id);
+      .eq('id', connection.id)
+      .eq('hotel_id', connection.hotel_id);
 
     return {
       provider,
@@ -437,20 +475,23 @@ export const syncHotelReservations = async ({
         },
         updated_at: new Date().toISOString()
       })
-      .eq('id', connection.id);
+      .eq('id', connection.id)
+      .eq('hotel_id', connection.hotel_id);
 
     return summary;
   } catch (error) {
+    const safeError = sanitizeWebhookErrorCode(error);
     await client
       .from('hotel_pms_connections')
       .update({
         sync_status: 'failed',
-        last_sync_error: error.message,
+        last_sync_error: safeError,
         updated_at: new Date().toISOString()
       })
-      .eq('id', connection.id);
+      .eq('id', connection.id)
+      .eq('hotel_id', connection.hotel_id);
 
-    throw error;
+    throw new PmsConnectionSyncError(error);
   }
 };
 

@@ -127,11 +127,25 @@ export async function DELETE(request) {
       .eq('id', connectionId)
       .maybeSingle();
 
-    const { error } = await supabase
+    const { data: disabledConnection, error } = await supabase
       .from('hotel_pms_connections')
-      .delete()
+      .update({
+        enabled: false,
+        webhook_enabled: false,
+        webhook_status: 'not_configured',
+        last_webhook_error: null,
+        sync_status: 'pending_setup',
+        metadata: {
+          ...(existing?.metadata || {}),
+          disabled_reason: 'user_deleted_connection',
+          disabled_at: new Date().toISOString()
+        },
+        updated_at: new Date().toISOString()
+      })
       .eq('hotel_id', hotelId)
-      .eq('id', connectionId);
+      .eq('id', connectionId)
+      .select(PMS_CONNECTION_SELECT)
+      .single();
 
     if (error) {
       throw error;
@@ -151,7 +165,11 @@ export async function DELETE(request) {
       metadata: { source: 'dashboard_pms_connections', operation: 'delete' }
     });
 
-    return NextResponse.json({ ok: true, hotelId }, jsonOptions);
+    return NextResponse.json({
+      ok: true,
+      hotelId,
+      connection: safePmsConnectionDto(disabledConnection)
+    }, jsonOptions);
   } catch (error) {
     return jsonError(error.message || 'Could not delete PMS connection', error.status || 500);
   }

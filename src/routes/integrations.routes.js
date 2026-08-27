@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { ApaleoConfigurationError } from '../integrations/apaleo/apaleo-auth.service.js';
-import { syncReservationsFromApaleo } from '../integrations/apaleo/apaleo-sync.service.js';
 import { processApaleoWebhookEvent } from '../integrations/apaleo/apaleo-webhooks.service.js';
 import {
   deleteHotelPmsConnection,
@@ -17,7 +16,6 @@ import {
 } from '../services/scalability-guard.service.js';
 import { EncryptionConfigurationError } from '../utils/encryption.js';
 import {
-  blockUnverifiedApaleoWebhookInProduction,
   requireExplicitHotelId,
   requireInternalApiToken
 } from '../middleware/security.middleware.js';
@@ -71,8 +69,9 @@ const clampNumber = (value, fallback, min, max) => {
 
 router.post('/apaleo/sync', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
-    const summary = await syncReservationsFromApaleo({
+    const summary = await syncHotelReservations({
       hotelId: req.explicitHotelId,
+      provider: 'apaleo',
       from: normalizeDate(req.body?.from),
       to: normalizeDate(req.body?.to),
       status: req.body?.status || undefined,
@@ -96,7 +95,7 @@ router.post('/apaleo/sync', requireInternalApiToken, requireExplicitHotelId, asy
   }
 });
 
-router.post('/apaleo/webhook', blockUnverifiedApaleoWebhookInProduction, async (req, res) => {
+router.post('/apaleo/webhook', async (req, res) => {
   const result = await processApaleoWebhookEvent(req.body || {}, req.headers || {});
   const statusCode = result.ok === false ? 500 : 200;
 
@@ -192,13 +191,14 @@ router.patch('/pms-connections/:id', requireInternalApiToken, requireExplicitHot
 
 router.delete('/pms-connections/:id', requireInternalApiToken, requireExplicitHotelId, async (req, res, next) => {
   try {
-    await deleteHotelPmsConnection({
+    const result = await deleteHotelPmsConnection({
       connectionId: req.params.id,
       hotelId: req.explicitHotelId
     });
 
     res.status(200).json({
-      ok: true
+      ok: true,
+      connection: result.connection
     });
   } catch (error) {
     return next(error);

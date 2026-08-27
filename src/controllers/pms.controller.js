@@ -37,7 +37,12 @@ export const handleReservationCreated = async (req, res, next) => {
 
     const { reservation } = await createOrUpdateReservation({
       ...req.body,
+      hotel_id: req.explicitHotelId,
       pms_provider: req.body.pms_provider || 'mock'
+    }, {
+      requireExplicitHotelId: true,
+      tenantScopedPmsIdentity: true,
+      source: 'pms_reservation_created_route'
     });
     const automationEvents = await scheduleReservationAutomations(reservation);
 

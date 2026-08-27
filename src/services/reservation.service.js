@@ -14,6 +14,7 @@ import {
   hasReservationAccessTokenForLogs,
   maskPhoneForLogs
 } from '../utils/privacy.js';
+import { sanitizeWebhookErrorCode } from './pms-webhook-quarantine.service.js';
 
 const cleanText = (value) => {
   if (typeof value !== 'string') {
@@ -113,20 +114,167 @@ const withoutColumns = (record, columns) => Object.entries(record).reduce((nextR
   return nextRecord;
 }, {});
 
-const findReservationByPmsId = async ({ pmsProvider, pmsReservationId, supabase = getSupabase() }) => {
-  const { data, error } = await supabase
+export class PmsReservationHotelContextRequiredError extends Error {
+  constructor() {
+    super('hotelId is required for PMS reservation mutation');
+    this.name = 'PmsReservationHotelContextRequiredError';
+    this.statusCode = 400;
+  }
+}
+
+export class PmsReservationTenantCollisionError extends Error {
+  constructor(message = 'Legacy global PMS reservation identity collision') {
+    super(message);
+    this.name = 'PmsReservationTenantCollisionError';
+    this.reasonCode = 'LEGACY_GLOBAL_RESERVATION_COLLISION';
+    this.statusCode = 409;
+  }
+}
+
+export class PmsReservationMutationError extends Error {
+  constructor(error) {
+    const safeCode = sanitizeWebhookErrorCode(error);
+    super(safeCode);
+    this.name = 'PmsReservationMutationError';
+    this.safeErrorCode = safeCode;
+    this.statusCode = error?.statusCode || 500;
+  }
+}
+
+const toSafePmsErrorCode = (error) => sanitizeWebhookErrorCode(error);
+
+const sanitizePmsReservationError = (error) => {
+  if (
+    error instanceof PmsReservationHotelContextRequiredError
+    || error instanceof PmsReservationTenantCollisionError
+  ) {
+    return error;
+  }
+
+  return new PmsReservationMutationError(error);
+};
+
+const isUniqueViolation = (error) => (
+  error?.code === '23505'
+  || String(error?.message || '').toLowerCase().includes('duplicate key')
+  || String(error?.details || '').toLowerCase().includes('already exists')
+);
+
+const findReservationByPmsId = async ({
+  pmsProvider,
+  pmsReservationId,
+  hotelId = null,
+  supabase = getSupabase()
+}) => {
+  let query = supabase
     .from('reservations')
     .select('*')
     .eq('pms_provider', pmsProvider)
-    .eq('pms_reservation_id', pmsReservationId)
-    .limit(1)
-    .maybeSingle();
+    .eq('pms_reservation_id', pmsReservationId);
+
+  if (hotelId) {
+    query = query.eq('hotel_id', hotelId);
+  }
+
+  const { data, error } = await query.limit(1).maybeSingle();
 
   if (error) {
     throw error;
   }
 
   return data;
+};
+
+const findPmsReservationIdentityRows = async ({
+  pmsProvider,
+  pmsReservationId,
+  supabase = getSupabase()
+}) => {
+  const { data, error } = await supabase
+    .from('reservations')
+    .select('id, hotel_id, pms_provider, pms_reservation_id')
+    .eq('pms_provider', pmsProvider)
+    .eq('pms_reservation_id', pmsReservationId)
+    .limit(2);
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+};
+
+export const assertTenantScopedPmsReservationIdentity = async ({
+  hotelId,
+  pmsProvider,
+  pmsReservationId,
+  supabase = getSupabase()
+} = {}) => {
+  if (!hotelId) {
+    throw new PmsReservationHotelContextRequiredError();
+  }
+
+  if (!pmsProvider || !pmsReservationId) {
+    return;
+  }
+
+  const identityRows = await findPmsReservationIdentityRows({
+    pmsProvider,
+    pmsReservationId,
+    supabase
+  });
+
+  const collision = identityRows.find((row) => row.hotel_id !== hotelId);
+
+  if (collision) {
+    throw new PmsReservationTenantCollisionError();
+  }
+};
+
+const writeTenantScopedReservation = async ({
+  client,
+  reservationRecord,
+  existingReservation,
+  hotelId
+}) => {
+  const write = async (record) => {
+    if (existingReservation?.id) {
+      return client
+        .from('reservations')
+        .update(record)
+        .eq('id', existingReservation.id)
+        .eq('hotel_id', hotelId)
+        .select('*')
+        .single();
+    }
+
+    return client
+      .from('reservations')
+      .insert(record)
+      .select('*')
+      .single();
+  };
+
+  let result = await write(reservationRecord);
+  const missingColumns = result.error ? findMissingReservationColumns(result.error) : [];
+
+  if (result.error && missingColumns.length > 0) {
+    result = await write(withoutColumns(reservationRecord, missingColumns));
+
+    if (!result.error) {
+      logger.warn('Optional reservation columns missing; tenant-scoped reservation stored without some metadata', {
+        pmsProvider: reservationRecord.pms_provider,
+        pmsReservationId: reservationRecord.pms_reservation_id,
+        missingColumns
+      });
+    }
+  }
+
+  return {
+    reservation: result.data || null,
+    error: result.error,
+    missingColumns
+  };
 };
 
 const isTokenAvailable = async (token, existingReservationId = null, { supabase = getSupabase() } = {}) => {
@@ -196,7 +344,7 @@ const tryPersistOperationalContext = async ({ reservation, guest, supabase }) =>
   } catch (error) {
     logger.warn('Reservation PMS intelligence context skipped', {
       reservationId: reservation?.id || null,
-      error: error.message
+      error: toSafePmsErrorCode(error)
     });
   }
 };
@@ -217,14 +365,15 @@ const tryReconcileReservationAutomationLifecycle = async ({
       supabase
     });
   } catch (error) {
+    const safeError = sanitizePmsReservationError(error);
     logger.warn('Reservation automation reconciliation failed', {
       reservationId: currentReservation?.id || previousReservation?.id || null,
       hotelId: currentReservation?.hotel_id || previousReservation?.hotel_id || null,
       source,
       sourceEventId,
-      error: error.message
+      error: toSafePmsErrorCode(error)
     });
-    throw error;
+    throw safeError;
   }
 };
 
@@ -238,6 +387,13 @@ export const createOrUpdateReservation = async (data, options = {}) => {
     || data.source_event_id
     || null;
   const requestedHotelId = data.hotel_id || data.hotelId;
+  const tenantScopedPmsIdentity = Boolean(options.tenantScopedPmsIdentity);
+  const requireExplicitHotelId = Boolean(options.requireExplicitHotelId || tenantScopedPmsIdentity);
+
+  if (requireExplicitHotelId && !requestedHotelId) {
+    throw new PmsReservationHotelContextRequiredError();
+  }
+
   const hotel = requestedHotelId
     ? await getHotelById(requestedHotelId, { supabase: client }) || { id: requestedHotelId }
     : await getDefaultHotel({ supabase: client });
@@ -272,8 +428,18 @@ export const createOrUpdateReservation = async (data, options = {}) => {
   const existingReservation = await findReservationByPmsId({
     pmsProvider,
     pmsReservationId,
+    hotelId: tenantScopedPmsIdentity ? hotelId : null,
     supabase: client
   });
+
+  if (tenantScopedPmsIdentity) {
+    await assertTenantScopedPmsReservationIdentity({
+      hotelId,
+      pmsProvider,
+      pmsReservationId,
+      supabase: client
+    });
+  }
   const accessToken = existingReservation?.reservation_access_token
     || await generateUniqueReservationAccessToken(existingReservation?.id || null, { supabase: client });
   const whatsappLink = generateReservationWhatsAppLink({
@@ -293,6 +459,90 @@ export const createOrUpdateReservation = async (data, options = {}) => {
     accessToken,
     whatsappLink
   });
+
+  if (tenantScopedPmsIdentity) {
+    let scopedWrite = await writeTenantScopedReservation({
+      client,
+      reservationRecord,
+      existingReservation,
+      hotelId
+    });
+
+    if (scopedWrite.error && isUniqueViolation(scopedWrite.error)) {
+      const racedReservation = await findReservationByPmsId({
+        pmsProvider,
+        pmsReservationId,
+        hotelId,
+        supabase: client
+      });
+
+      if (racedReservation) {
+        scopedWrite = await writeTenantScopedReservation({
+          client,
+          reservationRecord,
+          existingReservation: racedReservation,
+          hotelId
+        });
+      } else {
+        await assertTenantScopedPmsReservationIdentity({
+          hotelId,
+          pmsProvider,
+          pmsReservationId,
+          supabase: client
+        });
+
+        throw new PmsReservationTenantCollisionError();
+      }
+    }
+
+    if (scopedWrite.error) {
+      throw sanitizePmsReservationError(scopedWrite.error);
+    }
+
+    if (!scopedWrite.reservation) {
+      throw new PmsReservationMutationError(new Error('Tenant-scoped PMS reservation write returned no row'));
+    }
+
+    const reservation = {
+      ...scopedWrite.reservation,
+      reservation_access_token: scopedWrite.missingColumns.includes('reservation_access_token')
+        ? null
+        : scopedWrite.reservation.reservation_access_token,
+      source: scopedWrite.missingColumns.includes('source') ? null : scopedWrite.reservation.source,
+      adults: scopedWrite.missingColumns.includes('adults') ? null : scopedWrite.reservation.adults,
+      children: scopedWrite.missingColumns.includes('children') ? null : scopedWrite.reservation.children,
+      notes: scopedWrite.missingColumns.includes('notes') ? null : scopedWrite.reservation.notes
+    };
+
+    logger.info('Tenant-scoped PMS reservation stored', {
+      reservationId: reservation.id,
+      hotelId: reservation.hotel_id,
+      pmsProvider: reservation.pms_provider,
+      pmsReservationId: reservation.pms_reservation_id,
+      hasReservationAccessToken: hasReservationAccessTokenForLogs(
+        reservation.reservation_access_token
+      )
+    });
+
+    await tryPersistOperationalContext({
+      reservation,
+      guest,
+      supabase: client
+    });
+
+    await tryReconcileReservationAutomationLifecycle({
+      previousReservation: existingReservation,
+      currentReservation: reservation,
+      source: reconciliationSource,
+      sourceEventId: reconciliationSourceEventId,
+      supabase: client
+    });
+
+    return {
+      reservation,
+      guest
+    };
+  }
 
   const { data: reservation, error } = await client
     .from('reservations')

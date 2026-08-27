@@ -885,8 +885,8 @@ assert.ok(stageADocsSource.includes('mutations = 0'), 'Stage A docs keep histori
 assert.equal(/Run controlled mutating backfill/i.test(stageADocsSource), false, 'Stage A docs no longer instruct running mutating backfill');
 
 const apaleoWebhookSource = readSource('src/integrations/apaleo/apaleo-webhooks.service.js');
-assert.ok(apaleoWebhookSource.includes('hotel_id: connection?.hotel_id || null'), 'new webhook events assign hotel_id when connection is resolved');
-assert.ok(apaleoWebhookSource.includes('connection_id: connection?.id || null'), 'new webhook events assign connection_id when connection is resolved');
+assert.ok(apaleoWebhookSource.includes('hotel_id: context.hotelId'), 'new webhook events assign hotel_id from validated context');
+assert.ok(apaleoWebhookSource.includes('connection_id: context.connectionId'), 'new webhook events assign connection_id from validated context');
 assert.ok(apaleoWebhookSource.includes("PMS_WEBHOOK_CONNECTION_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings')"), 'Apaleo webhook resolver keeps internal secret-state select for provider operations');
 
 const testSource = readSource('scripts/test-pms-secrets-isolation.js');

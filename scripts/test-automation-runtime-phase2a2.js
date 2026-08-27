@@ -79,6 +79,7 @@ const samePmsWebhookUniqueIdentity = (left, right) => (
   hasPmsWebhookUniqueIdentity(left)
   && hasPmsWebhookUniqueIdentity(right)
   && left.provider === right.provider
+  && left.connection_id === right.connection_id
   && left.external_event_id === right.external_event_id
 );
 
@@ -800,7 +801,7 @@ await assert.rejects(
     source: 'phase2a2_product_partial',
     sourceEventId: 'product-partial-event-1'
   }),
-  { message: 'injected supersede cancellation failure' }
+  { message: 'runtime_error' }
 );
 await createOrUpdateReservation({
   ...productPartialReservation,
@@ -892,6 +893,13 @@ const apaleoFetchedReservation = {
     email: 'private@example.test'
   }
 };
+const apaleoValidationResult = {
+  ok: true,
+  safeFlags: {
+    validation_configured: true,
+    validation_result: 'valid'
+  }
+};
 const fetchApaleoReservation = async () => structuredClone(apaleoFetchedReservation);
 const apaleoWebhookSupabase = createMockSupabase({
   hotel_pms_connections: [apaleoConnection],
@@ -906,6 +914,7 @@ const apaleoWebhookSupabase = createMockSupabase({
 });
 const apaleoWebhookResult = await processApaleoWebhookEvent(apaleoWebhookPayload, {}, {
   supabase: apaleoWebhookSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: fetchApaleoReservation
 });
 assert.equal(apaleoWebhookResult.status, 'processed');
@@ -918,6 +927,7 @@ assert.doesNotMatch(
 assert.equal(apaleoWebhookSupabase.db.scheduled_messages.find((row) => row.id === 'apaleo-webhook-old').status, OPERATIONAL_STATUSES.CANCELLED);
 const apaleoWebhookDuplicate = await processApaleoWebhookEvent(apaleoWebhookPayload, {}, {
   supabase: apaleoWebhookSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: async () => {
     throw new Error('processed duplicate should not fetch reservation');
   }
@@ -967,10 +977,12 @@ const concurrentNewFetch = createControlledReservationFetch({
 });
 const concurrentNewFirst = processApaleoWebhookEvent(concurrentNewPayload, {}, {
   supabase: concurrentNewSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: concurrentNewFetch.fetch
 });
 const concurrentNewSecond = processApaleoWebhookEvent(concurrentNewPayload, {}, {
   supabase: concurrentNewSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: concurrentNewFetch.fetch
 });
 await concurrentNewFetch.waitForCall();
@@ -1000,7 +1012,8 @@ assert.equal(
 );
 assert.equal(concurrentNewSupabase.db.counters.pmsWebhookUniqueConflicts, 1, 'new-event race should be resolved by unique constraint');
 assert.equal(concurrentNewSupabase.db.counters.pmsWebhookClaimsAcquired, 1, 'new-event race should have one processing owner');
-assert.equal(concurrentNewSupabase.db.counters.reservationUpsertCalls, 1, 'new-event race should mutate reservation once');
+assert.equal(concurrentNewSupabase.db.counters.reservationUpdateCalls, 1, 'new-event race should mutate reservation once');
+assert.equal(concurrentNewSupabase.db.counters.reservationUpsertCalls || 0, 0, 'webhook path must not use global reservation upsert');
 assert.equal(concurrentNewSupabase.db.scheduled_messages.find((row) => row.id === 'concurrent-new-old').status, OPERATIONAL_STATUSES.CANCELLED);
 assert.equal(
   concurrentNewSupabase.db.scheduled_messages.filter((row) => (
@@ -1059,10 +1072,12 @@ const concurrentFailedFetch = createControlledReservationFetch({
 });
 const concurrentFailedFirst = processApaleoWebhookEvent(concurrentFailedPayload, {}, {
   supabase: concurrentFailedSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: concurrentFailedFetch.fetch
 });
 const concurrentFailedSecond = processApaleoWebhookEvent(concurrentFailedPayload, {}, {
   supabase: concurrentFailedSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: concurrentFailedFetch.fetch
 });
 await concurrentFailedFetch.waitForCall();
@@ -1078,7 +1093,8 @@ const concurrentFailedResults = await Promise.all([concurrentFailedFirst, concur
 assert.deepEqual(concurrentFailedResults.map((result) => result.status).sort(), ['duplicate_processing', 'processed']);
 assert.equal(concurrentFailedSupabase.db.pms_webhook_events.find((row) => row.id === 'failed-retry-webhook-row').status, 'processed');
 assert.equal(concurrentFailedSupabase.db.counters.pmsWebhookClaimsAcquired, 1, 'concurrent failed retry should have one owner');
-assert.equal(concurrentFailedSupabase.db.counters.reservationUpsertCalls, 1, 'concurrent failed retry should mutate reservation once');
+assert.equal(concurrentFailedSupabase.db.counters.reservationUpdateCalls, 1, 'concurrent failed retry should mutate reservation once');
+assert.equal(concurrentFailedSupabase.db.counters.reservationUpsertCalls || 0, 0, 'webhook retry path must not use global reservation upsert');
 assert.equal(concurrentFailedSupabase.db.scheduled_messages.find((row) => row.id === 'concurrent-failed-old').status, OPERATIONAL_STATUSES.CANCELLED);
 
 const activeProcessingPayload = {
@@ -1115,6 +1131,7 @@ const activeProcessingSupabase = createMockSupabase({
 });
 const activeProcessingResult = await processApaleoWebhookEvent(activeProcessingPayload, {}, {
   supabase: activeProcessingSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: async () => {
     throw new Error('active processing duplicate should not fetch reservation');
   }
@@ -1155,6 +1172,7 @@ const processedDuplicateSupabase = createMockSupabase({
 });
 const processedDuplicateResult = await processApaleoWebhookEvent(processedDuplicatePayload, {}, {
   supabase: processedDuplicateSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: async () => {
     throw new Error('processed duplicate should not fetch reservation');
   }
@@ -1191,6 +1209,7 @@ const ignoredDuplicateSupabase = createMockSupabase({
 });
 const ignoredDuplicateResult = await processApaleoWebhookEvent(ignoredDuplicatePayload, {}, {
   supabase: ignoredDuplicateSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: async () => {
     throw new Error('ignored duplicate should not fetch reservation');
   }
@@ -1264,6 +1283,7 @@ const webhookFailBeforePayload = {
 };
 const webhookFailBeforeFirst = await processApaleoWebhookEvent(webhookFailBeforePayload, {}, {
   supabase: webhookFailBeforeSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: fetchApaleoReservation
 });
 assert.equal(webhookFailBeforeFirst.status, 'failed');
@@ -1272,6 +1292,7 @@ assert.equal(webhookFailBeforeSupabase.db.pms_webhook_events.find((row) => row.e
 assert.equal(webhookFailBeforeSupabase.db.scheduled_messages.find((row) => row.id === 'webhook-fail-before-old').status, OPERATIONAL_STATUSES.PREVIEW);
 const webhookFailBeforeRetry = await processApaleoWebhookEvent(webhookFailBeforePayload, {}, {
   supabase: webhookFailBeforeSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: fetchApaleoReservation
 });
 assert.equal(webhookFailBeforeRetry.status, 'processed');
@@ -1296,6 +1317,7 @@ const webhookFailAfterPayload = {
 };
 const webhookFailAfterFirst = await processApaleoWebhookEvent(webhookFailAfterPayload, {}, {
   supabase: webhookFailAfterSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: fetchApaleoReservation
 });
 assert.equal(webhookFailAfterFirst.status, 'failed');
@@ -1303,6 +1325,7 @@ assert.equal(webhookFailAfterSupabase.db.scheduled_messages.find((row) => row.id
 assert.equal(webhookFailAfterSupabase.db.scheduled_messages.filter((row) => row.id !== 'webhook-fail-after-old').length, 1);
 const webhookFailAfterRetry = await processApaleoWebhookEvent(webhookFailAfterPayload, {}, {
   supabase: webhookFailAfterSupabase,
+  validationResult: apaleoValidationResult,
   fetchReservationById: fetchApaleoReservation
 });
 assert.equal(webhookFailAfterRetry.status, 'processed');

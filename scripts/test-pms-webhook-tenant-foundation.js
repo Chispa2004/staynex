@@ -482,8 +482,8 @@ for (const docsNeedle of [
 
 const apaleoWebhookSource = source('src/integrations/apaleo/apaleo-webhooks.service.js');
 assert.ok(apaleoWebhookSource.includes('processApaleoWebhookEvent'), 'runtime webhook processing file remains present');
-assert.ok(apaleoWebhookSource.includes('hotel_id: connection?.hotel_id || null'), 'P0-2B1 does not remove current webhook fallback yet');
-assert.ok(apaleoWebhookSource.includes('connection_id: connection?.id || null'), 'P0-2B1 does not remove current event connection fallback yet');
+assert.ok(!apaleoWebhookSource.includes('hotel_id: connection?.hotel_id || null'), 'P0-2B2 removes nullable webhook hotel fallback');
+assert.ok(!apaleoWebhookSource.includes('connection_id: connection?.id || null'), 'P0-2B2 removes nullable webhook connection fallback');
 
 console.log(JSON.stringify({
   ok: true,
