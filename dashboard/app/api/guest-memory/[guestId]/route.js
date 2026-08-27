@@ -157,7 +157,7 @@ export async function GET(request, { params }) {
         : [],
       reservationIds.length
         ? safeRows(
-          supabase.from('scheduled_messages').select('*').in('reservation_id', reservationIds).order('scheduled_for', { ascending: false }).limit(100),
+          supabase.from('scheduled_messages').select('*').eq('hotel_id', hotel.id).in('reservation_id', reservationIds).order('scheduled_for', { ascending: false }).limit(100),
           'scheduled_messages'
         )
         : []

@@ -137,6 +137,7 @@ export const runAutomationScheduler = async ({
           scheduled.push(scheduledMessage);
 
           await createAiLog({
+            hotelId: reservation.hotel_id || context.hotelProfile?.id || null,
             guestId: reservation.guest_id || null,
             conversationId: context.conversation?.id || null,
             detectedLanguage: language,

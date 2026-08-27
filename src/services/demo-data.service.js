@@ -627,6 +627,7 @@ const createDemoMemoryAndSignals = async ({ hotelId, guest, scenario }) => {
 
 const createDemoAiLogs = async ({ hotelId, guest, conversation, messages, ticket, upsell, scenario }) => {
   await createAiLog({
+    hotelId,
     messageId: messages[0]?.id || null,
     guestId: guest.id,
     conversationId: conversation.id,

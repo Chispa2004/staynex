@@ -30,6 +30,7 @@ export async function GET(request) {
     const { data, error } = await supabase
       .from('ai_logs')
       .select('*')
+      .eq('hotel_id', hotel.id)
       .in('conversation_id', conversationIds)
       .order('created_at', { ascending: false })
       .limit(50);

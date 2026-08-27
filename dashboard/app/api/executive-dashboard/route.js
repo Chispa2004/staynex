@@ -549,7 +549,11 @@ export async function GET(request) {
     ].filter(Boolean))].slice(0, 50);
     const signalGuests = signalGuestIds.length
       ? await safeRows(
-        supabase.from('guests').select('id, phone_number, current_room, preferred_language').in('id', signalGuestIds),
+        supabase
+          .from('guests')
+          .select('id, phone_number, current_room, preferred_language')
+          .eq('hotel_id', hotelId)
+          .in('id', signalGuestIds),
         'guests'
       )
       : [];

@@ -271,14 +271,35 @@ export const upsertConversationAiState = async ({
   aiResponse = null,
   aiSummary = null,
   aiReasoning = null,
-  openAiEnhanced = false
+  openAiEnhanced = false,
+  supabase: injectedSupabase = null
 }) => {
   if (!hotelId || !conversationId || !state) {
     return null;
   }
 
   try {
-    const supabase = getSupabase();
+    const supabase = injectedSupabase || getSupabase();
+    const { data: conversation, error: conversationError } = await supabase
+      .from('conversations')
+      .select('id, hotel_id')
+      .eq('id', conversationId)
+      .eq('hotel_id', hotelId)
+      .limit(1)
+      .maybeSingle();
+
+    if (conversationError) {
+      throw conversationError;
+    }
+
+    if (!conversation) {
+      logger.warn('Conversation AI state upsert blocked by tenant mismatch', {
+        hotelId,
+        conversationId
+      });
+      return null;
+    }
+
     const now = new Date().toISOString();
     const previousMetadata = state.previousState?.state_metadata && typeof state.previousState.state_metadata === 'object'
       ? state.previousState.state_metadata

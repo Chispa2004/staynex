@@ -61,8 +61,8 @@ const getMessagesForConversations = async ({ supabase, conversationIds, hotelId 
   return data || [];
 };
 
-const getLatestAiLogsByConversation = async ({ supabase, conversationIds }) => {
-  if (!conversationIds.length) {
+const getLatestAiLogsByConversation = async ({ supabase, conversationIds, hotelId }) => {
+  if (!conversationIds.length || !hotelId) {
     return new Map();
   }
 
@@ -70,6 +70,7 @@ const getLatestAiLogsByConversation = async ({ supabase, conversationIds }) => {
     const { data, error } = await supabase
       .from('ai_logs')
       .select('conversation_id, needs_human, human_reason, confidence_score, detected_intent, created_at')
+      .eq('hotel_id', hotelId)
       .in('conversation_id', conversationIds)
       .order('created_at', { ascending: false })
       .limit(250);
@@ -181,8 +182,8 @@ const getExperienceBookingsByConversation = async ({ supabase, conversationIds }
   }
 };
 
-const getAiStateByConversation = async ({ supabase, conversationIds }) => {
-  if (!conversationIds.length) {
+const getAiStateByConversation = async ({ supabase, conversationIds, hotelId }) => {
+  if (!conversationIds.length || !hotelId) {
     return new Map();
   }
 
@@ -190,6 +191,7 @@ const getAiStateByConversation = async ({ supabase, conversationIds }) => {
     const { data, error } = await supabase
       .from('conversation_ai_state')
       .select('conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, last_ai_response, ai_summary, ai_reasoning, openai_enhanced, state_metadata, updated_at')
+      .eq('hotel_id', hotelId)
       .in('conversation_id', conversationIds)
       .limit(500);
 
@@ -422,11 +424,11 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, intelligenceByGuest] = await Promise.all([
     guestsQuery,
     getMessagesForConversations({ supabase, conversationIds, hotelId: resolvedHotelId }),
-    getLatestAiLogsByConversation({ supabase, conversationIds }),
+    getLatestAiLogsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
     getActiveUpsellsByConversation({ supabase, conversationIds }),
     getActiveOffersByConversation({ supabase, conversationIds }),
     getExperienceBookingsByConversation({ supabase, conversationIds }),
-    getAiStateByConversation({ supabase, conversationIds }),
+    getAiStateByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
     getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
     getGuestStayContextByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
     getGuestIntelligenceByGuest({ supabase, guestIds, hotelId: resolvedHotelId })

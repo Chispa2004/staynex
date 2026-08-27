@@ -431,6 +431,7 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
     }, { supabase: getQueueSupabase() });
 
     await createAiLog({
+      hotelId: scheduledMessage.hotel_id || null,
       guestId: scheduledMessage.guest_id || null,
       conversationId: scheduledMessage.conversation_id || null,
       detectedIntent: 'automation',

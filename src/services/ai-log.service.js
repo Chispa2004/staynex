@@ -14,6 +14,63 @@ const toNullableNumber = (value) => {
   return Number.isFinite(numberValue) ? numberValue : null;
 };
 
+const relationBelongsToHotel = async ({ supabase, table, id, hotelId }) => {
+  if (!id) {
+    return true;
+  }
+
+  const { data, error } = await supabase
+    .from(table)
+    .select('id')
+    .eq('id', id)
+    .eq('hotel_id', hotelId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return Boolean(data);
+};
+
+const validateAiLogTenantContext = async ({
+  supabase,
+  hotelId,
+  messageId,
+  guestId,
+  conversationId,
+  ticketId
+}) => {
+  if (!hotelId) {
+    return {
+      ok: false,
+      reason: 'missing_hotel_id'
+    };
+  }
+
+  const checks = [
+    ['messages', messageId, 'messages_tenant_mismatch'],
+    ['guests', guestId, 'guests_tenant_mismatch'],
+    ['conversations', conversationId, 'conversations_tenant_mismatch'],
+    ['tickets', ticketId, 'tickets_tenant_mismatch']
+  ];
+
+  for (const [table, id, reason] of checks) {
+    if (!await relationBelongsToHotel({ supabase, table, id, hotelId })) {
+      return {
+        ok: false,
+        reason
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    reason: null
+  };
+};
+
 const isMissingHumanFields = (error) => (
   error?.message?.includes('needs_human')
   || error?.message?.includes('human_reason')
@@ -185,10 +242,32 @@ export const createAiLog = async ({
   translationProvider = null,
   ai_provider = null,
   ai_model = null,
-  fallback_used = false
+  fallback_used = false,
+  supabase: injectedSupabase = null
 } = {}) => {
   try {
-    const supabase = getSupabase();
+    const supabase = injectedSupabase || getSupabase();
+    const tenantContext = await validateAiLogTenantContext({
+      supabase,
+      hotelId,
+      messageId,
+      guestId,
+      conversationId,
+      ticketId
+    });
+
+    if (!tenantContext.ok) {
+      logger.warn('AI log write blocked by tenant context', {
+        hotelId,
+        messageId,
+        guestId,
+        conversationId,
+        ticketId,
+        reason: tenantContext.reason
+      });
+      return null;
+    }
+
     const logRecord = {
       message_id: messageId,
       hotel_id: hotelId,
@@ -297,7 +376,6 @@ export const createAiLog = async ({
         provider_booking_created,
         provider_used,
         provider_experience_used,
-        hotel_id,
         hotel_name,
         provider_experiences_count,
         hotel_experiences_count,
