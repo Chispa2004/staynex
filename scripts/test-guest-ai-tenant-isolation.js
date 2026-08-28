@@ -205,10 +205,43 @@ const wasInsertedInto = (supabase, table) => (
 );
 
 const compositeFkAllows = ({ parentRows, childRow, childColumns, parentColumns }) => (
-  parentRows.some((parentRow) => childColumns.every((childColumn, index) => (
-    childRow[childColumn] === parentRow[parentColumns[index]]
-  )))
+  childColumns.some((childColumn) => (
+    childRow[childColumn] === null || childRow[childColumn] === undefined
+  ))
+    || parentRows.some((parentRow) => childColumns.every((childColumn, index) => (
+      childRow[childColumn] === parentRow[parentColumns[index]]
+    )))
 );
+
+const assertOptionalRelationshipTenantGuard = ({ table, childColumn, parentTable, parentAlias }) => {
+  assertRegex(
+    migration,
+    new RegExp(
+      `from public\\.${escapeRegExp(table)} t\\s+left join public\\.${escapeRegExp(parentTable)} ${parentAlias} on ${parentAlias}\\.id = t\\.${escapeRegExp(childColumn)}\\s+where t\\.${escapeRegExp(childColumn)} is not null\\s+and \\(\\s*${parentAlias}\\.id is null\\s+or ${parentAlias}\\.hotel_id is distinct from t\\.hotel_id\\s*\\)`,
+      'i'
+    ),
+    `${table}.${childColumn} migration guard should ignore null optional relationship ids`
+  );
+};
+
+const assertOptionalAiLogGuard = ({ childColumn, parentTable, parentAlias }) => {
+  assertRegex(
+    migration,
+    new RegExp(
+      `from public\\.ai_logs t\\s+left join public\\.${escapeRegExp(parentTable)} ${parentAlias} on ${parentAlias}\\.id = t\\.${escapeRegExp(childColumn)}\\s+where t\\.${escapeRegExp(childColumn)} is not null\\s+and ${parentAlias}\\.id is null`,
+      'i'
+    ),
+    `ai_logs.${childColumn} missing-reference guard should ignore null optional relationship ids`
+  );
+  assertRegex(
+    migration,
+    new RegExp(
+      `from public\\.ai_logs t\\s+join public\\.${escapeRegExp(parentTable)} ${parentAlias} on ${parentAlias}\\.id = t\\.${escapeRegExp(childColumn)}\\s+where t\\.${escapeRegExp(childColumn)} is not null\\s+and t\\.hotel_id is not null\\s+and ${parentAlias}\\.hotel_id is distinct from t\\.hotel_id`,
+      'i'
+    ),
+    `ai_logs.${childColumn} tenant mismatch guard should ignore null optional relationship ids`
+  );
+};
 
 const preflight = readSource('supabase/sql/preflight_p0_3_guest_ai_tenant_isolation.sql');
 const migration = readSource('supabase/sql/p0_3_guest_ai_tenant_isolation.sql');
@@ -323,6 +356,16 @@ for (const table of ['guest_ai_profiles', 'guest_ai_tags', 'guest_ai_insights', 
     true,
     `${table} composite FK semantics should allow same-hotel guest`
   );
+  assert.equal(
+    compositeFkAllows({
+      parentRows: [],
+      childRow: { guest_id: null, hotel_id: hotelB },
+      childColumns: ['guest_id', 'hotel_id'],
+      parentColumns: ['id', 'hotel_id']
+    }),
+    true,
+    `${table} composite FK semantics should not reject null optional guest_id`
+  );
 }
 
 assert.equal(
@@ -345,6 +388,37 @@ assert.equal(
   true,
   'scheduled_messages composite FK semantics should allow same-hotel reservation'
 );
+assert.equal(
+  compositeFkAllows({
+    parentRows: [],
+    childRow: { reservation_id: null, hotel_id: hotelB },
+    childColumns: ['reservation_id', 'hotel_id'],
+    parentColumns: ['id', 'hotel_id']
+  }),
+  true,
+  'scheduled_messages reservation_id NULL should not produce a migration tenant violation'
+);
+
+for (const { table, childColumn, parentColumns } of [
+  { table: 'conversation_ai_state', childColumn: 'conversation_id', parentColumns: ['id', 'hotel_id'] },
+  { table: 'scheduled_messages', childColumn: 'guest_id', parentColumns: ['id', 'hotel_id'] },
+  { table: 'scheduled_messages', childColumn: 'conversation_id', parentColumns: ['id', 'hotel_id'] },
+  { table: 'ai_logs', childColumn: 'message_id', parentColumns: ['id', 'hotel_id'] },
+  { table: 'ai_logs', childColumn: 'guest_id', parentColumns: ['id', 'hotel_id'] },
+  { table: 'ai_logs', childColumn: 'conversation_id', parentColumns: ['id', 'hotel_id'] },
+  { table: 'ai_logs', childColumn: 'ticket_id', parentColumns: ['id', 'hotel_id'] }
+]) {
+  assert.equal(
+    compositeFkAllows({
+      parentRows: [],
+      childRow: { [childColumn]: null, hotel_id: hotelB },
+      childColumns: [childColumn, 'hotel_id'],
+      parentColumns
+    }),
+    true,
+    `${table}.${childColumn} nullable relationship semantics should not reject null child ids`
+  );
+}
 
 for (const table of scopedTables) {
   assertRegex(
@@ -415,6 +489,49 @@ assertRegex(
   /foreign key \(reservation_id, hotel_id\)\s+references public\.reservations\(id, hotel_id\)/i,
   'scheduled_messages should enforce reservation/hotel consistency'
 );
+
+for (const table of ['guest_ai_profiles', 'guest_ai_tags', 'guest_ai_insights', 'guest_ai_actions']) {
+  assertOptionalRelationshipTenantGuard({
+    table,
+    childColumn: 'guest_id',
+    parentTable: 'guests',
+    parentAlias: 'g'
+  });
+}
+
+assertOptionalRelationshipTenantGuard({
+  table: 'conversation_ai_state',
+  childColumn: 'conversation_id',
+  parentTable: 'conversations',
+  parentAlias: 'c'
+});
+assertOptionalRelationshipTenantGuard({
+  table: 'scheduled_messages',
+  childColumn: 'reservation_id',
+  parentTable: 'reservations',
+  parentAlias: 'r'
+});
+assertOptionalRelationshipTenantGuard({
+  table: 'scheduled_messages',
+  childColumn: 'guest_id',
+  parentTable: 'guests',
+  parentAlias: 'g'
+});
+assertOptionalRelationshipTenantGuard({
+  table: 'scheduled_messages',
+  childColumn: 'conversation_id',
+  parentTable: 'conversations',
+  parentAlias: 'c'
+});
+
+for (const relation of [
+  { childColumn: 'message_id', parentTable: 'messages', parentAlias: 'm' },
+  { childColumn: 'guest_id', parentTable: 'guests', parentAlias: 'g' },
+  { childColumn: 'conversation_id', parentTable: 'conversations', parentAlias: 'c' },
+  { childColumn: 'ticket_id', parentTable: 'tickets', parentAlias: 'k' }
+]) {
+  assertOptionalAiLogGuard(relation);
+}
 
 for (const readinessToken of [
   'ready_for_p0_3',

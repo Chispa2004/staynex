@@ -139,8 +139,11 @@ begin
   select count(*) into violation_count
   from public.guest_ai_profiles t
   left join public.guests g on g.id = t.guest_id
-  where g.id is null
-     or g.hotel_id is distinct from t.hotel_id;
+  where t.guest_id is not null
+    and (
+      g.id is null
+      or g.hotel_id is distinct from t.hotel_id
+    );
 
   if violation_count > 0 then
     raise exception 'P0-3 aborted: guest_ai_profiles contains % tenant relationship violations', violation_count;
@@ -149,8 +152,11 @@ begin
   select count(*) into violation_count
   from public.guest_ai_tags t
   left join public.guests g on g.id = t.guest_id
-  where g.id is null
-     or g.hotel_id is distinct from t.hotel_id;
+  where t.guest_id is not null
+    and (
+      g.id is null
+      or g.hotel_id is distinct from t.hotel_id
+    );
 
   if violation_count > 0 then
     raise exception 'P0-3 aborted: guest_ai_tags contains % tenant relationship violations', violation_count;
@@ -159,8 +165,11 @@ begin
   select count(*) into violation_count
   from public.guest_ai_insights t
   left join public.guests g on g.id = t.guest_id
-  where g.id is null
-     or g.hotel_id is distinct from t.hotel_id;
+  where t.guest_id is not null
+    and (
+      g.id is null
+      or g.hotel_id is distinct from t.hotel_id
+    );
 
   if violation_count > 0 then
     raise exception 'P0-3 aborted: guest_ai_insights contains % tenant relationship violations', violation_count;
@@ -169,8 +178,11 @@ begin
   select count(*) into violation_count
   from public.guest_ai_actions t
   left join public.guests g on g.id = t.guest_id
-  where g.id is null
-     or g.hotel_id is distinct from t.hotel_id;
+  where t.guest_id is not null
+    and (
+      g.id is null
+      or g.hotel_id is distinct from t.hotel_id
+    );
 
   if violation_count > 0 then
     raise exception 'P0-3 aborted: guest_ai_actions contains % tenant relationship violations', violation_count;
@@ -179,8 +191,11 @@ begin
   select count(*) into violation_count
   from public.conversation_ai_state t
   left join public.conversations c on c.id = t.conversation_id
-  where c.id is null
-     or c.hotel_id is distinct from t.hotel_id;
+  where t.conversation_id is not null
+    and (
+      c.id is null
+      or c.hotel_id is distinct from t.hotel_id
+    );
 
   if violation_count > 0 then
     raise exception 'P0-3 aborted: conversation_ai_state contains % tenant relationship violations', violation_count;
@@ -189,8 +204,11 @@ begin
   select count(*) into violation_count
   from public.scheduled_messages t
   left join public.reservations r on r.id = t.reservation_id
-  where r.id is null
-     or r.hotel_id is distinct from t.hotel_id;
+  where t.reservation_id is not null
+    and (
+      r.id is null
+      or r.hotel_id is distinct from t.hotel_id
+    );
 
   if violation_count > 0 then
     raise exception 'P0-3 aborted: scheduled_messages contains % reservation tenant violations', violation_count;
