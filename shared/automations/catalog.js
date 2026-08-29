@@ -286,7 +286,7 @@ export const CANONICAL_AUTOMATION_DEFINITIONS = [
     category: 'operations',
     audienceType: 'departing_guests',
     requiredData: ['hotelId', 'reservationId', 'departureDate', 'recipient'],
-    templateType: 'late_checkout_offer',
+    templateType: 'checkout',
     scheduleAnchor: 'departure',
     reservationDateDependencies: [RESERVATION_DATE_DEPENDENCIES.DEPARTURE],
     priority: 'MEDIUM'

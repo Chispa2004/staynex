@@ -108,6 +108,46 @@ const hasAnySignal = (params, words = []) => {
   return words.some((word) => text.includes(word));
 };
 
+const hasConfiguredUpsellOffer = ({ reservation = {}, guest = {}, metadata = {} } = {}) => {
+  const sources = [
+    metadata.offerConfigured,
+    metadata.upsellOfferConfigured,
+    metadata.configuredOffer,
+    metadata.configuredOffers,
+    metadata.availableOffer,
+    metadata.availableOffers,
+    metadata.available_offers,
+    metadata.offer_id,
+    metadata.offer,
+    reservation.metadata?.offerConfigured,
+    reservation.metadata?.upsellOfferConfigured,
+    reservation.metadata?.configuredOffer,
+    reservation.metadata?.configuredOffers,
+    reservation.metadata?.availableOffer,
+    reservation.metadata?.availableOffers,
+    reservation.metadata?.available_offers,
+    reservation.metadata?.offer_id,
+    reservation.metadata?.offer,
+    guest.metadata?.offerConfigured,
+    guest.metadata?.upsellOfferConfigured,
+    guest.metadata?.configuredOffer,
+    guest.metadata?.configuredOffers,
+    guest.metadata?.availableOffer,
+    guest.metadata?.availableOffers,
+    guest.metadata?.available_offers,
+    guest.metadata?.offer_id,
+    guest.metadata?.offer
+  ];
+
+  return sources.some((source) => {
+    if (source === true) return true;
+    if (Array.isArray(source)) return source.length > 0;
+    if (source && typeof source === 'object') return Object.keys(source).length > 0;
+    if (typeof source === 'string') return source.trim().length > 0;
+    return false;
+  });
+};
+
 const isValidRecipient = (value) => String(value || '').replace(/\D/g, '').length >= 8;
 
 const isOptedOut = ({ reservation = {}, guest = {} } = {}) => (
@@ -165,6 +205,24 @@ const hoursAfterDeparture = ({ reservation = {}, now }) => {
   return hours === null ? null : -hours;
 };
 
+const stayWindowState = ({ reservation = {}, now }) => {
+  const arrivalDay = dateOnly(reservation.arrival_date);
+  const departureDay = dateOnly(reservation.departure_date);
+  const referenceDay = dateOnly(now);
+
+  if (!arrivalDay || !departureDay || !referenceDay) {
+    return {
+      valid: false,
+      inStay: false
+    };
+  }
+
+  return {
+    valid: true,
+    inStay: referenceDay >= arrivalDay && referenceDay < departureDay
+  };
+};
+
 const daysToArrival = ({ reservation = {}, now }) => {
   if (!reservation.arrival_date) return null;
   const arrival = normalizeDate(`${dateOnly(reservation.arrival_date)}T12:00:00.000Z`);
@@ -216,6 +274,14 @@ const safeMetadata = (metadata = {}) => {
     'folio_data_quality',
     'folio_warnings',
     'pms_data_complete',
+    'offerConfigured',
+    'upsellOfferConfigured',
+    'configuredOffer',
+    'configuredOffers',
+    'availableOffer',
+    'availableOffers',
+    'available_offers',
+    'offer_id',
     'rule_version',
     'runtime_context',
     'triggerOccurrence'
@@ -242,8 +308,10 @@ const triggerDecisionForType = ({
   const arrivalDelta = daysToArrival({ reservation, now });
   const departureHours = hoursUntilDeparture({ reservation, now });
   const elapsedDepartureHours = hoursAfterDeparture({ reservation, now });
+  const stayWindow = stayWindowState({ reservation, now });
   const inHouse = hasStatus(reservation, ['checked_in', 'in_house']);
   const checkedOut = hasStatus(reservation, ['checked_out', 'completed', 'departed', 'finalized']);
+  const upsellSignal = hasAnySignal(params, ['interested', 'me interesa', 'details', 'availability', 'spa', 'experience', 'restaurant', 'transfer']);
 
   if (legacyType === 'pre_arrival_7d') {
     return arrivalDelta !== null && arrivalDelta <= 7 && arrivalDelta >= 0
@@ -277,16 +345,42 @@ const triggerDecisionForType = ({
         ? { eligible: true, reason: 'arrival_day_or_checked_in' }
         : { eligible: false, reason: 'not_arrival_day' }
     ),
-    during_stay: () => (
-      inHouse
+    during_stay: () => {
+      if (!inHouse) {
+        return { eligible: false, reason: 'not_in_house' };
+      }
+
+      if (!stayWindow.valid) {
+        return { eligible: false, reason: 'stay_dates_missing' };
+      }
+
+      return stayWindow.inStay
         ? { eligible: true, reason: 'in_house_guest' }
-        : { eligible: false, reason: 'not_in_house' }
-    ),
-    upselling: () => (
-      inHouse || hasAnySignal(params, ['interested', 'me interesa', 'details', 'availability', 'spa', 'experience', 'restaurant', 'transfer'])
-        ? { eligible: true, reason: 'commercial_interest_or_in_house' }
-        : { eligible: false, reason: 'no_upsell_signal' }
-    ),
+        : { eligible: false, reason: 'outside_stay_window' };
+    },
+    upselling: () => {
+      if (!inHouse) {
+        return { eligible: false, reason: 'not_in_house' };
+      }
+
+      if (!stayWindow.valid) {
+        return { eligible: false, reason: 'stay_dates_missing' };
+      }
+
+      if (!stayWindow.inStay) {
+        return { eligible: false, reason: 'outside_stay_window' };
+      }
+
+      if (!upsellSignal) {
+        return { eligible: false, reason: 'no_upsell_signal' };
+      }
+
+      if (!hasConfiguredUpsellOffer(params)) {
+        return { eligible: false, reason: 'upsell_offer_not_configured' };
+      }
+
+      return { eligible: true, reason: 'configured_upsell_interest' };
+    },
     transfer: () => (
       hasAnySignal(params, ['transfer', 'airport', 'taxi', 'traslado', 'aeropuerto']) || arrivalDelta === 0 || arrivalDelta === 1
         ? { eligible: true, reason: 'arrival_or_transfer_need' }
@@ -343,7 +437,7 @@ const triggerDecisionForType = ({
         : { eligible: false, reason: 'not_checked_out' }
     ),
     review_request: () => (
-      (checkedOut || elapsedDepartureHours !== null) && elapsedDepartureHours !== null && elapsedDepartureHours >= 18 && elapsedDepartureHours <= 48
+      checkedOut && elapsedDepartureHours !== null && elapsedDepartureHours >= 18 && elapsedDepartureHours <= 48
         ? { eligible: true, reason: guest.sentiment === 'negative' ? 'negative_stay_quality_alert' : 'post_checkout_24h_review' }
         : { eligible: false, reason: 'not_checked_out_24h_ago' }
     ),
@@ -456,7 +550,7 @@ export const evaluateAutomationDecision = ({
   const definition = normalized.definition || getAutomationDefinition(normalized.canonicalType);
   const canonicalType = definition?.type || normalized.canonicalType;
 
-  if (!hotel?.id && !reservation?.hotel_id) {
+  if (!hotel?.id && !(reservation?.hotel_id || reservation?.hotelId)) {
     throw new Error('hotelId is required for automation evaluation');
   }
 
@@ -465,7 +559,23 @@ export const evaluateAutomationDecision = ({
   }
 
   const evaluatedAt = normalizeDate(now) || new Date();
-  const hotelId = hotel.id || reservation.hotel_id;
+  const explicitHotelId = hotel?.id || null;
+  const reservationHotelId = reservation?.hotel_id || reservation?.hotelId || null;
+  const guestHotelId = guest?.hotel_id || guest?.hotelId || null;
+
+  if (explicitHotelId && reservationHotelId && explicitHotelId !== reservationHotelId) {
+    throw new Error('reservation hotel tenant mismatch');
+  }
+
+  if (explicitHotelId && guestHotelId && explicitHotelId !== guestHotelId) {
+    throw new Error('guest hotel tenant mismatch');
+  }
+
+  if (reservationHotelId && guestHotelId && reservationHotelId !== guestHotelId) {
+    throw new Error('guest hotel tenant mismatch');
+  }
+
+  const hotelId = explicitHotelId || reservationHotelId;
   const reservationId = reservation.id || reservation.reservation_id || metadata.reservationId || null;
   const stayId = reservation.stay_id || guest?.stay_id || metadata.stayId || null;
   const guestId = reservation.guest_id || guest?.id || metadata.guestId || null;
@@ -627,25 +737,25 @@ export const applyAutomationDecisionOverride = (decision, {
 };
 
 const legacyTemplates = {
-  pre_arrival_7d: ({ prefix, hotelName }) => `Hi ${prefix}we are looking forward to welcoming you to ${hotelName}. If you need transfer, parking or recommendations before arrival, we can help here.`,
-  pre_arrival_1d: ({ prefix }) => `Hi ${prefix}your arrival is tomorrow. You can message us here for anything you need before you arrive.`,
-  in_stay_upsell: ({ prefix }) => `Hi ${prefix}we hope you are enjoying your stay. If you need restaurant, spa or late checkout assistance, we can help here.`,
-  post_stay_review: ({ prefix, hotelName }) => `Hi ${prefix}thank you for staying at ${hotelName}. We would love to hear your feedback about your stay.`,
-  checkin: ({ prefix, hotelName }) => `${prefix}welcome to ${hotelName}. Our team is available here if you need anything around check-in.`,
-  during_stay: ({ prefix }) => `${prefix}we hope you are enjoying your stay. Our team can help here with local recommendations or hotel services.`,
-  checkout: ({ prefix }) => `${prefix}we hope you enjoyed your stay. Our reception team is here if you need any help before departure.`,
-  post_checkout: ({ prefix }) => `${prefix}thank you for staying with us. We hope to welcome you again soon.`,
-  welcome_message: ({ prefix, hotelName }) => `${prefix}welcome to ${hotelName}. If you need recommendations, transfers or anything during your stay, we are here to help.`,
-  late_checkout_offer: ({ prefix }) => `${prefix}if you would like a more relaxed departure, we can check late checkout availability for your stay.`,
+  pre_arrival_7d: ({ prefix, hotelName }) => `${prefix}te esperamos pronto en ${hotelName}. Si necesitas ayuda antes de llegar, puedes escribirnos por aqui.`,
+  pre_arrival_1d: ({ prefix }) => `${prefix}manana es tu llegada. Si necesitas ayuda antes de venir, puedes escribirnos por aqui.`,
+  in_stay_upsell: ({ prefix }) => `${prefix}si sigues interesado/a, recepcion puede ayudarte a revisar esa opcion disponible para tu estancia.`,
+  post_stay_review: ({ prefix, hotelName }) => `${prefix}gracias por alojarte en ${hotelName}. Tu opinion nos ayuda a seguir mejorando. Te importaria valorar tu experiencia?`,
+  checkin: ({ prefix, hotelName }) => `${prefix}bienvenido/a a ${hotelName}. Nuestro equipo esta disponible por aqui si necesitas ayuda con tu llegada.`,
+  during_stay: ({ prefix }) => `${prefix}esperamos que estes disfrutando de tu estancia. Si necesitas ayuda o recomendaciones, puedes escribirnos por aqui.`,
+  checkout: ({ prefix }) => `${prefix}hoy esta prevista tu salida. Si necesitas ayuda antes de irte, nuestro equipo de recepcion esta disponible por aqui.`,
+  post_checkout: ({ prefix }) => `${prefix}gracias por alojarte con nosotros. Esperamos volver a recibirte pronto.`,
+  welcome_message: ({ prefix, hotelName }) => `${prefix}bienvenido/a a ${hotelName}. Si necesitas recomendaciones, traslados o ayuda durante tu estancia, estamos aqui para ayudarte.`,
+  late_checkout_offer: ({ prefix }) => `${prefix}si deseas una salida mas relajada, podemos revisar la disponibilidad de late checkout para tu estancia.`,
   spa_upsell: ({ prefix }) => `${prefix}if you would like to enjoy a moment of wellbeing during your stay, we can help check available spa, hammam or treatment options.`,
   experience_recommendation: ({ prefix }) => `${prefix}if you would like to discover local experiences or recommended activities, we will be happy to help you find the option that best suits you.`,
   restaurant_promotion: ({ prefix }) => `${prefix}if you would like to reserve a table for this evening or receive nearby dining recommendations, our team will be happy to help.`,
   transfer_offer: ({ prefix }) => `${prefix}if you need to arrange an airport transfer or any transportation during your stay, we will be happy to help.`,
-  weather_trigger: ({ prefix }) => `${prefix}if the weather is not ideal, we can recommend indoor plans, spa options or calm local experiences.`,
+  weather_trigger: ({ prefix }) => `${prefix}si el tiempo no acompana, podemos recomendarte planes interiores, spa o experiencias tranquilas cerca del hotel.`,
   vip_followup: ({ prefix }) => `${prefix}as a preferred guest, we will be happy to help with special requests or personalised recommendations during your stay.`,
   birthday_message: ({ prefix }) => `${prefix}we noticed you are celebrating a special occasion. We can help arrange a thoughtful touch during your stay.`,
-  abandoned_interest_followup: ({ prefix }) => `${prefix}if you are still interested, I can pick this back up and help confirm the details.`,
-  post_stay_review_intelligence: ({ prefix }) => `${prefix}thank you for staying with us. We hope you enjoyed your stay. Your feedback helps us improve. Would you mind sharing your experience with us?`
+  abandoned_interest_followup: ({ prefix }) => `${prefix}si sigues interesado/a, puedo retomar la recomendacion y ayudarte a confirmar los detalles.`,
+  post_stay_review_intelligence: ({ prefix }) => `${prefix}gracias por alojarte con nosotros. Esperamos que hayas disfrutado de tu estancia. Tu opinion nos ayuda a seguir mejorando. Te importaria valorar tu experiencia?`
 };
 
 export const buildRuntimeAutomationPreview = ({

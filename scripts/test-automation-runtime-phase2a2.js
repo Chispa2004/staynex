@@ -50,7 +50,8 @@ const hotel = {
     automation_live_enabled: true,
     automation_execution_mode: EXECUTION_MODES.LIVE,
     automation_live_approved_at: '2026-08-12T08:00:00.000Z',
-    automation_live_approved_by: 'ops-user'
+    automation_live_approved_by: 'ops-user',
+    ai_auto_reply_enabled: true
   }
 };
 const baseReservation = {
@@ -64,7 +65,8 @@ const baseReservation = {
   departure_date: '2026-08-15',
   status: 'confirmed',
   metadata: {
-    last_intent: 'airport transfer spa'
+    last_intent: 'airport transfer spa',
+    available_offers: ['spa', 'transfer']
   }
 };
 

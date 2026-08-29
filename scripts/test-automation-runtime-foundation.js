@@ -34,7 +34,9 @@ const hotelA = {
   name: 'Hotel A',
   default_language: 'es',
   timezone: 'Europe/Madrid',
-  metadata: {}
+  metadata: {
+    ai_auto_reply_enabled: true
+  }
 };
 const hotelB = {
   ...hotelA,
@@ -51,7 +53,8 @@ const reservationA = {
   departure_date: '2026-08-06',
   status: 'confirmed',
   metadata: {
-    last_intent: 'airport transfer'
+    last_intent: 'airport transfer',
+    available_offers: ['transfer']
   }
 };
 const runtimeOptionalColumns = new Set([
@@ -478,9 +481,19 @@ const reviewDashboardReservation = {
   departure_date: '2026-08-02',
   status: 'checked_out'
 };
+const dashboardUpsellReservation = {
+  ...reservationA,
+  status: 'checked_in',
+  arrival_date: '2026-08-02',
+  departure_date: '2026-08-06',
+  metadata: {
+    ...reservationA.metadata,
+    available_offers: ['transfer']
+  }
+};
 const dashboardSupabase = createMockSupabase({
   missingRuntimeColumns: true,
-  reservations: [reservationA, reviewDashboardReservation],
+  reservations: [dashboardUpsellReservation, reviewDashboardReservation],
   scheduled_messages: [],
   automation_runs: [],
   automations: [],

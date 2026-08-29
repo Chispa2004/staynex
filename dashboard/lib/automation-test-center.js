@@ -63,6 +63,34 @@ const PRIORITY_WEIGHT = {
   LOW: 1
 };
 
+const canonicalKeyForAutomation = (automation = {}) => (
+  getAutomationDefinition(automation.canonical_type || automation.canonicalType || automation.type)?.type
+  || automation.canonical_type
+  || automation.canonicalType
+  || automation.type
+  || null
+);
+
+const mergeAutomationTestCenterAutomations = (automations = []) => {
+  const merged = mergeAutomationDefaults(automations);
+  const seenCanonicalTypes = new Set(merged.map(canonicalKeyForAutomation).filter(Boolean));
+  const explicitOnlyAutomations = (automations || []).filter((automation) => {
+    const canonicalType = canonicalKeyForAutomation(automation);
+
+    if (!canonicalType || seenCanonicalTypes.has(canonicalType)) {
+      return false;
+    }
+
+    seenCanonicalTypes.add(canonicalType);
+    return true;
+  });
+
+  return [
+    ...merged,
+    ...explicitOnlyAutomations
+  ];
+};
+
 const priorityForAutomation = ({ automation, scenario }) => {
   if (
     automation.type === 'post_stay_review_intelligence'
@@ -223,15 +251,23 @@ const buildBaseGuest = ({ hotel, now, scenarioId }) => {
     },
     guest_interested_experiences: {
       status: 'checked_in',
+      checkIn: dateOnly(addDays(now, -1)),
+      arrival_date: dateOnly(addDays(now, -1)),
+      checkOut: dateOnly(addDays(now, 2)),
+      departure_date: dateOnly(addDays(now, 2)),
       interests: ['experiences', 'excursion', 'agafay'],
       welcome_sent_for_stay: true,
-      metadata: { last_intent: 'experience excursion agafay', interests: ['experiences', 'excursion'], welcome_sent_for_stay: true }
+      metadata: { last_intent: 'experience excursion agafay', interests: ['experiences', 'excursion'], available_offers: ['experience'], welcome_sent_for_stay: true }
     },
     guest_interested_spa: {
       status: 'checked_in',
+      checkIn: dateOnly(addDays(now, -1)),
+      arrival_date: dateOnly(addDays(now, -1)),
+      checkOut: dateOnly(addDays(now, 2)),
+      departure_date: dateOnly(addDays(now, 2)),
       interests: ['spa', 'wellness', 'hammam'],
       welcome_sent_for_stay: true,
-      metadata: { last_intent: 'spa wellness hammam', interests: ['spa', 'wellness'], welcome_sent_for_stay: true }
+      metadata: { last_intent: 'spa wellness hammam', interests: ['spa', 'wellness'], available_offers: ['spa'], welcome_sent_for_stay: true }
     },
     guest_requested_transfer: {
       status: 'confirmed',
@@ -312,28 +348,39 @@ const buildBaseGuest = ({ hotel, now, scenarioId }) => {
         last_intent: 'vip premium spa wellness experience excursion agafay transfer airport restaurant birthday interested availability',
         tags: ['VIP', 'suite', 'birthday'],
         interests: ['spa', 'experiences', 'transfer', 'restaurant'],
+        available_offers: ['spa', 'experience', 'restaurant'],
         welcome_sent_for_stay: true
       }
     },
     revenue_followup_spa: {
       status: 'checked_in',
+      checkIn: dateOnly(addDays(now, -1)),
+      arrival_date: dateOnly(addDays(now, -1)),
+      checkOut: dateOnly(addDays(now, 2)),
+      departure_date: dateOnly(addDays(now, 2)),
       interests: ['spa', 'wellness'],
       welcome_sent_for_stay: true,
       metadata: {
         last_guest_message: 'Si, me interesa el spa',
         last_intent: 'spa_interest',
         interests: ['spa', 'wellness'],
+        available_offers: ['spa'],
         welcome_sent_for_stay: true
       }
     },
     revenue_followup_experience: {
       status: 'checked_in',
+      checkIn: dateOnly(addDays(now, -1)),
+      arrival_date: dateOnly(addDays(now, -1)),
+      checkOut: dateOnly(addDays(now, 2)),
+      departure_date: dateOnly(addDays(now, 2)),
       interests: ['experience', 'excursion', 'essaouira'],
       welcome_sent_for_stay: true,
       metadata: {
         last_guest_message: 'Quiero informacion de la excursion',
         last_intent: 'experience_interest',
         interests: ['experience', 'excursion'],
+        available_offers: ['experience'],
         welcome_sent_for_stay: true
       }
     },
@@ -345,6 +392,7 @@ const buildBaseGuest = ({ hotel, now, scenarioId }) => {
         last_guest_message: 'Reservadme el transfer',
         last_intent: 'airport_transfer_interest',
         interests: ['transfer', 'airport'],
+        available_offers: ['transfer'],
         welcome_sent_for_stay: true
       }
     }
@@ -604,7 +652,7 @@ export const runAutomationTestCenter = ({
     customNow
   });
   const now = new Date(scenario.simulatedNow);
-  const mergedAutomations = mergeAutomationDefaults(automations);
+  const mergedAutomations = mergeAutomationTestCenterAutomations(automations);
   const eligibleAutomations = [];
   const skippedAutomations = [];
   const previews = [];

@@ -91,9 +91,33 @@ export const buildAutomationPreview = ({ automationType, hotel, reservation, lan
   const firstName = reservation?.guest_name?.split(' ')[0] || '';
   const prefix = firstName ? `${firstName}, ` : '';
   const templates = {
+    pre_arrival_7d: {
+      es: `${prefix}te esperamos pronto en ${hotelName}. Si necesitas ayuda antes de llegar, puedes escribirnos por aqui.`,
+      en: `${prefix}we are looking forward to welcoming you to ${hotelName}. If you need help before arrival, you can message us here.`
+    },
+    pre_arrival_1d: {
+      es: `${prefix}manana es tu llegada. Si necesitas ayuda antes de venir, puedes escribirnos por aqui.`,
+      en: `${prefix}your arrival is tomorrow. If you need help before you arrive, you can message us here.`
+    },
     welcome_message: {
       es: `${prefix}bienvenido/a a ${hotelName}. Si necesitas recomendaciones, traslados o ayuda durante tu estancia, estamos aqui para ayudarte.`,
       en: `${prefix}welcome to ${hotelName}. If you need recommendations, transfers or anything during your stay, we are here to help.`
+    },
+    in_stay_upsell: {
+      es: `${prefix}si sigues interesado/a, recepcion puede ayudarte a revisar esa opcion disponible para tu estancia.`,
+      en: `${prefix}if you are still interested, reception can help review that available option for your stay.`
+    },
+    during_stay: {
+      es: `${prefix}esperamos que estes disfrutando de tu estancia. Si necesitas ayuda o recomendaciones, puedes escribirnos por aqui.`,
+      en: `${prefix}we hope you are enjoying your stay. If you need help or recommendations, you can message us here.`
+    },
+    checkout: {
+      es: `${prefix}hoy esta prevista tu salida. Si necesitas ayuda antes de irte, nuestro equipo de recepcion esta disponible por aqui.`,
+      en: `${prefix}your departure is planned for today. If you need help before leaving, our reception team is available here.`
+    },
+    post_stay_review: {
+      es: `${prefix}gracias por alojarte en ${hotelName}. Tu opinion nos ayuda a seguir mejorando. Te importaria valorar tu experiencia?`,
+      en: `${prefix}thank you for staying at ${hotelName}. Your feedback helps us improve. Would you mind reviewing your experience?`
     },
     late_checkout_offer: {
       es: `${prefix}si deseas disfrutar de una salida mas relajada, podemos revisar la disponibilidad de late checkout para tu estancia.`,
