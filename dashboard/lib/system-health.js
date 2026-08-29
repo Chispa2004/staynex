@@ -2,6 +2,10 @@ import {
   pmsConnectionSelectForSurface,
   serializePmsConnectionsSafe
 } from '../../shared/pms/safe-connection.js';
+import {
+  getGlobalAiAutoReplyStatus,
+  getHotelAiAutoReplyStatus
+} from '../../shared/pilot/ai-safety.js';
 
 const PMS_HEALTH_SELECT = pmsConnectionSelectForSurface('health');
 
@@ -43,7 +47,9 @@ const safeRows = async (query, fallback = []) => {
 const uniqueById = (rows = []) => Array.from(new Map(rows.map((row) => [row.id, row])).values());
 
 const isOpenTicket = (ticket = {}) => !['closed', 'completed', 'resolved'].includes(String(ticket.status || '').toLowerCase());
-const isHumanTakeover = (state = {}) => ['human_takeover', 'ai_paused', 'escalation_lock'].includes(state.conversation_ai_mode);
+const isHumanTakeover = (state = {}) => ['human_takeover', 'ai_paused', 'escalation_lock'].includes(
+  state.state_metadata?.conversation_ai_mode || state.conversation_ai_mode || state.ai_mode
+);
 const isDemoRow = (row = {}) => Boolean(
   row.demo
   || row.is_demo
@@ -152,6 +158,9 @@ const buildHotelStatusCards = ({
     && item.metadata?.folio_warnings?.length
   ));
   const aiActive = aiLogs.length > 0 || activeConversations.length === 0;
+  const hotelAiStatus = getHotelAiAutoReplyStatus(hotel);
+  const globalAiStatus = getGlobalAiAutoReplyStatus(process.env);
+  const aiAutoReplyAllowed = hotelAiStatus.allowed && globalAiStatus.allowed;
 
   return [
     {
@@ -170,10 +179,12 @@ const buildHotelStatusCards = ({
     },
     {
       id: 'ai',
-      label: 'AI Active',
-      status: aiActive ? 'healthy' : 'warning',
-      value: aiActive ? 'Active' : 'Needs activity',
-      description: 'Staynex AI is available for guest conversations.'
+      label: 'AI Auto-Reply',
+      status: aiAutoReplyAllowed ? aiActive ? 'healthy' : 'warning' : 'warning',
+      value: !globalAiStatus.allowed ? 'GLOBAL OFF' : hotelAiStatus.configured ? hotelAiStatus.enabled ? 'ON' : 'OFF' : 'No configurado',
+      description: aiAutoReplyAllowed
+        ? 'Las respuestas automáticas de IA están habilitadas para próximos inbound.'
+        : 'Operación manual activa: Inbox, tickets y respuestas de recepción siguen disponibles.'
     },
     {
       id: 'tickets',

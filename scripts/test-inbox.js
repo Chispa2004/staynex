@@ -37,7 +37,8 @@ const messageQueueService = readFileSync(new URL('../src/services/message-queue.
 assert.match(messageQueueService, /automation_blocked_by_human_takeover/, 'Scheduled automations should be blocked during takeover');
 
 const takeoverRoute = readFileSync(new URL('../dashboard/app/api/inbox/takeover/route.js', import.meta.url), 'utf8');
-assert.match(takeoverRoute, /canAccess\(role, 'inbox'\)/, 'Takeover API should require inbox access');
+assert.match(takeoverRoute, /canManageHumanTakeover/, 'Takeover API should require human takeover permission');
 assert.match(takeoverRoute, /platformRole === 'support'/, 'Support sessions should remain read-only');
+assert.match(takeoverRoute, /writeEnterpriseAuditLog/, 'Takeover changes should write a PII-safe audit event');
 
 console.log('Inbox human takeover checks passed');

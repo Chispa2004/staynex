@@ -1,5 +1,6 @@
 import { evaluateHotelLocationTimezoneIntegrity } from '../../shared/location/hotel-location-integrity.js';
 import { getGuestMemoryPilotStatus } from '../../shared/guest-memory/feature-flag.js';
+import { getPilotAiSafetyReadiness } from '../../shared/pilot/ai-safety.js';
 import { canAccessPlatform } from './permissions.js';
 import { getPmsProvider, isPmsProviderLiveApi } from './pms-providers.js';
 
@@ -483,33 +484,53 @@ export const evaluatePilotSecurityBaseline = ({ hotel = {}, env = process.env } 
   source: 'metadata/env'
 });
 
-export const evaluatePilotHumanFallback = ({ hotel = {}, env = process.env } = {}) => evaluateFlagGate({
-  id: 'human_fallback',
-  title: 'Human Fallback',
-  ready: metadataOrEnvFlag({
-    hotel,
-    env,
-    metadataKeys: ['human_fallback_ready', 'pilot_human_fallback_ready', 'humanFallbackReady'],
-    envKeys: ['PILOT_HUMAN_FALLBACK_READY']
-  }),
-  completedDescription: 'Hay fallback humano validado para atender conversaciones.',
-  missingDescription: 'Define y valida el fallback humano antes de go-live.',
-  source: 'metadata/env'
-});
+export const evaluatePilotHumanFallback = ({ hotel = {}, env = process.env } = {}) => {
+  const safety = getPilotAiSafetyReadiness({ hotel, env });
+  const ready = safety.humanFallback.ready;
 
-export const evaluatePilotKillSwitch = ({ hotel = {}, env = process.env } = {}) => evaluateFlagGate({
-  id: 'kill_switch',
-  title: 'Kill Switch',
-  ready: metadataOrEnvFlag({
-    hotel,
-    env,
-    metadataKeys: ['kill_switch_ready', 'pilot_kill_switch_ready', 'killSwitchReady'],
-    envKeys: ['PILOT_KILL_SWITCH_READY']
-  }),
-  completedDescription: 'Hay kill switch operativo validado para el piloto.',
-  missingDescription: 'Define y valida el kill switch antes de go-live.',
-  source: 'metadata/env'
-});
+  return statusResult({
+    id: 'human_fallback',
+    title: 'Human Fallback',
+    status: ready ? PILOT_STATUS.COMPLETED : PILOT_STATUS.ACTION_REQUIRED,
+    description: ready
+      ? 'Takeover, atención humana y gate central están activos para inbound.'
+      : 'El fallback humano necesita runtime, UI de takeover y gate central.',
+    actionLabel: 'Revisar Inbox',
+    href: '/dashboard/inbox',
+    readyForConfiguration: ready,
+    readyForGoLive: ready,
+    details: [
+      { label: 'Fuente durable', value: safety.humanFallback.source },
+      { label: 'Gate central', value: safety.runtime.centralGate },
+      { label: 'Histórico', value: safety.runtime.resumeReprocessesHistory ? 'Reprocesa' : 'No reprocesa' }
+    ],
+    source: safety.humanFallback.source
+  });
+};
+
+export const evaluatePilotKillSwitch = ({ hotel = {}, env = process.env } = {}) => {
+  const safety = getPilotAiSafetyReadiness({ hotel, env });
+  const ready = safety.killSwitch.ready;
+
+  return statusResult({
+    id: 'kill_switch',
+    title: 'Kill Switch',
+    status: ready ? PILOT_STATUS.COMPLETED : PILOT_STATUS.ACTION_REQUIRED,
+    description: ready
+      ? `Kill Switch operativo. Estado hotel: ${safety.hotelStatus.enabled ? 'ON' : 'OFF'}.`
+      : 'Configura el estado HOTEL AI AUTO-REPLY ON/OFF antes del piloto.',
+    actionLabel: 'Revisar Kill Switch',
+    href: '/dashboard/health',
+    readyForConfiguration: ready,
+    readyForGoLive: ready,
+    details: [
+      { label: 'Hotel', value: safety.hotelStatus.label },
+      { label: 'Global', value: safety.globalStatus.label },
+      { label: 'Fuente', value: safety.hotelStatus.source }
+    ],
+    source: safety.hotelStatus.source
+  });
+};
 
 export const buildPilotReadinessBlock = ({
   hotelBlock,

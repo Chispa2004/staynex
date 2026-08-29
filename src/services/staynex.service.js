@@ -5,7 +5,7 @@ import {
   findActiveConversation,
   touchConversation
 } from './supabase.service.js';
-import { analyzeGuestMessage } from './openai.service.js';
+import { AiProviderFailureError, analyzeGuestMessage } from './openai.service.js';
 import {
   findKnowledgeAnswerWithMetadata,
   getKnowledgeForHotel
@@ -18,11 +18,15 @@ import {
   getConversationContext,
   getConversationAiMode,
   getHumanTakeoverState,
-  isHumanControlledConversation,
   buildConversationState,
   generateContextualResponse,
   upsertConversationAiState
 } from './conversation-context.service.js';
+import {
+  buildSkippedTranslationForGate,
+  buildSuppressedAiResponse,
+  resolveAiAutoResponseGate
+} from './ai-auto-response-gate.service.js';
 import { createAiLog } from './ai-log.service.js';
 import {
   buildHumanHandoffReply,
@@ -354,11 +358,21 @@ export const prepareInboundGuestMessageForProcessing = async ({
   });
   const guestLanguage = guest.preferred_language || activeHotel.default_language || 'es';
   const staffTranslationLanguage = activeHotel.staff_translation_language || activeHotel.default_language || 'es';
-  const staffTranslation = await translateForStaff({
-    text: message,
-    guestLanguage,
-    staffLanguage: staffTranslationLanguage
+  const aiAutoResponseGate = await resolveAiAutoResponseGate({
+    hotel: activeHotel,
+    conversationId: conversation.id
   });
+  const staffTranslation = aiAutoResponseGate.allowed
+    ? await translateForStaff({
+      text: message,
+      guestLanguage,
+      staffLanguage: staffTranslationLanguage
+    })
+    : buildSkippedTranslationForGate({
+      guestLanguage,
+      staffTranslationLanguage,
+      reason: aiAutoResponseGate.reason
+    });
   const guestMessage = await createOrReuseInboundGuestMessage({
     activeHotel,
     conversation,
@@ -380,7 +394,99 @@ export const prepareInboundGuestMessageForProcessing = async ({
     guestLanguage,
     staffTranslationLanguage,
     staffTranslation,
+    aiAutoResponseGate,
+    conversationAiState: aiAutoResponseGate.conversationState || null,
     guestMessage
+  };
+};
+
+const buildGateDeliveryMetadata = (reason) => ({
+  ai_auto_response_suppressed: true,
+  ai_gate_reason: reason,
+  ai_suppressed_by_human_takeover: reason === 'human_takeover_active',
+  ai_suppressed_by_hotel_kill_switch: reason === 'hotel_ai_auto_reply_off' || reason === 'hotel_ai_auto_reply_not_configured',
+  ai_suppressed_by_global_kill_switch: reason === 'global_kill_switch_off',
+  ai_suppressed_by_state_lookup_failure: reason === 'state_lookup_failed'
+});
+
+const returnSuppressedAutoResponse = async ({
+  activeHotel,
+  guest,
+  conversation,
+  guestMessage,
+  message,
+  guestLanguage = 'es',
+  staffTranslation = {},
+  reservation = null,
+  channel,
+  gate,
+  existingAiState = null
+}) => {
+  const reason = gate?.reason || 'ai_auto_response_blocked';
+  const ai = buildSuppressedAiResponse({ reason });
+  const takeoverState = getHumanTakeoverState(existingAiState);
+
+  logger.info(
+    reason === 'human_takeover_active'
+      ? 'human_takeover_ai_response_suppressed'
+      : 'ai_auto_response_suppressed_by_gate',
+    {
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      conversationId: conversation.id,
+      reason,
+      mode: getConversationAiMode(existingAiState)
+    }
+  );
+
+  await createAiLog({
+    messageId: guestMessage.id,
+    hotelId: activeHotel.id,
+    hotelName: activeHotel.name || activeHotel.brand_name || null,
+    guestId: guest.id,
+    conversationId: conversation.id,
+    detectedLanguage: guestLanguage,
+    detectedIntent: reason,
+    detectedRoom: guest.current_room || null,
+    confidenceScore: 1,
+    generatedResponse: null,
+    rawGuestMessage: null,
+    needsHuman: true,
+    humanReason: reason,
+    aiProvider: 'system',
+    aiModel: 'pilot-ai-safety-gate',
+    fallbackUsed: false,
+    translatedForStaff: false,
+    translatedForGuest: false,
+    translationProvider: staffTranslation.provider || null,
+    responseLanguage: guestLanguage,
+    aiReasoning: `central_gate=shouldAiAutoRespond; automatic_ai_reply=false; reason=${reason}`
+  });
+
+  return {
+    ai,
+    hotel: activeHotel,
+    guest,
+    conversation,
+    messages: {
+      guest: guestMessage,
+      ai: null
+    },
+    ticket: null,
+    upsells: [],
+    memories: [],
+    reservation,
+    human: {
+      needsHuman: true,
+      humanReason: reason,
+      takeover: takeoverState
+    },
+    delivery: {
+      channel,
+      sent_via_twilio: false,
+      twilio_sid: null,
+      ...buildGateDeliveryMetadata(reason)
+    }
   };
 };
 
@@ -414,6 +520,8 @@ export const processGuestMessage = async ({
   let staffTranslationLanguage = null;
   let staffTranslation = null;
   let guestMessage = null;
+  let aiAutoResponseGate = null;
+  let existingAiState = null;
 
   if (preparedInbound) {
     ({
@@ -427,6 +535,8 @@ export const processGuestMessage = async ({
       guestLanguage,
       staffTranslationLanguage,
       staffTranslation,
+      aiAutoResponseGate,
+      conversationAiState: existingAiState,
       guestMessage
     } = preparedInbound);
 
@@ -434,16 +544,30 @@ export const processGuestMessage = async ({
       throw new Error('prepared inbound message context is incomplete');
     }
   } else {
-    const resolved = await resolveMessageHotelContext({
-      initialHotel: hotel,
+    const prepared = await prepareInboundGuestMessageForProcessing({
+      hotel,
       message,
-      allowHotelContextSwitch
+      phone,
+      channel,
+      allowHotelContextSwitch,
+      inboundDedupe
     });
 
-    activeHotel = resolved.hotel;
-    hotelContextSource = resolved.source;
-    cleanPhone = normalizeWhatsappNumber(phone);
-    phoneForLogs = maskPhoneForLogs(cleanPhone);
+    ({
+      activeHotel,
+      hotelContextSource,
+      cleanPhone,
+      phoneForLogs,
+      reservation,
+      guest,
+      conversation,
+      guestLanguage,
+      staffTranslationLanguage,
+      staffTranslation,
+      aiAutoResponseGate,
+      conversationAiState: existingAiState,
+      guestMessage
+    } = prepared);
   }
 
   const rateLimit = checkInboundMessageRateLimit({
@@ -454,6 +578,30 @@ export const processGuestMessage = async ({
       phone: phoneForLogs
     }
   });
+
+  if (!aiAutoResponseGate) {
+    aiAutoResponseGate = await resolveAiAutoResponseGate({
+      hotel: activeHotel,
+      conversationId: conversation.id
+    });
+    existingAiState = aiAutoResponseGate.conversationState || null;
+  }
+
+  if (!aiAutoResponseGate.allowed) {
+    return returnSuppressedAutoResponse({
+      activeHotel,
+      guest,
+      conversation,
+      guestMessage,
+      message,
+      guestLanguage,
+      staffTranslation,
+      reservation,
+      channel,
+      gate: aiAutoResponseGate,
+      existingAiState
+    });
+  }
 
   if (!rateLimit.allowed) {
     const reply = getRateLimitFallbackReply(message);
@@ -499,87 +647,10 @@ export const processGuestMessage = async ({
     phone: phoneForLogs
   });
 
-  if (!preparedInbound) {
-    const detectedReservationToken = extractReservationAccessToken(message);
-
-    if (detectedReservationToken) {
-      const hasReservationToken = hasReservationAccessTokenForLogs(detectedReservationToken);
-
-      logger.info('token detected', {
-        hotelId: activeHotel.id,
-        phone: phoneForLogs,
-        hasReservationAccessToken: hasReservationToken
-      });
-
-      reservation = await findReservationByAccessToken(detectedReservationToken);
-
-      if (reservation?.hotel_id && reservation.hotel_id !== activeHotel?.id) {
-        if (!allowHotelContextSwitch) {
-          logger.warn('reservation_token_hotel_switch_suppressed_for_locked_inbound', {
-            hotelId: activeHotel.id,
-            reservationId: reservation.id,
-            hasReservationAccessToken: hasReservationToken
-          });
-          reservation = null;
-        } else {
-          const reservationHotel = await getHotelById(reservation.hotel_id);
-
-          if (reservationHotel) {
-            activeHotel = reservationHotel;
-            hotelContextSource = 'reservation_access_token';
-            logger.info('hotel context switched from reservation token', {
-              hotelId: activeHotel.id,
-              reservationId: reservation.id,
-              hasReservationAccessToken: hasReservationToken
-            });
-          }
-        }
-      }
-    }
-
-    guest = await findOrCreateGuest({
-      hotelId: activeHotel.id,
-      phoneNumber: cleanPhone,
-      message
-    });
-
-    if (reservation) {
-      reservation = await linkReservationToGuest({
-        reservation,
-        guest,
-        message
-      });
-    }
-
-    conversation = await getOrCreateConversation({
-      hotelId: activeHotel.id,
-      guestId: guest.id
-    });
-    guestLanguage = guest.preferred_language || activeHotel.default_language || 'es';
-    staffTranslationLanguage = activeHotel.staff_translation_language || activeHotel.default_language || 'es';
-    staffTranslation = await translateForStaff({
-      text: message,
-      guestLanguage,
-      staffLanguage: staffTranslationLanguage
-    });
-
-    guestMessage = await createOrReuseInboundGuestMessage({
-      activeHotel,
-      conversation,
-      message,
-      guestLanguage,
-      staffTranslationLanguage,
-      staffTranslation,
-      inboundDedupe
-    });
-  }
-
-  const existingAiState = await getConversationContext({
+  existingAiState ||= await getConversationContext({
     hotelId: activeHotel.id,
     conversationId: conversation.id
   });
-  const takeoverState = getHumanTakeoverState(existingAiState);
-  const humanControlled = isHumanControlledConversation(existingAiState);
 
   const conversationContext = await buildConversationContext({
     hotel: activeHotel,
@@ -658,78 +729,6 @@ export const processGuestMessage = async ({
       }
     })
   ]);
-
-  if (humanControlled) {
-    logger.info('human_takeover_ai_response_suppressed', {
-      hotelId: activeHotel.id,
-      guestId: guest.id,
-      conversationId: conversation.id,
-      mode: takeoverState.mode,
-      activatedBy: takeoverState.activatedBy,
-      activatedAt: takeoverState.activatedAt,
-      reason: takeoverState.reason
-    });
-
-    await createAiLog({
-      messageId: guestMessage.id,
-      hotelId: activeHotel.id,
-      hotelName: activeHotel.name || activeHotel.brand_name || null,
-      guestId: guest.id,
-      conversationId: conversation.id,
-      detectedLanguage: conversationContext.language,
-      detectedIntent: 'human_takeover_active',
-      detectedRoom: guest.current_room || conversationContext.knownRoom || null,
-      confidenceScore: 1,
-      generatedResponse: null,
-      rawGuestMessage: message,
-      needsHuman: true,
-      humanReason: 'human_takeover_active',
-      aiProvider: 'system',
-      aiModel: 'human-takeover-guard',
-      fallbackUsed: false,
-      translatedForStaff: Boolean(staffTranslation.translatedText),
-      translatedForGuest: false,
-      translationProvider: staffTranslation.provider,
-      responseLanguage: conversationContext.language,
-      aiReasoning: `conversation_ai_mode=${getConversationAiMode(existingAiState)}; automatic_ai_reply=false; human_takeover_active=true`
-    });
-
-    const silentAi = {
-      intent: 'human_takeover_active',
-      confidence: 1,
-      reply: null,
-      fallbackUsed: false,
-      aiProvider: 'system',
-      aiModel: 'human-takeover-guard',
-      silent: true
-    };
-
-    return {
-      ai: silentAi,
-      hotel: activeHotel,
-      guest,
-      conversation,
-      messages: {
-        guest: guestMessage,
-        ai: null
-      },
-      ticket: null,
-      upsells: [],
-      memories: [],
-      reservation: conversationContext.reservation,
-      human: {
-        needsHuman: true,
-        humanReason: 'human_takeover_active',
-        takeover: takeoverState
-      },
-      delivery: {
-        channel,
-        sent_via_twilio: false,
-        twilio_sid: null,
-        ai_suppressed_by_human_takeover: true
-      }
-    };
-  }
 
   const knowledgeResult = await findKnowledgeAnswerWithMetadata(
     activeHotel.id,
@@ -1000,30 +999,53 @@ export const processGuestMessage = async ({
   };
 
   const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled());
+  let rawAiResponse = null;
 
-  const rawAiResponse = withAiMetadata(
-    shouldUseDirectKnowledgeResponse ? knowledgeResult.aiResponse : await analyzeGuestMessage({
-      hotel: activeHotel,
-      guest,
-      message,
-      hotelKnowledge: aiHotelKnowledge,
-      conversationContext,
-      fallbackAiResponse: knowledgeResult?.aiResponse || null,
-      fallbackMetadata: knowledgeResult
+  try {
+    rawAiResponse = withAiMetadata(
+      shouldUseDirectKnowledgeResponse ? knowledgeResult.aiResponse : await analyzeGuestMessage({
+        hotel: activeHotel,
+        guest,
+        message,
+        hotelKnowledge: aiHotelKnowledge,
+        conversationContext,
+        fallbackAiResponse: knowledgeResult?.aiResponse || null,
+        fallbackMetadata: knowledgeResult
+          ? {
+            provider: 'mock',
+            model: 'knowledge-base'
+          }
+          : null,
+        failClosedOnProviderFailure: true
+      }),
+      shouldUseDirectKnowledgeResponse
         ? {
           provider: 'mock',
-          model: 'knowledge-base'
+          model: 'knowledge-base',
+          fallbackUsed: false
         }
-        : null
-    }),
-    shouldUseDirectKnowledgeResponse
-      ? {
-        provider: 'mock',
-        model: 'knowledge-base',
-        fallbackUsed: false
-      }
-      : {}
-  );
+        : {}
+    );
+  } catch (error) {
+    if (!(error instanceof AiProviderFailureError)) {
+      throw error;
+    }
+
+    return returnSuppressedAutoResponse({
+      activeHotel,
+      guest,
+      conversation,
+      guestMessage,
+      message,
+      guestLanguage: conversationContext.language,
+      staffTranslation,
+      reservation: conversationContext.reservation || reservation || null,
+      channel,
+      gate: { allowed: false, reason: 'ai_provider_failure' },
+      existingAiState
+    });
+  }
+
   const openAiConcierge = await enhanceConciergeIntelligence({
     hotel: activeHotel,
     guest,

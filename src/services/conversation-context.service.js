@@ -119,7 +119,11 @@ const escalationForIntent = (intent, sentiment = 'neutral') => {
   return 'ai_handled';
 };
 
-export const getConversationContext = async ({ hotelId, conversationId }) => {
+export const getConversationContext = async ({
+  hotelId,
+  conversationId,
+  throwOnError = false
+} = {}) => {
   if (!hotelId || !conversationId) {
     return null;
   }
@@ -134,7 +138,7 @@ export const getConversationContext = async ({ hotelId, conversationId }) => {
       .maybeSingle();
 
     if (error) {
-      if (isMissingStateTable(error)) {
+      if (isMissingStateTable(error) && !throwOnError) {
         return null;
       }
 
@@ -147,6 +151,10 @@ export const getConversationContext = async ({ hotelId, conversationId }) => {
       conversationId,
       message: error.message
     });
+
+    if (throwOnError) {
+      throw error;
+    }
 
     return null;
   }

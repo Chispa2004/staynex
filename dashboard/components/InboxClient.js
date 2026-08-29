@@ -1283,10 +1283,10 @@ export const InboxClient = ({ conversations }) => {
   const filterItems = [
     { key: 'all', label: 'All', count: items.length },
     { key: 'unread', label: 'Unread', count: items.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
-    { key: 'human', label: 'Human takeover', count: humanTakeoverTotal },
+    { key: 'human', label: 'Control humano', count: humanTakeoverTotal },
     { key: 'urgent', label: 'Urgent', count: items.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
     { key: 'vip', label: 'VIP', count: items.filter((conversation) => isVipConversation(conversation)).length },
-    { key: 'ai', label: 'AI Active', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
+    { key: 'ai', label: 'IA activa', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
   const inboxHeightClass = chatOpen
     ? 'h-[calc(100dvh-28px)] min-h-[620px] sm:h-[calc(100dvh-44px)] lg:h-[calc(100vh-104px)] lg:min-h-[640px]'
@@ -1328,7 +1328,7 @@ export const InboxClient = ({ conversations }) => {
               <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
                 {items.length} conversations
                 {unreadTotal > 0 ? ` / ${unreadTotal} unread` : ''}
-                {humanTakeoverTotal > 0 ? ` / ${humanTakeoverTotal} human controlled` : ''}
+                {humanTakeoverTotal > 0 ? ` / ${humanTakeoverTotal} en control humano` : ''}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -1444,7 +1444,7 @@ export const InboxClient = ({ conversations }) => {
             const priority = conversation.copilot?.priority?.level || (needsAttention ? 'high' : 'normal');
             const vip = isVipConversation(conversation);
             const badgeItems = [
-              humanTakeoverActive ? { label: 'Human takeover', tone: 'orange', icon: PauseCircle } : { label: 'AI Active', tone: 'emerald', icon: Bot },
+              humanTakeoverActive ? { label: 'Control humano', tone: 'orange', icon: PauseCircle } : { label: 'IA activa', tone: 'emerald', icon: Bot },
               needsAttention ? { label: 'Urgent', tone: 'red', icon: AlertTriangle } : null,
               vip ? { label: 'VIP', tone: 'violet' } : null,
               languageBadge ? { label: String(languageBadge).toUpperCase(), tone: 'sky' } : null,
@@ -1639,7 +1639,7 @@ export const InboxClient = ({ conversations }) => {
                 ) : (
                   <Bot className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                {selectedHumanTakeoverActive ? 'Human takeover active' : 'AI Active'}
+                {selectedHumanTakeoverActive ? 'Control humano activo' : 'IA activa'}
               </span>
               <button
                 type="button"
@@ -1661,7 +1661,7 @@ export const InboxClient = ({ conversations }) => {
                 ) : (
                   <PauseCircle className="h-4 w-4" aria-hidden="true" />
                 )}
-                {selectedHumanTakeoverActive ? 'Resume AI' : 'Take over'}
+                {selectedHumanTakeoverActive ? 'DEVOLVER A IA' : 'TOMAR CONTROL'}
               </button>
               <button
                 type="button"
@@ -1720,17 +1720,17 @@ export const InboxClient = ({ conversations }) => {
                 <div className="min-w-0">
                   <p className="inline-flex items-center gap-2 text-sm font-semibold">
                     <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                    AI paused - conversation currently handled by reception.
+                    Control humano activo
                   </p>
                   <p className={cn('mt-1 text-xs leading-5', isLight ? 'text-orange-800/80' : 'text-orange-100/75')}>
-                    Staynex Copilot still analyses sentiment, urgency and suggested replies, but no automatic guest reply, automation or provider action will be sent.
+                    Recepción gestiona esta conversación. No se enviará ninguna respuesta automática de IA, automation o acción de proveedor.
                   </p>
                 </div>
                 <div className={cn('shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold', isLight ? 'border-orange-200 bg-white/80 text-orange-800' : 'border-orange-300/20 bg-black/15 text-orange-100')}>
-                  <div>{selectedTakeoverMetadata?.activated_at ? `Since ${formatDate(selectedTakeoverMetadata.activated_at)}` : selectedAiMode}</div>
+                  <div>{selectedTakeoverMetadata?.activated_at ? `Desde ${formatDate(selectedTakeoverMetadata.activated_at)}` : selectedAiMode}</div>
                   {selectedTakeoverMetadata?.activated_by?.email || selectedTakeoverMetadata?.activated_by?.role ? (
                     <div className="mt-0.5 opacity-75">
-                      By {selectedTakeoverMetadata.activated_by.email || selectedTakeoverMetadata.activated_by.role}
+                      Por {selectedTakeoverMetadata.activated_by.role || selectedTakeoverMetadata.activated_by.user_id}
                     </div>
                   ) : null}
                 </div>

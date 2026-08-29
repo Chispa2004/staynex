@@ -3,6 +3,7 @@ import { getConversationContext, isHumanControlledConversation } from './convers
 import { getSupabase } from './supabase.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
 import { logger } from '../utils/logger.js';
+import { shouldAiAutoRespond } from '../../shared/pilot/ai-safety.js';
 import {
   AUTOMATION_RUNTIME_VERSION,
   CERTIFICATION_STATUSES,
@@ -99,11 +100,29 @@ const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = ge
       throw error;
     }
 
-    if (!data || !isHotelAutomationLiveExplicitlyEnabled(data)) {
+    if (!data) {
       return { allowed: false, reason: 'hotel_live_config_missing' };
     }
 
-    return { allowed: true, reason: null };
+    const autoReplyGate = shouldAiAutoRespond({
+      hotel: data,
+      env: process.env
+    });
+
+    if (!autoReplyGate.allowed) {
+      return {
+        allowed: false,
+        reason: autoReplyGate.reason,
+        autoReplyGate,
+        hotel: data
+      };
+    }
+
+    if (!isHotelAutomationLiveExplicitlyEnabled(data)) {
+      return { allowed: false, reason: 'hotel_live_config_missing', hotel: data };
+    }
+
+    return { allowed: true, reason: null, hotel: data };
   } catch (error) {
     logger.warn('automation_hotel_live_gate_unavailable', {
       scheduledMessageId: scheduledMessage.id,
@@ -399,22 +418,49 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
   }
 
   if (scheduledMessage.conversation_id && scheduledMessage.hotel_id) {
-    const aiState = await getConversationContext({
-      hotelId: scheduledMessage.hotel_id,
-      conversationId: scheduledMessage.conversation_id
-    });
+    let aiState = null;
+    let stateLookupFailed = false;
 
-    if (isHumanControlledConversation(aiState)) {
-      logger.info('automation_blocked_by_human_takeover', {
+    try {
+      aiState = await getConversationContext({
+        hotelId: scheduledMessage.hotel_id,
+        conversationId: scheduledMessage.conversation_id,
+        throwOnError: true
+      });
+    } catch (error) {
+      stateLookupFailed = true;
+      logger.warn('automation_ai_state_lookup_failed', {
         scheduledMessageId: scheduledMessage.id,
         hotelId: scheduledMessage.hotel_id,
         conversationId: scheduledMessage.conversation_id,
-        automationType: scheduledMessage.automation_type
+        message: error.message
       });
+    }
+
+    const conversationGate = shouldAiAutoRespond({
+      hotel: hotelLiveGate.hotel || { id: scheduledMessage.hotel_id },
+      conversationState: aiState,
+      stateLookupFailed,
+      env: process.env
+    });
+
+    if (!conversationGate.allowed) {
+      logger.info(
+        isHumanControlledConversation(aiState)
+          ? 'automation_blocked_by_human_takeover'
+          : 'automation_blocked_by_ai_auto_response_gate',
+        {
+        scheduledMessageId: scheduledMessage.id,
+        hotelId: scheduledMessage.hotel_id,
+        conversationId: scheduledMessage.conversation_id,
+        automationType: scheduledMessage.automation_type,
+        reason: conversationGate.reason
+        }
+      );
 
       return updateScheduledMessageStatus(scheduledMessage.id, {
         status: 'failed',
-        error_message: 'Human takeover active for conversation'
+        error_message: conversationGate.reason
       }, { supabase: getQueueSupabase() });
     }
   }

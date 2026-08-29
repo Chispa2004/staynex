@@ -7,6 +7,7 @@ import {
   canAccessPlatform,
   canAccessRoute,
   canAccessRouteForContext,
+  canManageHumanTakeover,
   filterNavigationByRole,
   getPermissionsForRole
 } from '../dashboard/lib/permissions.js';
@@ -58,6 +59,9 @@ assert.equal(canAccess('receptionist', 'local_knowledge_manage'), true, 'Recepti
 assert.equal(canAccess('receptionist', 'experience_bookings'), true, 'Receptionist can view Experience Bookings');
 assert.equal(canAccess('receptionist', 'reception'), true, 'Receptionist can access Reception / Pre Check-in');
 assert.equal(canAccess('receptionist', 'hotel_health'), true, 'Receptionist can access Hotel Operational Health');
+assert.equal(canAccess('receptionist', 'inbox_human_takeover'), true, 'Receptionist can manage own-hotel human takeover');
+assert.equal(canManageHumanTakeover({ role: 'receptionist', platformRole: 'none' }), true, 'Receptionist can activate human takeover in their hotel');
+assert.equal(canManageHumanTakeover({ role: 'receptionist', platformRole: 'support' }), false, 'Support fallback sessions cannot activate human takeover');
 assert.equal(canAccess('receptionist', 'experience_bookings_manage'), false, 'Receptionist cannot manage critical Experience Booking actions');
 assert.equal(canAccess('receptionist', 'pms_connections'), false, 'Receptionist cannot access PMS setup');
 assert.equal(canAccess('receptionist', 'automations'), false, 'Receptionist cannot access advanced Automations');

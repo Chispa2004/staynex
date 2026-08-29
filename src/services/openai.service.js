@@ -20,6 +20,16 @@ const isMockAiEnabled = () => process.env.USE_MOCK_AI === 'true';
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 const DEFAULT_OPENAI_TIMEOUT_MS = 15000;
 
+export class AiProviderFailureError extends Error {
+  constructor(message, { cause = null, status = null } = {}) {
+    super(message);
+    this.name = 'AiProviderFailureError';
+    this.code = 'AI_PROVIDER_FAILURE';
+    this.status = status;
+    this.cause = cause;
+  }
+}
+
 const getOpenAiModel = () => process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
 
 const getOpenAiTimeoutMs = () => {
@@ -94,7 +104,8 @@ export const analyzeGuestMessage = async ({
   hotelKnowledge,
   conversationContext,
   fallbackAiResponse = null,
-  fallbackMetadata = null
+  fallbackMetadata = null,
+  failClosedOnProviderFailure = false
 }) => {
   if (isMockAiEnabled()) {
     return analyzeWithMockAi({
@@ -115,6 +126,12 @@ export const analyzeGuestMessage = async ({
   };
 
   if (isAiCircuitBreakerOpen(circuitContext)) {
+    if (failClosedOnProviderFailure) {
+      throw new AiProviderFailureError('AI provider circuit breaker is open', {
+        status: 'circuit_open'
+      });
+    }
+
     if (fallbackAiResponse) {
       return withAiMetadata(fallbackAiResponse, {
         provider: fallbackMetadata?.provider || 'mock',
@@ -189,6 +206,17 @@ export const analyzeGuestMessage = async ({
       status: error.status || error.code || null
     });
     recordAiFailure(error, circuitContext);
+
+    if (failClosedOnProviderFailure) {
+      logger.warn('openai_failed_fail_closed_for_auto_reply', {
+        reason: error.message
+      });
+
+      throw new AiProviderFailureError('AI provider failed during automatic reply', {
+        cause: error,
+        status: error.status || error.code || null
+      });
+    }
 
     logger.warn('fallback_to_mock', {
       reason: error.message

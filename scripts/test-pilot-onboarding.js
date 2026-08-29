@@ -36,7 +36,8 @@ const baseHotel = {
   metadata: {
     security_baseline_passed: true,
     human_fallback_ready: true,
-    kill_switch_ready: true
+    kill_switch_ready: true,
+    ai_auto_reply_enabled: true
   }
 };
 
@@ -117,25 +118,35 @@ const guestMemoryOn = summary({ env: { ...envOff, GUEST_MEMORY_ENABLED: 'true' }
 assert.equal(gate(guestMemoryOn, 'guest_memory').value, PILOT_STATUS.ACTION_REQUIRED, 'Guest Memory ON blocks pilot');
 assert.equal(guestMemoryOn.readyForGoLive, false, 'Guest Memory ON blocks go-live');
 
-const humanFallbackMissing = summary({
+const legacyHumanFallbackFlagIgnored = summary({
   hotel: {
     ...baseHotel,
     metadata: { ...baseHotel.metadata, human_fallback_ready: false }
   },
   env: { ...envOff, PILOT_HUMAN_FALLBACK_READY: 'false' }
 });
-assert.equal(gate(humanFallbackMissing, 'human_fallback').value, PILOT_STATUS.ACTION_REQUIRED, 'Human Fallback missing blocks GO-LIVE');
-assert.equal(humanFallbackMissing.readyForGoLive, false);
+assert.equal(gate(legacyHumanFallbackFlagIgnored, 'human_fallback').value, PILOT_STATUS.COMPLETED, 'Human Fallback uses the real runtime gate, not the legacy readiness flag');
 
 const killSwitchMissing = summary({
   hotel: {
     ...baseHotel,
-    metadata: { ...baseHotel.metadata, kill_switch_ready: false }
-  },
-  env: { ...envOff, PILOT_KILL_SWITCH_READY: 'false' }
+    metadata: {
+      security_baseline_passed: true,
+      human_fallback_ready: true,
+      kill_switch_ready: false
+    }
+  }
 });
 assert.equal(gate(killSwitchMissing, 'kill_switch').value, PILOT_STATUS.ACTION_REQUIRED, 'Kill Switch missing blocks GO-LIVE');
 assert.equal(killSwitchMissing.readyForGoLive, false);
+
+const killSwitchOffConfigured = summary({
+  hotel: {
+    ...baseHotel,
+    metadata: { ...baseHotel.metadata, ai_auto_reply_enabled: false }
+  }
+});
+assert.equal(gate(killSwitchOffConfigured, 'kill_switch').value, PILOT_STATUS.COMPLETED, 'Kill Switch OFF is a configured pilot-safe state');
 
 assert.equal(canModifyPilotProtectedConfig({ role: 'receptionist', platformRole: 'none' }), false, 'receptionist cannot modify protected config');
 assert.equal(canAccessRoute('receptionist', '/dashboard/onboarding'), false, 'receptionist cannot access onboarding route');
@@ -155,7 +166,6 @@ const falseReadyCases = [
   whatsappMissing,
   knowledgeMissing,
   guestMemoryOn,
-  humanFallbackMissing,
   killSwitchMissing
 ];
 assert.equal(falseReadyCases.some((item) => item.readyForGoLive), false, 'no false ready');

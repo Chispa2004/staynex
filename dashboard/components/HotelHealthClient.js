@@ -10,6 +10,8 @@ import {
   ClipboardCheck,
   Inbox,
   PlugZap,
+  Power,
+  PowerOff,
   QrCode,
   RefreshCw,
   ShieldCheck,
@@ -47,6 +49,7 @@ export const HotelHealthClient = () => {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [killSwitchUpdating, setKillSwitchUpdating] = useState(false);
   const [error, setError] = useState(null);
 
   const loadHealth = useCallback(async ({ silent = false } = {}) => {
@@ -84,7 +87,47 @@ export const HotelHealthClient = () => {
   }, [loadHealth]);
 
   const health = payload?.health || {};
+  const pilotAiSafety = payload?.pilotAiSafety || {};
+  const hotelAiStatus = pilotAiSafety.hotelStatus || {};
+  const globalAiStatus = pilotAiSafety.globalStatus || {};
+  const hotelAutoReplyConfigured = Boolean(hotelAiStatus.configured);
+  const hotelAutoReplyEnabled = Boolean(hotelAiStatus.enabled);
+  const globalAutoReplyAllowed = globalAiStatus.allowed !== false;
   const allOperational = health.overallStatus === 'healthy' && !health.warnings?.length;
+
+  const updateHotelAutoReply = async (enabled) => {
+    setKillSwitchUpdating(true);
+
+    try {
+      const response = await fetch('/api/health/hotel', {
+        method: 'PATCH',
+        headers: {
+          ...(await getAuthHeaders()),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'set_ai_auto_reply',
+          enabled
+        })
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(body.error || tx('No se pudo actualizar el Kill Switch IA'));
+      }
+
+      setPayload((current) => ({
+        ...current,
+        ...body
+      }));
+      await loadHealth({ silent: true });
+      setError(null);
+    } catch (caughtError) {
+      setError(caughtError.message);
+    } finally {
+      setKillSwitchUpdating(false);
+    }
+  };
 
   return (
     <section className="space-y-5">
@@ -113,6 +156,56 @@ export const HotelHealthClient = () => {
           <SummaryTile label="Health score" value={loading ? '...' : `${health.healthScore || 0}%`} tone={health.overallStatus === 'critical' ? 'red' : health.overallStatus === 'warning' ? 'amber' : 'emerald'} />
           <SummaryTile label="Current status" value={loading ? '...' : statusLabel[health.overallStatus] || 'Operational'} tone={health.overallStatus === 'warning' ? 'amber' : health.overallStatus === 'critical' ? 'red' : 'emerald'} />
           <SummaryTile label="Warnings" value={loading ? '...' : health.warnings?.length || 0} tone={health.warnings?.length ? 'amber' : 'emerald'} />
+        </div>
+      </section>
+
+      <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className={ui.text.eyebrow(isLight)}>{tx('Pilot Kill Switch')}</p>
+            <h3 className={cn('mt-1 text-xl', ui.text.title(isLight))}>
+              {globalAutoReplyAllowed
+                ? hotelAutoReplyEnabled
+                  ? tx('Auto-reply IA activo')
+                  : tx('Auto-reply IA apagado')
+                : tx('Global OFF activo')}
+            </h3>
+            <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
+              {globalAutoReplyAllowed
+                ? hotelAutoReplyConfigured
+                  ? tx('Inbox, tickets y respuestas manuales siguen operativos. Este control solo gobierna respuestas automáticas y salidas AI-driven.')
+                  : tx('Configura el estado del hotel antes del piloto. Hasta entonces, la auto-respuesta falla cerrada.')
+                : tx('El override global server-side prevalece sobre cualquier estado del hotel. Operación manual sigue disponible.')}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={ui.badge(isLight, globalAutoReplyAllowed ? 'emerald' : 'red')}>
+              {globalAutoReplyAllowed ? tx('GLOBAL ON') : tx('GLOBAL OFF')}
+            </span>
+            <span className={ui.badge(isLight, hotelAutoReplyEnabled ? 'emerald' : 'amber')}>
+              {hotelAutoReplyConfigured ? hotelAutoReplyEnabled ? tx('HOTEL ON') : tx('HOTEL OFF') : tx('HOTEL NO CONFIGURADO')}
+            </span>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => updateHotelAutoReply(true)}
+            disabled={killSwitchUpdating || hotelAutoReplyEnabled}
+            className={ui.button(isLight, 'primary')}
+          >
+            <Power className="h-4 w-4" aria-hidden="true" />
+            {tx('Activar auto-reply')}
+          </button>
+          <button
+            type="button"
+            onClick={() => updateHotelAutoReply(false)}
+            disabled={killSwitchUpdating || hotelAutoReplyConfigured && !hotelAutoReplyEnabled}
+            className={ui.button(isLight, 'secondary')}
+          >
+            <PowerOff className="h-4 w-4" aria-hidden="true" />
+            {tx('Apagar auto-reply')}
+          </button>
         </div>
       </section>
 

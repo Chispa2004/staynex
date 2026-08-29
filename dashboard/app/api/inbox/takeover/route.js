@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { canAccess } from '@/lib/permissions';
+import { canManageHumanTakeover } from '@/lib/permissions';
+import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 
 const AI_MODE = {
   ACTIVE: 'ai_active',
@@ -13,7 +14,6 @@ const safeMetadata = (value) => (
 
 const actorFromContext = ({ user, hotelUser }) => ({
   user_id: user?.id || hotelUser?.user_id || null,
-  email: user?.email || hotelUser?.email || null,
   role: hotelUser?.role || null
 });
 
@@ -25,10 +25,11 @@ export async function POST(request) {
       hotelUser,
       role,
       platformRole,
+      fallback,
       user
     } = await getCurrentHotelForRequest(request);
 
-    if (!canAccess(role, 'inbox')) {
+    if (!canManageHumanTakeover({ role, platformRole, fallback })) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -130,11 +131,37 @@ export async function POST(request) {
       throw upsertError;
     }
 
+    await writeEnterpriseAuditLog({
+      supabase,
+      request,
+      actor: user?.id ? { id: user.id } : null,
+      actorRole: role,
+      actorPlatformRole: platformRole,
+      hotelId: hotel.id,
+      action: action === 'takeover' ? 'human_takeover_activated' : 'human_takeover_released',
+      entityType: 'conversation_ai_state',
+      entityId: savedState.id || conversationId,
+      oldValues: {
+        conversation_id: conversationId,
+        conversation_ai_mode: existingMetadata.conversation_ai_mode || AI_MODE.ACTIVE
+      },
+      newValues: {
+        conversation_id: conversationId,
+        conversation_ai_mode: nextMode
+      },
+      metadata: {
+        event_type: action === 'takeover' ? 'human_takeover_activated' : 'human_takeover_released',
+        conversation_id: conversationId,
+        actor_role: actor.role,
+        reason
+      }
+    });
+
     console.info(action === 'takeover' ? 'takeover_activated' : 'takeover_resumed', {
       hotelId: hotel.id,
       conversationId,
       action,
-      actor: actor.email || actor.user_id || actor.role,
+      actor: actor.user_id || actor.role,
       reason
     });
 

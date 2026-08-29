@@ -32,6 +32,7 @@ const hotelAdminPermissions = [
   'dashboard',
   'hotel_health',
   'inbox',
+  'inbox_human_takeover',
   'tickets',
   'reception',
   'department_views',
@@ -69,6 +70,7 @@ const rolePermissions = {
     'dashboard',
     'hotel_health',
     'inbox',
+    'inbox_human_takeover',
     'tickets',
     'reception',
     'department_views',
@@ -98,6 +100,7 @@ const rolePermissions = {
     'dashboard',
     'hotel_health',
     'inbox',
+    'inbox_human_takeover',
     'tickets',
     'reception',
     'qr_rooms',
@@ -228,6 +231,15 @@ export const getPermissionsForPlatformRole = (platformRole = 'none') => {
 export const canAccessPlatform = (platformRole, permission) => (
   getPermissionsForPlatformRole(platformRole).includes(permission)
 );
+
+export const canManageHumanTakeover = ({ role = null, platformRole = 'none', fallback = false } = {}) => {
+  if (fallback || platformRole === 'support') {
+    return false;
+  }
+
+  return canAccess(role, 'inbox_human_takeover')
+    || canAccessPlatform(platformRole, 'platform_console');
+};
 
 export const getRoutePermission = (pathname = '') => (
   routeRules.find((rule) => rule.pattern.test(pathname))?.permission || 'dashboard'
