@@ -1,5 +1,6 @@
 import {
   createConversation,
+  findMessageByIdForHotel,
   createMessage,
   findActiveConversation,
   touchConversation
@@ -180,10 +181,14 @@ const extractHotelIdFromMessage = (message = '') => {
   return null;
 };
 
-const resolveMessageHotelContext = async ({ initialHotel, message }) => {
+const resolveMessageHotelContext = async ({
+  initialHotel,
+  message,
+  allowHotelContextSwitch = true
+}) => {
   let activeHotel = initialHotel || await getDefaultHotel();
   let source = initialHotel?.id ? 'whatsapp_number' : 'default_hotel';
-  const embeddedHotelId = extractHotelIdFromMessage(message);
+  const embeddedHotelId = allowHotelContextSwitch ? extractHotelIdFromMessage(message) : null;
 
   if (embeddedHotelId && embeddedHotelId !== activeHotel?.id) {
     const embeddedHotel = await getHotelById(embeddedHotelId);
@@ -204,14 +209,69 @@ export const normalizeWhatsappNumber = (phoneNumber) => (
   phoneNumber?.replace(/^whatsapp:/, '') || null
 );
 
-export const processGuestMessage = async ({
+const createOrReuseInboundGuestMessage = async ({
+  activeHotel,
+  conversation,
+  message,
+  guestLanguage,
+  staffTranslationLanguage,
+  staffTranslation,
+  inboundDedupe
+}) => {
+  let guestMessage = null;
+
+  if (inboundDedupe?.messageId) {
+    guestMessage = await findMessageByIdForHotel({
+      messageId: inboundDedupe.messageId,
+      hotelId: activeHotel.id
+    });
+
+    if (guestMessage?.conversation_id !== conversation.id) {
+      logger.warn('twilio_inbound_dedupe_message_context_mismatch', {
+        hotelId: activeHotel.id,
+        conversationId: conversation.id,
+        messageId: inboundDedupe.messageId
+      });
+      guestMessage = null;
+    }
+  }
+
+  if (!guestMessage) {
+    guestMessage = await createMessage({
+      conversationId: conversation.id,
+      hotelId: activeHotel.id,
+      senderType: 'guest',
+      content: message,
+      originalLanguage: staffTranslation.sourceLanguage || guestLanguage,
+      translatedLanguage: staffTranslation.translatedText ? staffTranslation.targetLanguage : null,
+      translatedText: staffTranslation.translatedText,
+      translationProvider: staffTranslation.provider,
+      translationConfidence: staffTranslation.confidence,
+      metadata: {
+        translation_direction: 'guest_to_staff',
+        conversation_language: guestLanguage,
+        staff_language: staffTranslationLanguage,
+        twilio_inbound_claim_id: inboundDedupe?.claimId || null,
+        twilio_message_sid: inboundDedupe?.messageSid || null
+      }
+    });
+
+    if (inboundDedupe?.onMessageCreated) {
+      await inboundDedupe.onMessageCreated(guestMessage);
+    }
+  }
+
+  return guestMessage;
+};
+
+export const prepareInboundGuestMessageForProcessing = async ({
   hotel,
   message,
   phone,
-  sendReply = false,
-  replyTo = null,
-  channel = 'local-test'
-}) => {
+  channel = 'twilio-whatsapp',
+  allowHotelContextSwitch = false,
+  inboundDedupe = null
+} = {}) => {
   if (!message?.trim()) {
     throw new Error('message is required');
   }
@@ -222,10 +282,169 @@ export const processGuestMessage = async ({
 
   let { hotel: activeHotel, source: hotelContextSource } = await resolveMessageHotelContext({
     initialHotel: hotel,
-    message
+    message,
+    allowHotelContextSwitch
   });
   const cleanPhone = normalizeWhatsappNumber(phone);
   const phoneForLogs = maskPhoneForLogs(cleanPhone);
+
+  logger.info('Preparing inbound guest message', {
+    channel,
+    hotelId: activeHotel.id,
+    hotelContextSource,
+    phone: phoneForLogs
+  });
+
+  const detectedReservationToken = extractReservationAccessToken(message);
+  let reservation = null;
+
+  if (detectedReservationToken) {
+    const hasReservationToken = hasReservationAccessTokenForLogs(detectedReservationToken);
+
+    logger.info('token detected', {
+      hotelId: activeHotel.id,
+      phone: phoneForLogs,
+      hasReservationAccessToken: hasReservationToken
+    });
+
+    reservation = await findReservationByAccessToken(detectedReservationToken);
+
+    if (reservation?.hotel_id && reservation.hotel_id !== activeHotel?.id) {
+      if (!allowHotelContextSwitch) {
+        logger.warn('reservation_token_hotel_switch_suppressed_for_locked_inbound', {
+          hotelId: activeHotel.id,
+          reservationId: reservation.id,
+          hasReservationAccessToken: hasReservationToken
+        });
+        reservation = null;
+      } else {
+        const reservationHotel = await getHotelById(reservation.hotel_id);
+
+        if (reservationHotel) {
+          activeHotel = reservationHotel;
+          hotelContextSource = 'reservation_access_token';
+          logger.info('hotel context switched from reservation token', {
+            hotelId: activeHotel.id,
+            reservationId: reservation.id,
+            hasReservationAccessToken: hasReservationToken
+          });
+        }
+      }
+    }
+  }
+
+  const guest = await findOrCreateGuest({
+    hotelId: activeHotel.id,
+    phoneNumber: cleanPhone,
+    message
+  });
+
+  if (reservation) {
+    reservation = await linkReservationToGuest({
+      reservation,
+      guest,
+      message
+    });
+  }
+
+  const conversation = await getOrCreateConversation({
+    hotelId: activeHotel.id,
+    guestId: guest.id
+  });
+  const guestLanguage = guest.preferred_language || activeHotel.default_language || 'es';
+  const staffTranslationLanguage = activeHotel.staff_translation_language || activeHotel.default_language || 'es';
+  const staffTranslation = await translateForStaff({
+    text: message,
+    guestLanguage,
+    staffLanguage: staffTranslationLanguage
+  });
+  const guestMessage = await createOrReuseInboundGuestMessage({
+    activeHotel,
+    conversation,
+    message,
+    guestLanguage,
+    staffTranslationLanguage,
+    staffTranslation,
+    inboundDedupe
+  });
+
+  return {
+    activeHotel,
+    hotelContextSource,
+    cleanPhone,
+    phoneForLogs,
+    reservation,
+    guest,
+    conversation,
+    guestLanguage,
+    staffTranslationLanguage,
+    staffTranslation,
+    guestMessage
+  };
+};
+
+export const processGuestMessage = async ({
+  hotel,
+  message,
+  phone,
+  sendReply = false,
+  replyTo = null,
+  channel = 'local-test',
+  allowHotelContextSwitch = true,
+  inboundDedupe = null,
+  preparedInbound = null
+}) => {
+  if (!message?.trim()) {
+    throw new Error('message is required');
+  }
+
+  if (!phone?.trim()) {
+    throw new Error('phone is required');
+  }
+
+  let activeHotel = null;
+  let hotelContextSource = null;
+  let cleanPhone = null;
+  let phoneForLogs = null;
+  let reservation = null;
+  let guest = null;
+  let conversation = null;
+  let guestLanguage = null;
+  let staffTranslationLanguage = null;
+  let staffTranslation = null;
+  let guestMessage = null;
+
+  if (preparedInbound) {
+    ({
+      activeHotel,
+      hotelContextSource,
+      cleanPhone,
+      phoneForLogs,
+      reservation,
+      guest,
+      conversation,
+      guestLanguage,
+      staffTranslationLanguage,
+      staffTranslation,
+      guestMessage
+    } = preparedInbound);
+
+    if (!activeHotel?.id || !guest?.id || !conversation?.id || !guestMessage?.id) {
+      throw new Error('prepared inbound message context is incomplete');
+    }
+  } else {
+    const resolved = await resolveMessageHotelContext({
+      initialHotel: hotel,
+      message,
+      allowHotelContextSwitch
+    });
+
+    activeHotel = resolved.hotel;
+    hotelContextSource = resolved.source;
+    cleanPhone = normalizeWhatsappNumber(phone);
+    phoneForLogs = maskPhoneForLogs(cleanPhone);
+  }
+
   const rateLimit = checkInboundMessageRateLimit({
     hotelId: activeHotel.id,
     guestKey: cleanPhone,
@@ -256,9 +475,9 @@ export const processGuestMessage = async ({
         aiModel: 'rate-limit-guard'
       },
       hotel: activeHotel,
-      guest: null,
-      conversation: null,
-      messages: {},
+      guest: guest || null,
+      conversation: conversation || null,
+      messages: guestMessage ? { guest: guestMessage } : {},
       ticket: null,
       upsells: [],
       memories: [],
@@ -279,77 +498,80 @@ export const processGuestMessage = async ({
     phone: phoneForLogs
   });
 
-  const detectedReservationToken = extractReservationAccessToken(message);
-  let reservation = null;
+  if (!preparedInbound) {
+    const detectedReservationToken = extractReservationAccessToken(message);
 
-  if (detectedReservationToken) {
-    const hasReservationToken = hasReservationAccessTokenForLogs(detectedReservationToken);
+    if (detectedReservationToken) {
+      const hasReservationToken = hasReservationAccessTokenForLogs(detectedReservationToken);
 
-    logger.info('token detected', {
-      hotelId: activeHotel.id,
-      phone: phoneForLogs,
-      hasReservationAccessToken: hasReservationToken
-    });
+      logger.info('token detected', {
+        hotelId: activeHotel.id,
+        phone: phoneForLogs,
+        hasReservationAccessToken: hasReservationToken
+      });
 
-    reservation = await findReservationByAccessToken(detectedReservationToken);
+      reservation = await findReservationByAccessToken(detectedReservationToken);
 
-    if (reservation?.hotel_id && reservation.hotel_id !== activeHotel?.id) {
-      const reservationHotel = await getHotelById(reservation.hotel_id);
+      if (reservation?.hotel_id && reservation.hotel_id !== activeHotel?.id) {
+        if (!allowHotelContextSwitch) {
+          logger.warn('reservation_token_hotel_switch_suppressed_for_locked_inbound', {
+            hotelId: activeHotel.id,
+            reservationId: reservation.id,
+            hasReservationAccessToken: hasReservationToken
+          });
+          reservation = null;
+        } else {
+          const reservationHotel = await getHotelById(reservation.hotel_id);
 
-      if (reservationHotel) {
-        activeHotel = reservationHotel;
-        hotelContextSource = 'reservation_access_token';
-        logger.info('hotel context switched from reservation token', {
-          hotelId: activeHotel.id,
-          reservationId: reservation.id,
-          hasReservationAccessToken: hasReservationToken
-        });
+          if (reservationHotel) {
+            activeHotel = reservationHotel;
+            hotelContextSource = 'reservation_access_token';
+            logger.info('hotel context switched from reservation token', {
+              hotelId: activeHotel.id,
+              reservationId: reservation.id,
+              hasReservationAccessToken: hasReservationToken
+            });
+          }
+        }
       }
     }
-  }
 
-  const guest = await findOrCreateGuest({
-    hotelId: activeHotel.id,
-    phoneNumber: cleanPhone,
-    message
-  });
-
-  if (reservation) {
-    reservation = await linkReservationToGuest({
-      reservation,
-      guest,
+    guest = await findOrCreateGuest({
+      hotelId: activeHotel.id,
+      phoneNumber: cleanPhone,
       message
     });
-  }
 
-  const conversation = await getOrCreateConversation({
-    hotelId: activeHotel.id,
-    guestId: guest.id
-  });
-  const guestLanguage = guest.preferred_language || activeHotel.default_language || 'es';
-  const staffTranslationLanguage = activeHotel.staff_translation_language || activeHotel.default_language || 'es';
-  const staffTranslation = await translateForStaff({
-    text: message,
-    guestLanguage,
-    staffLanguage: staffTranslationLanguage
-  });
-
-  const guestMessage = await createMessage({
-    conversationId: conversation.id,
-    hotelId: activeHotel.id,
-    senderType: 'guest',
-    content: message,
-    originalLanguage: staffTranslation.sourceLanguage || guestLanguage,
-    translatedLanguage: staffTranslation.translatedText ? staffTranslation.targetLanguage : null,
-    translatedText: staffTranslation.translatedText,
-    translationProvider: staffTranslation.provider,
-    translationConfidence: staffTranslation.confidence,
-    metadata: {
-      translation_direction: 'guest_to_staff',
-      conversation_language: guestLanguage,
-      staff_language: staffTranslationLanguage
+    if (reservation) {
+      reservation = await linkReservationToGuest({
+        reservation,
+        guest,
+        message
+      });
     }
-  });
+
+    conversation = await getOrCreateConversation({
+      hotelId: activeHotel.id,
+      guestId: guest.id
+    });
+    guestLanguage = guest.preferred_language || activeHotel.default_language || 'es';
+    staffTranslationLanguage = activeHotel.staff_translation_language || activeHotel.default_language || 'es';
+    staffTranslation = await translateForStaff({
+      text: message,
+      guestLanguage,
+      staffLanguage: staffTranslationLanguage
+    });
+
+    guestMessage = await createOrReuseInboundGuestMessage({
+      activeHotel,
+      conversation,
+      message,
+      guestLanguage,
+      staffTranslationLanguage,
+      staffTranslation,
+      inboundDedupe
+    });
+  }
 
   const existingAiState = await getConversationContext({
     hotelId: activeHotel.id,

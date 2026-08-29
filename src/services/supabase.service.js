@@ -29,6 +29,30 @@ const isMissingMessageTranslationColumn = (error) => (
   || error?.hint?.includes('metadata')
 );
 
+export const findMessageByIdForHotel = async ({
+  messageId,
+  hotelId,
+  client = getSupabase()
+} = {}) => {
+  if (!messageId || !hotelId) {
+    return null;
+  }
+
+  const { data, error } = await client
+    .from('messages')
+    .select('*')
+    .eq('id', messageId)
+    .eq('hotel_id', hotelId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
 export const getSupabase = () => {
   if (supabase) {
     return supabase;
