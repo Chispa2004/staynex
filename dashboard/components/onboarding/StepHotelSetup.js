@@ -1,20 +1,40 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Building2 } from 'lucide-react';
+import { Building2, ShieldCheck } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from '@/components/ExecutiveCard';
-import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getAuthHeaders } from '@/lib/auth-headers';
+import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { cn, ui } from '@/lib/ui/styles';
 
-const inputClass = (isLight) => (
-  isLight
-    ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-300'
-    : 'w-full rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5 text-sm text-slate-100 outline-none focus:border-emerald-300/30'
-);
+const fields = [
+  ['name', 'Nombre del hotel', true],
+  ['brand_name', 'Marca', false],
+  ['country_code', 'País', true],
+  ['city', 'Ciudad', true],
+  ['timezone', 'Zona horaria', true],
+  ['default_language', 'Idioma por defecto', false],
+  ['check_in_time', 'Hora de check-in', false],
+  ['check_out_time', 'Hora de check-out', false],
+  ['phone', 'Teléfono del hotel', false],
+  ['whatsapp_number', 'WhatsApp del hotel', false]
+];
 
-const labelClass = (isLight) => (
-  isLight ? 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.12em] text-slate-500'
-);
+const sanitizeError = (message) => {
+  if (!message) return 'No se pudo guardar el hotel.';
+  if (/supabase|postgres|schema|relation|token|secret|authorization/i.test(message)) {
+    return 'No se pudo guardar. Revisa los datos y vuelve a intentarlo.';
+  }
+
+  return message;
+};
+
+const integrityLabel = (status) => {
+  if (status === 'verified') return 'Verificada';
+  if (status === 'manual_override') return 'Override manual';
+  if (status === 'mismatch') return 'Revisar';
+  return 'Pendiente';
+};
 
 export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
   const { theme } = useDashboardTheme();
@@ -31,9 +51,9 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
       city: hotel?.city || '',
       timezone: hotel?.timezone || '',
       timezone_integrity_status: hotel?.timezone_integrity_status || 'unverified',
-      default_language: hotel?.default_language || 'es',
-      check_in_time: hotel?.check_in_time || '15:00',
-      check_out_time: hotel?.check_out_time || '11:00',
+      default_language: hotel?.default_language || '',
+      check_in_time: hotel?.check_in_time || '',
+      check_out_time: hotel?.check_out_time || '',
       address: hotel?.address || '',
       phone: hotel?.phone || '',
       whatsapp_number: hotel?.whatsapp_number || '',
@@ -63,13 +83,18 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not confirm timezone integrity');
+        throw new Error(body.error || 'No se pudo confirmar la zona horaria.');
       }
 
-      setMessage({ type: 'success', text: status === 'manual_override' ? 'Timezone integrity manually overridden.' : 'Timezone integrity verified.' });
+      setMessage({
+        type: 'success',
+        text: status === 'manual_override'
+          ? 'Override manual guardado.'
+          : 'Zona horaria verificada.'
+      });
       onSaved?.(body.hotel);
     } catch (error) {
-      setMessage({ type: 'error', text: error.message });
+      setMessage({ type: 'error', text: sanitizeError(error.message) });
     } finally {
       setSaving(false);
     }
@@ -77,6 +102,12 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
 
   const save = async (event) => {
     event.preventDefault();
+
+    if (!canEdit) {
+      setMessage({ type: 'error', text: 'No tienes permiso para modificar el hotel.' });
+      return;
+    }
+
     setSaving(true);
     setMessage(null);
 
@@ -89,13 +120,13 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not save hotel setup');
+        throw new Error(body.error || 'No se pudo guardar el hotel.');
       }
 
-      setMessage({ type: 'success', text: 'Hotel profile saved.' });
+      setMessage({ type: 'success', text: 'Hotel guardado.' });
       onSaved?.(body.hotel);
     } catch (error) {
-      setMessage({ type: 'error', text: error.message });
+      setMessage({ type: 'error', text: sanitizeError(error.message) });
     } finally {
       setSaving(false);
     }
@@ -105,42 +136,40 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
     <ExecutiveCard className="p-6">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
-          <ExecutiveBadge tone="emerald">Step 1</ExecutiveBadge>
-          <h2 className={isLight ? 'mt-3 text-2xl font-semibold text-slate-950' : 'mt-3 text-2xl font-semibold text-white'}>Hotel setup</h2>
-          <p className={isLight ? 'mt-2 text-sm leading-6 text-slate-600' : 'mt-2 text-sm leading-6 text-slate-400'}>Define the hotel identity Staynex will use across WhatsApp, AI Concierge and dashboards.</p>
+          <ExecutiveBadge tone="emerald">Hotel</ExecutiveBadge>
+          <h2 className={cn('mt-3 text-2xl font-semibold tracking-normal', ui.text.title(isLight))}>Perfil del hotel</h2>
+          <p className={cn('mt-2 max-w-2xl', ui.text.body(isLight))}>
+            Revisa nombre, país, ciudad y zona horaria. Solo cuenta como válido si la zona horaria está verificada o con override manual.
+          </p>
         </div>
-        <Building2 className="h-6 w-6 text-emerald-400" />
+        <Building2 className="h-6 w-6 text-emerald-400" aria-hidden="true" />
       </div>
 
-      <form onSubmit={canEdit ? save : (event) => event.preventDefault()} className="space-y-5">
+      <form onSubmit={save} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
-          {[
-            ['name', 'Hotel name'],
-            ['brand_name', 'Brand name'],
-            ['country_code', 'Country code'],
-            ['city', 'City'],
-            ['timezone', 'Timezone'],
-            ['default_language', 'Default language'],
-            ['check_in_time', 'Check-in time'],
-            ['check_out_time', 'Check-out time'],
-            ['phone', 'Hotel phone'],
-            ['whatsapp_number', 'WhatsApp number']
-          ].map(([field, label]) => (
+          {fields.map(([field, label, required]) => (
             <label key={field} className="space-y-2">
-              <span className={labelClass(isLight)}>{label}</span>
-              <input className={inputClass(isLight)} value={form[field] || ''} onChange={(event) => update(field, event.target.value)} readOnly={!canEdit} />
+              <span className={ui.text.eyebrow(isLight)}>
+                {label}{required ? ' *' : ''}
+              </span>
+              <input
+                className={`${ui.input(isLight)} w-full`}
+                value={form[field] || ''}
+                onChange={(event) => update(field, event.target.value)}
+                readOnly={!canEdit}
+              />
             </label>
           ))}
         </div>
 
         <label className="space-y-2">
-          <span className={labelClass(isLight)}>Address</span>
-          <input className={inputClass(isLight)} value={form.address || ''} onChange={(event) => update('address', event.target.value)} readOnly={!canEdit} />
+          <span className={ui.text.eyebrow(isLight)}>Dirección</span>
+          <input className={`${ui.input(isLight)} w-full`} value={form.address || ''} onChange={(event) => update('address', event.target.value)} readOnly={!canEdit} />
         </label>
 
         <label className="space-y-2">
-          <span className={labelClass(isLight)}>Short description</span>
-          <textarea rows={3} className={inputClass(isLight)} value={form.description || ''} onChange={(event) => update('description', event.target.value)} readOnly={!canEdit} />
+          <span className={ui.text.eyebrow(isLight)}>Descripción breve</span>
+          <textarea rows={3} className={`${ui.input(isLight)} w-full`} value={form.description || ''} onChange={(event) => update('description', event.target.value)} readOnly={!canEdit} />
         </label>
 
         {message ? (
@@ -148,22 +177,25 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
         ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <span className={isLight ? 'rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800' : 'rounded-lg border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs font-semibold text-amber-100'}>
-            Timezone integrity: {form.timezone_integrity_status || 'unverified'}
+          <span className={ui.badge(isLight, ['verified', 'manual_override'].includes(form.timezone_integrity_status) ? 'emerald' : 'amber')}>
+            <ShieldCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+            Zona horaria: {integrityLabel(form.timezone_integrity_status)}
           </span>
           {canEdit ? (
             <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('verified')} className={isLight ? 'rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60' : 'rounded-lg border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/[0.05] disabled:opacity-60'}>
-                Verify timezone
+              <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('verified')} className={ui.button(isLight, 'secondary')}>
+                Verificar zona horaria
               </button>
-              <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('manual_override')} className={isLight ? 'rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60' : 'rounded-lg border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:bg-white/[0.05] disabled:opacity-60'}>
-                Manual override
+              <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('manual_override')} className={ui.button(isLight, 'secondary')}>
+                Override manual
               </button>
-              <button type="submit" disabled={saving} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:opacity-60">
-                {saving ? 'Saving...' : 'Save hotel setup'}
+              <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
+                {saving ? 'Guardando...' : 'Guardar hotel'}
               </button>
             </div>
-          ) : null}
+          ) : (
+            <span className={ui.badge(isLight, 'slate')}>Solo lectura para este rol</span>
+          )}
         </div>
       </form>
     </ExecutiveCard>

@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
-import { getOnboardingContext, ONBOARDING_STEPS, updateOnboardingState } from '@/lib/onboarding';
+import {
+  getOnboardingContext,
+  getPilotOnboardingSummaryForContext,
+  ONBOARDING_STEPS,
+  updateOnboardingState
+} from '@/lib/onboarding';
+import { canModifyPilotProtectedConfig, normalizePilotOnboardingStep } from '@/lib/pilot-onboarding';
 
 const jsonError = (message, status = 500) => NextResponse.json({
   ok: false,
@@ -8,12 +14,14 @@ const jsonError = (message, status = 500) => NextResponse.json({
 }, { status });
 
 const normalizeStep = (step) => (
-  ONBOARDING_STEPS.includes(step) ? step : ONBOARDING_STEPS[0]
+  ONBOARDING_STEPS.includes(normalizePilotOnboardingStep(step)) ? normalizePilotOnboardingStep(step) : ONBOARDING_STEPS[0]
 );
 
 export async function GET(request) {
   try {
-    const { hotel, role, platformRole, fallback, state, schemaReady, warning } = await getOnboardingContext(request);
+    const context = await getOnboardingContext(request);
+    const { hotel, role, platformRole, fallback, state, schemaReady, warning } = context;
+    const pilot = await getPilotOnboardingSummaryForContext(context);
 
     return NextResponse.json({
       ok: true,
@@ -22,6 +30,7 @@ export async function GET(request) {
       platformRole,
       fallback,
       state,
+      pilot,
       schemaReady,
       warning: warning || null,
       steps: ONBOARDING_STEPS
@@ -33,14 +42,14 @@ export async function GET(request) {
 
 export async function PATCH(request) {
   try {
-    const { supabase, hotel, role, user, platformRole, schemaReady, state: previousState } = await getOnboardingContext(request);
+    const { supabase, hotel, role, user, platformRole, fallback, schemaReady, state: previousState } = await getOnboardingContext(request);
 
     if (!schemaReady) {
-      return jsonError('Run supabase/sql/create_hotel_onboarding.sql before saving onboarding state', 400);
+      return jsonError('La tabla de onboarding no está instalada todavía.', 400);
     }
 
-    if (platformRole === 'support') {
-      return jsonError('Support sessions are read-only by default', 403);
+    if (!canModifyPilotProtectedConfig({ role, platformRole, fallback })) {
+      return jsonError('No tienes permiso para modificar la configuración piloto.', 403);
     }
 
     const body = await request.json().catch(() => ({}));

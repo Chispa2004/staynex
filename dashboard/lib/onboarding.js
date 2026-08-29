@@ -1,15 +1,18 @@
 import { getCurrentHotelForRequest } from './current-hotel';
+import {
+  buildPilotOnboardingSummary,
+  normalizePilotCompletedSteps,
+  normalizePilotOnboardingStep,
+  PILOT_ONBOARDING_STEPS
+} from './pilot-onboarding.js';
+import {
+  pmsConnectionInternalSelectForSurface,
+  serializePmsConnectionsSafe
+} from '../../shared/pms/safe-connection.js';
 
-export const ONBOARDING_STEPS = [
-  'hotel_setup',
-  'pms_connection',
-  'whatsapp_setup',
-  'knowledge_base',
-  'ai_concierge',
-  'automations',
-  'test_flow',
-  'completion'
-];
+const PMS_ONBOARDING_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings');
+
+export const ONBOARDING_STEPS = PILOT_ONBOARDING_STEPS.map((step) => step.id);
 
 export const isMissingOnboardingSchema = (error) => (
   error?.message?.includes('hotel_onboarding_state')
@@ -19,16 +22,65 @@ export const isMissingOnboardingSchema = (error) => (
 
 const normalizeCompletedSteps = (value) => {
   if (Array.isArray(value)) {
-    return value;
+    return normalizePilotCompletedSteps(value);
   }
 
   if (typeof value === 'string') {
     try {
       const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
+      return Array.isArray(parsed) ? normalizePilotCompletedSteps(parsed) : [];
     } catch {
       return [];
     }
+  }
+
+  return [];
+};
+
+const safeRows = async (query, fallback = []) => {
+  const { data, error } = await query;
+
+  if (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Pilot onboarding data unavailable', error.message);
+    }
+
+    return fallback;
+  }
+
+  return data || fallback;
+};
+
+const loadKnowledgeEntries = async ({ supabase, hotelId }) => {
+  const result = await supabase
+    .from('hotel_knowledge')
+    .select('id, hotel_id, title, key, category, value, is_active, updated_at')
+    .eq('hotel_id', hotelId)
+    .limit(200);
+
+  if (!result.error) {
+    return result.data || [];
+  }
+
+  if (
+    result.error?.message?.includes('title')
+    || result.error?.message?.includes('category')
+    || result.error?.message?.includes('is_active')
+    || result.error?.details?.includes('title')
+    || result.error?.details?.includes('category')
+    || result.error?.details?.includes('is_active')
+  ) {
+    return safeRows(
+      supabase
+        .from('hotel_knowledge')
+        .select('id, hotel_id, key, value')
+        .eq('hotel_id', hotelId)
+        .limit(200)
+    );
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('Pilot onboarding knowledge unavailable', result.error.message);
   }
 
   return [];
@@ -49,6 +101,7 @@ export const getOrCreateOnboardingState = async ({ supabase, hotelId }) => {
   if (existing) {
     return {
       ...existing,
+      current_step: normalizePilotOnboardingStep(existing.current_step),
       completed_steps: normalizeCompletedSteps(existing.completed_steps)
     };
   }
@@ -69,6 +122,7 @@ export const getOrCreateOnboardingState = async ({ supabase, hotelId }) => {
 
   return {
     ...data,
+    current_step: normalizePilotOnboardingStep(data.current_step),
     completed_steps: normalizeCompletedSteps(data.completed_steps)
   };
 };
@@ -131,7 +185,7 @@ export const updateOnboardingState = async ({
   const normalizedCompletedSteps = [...new Set(normalizeCompletedSteps(completedSteps))];
   const payload = {
     hotel_id: hotelId,
-    current_step: currentStep || ONBOARDING_STEPS[0],
+    current_step: normalizePilotOnboardingStep(currentStep || ONBOARDING_STEPS[0]),
     completed_steps: normalizedCompletedSteps,
     onboarding_completed: Boolean(completed),
     onboarding_completed_at: completed ? new Date().toISOString() : null,
@@ -152,6 +206,68 @@ export const updateOnboardingState = async ({
 
   return {
     ...data,
+    current_step: normalizePilotOnboardingStep(data.current_step),
     completed_steps: normalizeCompletedSteps(data.completed_steps)
   };
+};
+
+export const getPilotOnboardingSummaryForContext = async ({
+  supabase,
+  hotel,
+  role,
+  platformRole,
+  fallback
+}) => {
+  const hotelId = hotel?.id;
+
+  if (!hotelId) {
+    return buildPilotOnboardingSummary({
+      hotel,
+      role,
+      platformRole,
+      fallback
+    });
+  }
+
+  const [
+    users,
+    pmsConnections,
+    knowledgeEntries,
+    localKnowledge
+  ] = await Promise.all([
+    safeRows(
+      supabase
+        .from('hotel_users')
+        .select('id, hotel_id, user_id, email, role, status, created_at, updated_at')
+        .eq('hotel_id', hotelId)
+        .limit(200)
+    ),
+    safeRows(
+      supabase
+        .from('hotel_pms_connections')
+        .select(PMS_ONBOARDING_SELECT)
+        .eq('hotel_id', hotelId)
+        .order('updated_at', { ascending: false })
+        .limit(20)
+    ),
+    loadKnowledgeEntries({ supabase, hotelId }),
+    safeRows(
+      supabase
+        .from('local_knowledge_items')
+        .select('id, hotel_id, title, description, active, updated_at')
+        .eq('hotel_id', hotelId)
+        .limit(200)
+    )
+  ]);
+
+  return buildPilotOnboardingSummary({
+    hotel,
+    users,
+    pmsConnections: serializePmsConnectionsSafe(pmsConnections, { surface: 'tenant_settings' }),
+    knowledgeEntries,
+    localKnowledge,
+    role,
+    platformRole,
+    fallback
+  });
 };

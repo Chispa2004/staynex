@@ -91,6 +91,7 @@ const rolePermissions = {
     'qr_rooms',
     'qr_rooms_manage',
     'academy',
+    'onboarding',
     'pms_connections'
   ],
   receptionist: [
