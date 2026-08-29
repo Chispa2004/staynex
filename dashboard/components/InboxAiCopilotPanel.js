@@ -111,7 +111,7 @@ const safeCopilot = (conversation, humanEscalation) => {
     guestSnapshot: {
       room: conversation?.guest?.current_room || null,
       phone: conversation?.guest?.phone_number || null,
-      memoryCount: (conversation?.guestMemory || []).length,
+      memoryCount: conversation?.guestMemoryEnabled === true ? (conversation?.guestMemory || []).length : 0,
       bookingsCount: (conversation?.experienceBookings || []).length,
       lastIntent: conversation?.aiState?.current_intent || conversation?.aiLog?.detected_intent || null
     }
@@ -131,7 +131,8 @@ export const InboxAiCopilotPanel = ({
   const offers = conversation?.offers || [];
   const upsells = conversation?.upsells || [];
   const experienceBookings = conversation?.experienceBookings || [];
-  const memory = conversation?.guestMemory || [];
+  const guestMemoryEnabled = conversation?.guestMemoryEnabled === true;
+  const memory = guestMemoryEnabled ? conversation?.guestMemory || [] : [];
   const aiState = conversation?.aiState || null;
   const activeOffer = offers[0] || null;
   const revenuePotential = offers.reduce((total, offer) => total + Number(offer.suggested_price || 0), 0);
@@ -255,7 +256,7 @@ export const InboxAiCopilotPanel = ({
           <div className="flex flex-wrap gap-2">
             <Pill tone="slate">Room {copilot.guestSnapshot?.room || '-'}</Pill>
             <Pill tone="slate">Phone {copilot.guestSnapshot?.phone || '-'}</Pill>
-            <Pill tone="violet">{copilot.guestSnapshot?.memoryCount || 0} memory signals</Pill>
+            {guestMemoryEnabled ? <Pill tone="violet">{copilot.guestSnapshot?.memoryCount || 0} memory signals</Pill> : null}
             <Pill tone="sky">{copilot.guestSnapshot?.bookingsCount || 0} bookings</Pill>
             {copilot.guestSnapshot?.lastIntent ? <Pill tone="emerald">{copilot.guestSnapshot.lastIntent}</Pill> : null}
           </div>
@@ -422,14 +423,14 @@ export const InboxAiCopilotPanel = ({
             <ActionButton disabled title="Coming soon">Create ticket</ActionButton>
             <ActionButton tone="orange" disabled title="Coming soon">Escalate to reception</ActionButton>
             <ActionButton disabled title="Coming soon">Mark resolved</ActionButton>
-            <ActionButton disabled title="Coming soon">Add memory</ActionButton>
-            {conversation?.guest_id ? (
+            {guestMemoryEnabled ? <ActionButton disabled title="Coming soon">Add memory</ActionButton> : null}
+            {guestMemoryEnabled && conversation?.guest_id ? (
               <Link href={`/dashboard/guest-memory/${conversation.guest_id}`} className={isLight ? 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/[0.08]'}>
                 Guest profile
               </Link>
-            ) : (
+            ) : guestMemoryEnabled ? (
               <ActionButton disabled title="No guest linked">Guest profile</ActionButton>
-            )}
+            ) : null}
             <ActionButton disabled title="Coming soon">Open reservation</ActionButton>
           </div>
         </Section>

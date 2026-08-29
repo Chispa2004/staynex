@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from './supabase';
 import { buildConversationCopilot } from './ai-copilot';
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 
 const INBOX_CONVERSATION_LIMIT = 100;
 const INBOX_MESSAGE_LIMIT = 3000;
@@ -210,6 +211,10 @@ const getAiStateByConversation = async ({ supabase, conversationIds, hotelId }) 
 };
 
 const getGuestMemoryByGuest = async ({ supabase, guestIds, hotelId }) => {
+  if (!isGuestMemoryEnabled()) {
+    return new Map();
+  }
+
   if (!guestIds.length) {
     return new Map();
   }
@@ -379,6 +384,7 @@ const getGuestIntelligenceByGuest = async ({ supabase, guestIds, hotelId }) => {
 
 export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
   let resolvedHotelId = hotelId;
+  const guestMemoryEnabled = isGuestMemoryEnabled();
 
   if (!resolvedHotelId) {
     if (process.env.NODE_ENV !== 'production') {
@@ -429,7 +435,9 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     getActiveOffersByConversation({ supabase, conversationIds }),
     getExperienceBookingsByConversation({ supabase, conversationIds }),
     getAiStateByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
-    getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
+    guestMemoryEnabled
+      ? getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
+      : Promise.resolve(new Map()),
     getGuestStayContextByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
     getGuestIntelligenceByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
   ]);
@@ -456,6 +464,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     const enrichedConversation = {
       ...conversation,
       guest,
+      guestMemoryEnabled,
       guestMemory: memoryByGuest.get(conversation.guest_id) || [],
       messages: conversationMessages,
       lastMessage,

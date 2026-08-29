@@ -6,6 +6,7 @@ import {
   recordAiFailure,
   recordAiSuccess
 } from './scalability-guard.service.js';
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 
 const DEFAULT_MODEL = 'gpt-4.1-mini';
 const DEFAULT_TIMEOUT_MS = 12000;
@@ -128,7 +129,10 @@ const buildPromptPayload = ({
   conversationContext = {},
   conversationState = {},
   heuristic = {}
-}) => ({
+}) => {
+  const guestMemory = isGuestMemoryEnabled() ? conversationContext.guestMemory || [] : [];
+
+  return {
   hotel: {
     id: hotel?.id,
     name: hotel?.name,
@@ -151,7 +155,7 @@ const buildPromptPayload = ({
   reservation: conversationContext.reservation || null,
   pms_intelligence_context: conversationContext.pmsIntelligenceContext || conversationContext.pms_intelligence_context || null,
   guest_intelligence: conversationContext.guestIntelligence || null,
-  guest_memory: compactRows(conversationContext.guestMemory || [], ['memory_type', 'memory_key', 'memory_value', 'confidence']),
+  guest_memory: compactRows(guestMemory, ['memory_type', 'memory_key', 'memory_value', 'confidence']),
   open_tickets: compactRows(conversationContext.openTickets || [], ['category', 'priority', 'status', 'title']),
   hotel_knowledge: compactRows(hotelKnowledge, ['key', 'value', 'category', 'title']),
   local_knowledge: compactRows(conversationContext.localKnowledge || [], ['title', 'short_description', 'description', 'category', 'tags', 'audience_tags', 'recommendation_contexts', 'weather_tags', 'featured', 'priority']),
@@ -169,7 +173,8 @@ const buildPromptPayload = ({
   experience_intelligence: conversationContext.concierge?.experienceIntelligence || null,
   provider_experience_conversation: conversationContext.concierge?.providerExperienceConversation || null,
   heuristic
-});
+  };
+};
 
 const systemPrompt = `You are Staynex, a luxury hotel AI concierge intelligence layer.
 You improve a deterministic heuristic engine, but you must not invent hotel facts, prices, availability, policies, or PMS data.

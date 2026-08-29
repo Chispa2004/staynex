@@ -5,6 +5,7 @@ import {
   pmsConnectionSelectForSurface,
   serializePmsConnectionsSafe
 } from '../../../../shared/pms/safe-connection.js';
+import { isGuestMemoryEnabled } from '../../../../shared/guest-memory/feature-flag.js';
 
 const PMS_EXECUTIVE_SELECT = pmsConnectionSelectForSurface('tenant_settings');
 
@@ -353,6 +354,7 @@ export async function GET(request) {
     const hotelId = hotel?.id || null;
     const today = startOfTodayIso();
     const todayDate = todayKey();
+    const guestMemoryEnabled = isGuestMemoryEnabled();
 
     const [
       conversationsToday,
@@ -441,10 +443,10 @@ export async function GET(request) {
         supabase.from('conversation_ai_state').select('id, conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, openai_enhanced, state_metadata, updated_at'),
         hotelId
       ).order('updated_at', { ascending: false }).limit(100)),
-      safeRows(withHotel(
+      guestMemoryEnabled ? safeRows(withHotel(
         supabase.from('guest_memory').select('id, guest_id, memory_key, memory_value, memory_type, updated_at, created_at'),
         hotelId
-      ).order('updated_at', { ascending: false }).limit(25)),
+      ).order('updated_at', { ascending: false }).limit(25)) : [],
       safeRows(withHotel(
         supabase.from('guest_ai_profiles').select('id, guest_id, guest_score, revenue_generated, operational_risk_score, metadata, updated_at'),
         hotelId

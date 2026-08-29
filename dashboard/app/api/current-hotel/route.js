@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
+import { isGuestMemoryEnabled } from '../../../../shared/guest-memory/feature-flag.js';
 
 const jsonOptions = {
   headers: { 'Cache-Control': 'no-store' }
@@ -13,6 +14,7 @@ const jsonError = (message, status = 500) => NextResponse.json({
   availableHotels: [],
   platformRole: 'none',
   platformPermissions: [],
+  guestMemoryEnabled: false,
   multiPropertyAccess: false,
   canSwitchWorkspaces: false,
   canCreateWorkspaces: false,
@@ -45,6 +47,7 @@ export async function GET(request) {
       permissions,
       platformRole: platformRole || 'none',
       platformPermissions: platformPermissions || [],
+      guestMemoryEnabled: isGuestMemoryEnabled(),
       multiPropertyAccess: Boolean(multiPropertyAccess),
       canSwitchWorkspaces: Boolean(canSwitchWorkspaces),
       canCreateWorkspaces: Boolean(canCreateWorkspaces),
@@ -84,6 +87,7 @@ export async function POST(request) {
       permissions: context.permissions,
       platformRole: context.platformRole || 'none',
       platformPermissions: context.platformPermissions || [],
+      guestMemoryEnabled: isGuestMemoryEnabled(),
       multiPropertyAccess: Boolean(context.multiPropertyAccess),
       canSwitchWorkspaces: Boolean(context.canSwitchWorkspaces),
       canCreateWorkspaces: Boolean(context.canCreateWorkspaces),

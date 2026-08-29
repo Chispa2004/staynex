@@ -125,6 +125,15 @@ const defaultOpenGroups = navigationGroups.reduce((groups, group) => ({
   [group.id]: group.defaultOpen
 }), {});
 
+const filterPilotNavigation = (groups, { guestMemoryEnabled = false } = {}) => groups
+  .map((group) => ({
+    ...group,
+    items: group.items.filter((item) => (
+      item.href !== '/dashboard/guest-memory' || guestMemoryEnabled === true
+    ))
+  }))
+  .filter((group) => group.items.length > 0);
+
 const INBOX_UNREAD_TOTAL_KEY = 'staynex_inbox_unread_total';
 const INBOX_UNREAD_EVENT = 'staynex:inbox-unread-updated';
 const INBOX_HUMAN_TOTAL_KEY = 'staynex_inbox_human_total';
@@ -150,6 +159,7 @@ const AppShellContent = ({ children }) => {
     permissions: ['all'],
     platformRole: 'none',
     platformPermissions: [],
+    guestMemoryEnabled: false,
     multiPropertyAccess: false,
     canSwitchWorkspaces: false,
     canCreateWorkspaces: false,
@@ -175,9 +185,15 @@ const AppShellContent = ({ children }) => {
   const isLoginPage = pathname === '/login';
   const isOnboardingPage = pathname === '/dashboard/onboarding';
   const activeRole = hotelContext.role || 'owner';
+  const pilotNavigationGroups = useMemo(
+    () => filterPilotNavigation(navigationGroups, {
+      guestMemoryEnabled: hotelContext.guestMemoryEnabled
+    }),
+    [hotelContext.guestMemoryEnabled]
+  );
   const allowedNavigationGroups = useMemo(
-    () => filterNavigationByRole(navigationGroups, activeRole, hotelContext.platformRole),
-    [activeRole, hotelContext.platformRole]
+    () => filterNavigationByRole(pilotNavigationGroups, activeRole, hotelContext.platformRole),
+    [activeRole, hotelContext.platformRole, pilotNavigationGroups]
   );
   const canAccessPlatformConsole = INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole);
 
@@ -320,6 +336,7 @@ const AppShellContent = ({ children }) => {
             permissions: body.permissions || ['all'],
             platformRole: body.platformRole || 'none',
             platformPermissions: body.platformPermissions || [],
+            guestMemoryEnabled: body.guestMemoryEnabled === true,
             multiPropertyAccess: Boolean(body.multiPropertyAccess),
             canSwitchWorkspaces: Boolean(body.canSwitchWorkspaces),
             canCreateWorkspaces: Boolean(body.canCreateWorkspaces),
@@ -581,6 +598,7 @@ const AppShellContent = ({ children }) => {
         permissions: body.permissions || ['all'],
         platformRole: body.platformRole || 'none',
         platformPermissions: body.platformPermissions || [],
+        guestMemoryEnabled: body.guestMemoryEnabled === true,
         multiPropertyAccess: Boolean(body.multiPropertyAccess),
         canSwitchWorkspaces: Boolean(body.canSwitchWorkspaces),
         canCreateWorkspaces: Boolean(body.canCreateWorkspaces),

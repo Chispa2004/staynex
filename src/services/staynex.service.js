@@ -111,6 +111,7 @@ import {
   hasReservationAccessTokenForLogs,
   maskPhoneForLogs
 } from '../utils/privacy.js';
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -587,6 +588,8 @@ export const processGuestMessage = async ({
     message,
     reservation
   });
+  const guestMemoryEnabled = isGuestMemoryEnabled();
+  conversationContext.guestMemory = guestMemoryEnabled ? conversationContext.guestMemory || [] : [];
   conversationContext.pmsIntelligenceContext = await buildPmsIntelligenceContext({
     hotelId: activeHotel.id,
     guestId: guest.id,
@@ -1652,14 +1655,16 @@ export const processGuestMessage = async ({
     });
   }
 
-  const conciergeMemories = await persistConciergeMemory({
-    hotel: activeHotel,
-    guest,
-    reservation: conversationContext.reservation,
-    intentResult: enhancedPrimaryIntent,
-    opportunity: offerAllowedInReply ? enhancedRevenueOpportunity : null,
-    risk: enhancedRisk
-  });
+  const conciergeMemories = guestMemoryEnabled
+    ? await persistConciergeMemory({
+      hotel: activeHotel,
+      guest,
+      reservation: conversationContext.reservation,
+      intentResult: enhancedPrimaryIntent,
+      opportunity: offerAllowedInReply ? enhancedRevenueOpportunity : null,
+      risk: enhancedRisk
+    })
+    : [];
   const recentUpsells = storedUpsells.length > 0
     ? storedUpsells
     : await getRecentUpsellsForConversation(conversation.id);
@@ -1838,31 +1843,43 @@ export const processGuestMessage = async ({
     openAiEnhanced: Boolean(openAiResult)
   });
   const primaryUpsell = storedUpsells[0] || upsellOpportunities[0] || null;
-  const detectedMemories = detectGuestMemoryFromMessage({
-    message,
-    context: conversationContext,
-    aiResult: aiResponseWithUpsell
-  });
-  const savedMemories = await upsertDetectedGuestMemories({
-    hotelId: activeHotel.id,
-    guestId: guest.id,
-    sourceMessageId: guestMessage.id,
-    reservationId: conversationContext.reservation?.id || null,
-    memories: [
-      ...detectedMemories,
-      ...(openAiResult?.guest_insights || []).map((item) => ({
-        memoryType: item.memory_type || 'openai_insight',
-        memoryKey: item.memory_key,
-        memoryValue: item.memory_value,
-        confidence: item.confidence || 0.75,
-        metadata: { openai_concierge: true }
-      })),
-      ...buildProviderExperienceInterestMemories({
-        intent: providerExperienceConversation
-      })
-    ]
-  });
-  const memoryKeysUsed = (conversationContext.guestMemory || []).map((item) => item.memory_key);
+  const detectedMemories = guestMemoryEnabled
+    ? detectGuestMemoryFromMessage({
+      message,
+      context: conversationContext,
+      aiResult: aiResponseWithUpsell
+    })
+    : [];
+  const conciergeMemoryCandidates = guestMemoryEnabled
+    ? (openAiResult?.guest_insights || []).map((item) => ({
+      memoryType: item.memory_type || 'openai_insight',
+      memoryKey: item.memory_key,
+      memoryValue: item.memory_value,
+      confidence: item.confidence || 0.75,
+      metadata: { openai_concierge: true }
+    }))
+    : [];
+  const providerExperienceMemoryCandidates = guestMemoryEnabled
+    ? buildProviderExperienceInterestMemories({
+      intent: providerExperienceConversation
+    })
+    : [];
+  const savedMemories = guestMemoryEnabled
+    ? await upsertDetectedGuestMemories({
+      hotelId: activeHotel.id,
+      guestId: guest.id,
+      sourceMessageId: guestMessage.id,
+      reservationId: conversationContext.reservation?.id || null,
+      memories: [
+        ...detectedMemories,
+        ...conciergeMemoryCandidates,
+        ...providerExperienceMemoryCandidates
+      ]
+    })
+    : [];
+  const memoryKeysUsed = guestMemoryEnabled
+    ? (conversationContext.guestMemory || []).map((item) => item.memory_key)
+    : [];
 
   await createAiLog({
     messageId: guestMessage.id,

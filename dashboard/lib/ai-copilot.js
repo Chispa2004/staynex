@@ -13,6 +13,10 @@ const lastGuestMessage = (messages = []) => [...messages]
 
 const guestMessages = (messages = []) => messages.filter((message) => message?.sender_type === 'guest');
 
+const getEnabledGuestMemory = (conversation = {}) => (
+  conversation.guestMemoryEnabled === true ? conversation.guestMemory || [] : []
+);
+
 const money = (value, currency = 'EUR') => ({
   amount: Number(value || 0),
   currency
@@ -198,7 +202,7 @@ const detectVip = (conversation = {}) => {
     };
   }
 
-  const memoryText = normalizeText((conversation.guestMemory || [])
+  const memoryText = normalizeText(getEnabledGuestMemory(conversation)
     .map((item) => `${item.memory_key || ''} ${item.memory_value || ''} ${item.memory_type || ''}`)
     .join(' '));
   const roomText = normalizeText(conversation.guest?.current_room || '');
@@ -344,7 +348,7 @@ const escalationRiskFor = ({ priority, sentiment, conversation = {}, ticket = nu
 
 const summaryForConversation = (conversation = {}) => {
   const latestGuest = lastGuestMessage(conversation.messages || []);
-  const memory = conversation.guestMemory || [];
+  const memory = getEnabledGuestMemory(conversation);
   const bookings = conversation.experienceBookings || [];
   const bullets = [
     conversation.guest?.current_room ? `Room ${conversation.guest.current_room}` : null,
@@ -397,6 +401,7 @@ export const buildConversationCopilot = (conversation = {}) => {
   const escalationRisk = escalationRiskFor({ priority, sentiment, conversation });
   const suggestedReply = suggestedReplyFor({ language, priority, suggestedAction, revenueOpportunity, sentiment });
   const summary = summaryForConversation(conversation);
+  const guestMemory = getEnabledGuestMemory(conversation);
 
   return {
     sentiment,
@@ -411,7 +416,7 @@ export const buildConversationCopilot = (conversation = {}) => {
     guestSnapshot: {
       room: conversation.guest?.current_room || null,
       phone: conversation.guest?.phone_number || null,
-      memoryCount: (conversation.guestMemory || []).length,
+      memoryCount: guestMemory.length,
       openTickets: conversation.openTickets?.length || 0,
       bookingsCount: (conversation.experienceBookings || []).length,
       lastIntent: conversation.aiState?.current_intent || conversation.aiLog?.detected_intent || null,

@@ -5,6 +5,7 @@ import { scheduleReservationAutomations } from './automation.service.js';
 import { getDefaultUpsellAmount } from './revenue.service.js';
 import { createAiLog } from './ai-log.service.js';
 import { logger } from '../utils/logger.js';
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -550,24 +551,26 @@ const createDemoUpsellRevenue = async ({ hotelId, guest, reservation, conversati
 };
 
 const createDemoMemoryAndSignals = async ({ hotelId, guest, scenario }) => {
-  await safeUpsert({
-    table: 'guest_memory',
-    onConflict: 'hotel_id,guest_id,memory_key',
-    rows: scenario.memory.map(([memoryType, memoryKey, memoryValue]) => ({
-      hotel_id: hotelId,
-      guest_id: guest.id,
-      memory_type: memoryType,
-      memory_key: memoryKey,
-      memory_value: memoryValue,
-      confidence: 0.9,
-      source: 'commercial_demo',
-      metadata: {
-        demo: true,
-        scenario: scenario.key
-      },
-      updated_at: new Date().toISOString()
-    }))
-  });
+  if (isGuestMemoryEnabled()) {
+    await safeUpsert({
+      table: 'guest_memory',
+      onConflict: 'hotel_id,guest_id,memory_key',
+      rows: scenario.memory.map(([memoryType, memoryKey, memoryValue]) => ({
+        hotel_id: hotelId,
+        guest_id: guest.id,
+        memory_type: memoryType,
+        memory_key: memoryKey,
+        memory_value: memoryValue,
+        confidence: 0.9,
+        source: 'commercial_demo',
+        metadata: {
+          demo: true,
+          scenario: scenario.key
+        },
+        updated_at: new Date().toISOString()
+      }))
+    });
+  }
 
   await safeUpsert({
     table: 'guest_ai_profiles',
@@ -790,7 +793,9 @@ const clearExistingDemoData = async ({ hotelId }) => {
   }
 
   if (guestIds.length) {
-    await safeDelete({ table: 'guest_memory', apply: (query) => query.in('guest_id', guestIds) });
+    if (isGuestMemoryEnabled()) {
+      await safeDelete({ table: 'guest_memory', apply: (query) => query.in('guest_id', guestIds) });
+    }
     await safeDelete({ table: 'guest_ai_profiles', apply: (query) => query.in('guest_id', guestIds) });
     await safeDelete({ table: 'guest_ai_tags', apply: (query) => query.in('guest_id', guestIds) });
     await safeDelete({ table: 'guest_ai_insights', apply: (query) => query.in('guest_id', guestIds) });

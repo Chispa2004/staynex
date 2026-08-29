@@ -1,6 +1,10 @@
 import { getSupabase } from './supabase.service.js';
 import { detectGuestLanguage, normalizeLanguage } from './language.service.js';
 import { logger } from '../utils/logger.js';
+import {
+  guestMemoryDisabledResult,
+  isGuestMemoryEnabled
+} from '../../shared/guest-memory/feature-flag.js';
 
 export const GUEST_MEMORY_TYPES = {
   PREFERENCE: 'preference',
@@ -26,6 +30,10 @@ const isMissingGuestMemoryTable = (error) => (
 );
 
 export const getGuestMemory = async (hotelId, guestId, { activeOnly = true } = {}) => {
+  if (!isGuestMemoryEnabled()) {
+    return [];
+  }
+
   if (!hotelId || !guestId) {
     return [];
   }
@@ -77,6 +85,10 @@ export const upsertGuestMemory = async ({
   reservationId = null,
   metadata = {}
 }) => {
+  if (!isGuestMemoryEnabled()) {
+    return guestMemoryDisabledResult('upsert_skipped');
+  }
+
   if (!hotelId || !guestId || !memoryKey || memoryValue === undefined || memoryValue === null) {
     return null;
   }
@@ -147,6 +159,10 @@ export const detectGuestMemoryFromMessage = ({
   context = {},
   aiResult = null
 }) => {
+  if (!isGuestMemoryEnabled()) {
+    return [];
+  }
+
   const text = normalize(message);
   const memories = [];
   const language = normalizeLanguage(context.language || detectGuestLanguage(message));
@@ -245,6 +261,10 @@ export const detectGuestMemoryFromMessage = ({
 };
 
 export const formatGuestMemoryForPrompt = (memories = []) => {
+  if (!isGuestMemoryEnabled()) {
+    return 'No hay memoria previa del huesped.';
+  }
+
   if (!memories.length) {
     return 'No hay memoria previa del huesped.';
   }
@@ -261,6 +281,10 @@ export const upsertDetectedGuestMemories = async ({
   reservationId = null,
   memories = []
 }) => {
+  if (!isGuestMemoryEnabled()) {
+    return [];
+  }
+
   const saved = [];
 
   for (const item of memories) {
@@ -277,7 +301,7 @@ export const upsertDetectedGuestMemories = async ({
       metadata: item.metadata || {}
     });
 
-    if (record) {
+    if (record && !record.disabled) {
       saved.push(record);
     }
   }

@@ -1,6 +1,7 @@
 import { getSupabase } from './supabase.service.js';
 import { isHumanControlledConversation } from './conversation-context.service.js';
 import { logger } from '../utils/logger.js';
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import {
   applyAutomationDecisionOverride,
   evaluateAutomationDecision
@@ -449,6 +450,7 @@ export const runPostStayReviewIntelligence = async ({
     const hotelIds = [...new Set(reservations.map((reservation) => reservation.hotel_id).filter(Boolean))];
     const guestIds = [...new Set(reservations.map((reservation) => reservation.guest_id).filter(Boolean))];
     const reservationIds = reservations.map((reservation) => reservation.id).filter(Boolean);
+    const guestMemoryEnabled = isGuestMemoryEnabled();
     const [hotels, guests, conversations, states, messages, tickets, aiLogs, guestMemory, profiles, existingMessages, existingRuns] = await Promise.all([
       hotelIds.length ? safeRows(supabase.from('hotels').select('*').in('id', hotelIds)) : [],
       guestIds.length ? safeRows(supabase.from('guests').select('*').in('id', guestIds)) : [],
@@ -457,7 +459,7 @@ export const runPostStayReviewIntelligence = async ({
       guestIds.length ? safeRows(supabase.from('messages').select('*').in('guest_id', guestIds)).catch(() => []) : [],
       guestIds.length ? safeRows(supabase.from('tickets').select('*').in('guest_id', guestIds)).catch(() => []) : [],
       guestIds.length ? safeRows(supabase.from('ai_logs').select('*').in('guest_id', guestIds)).catch(() => []) : [],
-      guestIds.length ? safeRows(supabase.from('guest_memory').select('*').in('guest_id', guestIds)).catch(() => []) : [],
+      guestMemoryEnabled && guestIds.length ? safeRows(supabase.from('guest_memory').select('*').in('guest_id', guestIds)).catch(() => []) : [],
       guestIds.length ? safeRows(supabase.from('guest_intelligence_profiles').select('*').in('guest_id', guestIds)).catch(() => []) : [],
       reservationIds.length ? safeRows(supabase.from('scheduled_messages').select('*').in('reservation_id', reservationIds)).catch(() => []) : [],
       reservationIds.length ? safeRows(supabase.from('automation_runs').select('*').in('reservation_id', reservationIds)).catch(() => []) : []

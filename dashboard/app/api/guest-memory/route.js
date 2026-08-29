@@ -1,6 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess } from '@/lib/permissions';
+import { isGuestMemoryEnabled } from '../../../../shared/guest-memory/feature-flag.js';
+
+const disabledPayload = (hotel = null, extra = {}) => ({
+  ok: false,
+  disabled: true,
+  status: 'feature_disabled',
+  message: 'Guest Memory is disabled for this pilot.',
+  hotel,
+  hotelId: hotel?.id || null,
+  memories: [],
+  ...extra
+});
 
 const isMissingGuestMemoryTable = (error) => (
   error?.message?.includes('guest_memory')
@@ -14,6 +26,10 @@ export async function GET(request) {
 
     if (!canAccess(role, 'guest_memory')) {
       return NextResponse.json({ hotel, memories: [], error: 'Access denied' }, { status: 403 });
+    }
+
+    if (!isGuestMemoryEnabled()) {
+      return NextResponse.json(disabledPayload(hotel));
     }
 
     if (!hotel?.id) {
@@ -72,6 +88,13 @@ export async function PATCH(request) {
     if (!canAccess(role, 'guest_memory')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
+
+    if (!isGuestMemoryEnabled()) {
+      return NextResponse.json(disabledPayload(hotel, {
+        mutation: 'skipped'
+      }));
+    }
+
     const body = await request.json();
 
     if (!body.id) {
@@ -114,6 +137,13 @@ export async function DELETE(request) {
     if (!canAccess(role, 'guest_memory')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
+
+    if (!isGuestMemoryEnabled()) {
+      return NextResponse.json(disabledPayload(hotel, {
+        mutation: 'skipped'
+      }));
+    }
+
     const body = await request.json();
 
     if (!body.id) {

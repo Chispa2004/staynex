@@ -2,6 +2,7 @@ import { getSupabase, createTicketRecord } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 import { upsertGuestMemory } from './guest-memory.service.js';
 import { createConversion, getDefaultUpsellAmount } from './revenue.service.js';
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 
 const normalize = (value = '') => String(value)
   .toLowerCase()
@@ -84,7 +85,8 @@ export const detectRevenueOpportunity = ({ intentResult, context = {} } = {}) =>
     return null;
   }
 
-  const memoryKeys = new Set((context.guestMemory || []).map((item) => item.memory_key));
+  const guestMemory = isGuestMemoryEnabled() ? context.guestMemory || [] : [];
+  const memoryKeys = new Set(guestMemory.map((item) => item.memory_key));
   const boostedConfidence = memoryKeys.has(`interested_${defaults.offerType}`)
     ? Math.min(0.96, Number(intentResult.confidence || 0.75) + 0.08)
     : Number(intentResult.confidence || 0.75);
@@ -506,6 +508,10 @@ export const persistConciergeMemory = async ({
   opportunity,
   risk
 }) => {
+  if (!isGuestMemoryEnabled()) {
+    return [];
+  }
+
   const memories = [];
 
   if (intentResult?.intent) {
@@ -550,7 +556,7 @@ export const persistConciergeMemory = async ({
       metadata: { concierge_ai: true }
     });
 
-    if (record) saved.push(record);
+    if (record && !record.disabled) saved.push(record);
   }
 
   return saved;

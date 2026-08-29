@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess } from '@/lib/permissions';
+import { isGuestMemoryEnabled } from '../../../../../shared/guest-memory/feature-flag.js';
 import {
   buildDepartmentContext,
   buildTimeline,
@@ -66,6 +67,35 @@ export async function GET(request, { params }) {
 
     if (!canAccess(role, 'guest_memory')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    if (!isGuestMemoryEnabled()) {
+      return NextResponse.json({
+        ok: false,
+        disabled: true,
+        status: 'feature_disabled',
+        message: 'Guest Memory is disabled for this pilot.',
+        hotel,
+        guest: null,
+        header: {},
+        profile: null,
+        tags: [],
+        timeline: [],
+        insights: [],
+        actions: [],
+        departmentContext: {},
+        revenue: {},
+        risk: {},
+        raw: {
+          memories: [],
+          reservations: [],
+          conversations: [],
+          tickets: [],
+          upsells: [],
+          conversions: [],
+          aiLogs: []
+        }
+      });
     }
 
     if (!hotel?.id || !guestId) {

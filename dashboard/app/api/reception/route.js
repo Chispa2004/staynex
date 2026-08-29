@@ -5,6 +5,7 @@ import {
   getReservationDetails,
   searchReservations
 } from '@/lib/reception';
+import { isGuestMemoryEnabled } from '../../../../shared/guest-memory/feature-flag.js';
 
 const noStore = {
   headers: {
@@ -144,7 +145,7 @@ export async function POST(request) {
         || error.details?.includes('notes')
         || error.hint?.includes('notes');
 
-      if (missingNotesColumn && reservation.guest_id) {
+      if (missingNotesColumn && reservation.guest_id && isGuestMemoryEnabled()) {
         const { error: memoryError } = await supabase
           .from('guest_memory')
           .insert({
@@ -164,6 +165,16 @@ export async function POST(request) {
           reservation,
           action,
           noteStoredIn: 'guest_memory'
+        }, noStore);
+      }
+
+      if (missingNotesColumn && reservation.guest_id && !isGuestMemoryEnabled()) {
+        return NextResponse.json({
+          ok: false,
+          status: 'feature_disabled',
+          error: 'Guest Memory is disabled for this pilot.',
+          action,
+          noteStoredIn: null
         }, noStore);
       }
 

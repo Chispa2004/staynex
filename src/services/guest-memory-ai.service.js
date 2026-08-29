@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 
 const normalize = (value = '') => String(value)
   .toLowerCase()
@@ -142,6 +143,7 @@ export const generateGuestInsights = ({ memories = [], reservations = [], ticket
 
 export const generateGuestProfile = async ({ hotelId, guestId }) => {
   const supabase = getSupabase();
+  const guestMemoryEnabled = isGuestMemoryEnabled();
 
   try {
     const [
@@ -155,7 +157,9 @@ export const generateGuestProfile = async ({ hotelId, guestId }) => {
       aiLogsResult
     ] = await Promise.all([
       supabase.from('guests').select('*').eq('hotel_id', hotelId).eq('id', guestId).maybeSingle(),
-      supabase.from('guest_memory').select('*').eq('hotel_id', hotelId).eq('guest_id', guestId).order('updated_at', { ascending: false }),
+      guestMemoryEnabled
+        ? supabase.from('guest_memory').select('*').eq('hotel_id', hotelId).eq('guest_id', guestId).order('updated_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
       supabase.from('reservations').select('*').eq('hotel_id', hotelId).eq('guest_id', guestId).order('arrival_date', { ascending: false }),
       supabase.from('conversations').select('*').eq('hotel_id', hotelId).eq('guest_id', guestId).order('last_message_at', { ascending: false }),
       supabase.from('tickets').select('*').eq('hotel_id', hotelId).eq('guest_id', guestId).order('created_at', { ascending: false }),

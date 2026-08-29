@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase.service.js';
 import { upsertGuestMemory } from './guest-memory.service.js';
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import { createConversion } from './revenue.service.js';
 import {
   buildExperienceProviderLeadEmail,
@@ -2505,6 +2506,10 @@ export const buildProviderExperienceRecommendationReply = ({
 };
 
 export const buildProviderExperienceInterestMemories = ({ intent } = {}) => {
+  if (!isGuestMemoryEnabled()) {
+    return [];
+  }
+
   if (!intent || ![PROVIDER_EXPERIENCE_INTENTS.INQUIRY, PROVIDER_EXPERIENCE_INTENTS.INTEREST].includes(intent.intentType)) {
     return [];
   }

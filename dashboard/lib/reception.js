@@ -1,3 +1,5 @@
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
+
 const ACTIVE_STATUSES = new Set(['confirmed', 'checked_in', 'in_house', 'inhouse', 'arrived', 'active']);
 const CHECKED_OUT_STATUSES = new Set(['checked_out', 'completed', 'departed']);
 const CANCELLED_STATUSES = new Set(['cancelled', 'canceled']);
@@ -441,6 +443,7 @@ export const searchReservations = async ({
   }
 
   const today = todayKey();
+  const guestMemoryEnabled = isGuestMemoryEnabled();
   const reservations = await safeRows(
     supabase
       .from('reservations')
@@ -473,7 +476,7 @@ export const searchReservations = async ({
       : [],
     safeRows(supabase.from('tickets').select('id, guest_id, room_number, category, priority, status, title, created_at').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(500)),
     safeRows(supabase.from('room_status_snapshots').select('*').eq('hotel_id', hotelId).order('last_updated_at', { ascending: false }).limit(500)),
-    guestIds.length
+    guestMemoryEnabled && guestIds.length
       ? safeRows(supabase.from('guest_memory').select('id, guest_id, memory_key, memory_value, memory_type, updated_at').eq('hotel_id', hotelId).in('guest_id', guestIds).order('updated_at', { ascending: false }).limit(500))
       : [],
     guestIds.length
