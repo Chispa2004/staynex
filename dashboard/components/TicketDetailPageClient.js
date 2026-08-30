@@ -30,7 +30,7 @@ export const TicketDetailPageClient = ({ ticketId }) => {
         const body = await response.json();
 
         if (!response.ok) {
-          throw new Error(body.error || 'Could not load ticket');
+          throw new Error(body.error || 'No se pudo cargar el ticket');
         }
 
         if (!shouldAcceptTenantPayload(body, 'ticket-detail')) {
@@ -59,11 +59,11 @@ export const TicketDetailPageClient = ({ ticketId }) => {
   }, [ticketId]);
 
   if (loading) {
-    return <PremiumEmptyState title="Loading ticket..." description="Staynex is loading this hotel workspace only." />;
+    return <PremiumEmptyState title="Cargando ticket..." description="Staynex está preparando el contexto operativo del hotel." />;
   }
 
   if (error || !ticket) {
-    return <PremiumEmptyState title="Ticket unavailable" description={error?.message || 'This ticket is not available in the active hotel.'} />;
+    return <PremiumEmptyState title="Ticket no disponible" description="No está disponible en el hotel activo. Vuelve a la cola de tickets y actualiza." />;
   }
 
   return <TicketDetail initialTicket={ticket} initialMessages={messages} />;

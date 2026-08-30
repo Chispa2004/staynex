@@ -61,7 +61,7 @@ const addDaysToDate = (dateValue, days) => {
 
 const formatDate = (value) => {
   if (!value) {
-    return '-';
+    return 'Sin fecha';
   }
 
   return new Intl.DateTimeFormat(undefined, {
@@ -73,7 +73,7 @@ const formatDate = (value) => {
 
 const formatDateTime = (value) => {
   if (!value) {
-    return '-';
+    return 'Sin fecha';
   }
 
   return new Intl.DateTimeFormat(undefined, {
@@ -141,6 +141,75 @@ const statusTone = (status) => {
   return 'sky';
 };
 
+const reservationStatusLabels = {
+  confirmed: 'Confirmada',
+  checked_in: 'Check-in realizado',
+  checked_out: 'Check-out realizado',
+  completed: 'Completada',
+  cancelled: 'Cancelada',
+  pending: 'Pendiente',
+  upcoming: 'Próxima',
+  in_house: 'Alojado'
+};
+
+const sourceLabels = {
+  demo_web_booking: 'Reserva demo',
+  mock: 'Demo / mock',
+  ubikos: 'Ubikos',
+  apaleo: 'Apaleo',
+  mews: 'Mews',
+  cloudbeds: 'Cloudbeds',
+  pluriel: 'Pluriel'
+};
+
+const boardBasisLabels = {
+  breakfast: 'Desayuno incluido',
+  room_only: 'Solo alojamiento',
+  half_board: 'Media pensión',
+  full_board: 'Pensión completa',
+  all_inclusive: 'Todo incluido'
+};
+
+const automationEventLabels = {
+  booking_confirmation: 'Confirmación de reserva',
+  welcome: 'Bienvenida',
+  welcome_message: 'Bienvenida',
+  pre_arrival_7_days: 'Pre-estancia: 7 días antes',
+  pre_arrival_1_day: 'Pre-estancia: 1 día antes',
+  pre_arrival_1d: 'Pre check-in',
+  pre_checkin: 'Pre check-in',
+  during_stay: 'Durante estancia',
+  upselling: 'Upsell durante estancia',
+  post_stay_review: 'Reseña post-estancia',
+  post_stay_review_intelligence: 'Check-out + reseña',
+  post_stay_discount: 'Follow-up post-estancia'
+};
+
+const automationStatusLabels = {
+  scheduled: 'Programado',
+  preview: 'Preview',
+  pending_date: 'Pendiente de fecha',
+  sent: 'Enviado',
+  failed: 'Fallido',
+  skipped: 'Omitido'
+};
+
+const channelLabels = {
+  email: 'Email',
+  whatsapp: 'WhatsApp',
+  sms: 'SMS'
+};
+
+const formatLabel = (value, labels = {}) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return labels[normalized] || String(value || '-').replaceAll('_', ' ');
+};
+
+const formatSource = (reservation) => {
+  const source = reservation.source || reservation.pms_provider || 'mock';
+  return formatLabel(source, sourceLabels);
+};
+
 const buildEmailSnippet = (reservation) => (
   reservation.whatsapp_link
     ? [
@@ -165,25 +234,25 @@ const isPreStayTestReservation = (reservation) => (
 );
 
 const generate7DayPreArrivalPreview = (reservation) => {
-  const guestName = reservation.guest_name?.split(' ')[0] || 'there';
+  const guestName = reservation.guest_name?.split(' ')[0] || 'huésped';
   const details = [
-    reservation.room_type ? `Room type: ${reservation.room_type}.` : null,
-    reservation.board_basis ? `Board basis: ${reservation.board_basis}.` : null
+    reservation.room_type ? `Tipo de habitación: ${reservation.room_type}.` : null,
+    reservation.board_basis ? `Régimen: ${formatLabel(reservation.board_basis, boardBasisLabels)}.` : null
   ].filter(Boolean).join(' ');
 
   return [
-    `Hola ${guestName} 👋`,
-    `Estamos deseando recibirte el ${reservation.arrival_date || 'dia de tu llegada'}.`,
+    `Hola ${guestName},`,
+    `Estamos deseando recibirte el ${reservation.arrival_date || 'día de tu llegada'}.`,
     details,
     '¿Necesitas parking, transfer o recomendaciones?'
   ].filter(Boolean).join('\n');
 };
 
 const generate1DayPreArrivalPreview = (reservation) => {
-  const guestName = reservation.guest_name?.split(' ')[0] || 'there';
+  const guestName = reservation.guest_name?.split(' ')[0] || 'huésped';
 
   return [
-    `Hola ${guestName} 😊`,
+    `Hola ${guestName},`,
     'Tu llegada es mañana.',
     reservation.room_type ? `Tu reserva es para ${reservation.room_type}.` : null,
     'Puedes escribirnos directamente por este chat para cualquier cosa.'
@@ -370,7 +439,7 @@ const TestReservationModal = ({
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not create reservation');
+        throw new Error(body.error || 'No se pudo crear la reserva demo');
       }
 
       const reservationWithHotel = {
@@ -407,10 +476,10 @@ const TestReservationModal = ({
       >
         <div className={isLight ? 'flex items-center justify-between border-b border-slate-200 px-5 py-4' : 'flex items-center justify-between border-b border-white/10 px-5 py-4'}>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">PRE-STAY TEST</p>
-            <h2 className="mt-2 text-xl font-semibold">Create Test Reservation</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">DEMO PRE-ESTANCIA</p>
+            <h2 className="mt-2 text-xl font-semibold">Crear reserva demo</h2>
             <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-400'}>
-              Uses the same PMS webhook, reservation token and automation flow as a real integration.
+              Crea datos sintéticos para enseñar el flujo. No confirma una conexión Ubikos ni PMS real.
             </p>
           </div>
           <button
@@ -425,16 +494,16 @@ const TestReservationModal = ({
         <form className="space-y-5 p-5" onSubmit={submit}>
           <div className="grid gap-4 md:grid-cols-2">
             {[
-              ['guest_name', 'Guest name', 'text'],
-              ['guest_email', 'Guest email', 'email'],
-              ['guest_phone', 'Guest phone', 'tel'],
-              ['room_type', 'Room type', 'text'],
-              ['rate_plan', 'Rate plan', 'text'],
-              ['board_basis', 'Board basis', 'text'],
-              ['arrival_date', 'Arrival date', 'date'],
-              ['departure_date', 'Departure date', 'date'],
-              ['adults', 'Adults', 'number'],
-              ['children', 'Children', 'number']
+              ['guest_name', 'Nombre del huésped', 'text'],
+              ['guest_email', 'Email del huésped', 'email'],
+              ['guest_phone', 'Teléfono del huésped', 'tel'],
+              ['room_type', 'Tipo de habitación', 'text'],
+              ['rate_plan', 'Tarifa', 'text'],
+              ['board_basis', 'Régimen', 'text'],
+              ['arrival_date', 'Llegada', 'date'],
+              ['departure_date', 'Salida', 'date'],
+              ['adults', 'Adultos', 'number'],
+              ['children', 'Niños', 'number']
             ].map(([field, label, type]) => (
               <label key={field} className="block">
                 <span className={labelClass}>{label}</span>
@@ -451,7 +520,7 @@ const TestReservationModal = ({
           </div>
 
           <label className="block">
-            <span className={labelClass}>Notes</span>
+            <span className={labelClass}>Notas</span>
             <textarea
               value={form.notes}
               onChange={(event) => updateField('notes', event.target.value)}
@@ -467,7 +536,7 @@ const TestReservationModal = ({
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className={isLight ? 'text-xs leading-5 text-slate-500' : 'text-xs leading-5 text-slate-500'}>
-              Future Mews, Cloudbeds and Opera webhooks will reuse this same internal reservation creation path.
+              Esta reserva sirve para demo y preview. Los envíos reales siguen bloqueados.
             </p>
             <button
               type="submit"
@@ -475,7 +544,7 @@ const TestReservationModal = ({
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-wait disabled:opacity-60"
             >
               <UserPlus className={submitting ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
-              {submitting ? 'Creating...' : 'Create Test Reservation'}
+              {submitting ? 'Creando...' : 'Crear reserva demo'}
             </button>
           </div>
         </form>
@@ -483,11 +552,11 @@ const TestReservationModal = ({
         {createdReservation ? (
           <div className={isLight ? 'border-t border-slate-200 bg-emerald-50/60 p-5' : 'border-t border-white/10 bg-emerald-300/[0.06] p-5'}>
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <Badge tone="amber">PRE-STAY TEST</Badge>
-              <Badge tone="emerald">{createdReservation.reservation_access_token}</Badge>
+              <Badge tone="amber">DEMO PRE-ESTANCIA</Badge>
+              <Badge tone="emerald">Preview seguro</Badge>
             </div>
             <p className={isLight ? 'text-sm text-slate-700' : 'text-sm text-slate-300'}>
-              Reservation created with real token onboarding and PMS automation events.
+              Reserva demo creada con contexto de estancia y eventos de automatización en preview.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -496,7 +565,7 @@ const TestReservationModal = ({
                 className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.08]'}
               >
                 {copiedAction === 'modal-token' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                Copy Token
+                Copiar token demo
               </button>
               <button
                 type="button"
@@ -504,7 +573,7 @@ const TestReservationModal = ({
                 className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.08]'}
               >
                 {copiedAction === 'modal-link' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                Copy WhatsApp Link
+                Copiar link WhatsApp
               </button>
               <button
                 type="button"
@@ -512,7 +581,7 @@ const TestReservationModal = ({
                 className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-white/[0.08]'}
               >
                 {copiedAction === 'modal-email' ? <Check className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}
-                Copy Email Snippet
+                Copiar email
               </button>
               {createdReservation.whatsapp_link ? (
                 <a
@@ -522,7 +591,7 @@ const TestReservationModal = ({
                   className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100' : 'inline-flex items-center gap-2 rounded-lg border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-300/15'}
                 >
                   <Send className="h-3.5 w-3.5" />
-                  Open WhatsApp
+                  Abrir WhatsApp
                 </a>
               ) : null}
             </div>
@@ -577,19 +646,16 @@ const ReservationDetail = ({ reservation, onClose }) => {
         <DetailRow label={t('reservations.columns.departure')} value={formatDate(reservation.departure_date)} />
         <DetailRow label={t('reservations.columns.roomType')} value={reservation.room_type} />
         <DetailRow label={t('reservations.columns.ratePlan')} value={reservation.rate_plan} />
-        <DetailRow label={t('reservations.columns.boardBasis')} value={reservation.board_basis} />
-        <DetailRow label="Source" value={reservation.source || reservation.pms_provider} />
-        <DetailRow label="Adults" value={reservation.adults} />
-        <DetailRow label="Children" value={reservation.children} />
-        <DetailRow label="Notes" value={reservation.notes} />
-        <DetailRow label={t('reservations.columns.status')} value={reservation.status} />
+        <DetailRow label={t('reservations.columns.boardBasis')} value={formatLabel(reservation.board_basis, boardBasisLabels)} />
+        <DetailRow label="Origen" value={formatSource(reservation)} />
+        <DetailRow label="Adultos" value={reservation.adults} />
+        <DetailRow label="Niños" value={reservation.children} />
+        <DetailRow label="Notas" value={reservation.notes} />
+        <DetailRow label={t('reservations.columns.status')} value={formatLabel(reservation.status, reservationStatusLabels)} />
         <DetailRow label={t('reservations.columns.journey')} value={t(`reservations.journey.${getJourneyStatus(reservation)}`)} />
-        <DetailRow label={t('reservations.columns.pmsProvider')} value={reservation.pms_provider} />
+        <DetailRow label={t('reservations.columns.pmsProvider')} value={formatLabel(reservation.pms_provider, sourceLabels)} />
         <DetailRow label={t('reservations.columns.pmsReservationId')} value={reservation.pms_reservation_id} />
-        <DetailRow label={t('reservations.columns.accessToken')} value={reservation.reservation_access_token} />
-        <DetailRow label={t('reservations.columns.whatsappLink')} value={reservation.whatsapp_link} />
         <DetailRow label={t('reservations.columns.linkedConversation')} value={reservation.conversationId ? t('reservations.linked') : t('reservations.notLinked')} />
-        <DetailRow label="created_at" value={formatDateTime(reservation.created_at)} />
       </dl>
 
       <div className={isLight ? 'border-t border-slate-200 p-5' : 'border-t border-white/10 p-5'}>
@@ -608,12 +674,14 @@ const ReservationDetail = ({ reservation, onClose }) => {
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className={isLight ? 'text-sm font-semibold text-slate-900' : 'text-sm font-semibold text-slate-100'}>
-                    {event.event_type}
+                    {formatLabel(event.event_type, automationEventLabels)}
                   </p>
-                  <Badge tone={event.status === 'scheduled' ? 'emerald' : 'slate'}>{event.status}</Badge>
+                  <Badge tone={event.status === 'scheduled' || event.status === 'preview' ? 'emerald' : 'slate'}>
+                    {formatLabel(event.status, automationStatusLabels)}
+                  </Badge>
                 </div>
                 <p className={isLight ? 'mt-2 text-xs text-slate-500' : 'mt-2 text-xs text-slate-500'}>
-                  {event.channel} · {formatDateTime(event.scheduled_for)}
+                  {formatLabel(event.channel, channelLabels)} · {formatDateTime(event.scheduled_for)}
                 </p>
               </div>
           ))}
@@ -813,7 +881,7 @@ export const ReservationsClient = () => {
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-4 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200"
             >
               <UserPlus className="h-4 w-4" aria-hidden="true" />
-              Create Test Reservation
+              Crear reserva demo
             </button>
           ) : null}
           <button
@@ -915,7 +983,7 @@ export const ReservationsClient = () => {
             <PremiumEmptyState
               icon={CalendarDays}
               title={reservations.length === 0 ? t('reservations.empty') : t('reservations.noMatches')}
-              description="Create a test reservation or sync your PMS to start the pre-stay flow."
+              description="Crea una reserva demo o sincroniza el PMS cuando la integración real esté lista."
               className="m-4"
             />
           ) : (
@@ -960,7 +1028,7 @@ export const ReservationsClient = () => {
                           {reservation.guest_name || t('reservations.unknownGuest')}
                         </h3>
                         <p className={isLight ? 'mt-1 truncate text-xs text-slate-500' : 'mt-1 truncate text-xs text-slate-500'}>
-                          {reservation.pms_reservation_id || reservation.source || '-'}
+                          {reservation.pms_reservation_id || formatSource(reservation)}
                         </p>
                       </div>
                       <Badge tone={statusTone(stayStatus)}>{t(`reservations.status.${stayStatus}`)}</Badge>
@@ -981,7 +1049,7 @@ export const ReservationsClient = () => {
                         <Badge tone={reservation.conversationId ? 'emerald' : 'slate'}>
                           {reservation.conversationId ? t('reservations.linked') : t('reservations.notLinked')}
                         </Badge>
-                        <Badge>{reservation.pms_provider || 'mock'}</Badge>
+                        <Badge>{formatLabel(reservation.pms_provider || 'mock', sourceLabels)}</Badge>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <p className="min-w-0 truncate">{reservation.room_type || '-'}</p>
@@ -1003,12 +1071,12 @@ export const ReservationsClient = () => {
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.roomType')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.ratePlan')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.boardBasis')}</th>
-                    <th className="px-4 py-3 font-semibold">Source</th>
+                    <th className="px-4 py-3 font-semibold">Origen</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.status')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.journey')}</th>
-                    <th className="px-4 py-3 font-semibold">{t('reservations.columns.linkedConversation')}</th>
+                    <th className="px-4 py-3 font-semibold">Estado conversación</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.pmsProvider')}</th>
-                    <th className="px-4 py-3 font-semibold">{t('reservations.columns.accessToken')}</th>
+                    <th className="px-4 py-3 font-semibold">Abrir conversación</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.whatsapp')}</th>
                     <th className="px-4 py-3 font-semibold">{t('reservations.columns.automations')}</th>
                   </tr>
@@ -1037,11 +1105,11 @@ export const ReservationsClient = () => {
                         <td className={isLight ? 'sticky left-0 z-10 bg-inherit px-4 py-3 text-sm font-semibold text-slate-900 shadow-[8px_0_16px_-14px_rgba(15,23,42,0.45)]' : 'sticky left-0 z-10 bg-inherit px-4 py-3 text-sm font-semibold text-slate-100 shadow-[8px_0_16px_-14px_rgba(0,0,0,0.9)]'}>
                           {reservation.guest_name || t('reservations.unknownGuest')}
                           <p className={isLight ? 'mt-1 text-xs font-normal text-slate-500' : 'mt-1 text-xs font-normal text-slate-500'}>
-                            {reservation.pms_reservation_id}
+                            {reservation.pms_reservation_id || formatSource(reservation)}
                           </p>
                           {isPreStayTestReservation(reservation) ? (
                             <span className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800">
-                              PRE-STAY TEST
+                              DEMO PRE-ESTANCIA
                             </span>
                           ) : null}
                         </td>
@@ -1051,10 +1119,10 @@ export const ReservationsClient = () => {
                         <td className={isLight ? 'whitespace-nowrap px-4 py-3 text-sm text-slate-700' : 'whitespace-nowrap px-4 py-3 text-sm text-slate-300'}>{formatDate(reservation.departure_date)}</td>
                         <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{reservation.room_type || '-'}</td>
                         <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{reservation.rate_plan || '-'}</td>
-                        <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{reservation.board_basis || '-'}</td>
+                        <td className={isLight ? 'px-4 py-3 text-sm text-slate-600' : 'px-4 py-3 text-sm text-slate-400'}>{formatLabel(reservation.board_basis, boardBasisLabels)}</td>
                         <td className="px-4 py-3">
                           <Badge tone={isPreStayTestReservation(reservation) ? 'amber' : 'slate'}>
-                            {reservation.source || reservation.pms_provider || 'pms'}
+                            {formatSource(reservation)}
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
@@ -1069,53 +1137,22 @@ export const ReservationsClient = () => {
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <Badge>{reservation.pms_provider || 'mock'}</Badge>
+                          <Badge>{formatLabel(reservation.pms_provider || 'mock', sourceLabels)}</Badge>
                         </td>
                         <td className="px-4 py-3">
-                          {reservation.reservation_access_token ? (
-                            <div className="flex items-center gap-2">
-                              <Badge tone="amber">{reservation.reservation_access_token}</Badge>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  copyValue({
-                                    key: `token-${reservation.id}`,
-                                    value: reservation.reservation_access_token
-                                  });
-                                }}
-                                className={isLight ? 'rounded-lg border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900' : 'rounded-lg border border-white/10 bg-white/[0.035] p-2 text-slate-400 transition hover:bg-white/[0.08] hover:text-white'}
-                                title={t('reservations.copyToken')}
-                              >
-                                {copiedAction === `token-${reservation.id}` ? (
-                                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                                )}
-                              </button>
-                            </div>
+                          {reservation.conversationId ? (
+                            <Link
+                              href={`/dashboard/inbox?conversationId=${reservation.conversationId}`}
+                              onClick={(event) => event.stopPropagation()}
+                              className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 transition hover:bg-sky-100' : 'inline-flex items-center gap-2 rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-300/15'}
+                            >
+                              <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
+                              {t('reservations.openConversation')}
+                            </Link>
                           ) : (
-                            reservation.conversationId ? (
-                              <Link
-                                href={`/dashboard/inbox?conversationId=${reservation.conversationId}`}
-                                onClick={(event) => event.stopPropagation()}
-                                className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 transition hover:bg-sky-100' : 'inline-flex items-center gap-2 rounded-lg border border-sky-300/20 bg-sky-300/10 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:bg-sky-300/15'}
-                              >
-                                <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
-                                {t('reservations.openConversation')}
-                              </Link>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled
-                                title={t('reservations.noConversationYet')}
-                                onClick={(event) => event.stopPropagation()}
-                                className={isLight ? 'inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-400' : 'inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-semibold text-slate-600'}
-                              >
-                                <MessageSquareText className="h-3.5 w-3.5" aria-hidden="true" />
-                                {t('reservations.openConversation')}
-                              </button>
-                            )
+                            <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-600'}>
+                              {t('reservations.noConversationYet')}
+                            </span>
                           )}
                         </td>
                         <td className="px-4 py-3">

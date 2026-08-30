@@ -40,11 +40,24 @@ const formatCurrency = (value) => new Intl.NumberFormat(undefined, {
   currency: 'EUR',
   maximumFractionDigits: 0
 }).format(Number(value || 0));
-const formatOptionalNumber = (value) => value === null || value === undefined ? 'Not tracked' : formatNumber(value);
+const formatOptionalNumber = (value) => value === null || value === undefined ? 'Sin seguimiento' : formatNumber(value);
 const formatProfileLabel = (value) => String(value || '')
   .replaceAll('_', ' ')
   .replace(/\b\w/g, (letter) => letter.toUpperCase());
-const formatProviderLabel = (value) => value ? formatProfileLabel(value) : 'No PMS connected';
+const formatProviderLabel = (value) => value ? formatProfileLabel(value) : 'Sin PMS conectado';
+const formatRoleLabel = (role) => ({
+  receptionist: 'Recepción',
+  manager: 'Dirección',
+  owner: 'Propiedad',
+  admin: 'Admin'
+}[role] || formatProfileLabel(role));
+const formatSentimentLabel = (value) => ({
+  'Needs attention': 'Necesita atención',
+  Healthy: 'Correcto',
+  Positive: 'Positivo',
+  Neutral: 'Neutral',
+  Negative: 'Negativo'
+}[value] || value || 'Sin datos suficientes');
 
 const formatDateTime = (value, timezone) => {
   try {
@@ -69,7 +82,7 @@ const greetingForHour = (timezone) => {
       hour12: false
     }).format(new Date()));
 
-    if (hour < 12) return 'Buenos dias';
+    if (hour < 12) return 'Buenos días';
     if (hour < 20) return 'Buenas tardes';
     return 'Buenas noches';
   } catch {
@@ -117,7 +130,7 @@ export const ExecutiveDashboardClient = () => {
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Could not load dashboard');
+        throw new Error(payload.error || 'No se pudo cargar el dashboard');
       }
 
       if (!shouldAcceptTenantPayload(payload, 'executive-dashboard')) {
@@ -197,14 +210,14 @@ export const ExecutiveDashboardClient = () => {
               <ExecutiveBadge tone="sky">{tx('Hotel Operations Command Center')}</ExecutiveBadge>
               <ExecutiveBadge tone="slate">{formatDateTime(null, timezone)}</ExecutiveBadge>
               <ExecutiveBadge tone={role === 'receptionist' ? 'emerald' : 'violet'}>
-                {role.replaceAll('_', ' ')}
+                {formatRoleLabel(role)}
               </ExecutiveBadge>
             </div>
             <h1 className={cn('text-3xl font-semibold tracking-tight sm:text-5xl', ui.text.title(isLight))}>
               {tx(greetingForHour(timezone))}, {hotelName}
             </h1>
             <p className={cn('mt-4 max-w-3xl', ui.text.body(isLight))}>
-              {tx('Un centro de control para ver lo urgente, entender la operacion del hotel y abrir rapidamente las herramientas que necesita el equipo.')}
+              {tx('Un centro de control para ver lo urgente, entender la operación del hotel y abrir rápidamente las herramientas que necesita el equipo.')}
             </p>
           </div>
           <button
@@ -222,7 +235,7 @@ export const ExecutiveDashboardClient = () => {
       {error ? (
         <ExecutiveCard className="border-red-300/25 p-4">
           <p className="text-sm font-semibold text-red-400">{tx('Dashboard data could not be refreshed.')}</p>
-          <p className={cn('mt-1', ui.text.body(isLight))}>{error}</p>
+          <p className={cn('mt-1', ui.text.body(isLight))}>Revisa la sesión del hotel y vuelve a actualizar.</p>
         </ExecutiveCard>
       ) : null}
 
@@ -268,40 +281,40 @@ const buildAttentionItems = (data, permissions) => {
   const onboarding = data.onboardingHealth || {};
   const items = [
     {
-      label: 'Human takeover conversations',
+      label: 'Conversaciones con control humano',
       value: ai.humanTakeovers || summary.humanTakeovers || 0,
       href: '/dashboard/inbox',
       severity: Number(ai.humanTakeovers || summary.humanTakeovers || 0) > 0 ? 'warning' : 'positive',
-      detail: 'Conversations currently handled by reception.'
+      detail: 'Conversaciones que gestiona recepción ahora mismo.'
     },
     {
-      label: 'Urgent tickets',
+      label: 'Tickets urgentes',
       value: kpis.urgentTickets || summary.urgentTickets || 0,
       href: '/dashboard/tickets',
       severity: Number(kpis.urgentTickets || summary.urgentTickets || 0) > 0 ? 'critical' : 'positive',
-      detail: 'Maintenance, emergency or high-priority tickets.'
+      detail: 'Mantenimiento, emergencia o alta prioridad.'
     },
     {
-      label: 'Angry or frustrated guests',
+      label: 'Huéspedes frustrados',
       value: ai.repeatedFrustrations || ai.unresolvedComplaints || 0,
       href: '/dashboard/inbox',
       severity: Number(ai.repeatedFrustrations || ai.unresolvedComplaints || 0) > 0 ? 'warning' : 'positive',
-      detail: 'Detected negative sentiment and complaint patterns.'
+      detail: 'Señales de queja o sentimiento negativo.'
     },
     {
-      label: 'Provider email failures',
+      label: 'Solicitudes a proveedor con incidencia',
       value: experienceBookings.failedProviderEmails || summary.providerEmailFailures || 0,
       href: '/dashboard/experience-bookings',
       severity: Number(experienceBookings.failedProviderEmails || summary.providerEmailFailures || 0) > 0 ? 'critical' : 'positive',
-      detail: 'Experience provider requests that need review.',
+      detail: 'Solicitudes de experiencias que necesitan revisión.',
       hidden: !permissions.experienceBookings
     },
     {
-      label: 'PMS or WhatsApp warnings',
+      label: 'Avisos de PMS o WhatsApp',
       value: (pms.syncErrors || 0) + (onboarding.whatsappConfigured ? 0 : 1),
       href: '/dashboard/settings/pms',
       severity: (pms.syncErrors || 0) + (onboarding.whatsappConfigured ? 0 : 1) > 0 ? 'warning' : 'positive',
-      detail: 'Connectivity and launch readiness signals.',
+      detail: 'Señales de conexión y preparación del piloto.',
       hidden: !permissions.pms
     }
   ].filter((item) => !item.hidden);
@@ -316,22 +329,22 @@ const OverviewPanel = ({ data, loading, permissions }) => {
   const experienceBookings = data?.experienceBookings || {};
   const conversationIntelligence = data?.conversationIntelligence || {};
   const stats = [
-    { label: 'Messages handled today', value: kpis.aiResponses || 0, icon: Bot, tone: 'violet' },
-    { label: 'Active conversations', value: summary.activeConversations || 0, icon: Inbox, tone: 'sky' },
-    { label: 'Open tickets', value: kpis.openTickets || 0, icon: TicketCheck, tone: Number(kpis.openTickets || 0) > 0 ? 'amber' : 'emerald' },
-    { label: 'Urgent tickets', value: kpis.urgentTickets || 0, icon: AlertTriangle, tone: Number(kpis.urgentTickets || 0) > 0 ? 'red' : 'emerald' },
-    { label: 'AI handled', value: formatPercent(conversationIntelligence.aiResolutionRate || summary.averageAiConfidence || 0), icon: ShieldCheck, tone: 'emerald' },
+    { label: 'Mensajes gestionados hoy', value: kpis.aiResponses || 0, icon: Bot, tone: 'violet' },
+    { label: 'Conversaciones activas', value: summary.activeConversations || 0, icon: Inbox, tone: 'sky' },
+    { label: 'Tickets abiertos', value: kpis.openTickets || 0, icon: TicketCheck, tone: Number(kpis.openTickets || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Tickets urgentes', value: kpis.urgentTickets || 0, icon: AlertTriangle, tone: Number(kpis.urgentTickets || 0) > 0 ? 'red' : 'emerald' },
+    { label: 'Gestionado por IA', value: formatPercent(conversationIntelligence.aiResolutionRate || summary.averageAiConfidence || 0), icon: ShieldCheck, tone: 'emerald' },
     permissions.revenue
-      ? { label: 'Revenue opportunities', value: revenue.totalUpsells || summary.upsellsDetected || 0, icon: TrendingUp, tone: 'emerald' }
+      ? { label: 'Oportunidades de revenue', value: revenue.totalUpsells || summary.upsellsDetected || 0, icon: TrendingUp, tone: 'emerald' }
       : null,
     permissions.experienceBookings
-      ? { label: 'Experience requests', value: experienceBookings.active || summary.experienceRequests || 0, icon: CalendarCheck, tone: 'sky' }
+      ? { label: 'Solicitudes de experiencias', value: experienceBookings.active || summary.experienceRequests || 0, icon: CalendarCheck, tone: 'sky' }
       : null,
-    { label: 'Guest satisfaction', value: formatPercent(kpis.guestSatisfactionScore || conversationIntelligence.aiSatisfactionEstimate || 0), icon: Sparkles, tone: 'amber' }
+    { label: 'Satisfacción huésped', value: formatPercent(kpis.guestSatisfactionScore || conversationIntelligence.aiSatisfactionEstimate || 0), icon: Sparkles, tone: 'amber' }
   ].filter(Boolean);
 
   return (
-    <Panel title="Today's Hotel Overview" eyebrow="What is happening now" icon={Clock3}>
+    <Panel title="Resumen del hotel" eyebrow="Qué está pasando ahora" icon={Clock3}>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
           <StatCard key={stat.label} {...stat} loading={loading} />
@@ -345,7 +358,7 @@ const NeedsAttentionPanel = ({ items, loading }) => {
   const hasAttention = items.some((item) => Number(item.value || 0) > 0);
 
   return (
-    <Panel title="Needs Attention" eyebrow="Start here" icon={AlertTriangle} badgeTone={hasAttention ? 'amber' : 'emerald'} badge={hasAttention ? 'Review' : 'All clear'}>
+    <Panel title="Necesita atención" eyebrow="Empieza aquí" icon={AlertTriangle} badgeTone={hasAttention ? 'amber' : 'emerald'} badge={hasAttention ? 'Revisar' : 'Todo correcto'}>
       {loading ? (
         <SkeletonList />
       ) : hasAttention ? (
@@ -357,8 +370,8 @@ const NeedsAttentionPanel = ({ items, loading }) => {
       ) : (
         <EmptyState
           icon={CheckCircle2}
-          title="All clear - no urgent items right now."
-          description="No urgent tickets, active takeover blockers or provider failures are currently visible."
+          title="Todo correcto: no hay urgencias ahora."
+          description="No hay tickets urgentes, controles humanos bloqueantes ni incidencias de proveedor visibles."
         />
       )}
     </Panel>
@@ -368,29 +381,29 @@ const NeedsAttentionPanel = ({ items, loading }) => {
 const HotelIntelligencePanel = ({ data, loading }) => {
   const hotel = data?.hotelIntelligence || {};
   const occupancy = hotel.occupancyCurrent === null || hotel.occupancyCurrent === undefined
-    ? 'No PMS data'
+    ? 'Sin datos PMS'
     : formatPercent(Math.round(Number(hotel.occupancyCurrent || 0)));
   const tiles = [
-    { label: 'Occupancy', value: occupancy, tone: hotel.occupancyCurrent === null || hotel.occupancyCurrent === undefined ? 'slate' : 'sky' },
-    { label: 'Occupied rooms', value: hotel.occupiedRooms || 0, tone: 'slate' },
-    { label: 'Free rooms', value: hotel.freeRooms || 0, tone: 'emerald' },
-    { label: 'Rooms with issues', value: hotel.roomsWithIssues || 0, tone: Number(hotel.roomsWithIssues || 0) > 0 ? 'amber' : 'emerald' },
-    { label: 'Arrivals today', value: hotel.arrivalsToday || 0, tone: 'sky' },
-    { label: 'Departures today', value: hotel.departuresToday || 0, tone: 'violet' },
-    { label: 'Pending check-ins', value: hotel.pendingCheckins || 0, tone: Number(hotel.pendingCheckins || 0) > 0 ? 'amber' : 'emerald' },
-    { label: 'Pending check-outs', value: hotel.pendingCheckouts || 0, tone: Number(hotel.pendingCheckouts || 0) > 0 ? 'amber' : 'emerald' },
-    { label: 'Reservations needing attention', value: hotel.reservationsNeedingAttention || hotel.guestsWithAlerts || 0, tone: Number(hotel.reservationsNeedingAttention || hotel.guestsWithAlerts || 0) > 0 ? 'amber' : 'emerald' },
-    { label: 'In-house guests', value: hotel.inHouseGuests || 0, tone: 'slate' },
-    { label: 'VIP guests', value: hotel.vipGuests || 0, tone: Number(hotel.vipGuests || 0) > 0 ? 'violet' : 'slate' },
-    { label: 'Guests with alerts', value: hotel.guestsWithAlerts || 0, tone: Number(hotel.guestsWithAlerts || 0) > 0 ? 'red' : 'emerald' }
+    { label: 'Ocupación', value: occupancy, tone: hotel.occupancyCurrent === null || hotel.occupancyCurrent === undefined ? 'slate' : 'sky' },
+    { label: 'Habitaciones ocupadas', value: hotel.occupiedRooms || 0, tone: 'slate' },
+    { label: 'Habitaciones libres', value: hotel.freeRooms || 0, tone: 'emerald' },
+    { label: 'Habitaciones con incidencias', value: hotel.roomsWithIssues || 0, tone: Number(hotel.roomsWithIssues || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Llegadas hoy', value: hotel.arrivalsToday || 0, tone: 'sky' },
+    { label: 'Salidas hoy', value: hotel.departuresToday || 0, tone: 'violet' },
+    { label: 'Check-ins pendientes', value: hotel.pendingCheckins || 0, tone: Number(hotel.pendingCheckins || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Check-outs pendientes', value: hotel.pendingCheckouts || 0, tone: Number(hotel.pendingCheckouts || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Reservas con atención', value: hotel.reservationsNeedingAttention || hotel.guestsWithAlerts || 0, tone: Number(hotel.reservationsNeedingAttention || hotel.guestsWithAlerts || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Huéspedes alojados', value: hotel.inHouseGuests || 0, tone: 'slate' },
+    { label: 'Huéspedes VIP', value: hotel.vipGuests || 0, tone: Number(hotel.vipGuests || 0) > 0 ? 'violet' : 'slate' },
+    { label: 'Huéspedes con alertas', value: hotel.guestsWithAlerts || 0, tone: Number(hotel.guestsWithAlerts || 0) > 0 ? 'red' : 'emerald' }
   ];
 
   return (
     <Panel
-      title="Hotel Intelligence"
-      eyebrow="Operational hotel snapshot"
+      title="Contexto del hotel"
+      eyebrow="Snapshot operativo"
       icon={ConciergeBell}
-      badge={hotel.dataState === 'active' ? 'Live context' : 'Limited data'}
+      badge={hotel.dataState === 'active' ? 'Contexto activo' : 'Datos limitados'}
       badgeTone={hotel.dataState === 'active' ? 'emerald' : 'slate'}
     >
       {loading ? (
@@ -405,9 +418,9 @@ const HotelIntelligencePanel = ({ data, loading }) => {
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.55fr)]">
         <div className="rounded-xl border border-dashed border-slate-300/60 p-4 dark:border-white/10">
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Today in operation</p>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Operación de hoy</p>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Arrivals, departures, room status and guest alerts are grouped here so the team can see how the hotel is running without scanning separate tools.
+            Llegadas, salidas, estado de habitaciones y alertas de huéspedes se agrupan aquí para entender el hotel sin abrir varias herramientas.
           </p>
         </div>
         <LanguagePills languages={hotel.topLanguages || []} loading={loading} />
@@ -421,23 +434,23 @@ const AIOperationsPanel = ({ data, loading }) => {
   const summary = data?.summary || {};
   const automations = data?.kpis?.automationsScheduled || 0;
   const items = [
-    { label: 'AI status', value: 'Active', tone: 'emerald' },
-    { label: 'Human takeover', value: ai.humanTakeovers || summary.humanTakeovers || 0, tone: Number(ai.humanTakeovers || summary.humanTakeovers || 0) > 0 ? 'amber' : 'slate' },
-    { label: 'Average confidence', value: formatPercent(ai.avgAiConfidence || summary.averageAiConfidence || 0), tone: 'sky' },
-    { label: 'Escalations', value: ai.activeEscalations || 0, tone: Number(ai.activeEscalations || 0) > 0 ? 'amber' : 'emerald' },
-    { label: 'Automations preview', value: automations, tone: automations > 0 ? 'violet' : 'slate' },
-    { label: 'AI safety', value: ai.unresolvedComplaints || ai.repeatedFrustrations ? 'Review' : 'Healthy', tone: ai.unresolvedComplaints || ai.repeatedFrustrations ? 'amber' : 'emerald' }
+    { label: 'Estado IA', value: 'Activa', tone: 'emerald' },
+    { label: 'Control humano', value: ai.humanTakeovers || summary.humanTakeovers || 0, tone: Number(ai.humanTakeovers || summary.humanTakeovers || 0) > 0 ? 'amber' : 'slate' },
+    { label: 'Fiabilidad media', value: formatPercent(ai.avgAiConfidence || summary.averageAiConfidence || 0), tone: 'sky' },
+    { label: 'Escalaciones', value: ai.activeEscalations || 0, tone: Number(ai.activeEscalations || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Previews de journeys', value: automations, tone: automations > 0 ? 'violet' : 'slate' },
+    { label: 'Control seguro IA', value: ai.unresolvedComplaints || ai.repeatedFrustrations ? 'Revisar' : 'Correcto', tone: ai.unresolvedComplaints || ai.repeatedFrustrations ? 'amber' : 'emerald' }
   ];
 
   return (
-    <Panel title="AI Operations" eyebrow="Hotel-safe AI status" icon={Bot} badge="Hotel view" badgeTone="sky">
+    <Panel title="Control de IA" eyebrow="Estado seguro para el hotel" icon={Bot} badge="Vista hotel" badgeTone="sky">
       <div className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
           <MiniMetric key={item.label} item={item} loading={loading} />
         ))}
       </div>
       <div className="mt-4 rounded-xl border border-dashed border-slate-300/60 p-4 text-sm leading-6 text-slate-500 dark:border-white/10">
-        AI Copilot can keep analysing sentiment, PMS context and suggested replies even when Human Takeover is active.
+        La IA puede seguir preparando contexto PMS y respuestas sugeridas, pero el control humano bloquea respuestas automáticas.
       </div>
     </Panel>
   );
@@ -447,14 +460,14 @@ const GuestCommunicationPanel = ({ data, loading }) => {
   const summary = data?.summary || {};
   const ai = data?.conversationIntelligence || {};
   const lines = [
-    `${formatNumber(summary.activeConversations || 0)} active conversations`,
-    `${formatNumber(ai.humanTakeovers || summary.humanTakeovers || 0)} human takeover active`,
-    `${formatNumber(ai.activeEscalations || 0)} escalation signals`,
-    `${formatPercent(ai.avgAiConfidence || summary.averageAiConfidence || 0)} average AI confidence`
+    `${formatNumber(summary.activeConversations || 0)} conversaciones activas`,
+    `${formatNumber(ai.humanTakeovers || summary.humanTakeovers || 0)} en control humano`,
+    `${formatNumber(ai.activeEscalations || 0)} señales de escalación`,
+    `${formatPercent(ai.avgAiConfidence || summary.averageAiConfidence || 0)} fiabilidad media IA`
   ];
 
   return (
-    <Panel title="Guest Communication" eyebrow="Inbox control" icon={Inbox} action={{ href: '/dashboard/inbox', label: 'Open Inbox' }}>
+    <Panel title="Comunicación con huéspedes" eyebrow="Control del Inbox" icon={Inbox} action={{ href: '/dashboard/inbox', label: 'Abrir Inbox' }}>
       <BulletList lines={lines} loading={loading} />
     </Panel>
   );
@@ -464,15 +477,15 @@ const TicketsOperationsPanel = ({ data, loading }) => {
   const operations = data?.operations || {};
   const kpis = data?.kpis || {};
   const lines = [
-    `${formatNumber(kpis.openTickets || 0)} open tickets`,
-    `${formatNumber(kpis.urgentTickets || 0)} urgent tickets`,
-    `${formatNumber(operations.maintenance?.openTickets || 0)} maintenance tickets`,
-    `${formatNumber(operations.housekeeping?.openTickets || 0)} housekeeping tickets`,
-    `${formatNumber(operations.reception?.arrivalsToday || 0)} arrivals today`
+    `${formatNumber(kpis.openTickets || 0)} tickets abiertos`,
+    `${formatNumber(kpis.urgentTickets || 0)} tickets urgentes`,
+    `${formatNumber(operations.maintenance?.openTickets || 0)} tickets de mantenimiento`,
+    `${formatNumber(operations.housekeeping?.openTickets || 0)} tickets de pisos`,
+    `${formatNumber(operations.reception?.arrivalsToday || 0)} llegadas hoy`
   ];
 
   return (
-    <Panel title="Tickets & Operations" eyebrow="Operational workload" icon={TicketCheck} action={{ href: '/dashboard/tickets', label: 'View Tickets' }}>
+    <Panel title="Tickets y operaciones" eyebrow="Carga operativa" icon={TicketCheck} action={{ href: '/dashboard/tickets', label: 'Ver tickets' }}>
       <BulletList lines={lines} loading={loading} />
     </Panel>
   );
@@ -483,15 +496,15 @@ const PmsSnapshotPanel = ({ data, loading, permissions, role }) => {
   const isReceptionist = role === 'receptionist';
   const statusTone = pms.connected ? (pms.errors ? 'amber' : 'emerald') : 'red';
   const action = permissions.pms && !isReceptionist
-    ? { href: '/dashboard/settings/pms', label: 'View PMS Status' }
+    ? { href: '/dashboard/settings/pms', label: 'Ver estado PMS' }
     : null;
   const tiles = [
-    { label: 'Connection', value: pms.connected ? 'Connected' : 'Disconnected', tone: statusTone },
+    { label: 'Conexión', value: pms.connected ? 'Conectado' : 'Desconectado', tone: statusTone },
     { label: 'PMS', value: formatProviderLabel(pms.providerName), tone: pms.providerName ? 'sky' : 'slate' },
-    { label: 'Reservations synced', value: pms.reservationsSynced || 0, tone: 'slate' },
-    { label: 'Rooms synced', value: pms.roomsSynced || 0, tone: pms.roomsSynced ? 'emerald' : 'slate' },
-    { label: 'PMS errors', value: pms.errors || 0, tone: Number(pms.errors || 0) > 0 ? 'red' : 'emerald' },
-    { label: 'Webhook', value: formatProfileLabel(pms.webhookStatus || 'not configured'), tone: pms.webhookStatus === 'healthy' ? 'emerald' : 'slate' }
+    { label: 'Reservas sincronizadas', value: pms.reservationsSynced || 0, tone: 'slate' },
+    { label: 'Habitaciones sincronizadas', value: pms.roomsSynced || 0, tone: pms.roomsSynced ? 'emerald' : 'slate' },
+    { label: 'Errores PMS', value: pms.errors || 0, tone: Number(pms.errors || 0) > 0 ? 'red' : 'emerald' },
+    { label: 'Webhook', value: pms.webhookStatus === 'healthy' ? 'Correcto' : 'No configurado', tone: pms.webhookStatus === 'healthy' ? 'emerald' : 'slate' }
   ];
   const operationalWarnings = isReceptionist
     ? (pms.warnings || []).filter((warning) => !String(warning).toLowerCase().includes('webhook')).slice(0, 3)
@@ -499,11 +512,11 @@ const PmsSnapshotPanel = ({ data, loading, permissions, role }) => {
 
   return (
     <Panel
-      title="PMS Snapshot"
-      eyebrow="Hotel data health"
+      title="Contexto PMS"
+      eyebrow="Estado de datos del hotel"
       icon={DatabaseZap}
       action={action}
-      badge={pms.connected ? 'Connected' : 'Needs review'}
+      badge={pms.connected ? 'Conectado' : 'Necesita revisión'}
       badgeTone={statusTone}
     >
       {loading ? (
@@ -518,14 +531,14 @@ const PmsSnapshotPanel = ({ data, loading, permissions, role }) => {
           <div className="mt-4 space-y-3">
             <StatusLine
               icon={Clock3}
-              label="Last sync"
-              value={pms.lastSyncAt ? formatDateTime(pms.lastSyncAt, data?.hotel?.timezone) : 'Not synced'}
+              label="Última sincronización"
+              value={pms.lastSyncAt ? formatDateTime(pms.lastSyncAt, data?.hotel?.timezone) : 'No sincronizado'}
               tone={pms.lastSyncAt ? 'emerald' : 'amber'}
             />
             <StatusLine
               icon={AlertTriangle}
-              label="Data warnings"
-              value={operationalWarnings.length ? `${operationalWarnings.length} warnings` : 'None'}
+              label="Avisos de datos"
+              value={operationalWarnings.length ? `${operationalWarnings.length} avisos` : 'Ninguno'}
               tone={operationalWarnings.length ? 'amber' : 'emerald'}
             />
           </div>
@@ -534,15 +547,15 @@ const PmsSnapshotPanel = ({ data, loading, permissions, role }) => {
           ) : (
             <EmptyState
               icon={CheckCircle2}
-              title="PMS snapshot looks clean."
-              description="No PMS sync errors or operational data warnings are visible right now."
+              title="El contexto PMS está correcto."
+              description="No hay errores de sincronización PMS ni avisos operativos visibles ahora."
             />
           )}
           {!isReceptionist ? (
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <DataTile label="Invalid phones" value={formatOptionalNumber(pms.invalidPhones)} tone={Number(pms.invalidPhones || 0) > 0 ? 'amber' : 'slate'} compact />
-              <DataTile label="Guests without language" value={pms.guestsWithoutLanguage || 0} tone={Number(pms.guestsWithoutLanguage || 0) > 0 ? 'amber' : 'emerald'} compact />
-              <DataTile label="Stays without room" value={pms.reservationsWithoutRoom || 0} tone={Number(pms.reservationsWithoutRoom || 0) > 0 ? 'amber' : 'emerald'} compact />
+              <DataTile label="Teléfonos inválidos" value={formatOptionalNumber(pms.invalidPhones)} tone={Number(pms.invalidPhones || 0) > 0 ? 'amber' : 'slate'} compact />
+              <DataTile label="Huéspedes sin idioma" value={pms.guestsWithoutLanguage || 0} tone={Number(pms.guestsWithoutLanguage || 0) > 0 ? 'amber' : 'emerald'} compact />
+              <DataTile label="Estancias sin habitación" value={pms.reservationsWithoutRoom || 0} tone={Number(pms.reservationsWithoutRoom || 0) > 0 ? 'amber' : 'emerald'} compact />
             </div>
           ) : null}
         </>
@@ -556,26 +569,26 @@ const GuestIntelligencePanel = ({ data, loading, role }) => {
   const isReceptionist = role === 'receptionist';
   const topProfiles = intelligence.topProfiles || [];
   const operationalTiles = [
-    { label: 'Guests needing attention', value: intelligence.guestsNeedingAttention || 0, tone: Number(intelligence.guestsNeedingAttention || 0) > 0 ? 'amber' : 'emerald' },
-    { label: 'Active VIPs', value: intelligence.vipGuests || 0, tone: Number(intelligence.vipGuests || 0) > 0 ? 'violet' : 'slate' },
-    { label: 'Frustrated conversations', value: intelligence.frustratedConversations || 0, tone: Number(intelligence.frustratedConversations || 0) > 0 ? 'red' : 'emerald' },
-    { label: 'General sentiment', value: intelligence.sentimentLabel || 'Not enough data', tone: intelligence.sentimentLabel === 'Needs attention' ? 'amber' : 'emerald' }
+    { label: 'Huéspedes que necesitan atención', value: intelligence.guestsNeedingAttention || 0, tone: Number(intelligence.guestsNeedingAttention || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'VIPs activos', value: intelligence.vipGuests || 0, tone: Number(intelligence.vipGuests || 0) > 0 ? 'violet' : 'slate' },
+    { label: 'Conversaciones con frustración', value: intelligence.frustratedConversations || 0, tone: Number(intelligence.frustratedConversations || 0) > 0 ? 'red' : 'emerald' },
+    { label: 'Sentimiento general', value: formatSentimentLabel(intelligence.sentimentLabel), tone: intelligence.sentimentLabel === 'Needs attention' ? 'amber' : 'emerald' }
   ];
   const adminTiles = [
     ...operationalTiles,
-    { label: 'Review risk guests', value: intelligence.reviewRiskGuests || 0, tone: Number(intelligence.reviewRiskGuests || 0) > 0 ? 'amber' : 'emerald' },
-    { label: 'High revenue potential', value: intelligence.highRevenueGuests || 0, tone: Number(intelligence.highRevenueGuests || 0) > 0 ? 'emerald' : 'slate' },
-    { label: 'Conversion probability', value: formatPercent(intelligence.averageConversionProbability || 0), tone: 'sky' },
-    { label: 'Top affinity', value: intelligence.topAffinity?.type ? formatProfileLabel(intelligence.topAffinity.type.replace('_affinity', '')) : 'Not enough data', tone: 'violet' }
+    { label: 'Riesgo de reseña', value: intelligence.reviewRiskGuests || 0, tone: Number(intelligence.reviewRiskGuests || 0) > 0 ? 'amber' : 'emerald' },
+    { label: 'Potencial revenue alto', value: intelligence.highRevenueGuests || 0, tone: Number(intelligence.highRevenueGuests || 0) > 0 ? 'emerald' : 'slate' },
+    { label: 'Probabilidad de conversión', value: formatPercent(intelligence.averageConversionProbability || 0), tone: 'sky' },
+    { label: 'Afinidad principal', value: intelligence.topAffinity?.type ? formatProfileLabel(intelligence.topAffinity.type.replace('_affinity', '')) : 'Sin datos suficientes', tone: 'violet' }
   ];
   const tiles = isReceptionist ? operationalTiles : adminTiles;
 
   return (
     <Panel
-      title="Guest Intelligence"
-      eyebrow={isReceptionist ? 'Operational guest signals' : 'Guest profiles and revenue signals'}
+      title="Contexto de huéspedes"
+      eyebrow={isReceptionist ? 'Señales operativas' : 'Señales de perfil y revenue'}
       icon={Sparkles}
-      badge={isReceptionist ? 'Reception view' : 'Manager view'}
+      badge={isReceptionist ? 'Vista recepción' : 'Vista manager'}
       badgeTone="violet"
     >
       {loading ? (
@@ -590,7 +603,7 @@ const GuestIntelligencePanel = ({ data, loading, role }) => {
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             <LanguagePills languages={intelligence.topLanguages || []} loading={loading} />
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.025]">
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Main profiles</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Perfiles principales</p>
               {topProfiles.length ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {topProfiles.map((profile) => (
@@ -600,7 +613,7 @@ const GuestIntelligencePanel = ({ data, loading, role }) => {
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">No guest profile pattern yet.</p>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Todavía no hay patrón de perfiles.</p>
               )}
             </div>
           </div>
@@ -614,25 +627,25 @@ const RevenueExperiencesPanel = ({ data, loading, permissions }) => {
   const revenue = data?.revenue || {};
   const experienceBookings = data?.experienceBookings || {};
   const lines = [
-    permissions.revenue ? `${formatNumber(revenue.totalUpsells || 0)} upsell opportunities` : null,
-    permissions.revenue ? `${formatNumber(revenue.accepted || 0)} accepted upsells` : null,
-    permissions.experienceBookings ? `${formatNumber(experienceBookings.active || 0)} experience requests` : null,
-    permissions.experienceBookings ? `${formatNumber(experienceBookings.providerRequestsSent || 0)} provider requests sent` : null,
-    permissions.experienceBookings ? `${formatNumber(experienceBookings.failedProviderEmails || 0)} failed provider emails` : null,
-    permissions.revenue ? `${formatCurrency(revenue.estimatedRevenue || experienceBookings.estimatedRevenue || 0)} estimated revenue` : null
+    permissions.revenue ? `${formatNumber(revenue.totalUpsells || 0)} oportunidades de upsell` : null,
+    permissions.revenue ? `${formatNumber(revenue.accepted || 0)} upsells aceptados` : null,
+    permissions.experienceBookings ? `${formatNumber(experienceBookings.active || 0)} solicitudes de experiencias` : null,
+    permissions.experienceBookings ? `${formatNumber(experienceBookings.providerRequestsSent || 0)} solicitudes enviadas a proveedor` : null,
+    permissions.experienceBookings ? `${formatNumber(experienceBookings.failedProviderEmails || 0)} incidencias con proveedor` : null,
+    permissions.revenue ? `${formatCurrency(revenue.estimatedRevenue || experienceBookings.estimatedRevenue || 0)} revenue estimado` : null
   ].filter(Boolean);
 
   return (
     <Panel
-      title="Revenue & Experiences"
-      eyebrow="Commercial follow-up"
+      title="Revenue y experiencias"
+      eyebrow="Seguimiento comercial"
       icon={TrendingUp}
       actions={[
-        permissions.revenue ? { href: '/dashboard/upsells', label: 'View Revenue' } : null,
-        permissions.experienceBookings ? { href: '/dashboard/experience-bookings', label: 'View Experience Bookings' } : null
+        permissions.revenue ? { href: '/dashboard/upsells', label: 'Ver revenue' } : null,
+        permissions.experienceBookings ? { href: '/dashboard/experience-bookings', label: 'Ver experiencias' } : null
       ].filter(Boolean)}
     >
-      <BulletList lines={lines} loading={loading} emptyTitle="No revenue or experience items yet." />
+      <BulletList lines={lines} loading={loading} emptyTitle="Todavía no hay oportunidades comerciales." />
     </Panel>
   );
 };
@@ -641,57 +654,59 @@ const HotelKnowledgePanel = ({ data, loading, permissions, compact = false }) =>
   const knowledge = data?.localIntelligence || {};
   const updatedAt = knowledge.topRecommendations?.[0]?.updated_at || null;
   const lines = [
-    `${formatNumber(knowledge.active || 0)} active knowledge entries`,
-    updatedAt ? `Last updated ${formatDateTime(updatedAt)}` : 'Knowledge base up to date',
-    `${formatNumber(knowledge.featured || 0)} featured recommendations`,
-    `${formatNumber(knowledge.indoorReady || 0)} indoor/rain-ready suggestions`
+    `${formatNumber(knowledge.active || 0)} entradas activas`,
+    updatedAt ? `Actualizado ${formatDateTime(updatedAt)}` : 'Base de conocimiento actualizada',
+    `${formatNumber(knowledge.featured || 0)} recomendaciones destacadas`,
+    `${formatNumber(knowledge.indoorReady || 0)} sugerencias para lluvia o interior`
   ];
 
   return (
     <Panel
-      title="Hotel Knowledge"
-      eyebrow="Information quality"
+      title="Conocimiento del hotel"
+      eyebrow="Calidad de información"
       icon={BookOpen}
       actions={[
-        permissions.knowledge ? { href: '/dashboard/settings/knowledge', label: 'Open Knowledge Base' } : null,
-        permissions.localKnowledge ? { href: '/dashboard/local-knowledge', label: 'Open Local Knowledge' } : null
+        permissions.knowledge ? { href: '/dashboard/settings/knowledge', label: 'Abrir base' } : null,
+        permissions.localKnowledge ? { href: '/dashboard/local-knowledge', label: 'Abrir conocimiento local' } : null
       ].filter(Boolean)}
       compact={compact}
     >
-      <BulletList lines={lines} loading={loading} emptyTitle="Knowledge base up to date." />
+      <BulletList lines={lines} loading={loading} emptyTitle="Base de conocimiento actualizada." />
     </Panel>
   );
 };
 
 const QuickActionsPanel = ({ role, permissions, data }) => {
-  const adminActions = [
+  const demoCoreActions = [
     permissions.inbox ? { label: 'Inbox', href: '/dashboard/inbox', icon: Inbox } : null,
+    canAccess(role, 'reservations') ? { label: 'Reservas', href: '/dashboard/reservations', icon: CalendarDays } : null,
     permissions.tickets ? { label: 'Tickets', href: '/dashboard/tickets', icon: TicketCheck } : null,
-    permissions.reception ? { label: 'Reception / Pre Check-in', href: '/dashboard/reception', icon: ConciergeBell } : null,
-    permissions.health ? { label: 'Hotel Health', href: '/dashboard/health', icon: ShieldCheck } : null,
-    permissions.automations ? { label: 'Automations', href: '/dashboard/automations', icon: Zap } : null,
+    permissions.automations ? { label: 'Automatizaciones', href: '/dashboard/automations', icon: Zap } : null,
+    permissions.health ? { label: 'Salud piloto', href: '/dashboard/health', icon: ShieldCheck } : null
+  ].filter(Boolean);
+  const adminActions = [
+    ...demoCoreActions,
+    permissions.reception ? { label: 'Recepción / Pre Check-in', href: '/dashboard/reception', icon: ConciergeBell } : null,
     permissions.revenue ? { label: 'Revenue', href: '/dashboard/upsells', icon: TrendingUp } : null,
-    permissions.experienceBookings ? { label: 'Experience Bookings', href: '/dashboard/experience-bookings', icon: CalendarCheck } : null,
-    permissions.knowledge ? { label: 'Knowledge Base', href: '/dashboard/settings/knowledge', icon: BookOpen } : null,
-    permissions.qrRooms ? { label: 'QR Rooms', href: '/dashboard/qr-rooms', icon: QrCode } : null,
-    permissions.academy ? { label: 'Academy', href: '/dashboard/settings/academy', icon: ShieldCheck } : null,
-    permissions.pms ? { label: 'PMS status', href: '/dashboard/settings/pms', icon: DatabaseZap } : null
+    permissions.experienceBookings ? { label: 'Reservas de experiencias', href: '/dashboard/experience-bookings', icon: CalendarCheck } : null,
+    permissions.knowledge ? { label: 'Base de conocimiento', href: '/dashboard/settings/knowledge', icon: BookOpen } : null,
+    permissions.qrRooms ? { label: 'QR habitaciones', href: '/dashboard/qr-rooms', icon: QrCode } : null,
+    permissions.academy ? { label: 'Formación', href: '/dashboard/settings/academy', icon: ShieldCheck } : null,
+    permissions.pms ? { label: 'Estado PMS', href: '/dashboard/settings/pms', icon: DatabaseZap } : null
   ].filter(Boolean);
   const receptionistActions = [
-    permissions.inbox ? { label: 'Open Inbox', href: '/dashboard/inbox', icon: Inbox } : null,
-    permissions.tickets ? { label: 'View Tickets', href: '/dashboard/tickets', icon: TicketCheck } : null,
-    permissions.reception ? { label: 'Reception / Pre Check-in', href: '/dashboard/reception', icon: ConciergeBell } : null,
-    permissions.health ? { label: 'Hotel Health', href: '/dashboard/health', icon: ShieldCheck } : null,
-    permissions.qrRooms ? { label: 'QR Rooms', href: '/dashboard/qr-rooms', icon: QrCode } : null,
-    permissions.knowledge ? { label: 'Knowledge Base', href: '/dashboard/settings/knowledge', icon: BookOpen } : null,
-    permissions.localKnowledge ? { label: 'Local Knowledge', href: '/dashboard/local-knowledge', icon: Map } : null,
-    permissions.academy ? { label: 'Receptionist Academy', href: '/dashboard/settings/academy', icon: ShieldCheck } : null
+    ...demoCoreActions,
+    permissions.reception ? { label: 'Recepción / Pre Check-in', href: '/dashboard/reception', icon: ConciergeBell } : null,
+    permissions.qrRooms ? { label: 'QR habitaciones', href: '/dashboard/qr-rooms', icon: QrCode } : null,
+    permissions.knowledge ? { label: 'Base de conocimiento', href: '/dashboard/settings/knowledge', icon: BookOpen } : null,
+    permissions.localKnowledge ? { label: 'Conocimiento local', href: '/dashboard/local-knowledge', icon: Map } : null,
+    permissions.academy ? { label: 'Formación recepción', href: '/dashboard/settings/academy', icon: ShieldCheck } : null
   ].filter(Boolean);
   const actions = role === 'receptionist' ? receptionistActions : adminActions;
   const onboarding = data?.onboardingHealth || {};
 
   return (
-    <Panel title="Quick Actions" eyebrow="Open the right workspace" icon={Sparkles} badge={role === 'receptionist' ? 'Reception' : 'Admin'} badgeTone="violet">
+    <Panel title="Ruta de demo" eyebrow="Abre la pantalla correcta" icon={Sparkles} badge={role === 'receptionist' ? 'Recepción' : 'Admin'} badgeTone="violet">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {actions.map((action) => {
           const Icon = action.icon;
@@ -703,8 +718,8 @@ const QuickActionsPanel = ({ role, permissions, data }) => {
       </div>
       {role !== 'receptionist' ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <StatusLine icon={DatabaseZap} label="PMS" value={onboarding.pmsConnected ? 'Connected' : 'Needs setup'} tone={onboarding.pmsConnected ? 'emerald' : 'amber'} />
-          <StatusLine icon={Languages} label="WhatsApp" value={onboarding.whatsappConfigured ? 'Configured' : 'Needs setup'} tone={onboarding.whatsappConfigured ? 'emerald' : 'amber'} />
+          <StatusLine icon={DatabaseZap} label="PMS" value={onboarding.pmsConnected ? 'Conectado' : 'Necesita configuración'} tone={onboarding.pmsConnected ? 'emerald' : 'amber'} />
+          <StatusLine icon={Languages} label="WhatsApp" value={onboarding.whatsappConfigured ? 'Configurado' : 'Necesita configuración'} tone={onboarding.whatsappConfigured ? 'emerald' : 'amber'} />
         </div>
       ) : null}
     </Panel>
@@ -819,7 +834,7 @@ const StatCard = ({ label, value, icon: Icon, tone = 'slate', loading }) => {
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50/85' : 'border-white/10 bg-white/[0.025]')}>
       <div className="flex items-start justify-between gap-3">
         <p className={ui.text.eyebrow(isLight)}>{tx(label)}</p>
-        <ExecutiveBadge tone={tone}>{tx('Live')}</ExecutiveBadge>
+        <ExecutiveBadge tone={tone}>{tx('Actual')}</ExecutiveBadge>
       </div>
       <div className="mt-4 flex items-end justify-between gap-3">
         <p className={cn('text-3xl font-semibold tracking-tight tabular-nums', ui.text.title(isLight))}>
@@ -875,13 +890,13 @@ const BulletList = ({ lines, loading, emptyTitle = 'No items yet.' }) => {
   if (loading) return <SkeletonList />;
 
   if (!lines.length) {
-    return <EmptyState icon={CheckCircle2} title={emptyTitle} description="Staynex will populate this panel as activity appears." />;
+    return <EmptyState icon={CheckCircle2} title={emptyTitle} description="Staynex completará este panel cuando aparezca actividad." />;
   }
 
   return (
     <div className="space-y-3">
       {lines.map((line) => (
-        <StatusLine key={line} icon={CheckCircle2} label={line} value="Open" tone="slate" compact />
+        <StatusLine key={line} icon={CheckCircle2} label={line} value={null} tone="slate" compact />
       ))}
     </div>
   );
@@ -903,7 +918,7 @@ const StatusLine = ({ icon: Icon, label, value, tone = 'slate', compact = false 
         <Icon className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
         <span className={cn('truncate text-sm font-medium', isLight ? 'text-slate-700' : 'text-slate-300')}>{tx(label)}</span>
       </div>
-      <ExecutiveBadge tone={tone}>{tx(value)}</ExecutiveBadge>
+      {value !== null && value !== undefined ? <ExecutiveBadge tone={tone}>{tx(value)}</ExecutiveBadge> : null}
     </div>
   );
 };

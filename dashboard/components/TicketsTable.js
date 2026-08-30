@@ -21,16 +21,68 @@ const sortByNewest = (items) => [...items].sort(
 
 const formatDate = (value) => {
   if (!value) {
-    return 'No date';
+    return 'Sin fecha';
   }
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat('es-ES', {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(new Date(value));
 };
 
-const formatText = (value, fallback) => value?.replaceAll('_', ' ') || fallback;
+const categoryLabels = {
+  maintenance: 'Mantenimiento',
+  emergency: 'Emergencia',
+  housekeeping: 'Pisos',
+  room_service: 'Servicio de habitaciones',
+  hotel_info: 'Información del hotel',
+  transport: 'Transporte',
+  complaint: 'Incidencia huésped',
+  guest_request: 'Solicitud huésped'
+};
+
+const priorityLabels = {
+  low: 'Baja',
+  normal: 'Normal',
+  high: 'Alta',
+  urgent: 'Urgente'
+};
+
+const departmentLabels = {
+  reception: 'Recepción',
+  'front desk': 'Recepción',
+  maintenance: 'Mantenimiento',
+  housekeeping: 'Pisos',
+  operations: 'Operaciones'
+};
+
+const riskLabels = {
+  low: 'Riesgo bajo',
+  medium: 'Riesgo medio',
+  high: 'Riesgo alto',
+  urgent: 'Riesgo urgente'
+};
+
+const roomStatusLabels = {
+  clean: 'Habitación lista',
+  inspected: 'Habitación revisada',
+  dirty: 'Habitación pendiente',
+  occupied: 'Ocupada',
+  vacant: 'Libre',
+  maintenance: 'En mantenimiento',
+  out_of_order: 'Fuera de servicio',
+  unknown: 'Sin estado'
+};
+
+const formatText = (value, fallback, labels = {}) => {
+  if (!value) {
+    return fallback;
+  }
+
+  const normalized = String(value).trim();
+  const key = normalized.toLowerCase();
+  return labels[key] || labels[normalized] || normalized.replaceAll('_', ' ');
+};
 
 const isUrgentTicket = (ticket) => ticket.priority === 'urgent' || ticket.category === 'emergency';
 
@@ -48,18 +100,42 @@ const copilotToneClass = (tone = 'slate') => {
 };
 
 const CopilotPill = ({ children, tone = 'slate' }) => (
-  <span className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold capitalize ${copilotToneClass(tone)}`}>
+  <span className={`inline-flex w-fit items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${copilotToneClass(tone)}`}>
     {children}
   </span>
 );
 
 const getTicketCopilot = (ticket) => ticket.copilot || {
   aiPriority: { level: ticket.priority || 'normal', tone: isUrgentTicket(ticket) ? 'red' : 'slate' },
-  suggestedDepartment: 'Reception',
-  suggestedResolution: 'Review the ticket and reply with a clear next step.',
+  suggestedDepartment: 'reception',
+  suggestedResolution: 'Revisa el ticket y responde al huésped con el siguiente paso claro.',
   satisfactionRisk: { level: isUrgentTicket(ticket) ? 'high' : 'low', tone: isUrgentTicket(ticket) ? 'red' : 'emerald' },
   sentiment: { label: 'neutral', tone: 'slate' },
   similarPastIncidents: []
+};
+
+const getResolutionCopy = (ticket, copilot) => {
+  const housekeepingStatus = copilot.roomStatus?.housekeepingStatus || copilot.roomStatus?.housekeeping_status;
+  const maintenanceStatus = copilot.roomStatus?.maintenanceStatus || copilot.roomStatus?.maintenance_status;
+  const department = String(copilot.suggestedDepartment || '').toLowerCase();
+
+  if (maintenanceStatus === 'maintenance' || maintenanceStatus === 'out_of_order') {
+    return 'Confirma el estado con mantenimiento antes de cerrar el ticket.';
+  }
+
+  if (housekeepingStatus === 'dirty') {
+    return 'Asigna pisos y responde al huésped cuando la habitación esté revisada.';
+  }
+
+  if (department.includes('maintenance') || ticket.category === 'maintenance') {
+    return 'Asigna mantenimiento, confirma acceso a la habitación y avisa al huésped.';
+  }
+
+  if (department.includes('housekeeping') || ticket.category === 'housekeeping') {
+    return 'Asigna pisos y marca el ticket como completado solo tras revisar la habitación.';
+  }
+
+  return 'Revisa el ticket y responde al huésped con el siguiente paso claro.';
 };
 
 const getTicketRowClass = (ticket) => {
@@ -109,7 +185,7 @@ export const TicketsTable = ({ tickets }) => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not update ticket status');
+        throw new Error(body.error || 'No se pudo actualizar el estado del ticket');
       }
 
       setItems((current) => mergeTicket(current, body.ticket));
@@ -168,9 +244,9 @@ export const TicketsTable = ({ tickets }) => {
                     <p className="truncate text-sm font-semibold text-slate-100">
                       {ticket.room_number || t('tickets.noRoom')}
                     </p>
-                    <div className="mt-2 flex items-center gap-2 text-sm capitalize text-slate-300">
+                    <div className="mt-2 flex items-center gap-2 text-sm text-slate-300">
                       <TicketCategoryIcon category={ticket.category} />
-                      <span className="truncate">{formatText(ticket.category, t('tickets.noData'))}</span>
+                      <span className="truncate">{formatText(ticket.category, t('tickets.noData'), categoryLabels)}</span>
                     </div>
                   </div>
                   <PriorityBadge priority={ticket.priority} />
@@ -183,20 +259,20 @@ export const TicketsTable = ({ tickets }) => {
                 <div className="mt-4 rounded-lg border border-emerald-300/15 bg-emerald-300/[0.055] p-3">
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-emerald-100">
                     <BrainCircuit className="h-3.5 w-3.5" aria-hidden="true" />
-                    AI Copilot
+                    Asistencia IA
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <CopilotPill tone={copilot.aiPriority?.tone}>{copilot.aiPriority?.level || 'normal'}</CopilotPill>
-                    <CopilotPill tone="sky">{copilot.suggestedDepartment || 'Reception'}</CopilotPill>
-                    <CopilotPill tone={copilot.satisfactionRisk?.tone}>Risk {copilot.satisfactionRisk?.level || 'low'}</CopilotPill>
+                    <CopilotPill tone={copilot.aiPriority?.tone}>{formatText(copilot.aiPriority?.level || ticket.priority, 'Normal', priorityLabels)}</CopilotPill>
+                    <CopilotPill tone="sky">{formatText(copilot.suggestedDepartment, 'Recepción', departmentLabels)}</CopilotPill>
+                    <CopilotPill tone={copilot.satisfactionRisk?.tone}>{formatText(copilot.satisfactionRisk?.level, 'Riesgo bajo', riskLabels)}</CopilotPill>
                     {copilot.roomStatus ? (
                       <CopilotPill tone={copilot.roomStatus.housekeepingStatus === 'dirty' ? 'orange' : 'slate'}>
-                        Room {copilot.roomStatus.housekeepingStatus}
+                        {formatText(copilot.roomStatus.housekeepingStatus, 'Sin estado', roomStatusLabels)}
                       </CopilotPill>
                     ) : null}
                   </div>
                   <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
-                    {copilot.suggestedResolution}
+                    {getResolutionCopy(ticket, copilot)}
                   </p>
                 </div>
                 <div className="mt-4 flex justify-end gap-1.5">
@@ -242,7 +318,7 @@ export const TicketsTable = ({ tickets }) => {
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.status')}</th>
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.date')}</th>
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.age')}</th>
-                <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">AI Copilot</th>
+                <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Asistencia IA</th>
                 <th className="px-5 py-4 text-right text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.quickActions')}</th>
               </tr>
             </thead>
@@ -267,10 +343,10 @@ export const TicketsTable = ({ tickets }) => {
                     <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold text-slate-100">
                       {ticket.room_number || t('tickets.noRoom')}
                     </td>
-                    <td className="whitespace-nowrap px-5 py-4 text-sm capitalize text-slate-300">
+                    <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-300">
                       <div className="flex items-center gap-2">
                         <TicketCategoryIcon category={ticket.category} />
-                        {formatText(ticket.category, t('tickets.noData'))}
+                        {formatText(ticket.category, t('tickets.noData'), categoryLabels)}
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-5 py-4">
@@ -290,18 +366,18 @@ export const TicketsTable = ({ tickets }) => {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <CopilotPill tone={copilot.aiPriority?.tone}>
                             <ShieldAlert className="h-3 w-3" aria-hidden="true" />
-                            {copilot.aiPriority?.level || 'normal'}
+                            {formatText(copilot.aiPriority?.level || ticket.priority, 'Normal', priorityLabels)}
                           </CopilotPill>
-                          <CopilotPill tone="sky">{copilot.suggestedDepartment || 'Reception'}</CopilotPill>
-                          <CopilotPill tone={copilot.satisfactionRisk?.tone}>Risk {copilot.satisfactionRisk?.level || 'low'}</CopilotPill>
+                          <CopilotPill tone="sky">{formatText(copilot.suggestedDepartment, 'Recepción', departmentLabels)}</CopilotPill>
+                          <CopilotPill tone={copilot.satisfactionRisk?.tone}>{formatText(copilot.satisfactionRisk?.level, 'Riesgo bajo', riskLabels)}</CopilotPill>
                           {copilot.roomStatus ? (
                             <CopilotPill tone={copilot.roomStatus.housekeepingStatus === 'dirty' ? 'orange' : 'slate'}>
-                              Room {copilot.roomStatus.housekeepingStatus}
+                              {formatText(copilot.roomStatus.housekeepingStatus, 'Sin estado', roomStatusLabels)}
                             </CopilotPill>
                           ) : null}
                         </div>
                         <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">
-                          {copilot.suggestedResolution}
+                          {getResolutionCopy(ticket, copilot)}
                         </p>
                       </div>
                     </td>
@@ -316,7 +392,7 @@ export const TicketsTable = ({ tickets }) => {
                             <button
                               key={action.value}
                               type="button"
-                            title={t(action.labelKey)}
+                              title={t(action.labelKey)}
                               disabled={active || loading}
                               onClick={(event) => {
                                 event.stopPropagation();

@@ -17,7 +17,7 @@ import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
 const formatDate = (value) => {
   if (!value) {
-    return 'No date';
+    return 'Sin fecha';
   }
 
   return new Intl.DateTimeFormat('en-GB', {
@@ -121,13 +121,13 @@ const TRANSLATION_LANGUAGES = [
 ];
 
 const quickReplyTemplates = [
-  { label: 'Late checkout', text: 'Of course, I can check late checkout availability for you.' },
-  { label: 'Restaurant', text: 'I can help with restaurant recommendations or a table request.' },
-  { label: 'Transfer', text: 'I can help arrange a transfer. What time would you like to travel?' },
-  { label: 'Spa', text: 'I can check spa options and availability for you.' },
-  { label: 'Escalate', text: 'I will ask reception to review this personally.' },
-  { label: 'Translate', text: '' },
-  { label: 'Create ticket', text: 'I will create a ticket so the team can follow up.' }
+  { label: 'Late check-out', text: 'Claro, reviso disponibilidad de late check-out para tu estancia.' },
+  { label: 'Restaurante', text: 'Puedo ayudarte con recomendaciones de restaurante o una reserva.' },
+  { label: 'Traslado', text: 'Puedo ayudarte a organizar un traslado. ¿A qué hora necesitas viajar?' },
+  { label: 'Spa', text: 'Reviso opciones y disponibilidad de spa para tu estancia.' },
+  { label: 'Escalar', text: 'Voy a pedir a recepción que revise esto personalmente.' },
+  { label: 'Traducir', text: '' },
+  { label: 'Crear ticket', text: 'Voy a crear un ticket para que el equipo lo revise.' }
 ];
 
 const AI_MODE = {
@@ -136,6 +136,25 @@ const AI_MODE = {
   AI_PAUSED: 'ai_paused',
   ESCALATION_LOCK: 'escalation_lock'
 };
+
+const sentimentLabels = {
+  angry: 'Molesto',
+  frustrated: 'Frustrado',
+  negative: 'Negativo',
+  positive: 'Positivo',
+  happy: 'Contento',
+  neutral: 'Neutral'
+};
+
+const priorityLabels = {
+  low: 'Baja',
+  normal: 'Normal',
+  medium: 'Media',
+  high: 'Alta',
+  urgent: 'Urgente'
+};
+
+const formatSignalLabel = (value, labels) => labels[String(value || '').toLowerCase()] || String(value || '').replaceAll('_', ' ');
 
 const getConversationAiMode = (conversation) => (
   conversation?.aiState?.state_metadata?.conversation_ai_mode || AI_MODE.ACTIVE
@@ -399,12 +418,12 @@ const getConversationGuestLabel = (conversation) => (
   conversation?.guest?.name
   || conversation?.guest?.full_name
   || conversation?.guest?.phone_number
-  || 'Guest'
+  || 'Huésped'
 );
 
 const getConversationInitials = (conversation) => {
   const label = getConversationGuestLabel(conversation);
-  const cleanLabel = String(label || 'Guest').replace(/[^A-Za-z0-9\s+]/g, ' ').trim();
+  const cleanLabel = String(label || 'Huésped').replace(/[^A-Za-z0-9\s+]/g, ' ').trim();
   const words = cleanLabel.split(/\s+/).filter(Boolean);
 
   if (!words.length) {
@@ -1281,10 +1300,10 @@ export const InboxClient = ({ conversations }) => {
   const replyWillTranslate = Boolean(selectedGuestLanguage && selectedGuestLanguage !== staffLanguage);
   const humanTakeoverTotal = items.filter((conversation) => isHumanTakeoverActive(conversation)).length;
   const filterItems = [
-    { key: 'all', label: 'All', count: items.length },
-    { key: 'unread', label: 'Unread', count: items.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
+    { key: 'all', label: 'Todas', count: items.length },
+    { key: 'unread', label: 'Sin leer', count: items.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
     { key: 'human', label: 'Control humano', count: humanTakeoverTotal },
-    { key: 'urgent', label: 'Urgent', count: items.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
+    { key: 'urgent', label: 'Urgentes', count: items.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
     { key: 'vip', label: 'VIP', count: items.filter((conversation) => isVipConversation(conversation)).length },
     { key: 'ai', label: 'IA activa', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
@@ -1326,8 +1345,8 @@ export const InboxClient = ({ conversations }) => {
             <div className="min-w-0">
               <p className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Inbox</p>
               <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
-                {items.length} conversations
-                {unreadTotal > 0 ? ` / ${unreadTotal} unread` : ''}
+                {items.length} conversaciones
+                {unreadTotal > 0 ? ` / ${unreadTotal} sin leer` : ''}
                 {humanTakeoverTotal > 0 ? ` / ${humanTakeoverTotal} en control humano` : ''}
               </p>
             </div>
@@ -1344,7 +1363,7 @@ export const InboxClient = ({ conversations }) => {
                       : 'border-amber-300/20 bg-amber-300/10 text-amber-100'
                 ].join(' ')}
               >
-                {realtimeStatus === 'connected' ? 'Live' : 'Fallback'}
+                {realtimeStatus === 'connected' ? 'En vivo' : 'Actualización manual'}
               </span>
               <button
                 type="button"
@@ -1371,7 +1390,7 @@ export const InboxClient = ({ conversations }) => {
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search guest, room, message or language"
+              placeholder="Buscar huésped, habitación, mensaje o idioma"
               className={cn(
                 'min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400',
                 isLight ? 'text-slate-900' : 'text-white'
@@ -1419,8 +1438,8 @@ export const InboxClient = ({ conversations }) => {
           {visibleItems.length === 0 ? (
             <PremiumEmptyState
               icon={AlertTriangle}
-              title="No conversations match this view"
-              description="Try another filter or search term."
+              title="No hay conversaciones en esta vista"
+              description="Prueba otro filtro o cambia la búsqueda."
               className="min-h-32 px-4 py-8"
             />
           ) : null}
@@ -1445,10 +1464,10 @@ export const InboxClient = ({ conversations }) => {
             const vip = isVipConversation(conversation);
             const badgeItems = [
               humanTakeoverActive ? { label: 'Control humano', tone: 'orange', icon: PauseCircle } : { label: 'IA activa', tone: 'emerald', icon: Bot },
-              needsAttention ? { label: 'Urgent', tone: 'red', icon: AlertTriangle } : null,
+              needsAttention ? { label: 'Atención humana', tone: 'red', icon: AlertTriangle } : null,
               vip ? { label: 'VIP', tone: 'violet' } : null,
               languageBadge ? { label: String(languageBadge).toUpperCase(), tone: 'sky' } : null,
-              hasExperienceBooking ? { label: 'Experience', tone: 'amber' } : null,
+              hasExperienceBooking ? { label: 'Experiencia', tone: 'amber' } : null,
               hasOffer || hasUpsell ? { label: 'Revenue', tone: 'emerald' } : null
             ].filter(Boolean).slice(0, 5);
 
@@ -1500,7 +1519,7 @@ export const InboxClient = ({ conversations }) => {
                           </p>
                         </div>
                         <p className={isLight ? 'mt-0.5 text-xs text-slate-500' : 'mt-0.5 text-xs text-slate-500'}>
-                          {roomNumber ? `Room ${roomNumber}` : 'Room not assigned'}
+                          {roomNumber ? `Habitación ${roomNumber}` : 'Sin habitación asignada'}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
@@ -1532,12 +1551,12 @@ export const InboxClient = ({ conversations }) => {
                       ) : null}
                       {sentiment && sentiment !== 'neutral' ? (
                         <span className={ui.badge(isLight, sentiment === 'angry' || sentiment === 'frustrated' ? 'red' : 'slate', true)}>
-                          {sentiment}
+                          {formatSignalLabel(sentiment, sentimentLabels)}
                         </span>
                       ) : null}
                       {priority && priority !== 'normal' ? (
                         <span className={ui.badge(isLight, priority === 'urgent' || priority === 'high' ? 'amber' : 'slate', true)}>
-                          {priority}
+                          {formatSignalLabel(priority, priorityLabels)}
                         </span>
                       ) : null}
                     </div>
@@ -1570,7 +1589,7 @@ export const InboxClient = ({ conversations }) => {
                     ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     : 'border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
                 )}
-                aria-label="Back to conversations"
+                aria-label="Volver a conversaciones"
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -1678,7 +1697,7 @@ export const InboxClient = ({ conversations }) => {
                 )}
               >
                 <Bot className="h-4 w-4" aria-hidden="true" />
-                AI Copilot
+                Asistencia IA
                 {copilotSignals > 0 ? (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-300 px-1.5 text-[10px] font-black text-slate-950">
                     {copilotSignals}
@@ -1723,7 +1742,7 @@ export const InboxClient = ({ conversations }) => {
                     Control humano activo
                   </p>
                   <p className={cn('mt-1 text-xs leading-5', isLight ? 'text-orange-800/80' : 'text-orange-100/75')}>
-                    Recepción gestiona esta conversación. No se enviará ninguna respuesta automática de IA, automation o acción de proveedor.
+                    Recepción gestiona esta conversación. No se enviará ninguna respuesta automática de IA, automatización o acción de proveedor.
                   </p>
                 </div>
                 <div className={cn('shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold', isLight ? 'border-orange-200 bg-white/80 text-orange-800' : 'border-orange-300/20 bg-black/15 text-orange-100')}>
@@ -1814,7 +1833,7 @@ export const InboxClient = ({ conversations }) => {
                           : 'Staynex'}
                       {isAi ? (
                         <span className={ui.badge(isLight, 'emerald', true)}>
-                          AI
+                          IA
                         </span>
                       ) : null}
                       {languageBadge ? (
@@ -1900,7 +1919,7 @@ export const InboxClient = ({ conversations }) => {
               <div className={cn('rounded-2xl border px-4 py-3 text-sm font-semibold', isLight ? 'border-emerald-200 bg-white text-slate-600 shadow-sm' : 'border-emerald-300/20 bg-white/[0.04] text-slate-300')}>
                 <span className="inline-flex items-center gap-2">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-300" />
-                  AI thinking...
+                  Enviando respuesta...
                 </span>
               </div>
             </div>
@@ -1928,7 +1947,7 @@ export const InboxClient = ({ conversations }) => {
                 key={reply.label}
                 type="button"
                 onClick={() => {
-                  if (reply.label === 'Translate') {
+                  if (reply.label === 'Traducir') {
                     setCopilotOpen(true);
                     return;
                   }
@@ -1942,7 +1961,7 @@ export const InboxClient = ({ conversations }) => {
                     : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-emerald-300/25 hover:bg-white/[0.08] hover:text-white'
                 )}
               >
-                {reply.label === 'Escalate' ? <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> : reply.label === 'Translate' ? <Languages className="h-3.5 w-3.5" aria-hidden="true" /> : <Zap className="h-3.5 w-3.5" aria-hidden="true" />}
+                {reply.label === 'Escalar' ? <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> : reply.label === 'Traducir' ? <Languages className="h-3.5 w-3.5" aria-hidden="true" /> : <Zap className="h-3.5 w-3.5" aria-hidden="true" />}
                 {reply.label}
               </button>
             ))}
@@ -1973,12 +1992,12 @@ export const InboxClient = ({ conversations }) => {
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
               <Send className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">{sending ? 'Sending...' : t('buttons.send')}</span>
+              <span className="hidden sm:inline">{sending ? 'Enviando...' : t('buttons.send')}</span>
             </button>
           </div>
           <div className={cn('mt-2 flex flex-wrap items-center gap-2 px-1 text-[11px] font-semibold', isLight ? 'text-slate-500' : 'text-slate-500')}>
-            <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" aria-hidden="true" /> Sent indicator active</span>
-            <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> AI-assisted replies</span>
+            <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" aria-hidden="true" /> Confirmación de envío activa</span>
+            <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> Respuestas asistidas por IA</span>
           </div>
         </form>
       </section>
@@ -2013,7 +2032,7 @@ export const InboxClient = ({ conversations }) => {
             type="button"
             onClick={() => setCopilotOpen(false)}
             className="absolute right-3 top-3 rounded-full bg-black/60 p-2 text-white shadow-lg sm:hidden"
-            aria-label="Close AI Copilot"
+            aria-label="Cerrar asistencia IA"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>

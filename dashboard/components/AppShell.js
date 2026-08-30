@@ -65,11 +65,11 @@ const navigationGroups = [
     defaultOpen: true,
     items: [
       { href: '/dashboard', labelKey: 'screens.dashboard', icon: LayoutDashboard },
-      { href: '/dashboard/health', labelKey: 'sidebar.health', icon: ShieldCheck },
       { href: '/dashboard/inbox', labelKey: 'sidebar.inbox', icon: Inbox },
+      { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
       { href: '/dashboard/tickets', labelKey: 'sidebar.tickets', icon: TicketCheck },
-      { href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell },
-      { href: '/dashboard/experience-bookings', labelKey: 'sidebar.experienceBookings', icon: CalendarCheck }
+      { href: '/dashboard/automations', labelKey: 'sidebar.automations', icon: Bot },
+      { href: '/dashboard/health', labelKey: 'sidebar.health', icon: ShieldCheck }
     ]
   },
   {
@@ -84,23 +84,23 @@ const navigationGroups = [
   {
     id: 'revenueAi',
     labelKey: 'sidebarGroups.revenueAi',
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
       { href: '/dashboard/analytics', labelKey: 'sidebar.analytics', icon: BarChart3 },
       { href: '/dashboard/ai-logs', labelKey: 'sidebar.aiLogs', icon: Activity },
       { href: '/dashboard/simulation', labelKey: 'sidebar.simulation', icon: FlaskConical },
       { href: '/dashboard/upsells', labelKey: 'sidebar.upsells', icon: TrendingUp },
       { href: '/dashboard/experiences', labelKey: 'sidebar.experiences', icon: Compass },
-      { href: '/dashboard/guest-memory', labelKey: 'sidebar.guestMemory', icon: BrainCircuit },
-      { href: '/dashboard/automations', labelKey: 'sidebar.automations', icon: Bot }
+      { href: '/dashboard/guest-memory', labelKey: 'sidebar.guestMemory', icon: BrainCircuit }
     ]
   },
   {
     id: 'hotel',
     labelKey: 'sidebarGroups.hotel',
-    defaultOpen: true,
+    defaultOpen: false,
     items: [
-      { href: '/dashboard/reservations', labelKey: 'sidebar.reservations', icon: CalendarDays },
+      { href: '/dashboard/reception', labelKey: 'sidebar.reception', icon: ConciergeBell },
+      { href: '/dashboard/experience-bookings', labelKey: 'sidebar.experienceBookings', icon: CalendarCheck },
       { href: '/dashboard/onboarding', labelKey: 'sidebar.onboarding', icon: Rocket },
       { href: '/dashboard/settings/pms', labelKey: 'sidebar.pmsConnections', icon: PlugZap },
       { href: '/dashboard/settings/users', labelKey: 'sidebar.users', icon: UserCog },
@@ -799,7 +799,7 @@ const AppShellContent = ({ children }) => {
           </div>
           <h1 className="mt-5 text-2xl font-semibold">{tx('Workspace could not load')}</h1>
           <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
-            {workspaceError}
+            No se pudo preparar el hotel activo. Reintenta la carga o vuelve a iniciar sesión.
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             <button

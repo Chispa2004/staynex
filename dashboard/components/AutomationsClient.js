@@ -4,31 +4,99 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Bot,
   CalendarClock,
-  Euro,
+  CheckCircle2,
+  Clock3,
   RefreshCw,
   Search,
   ShieldCheck,
   Sparkles,
-  ToggleLeft,
-  ToggleRight,
-  TrendingUp,
   WandSparkles,
   Zap
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
-import { buildPreviewPassResultMessage } from '@/lib/automation-run-client';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { WORKSPACE_SELECTION_EVENT } from '@/lib/workspace-context';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { PremiumLoadingState } from './PremiumLoadingState';
-import { AutomationTestCenter } from './AutomationTestCenter';
 
 const statusOptions = ['all', 'preview', 'scheduled', 'sent', 'failed'];
 const defaultTypeOptions = ['all'];
-const folioTypeAliases = ['pre_checkout_folio', 'pre_checkout_folio_reminder'];
-const reviewTypeAliases = ['review_request', 'post_stay_review', 'post_stay_review_intelligence'];
+
+const pilotJourneys = [
+  {
+    id: 'welcome',
+    title: 'Bienvenida',
+    automationTypes: ['welcome', 'welcome_message'],
+    trigger: 'Llegada o check-in',
+    eligibility: 'Huésped con reserva válida y destinatario de demo.',
+    description: 'Abre la relación con el huésped y deja claro que el hotel está disponible por WhatsApp.'
+  },
+  {
+    id: 'pre_checkin',
+    title: 'Pre check-in',
+    automationTypes: ['pre_checkin', 'pre_arrival_1d', 'pre_arrival_7d', 'pre_arrival'],
+    trigger: 'Antes de la llegada',
+    eligibility: 'Reserva confirmada dentro de la ventana pre-estancia.',
+    description: 'Prepara llegada, datos pendientes y expectativas antes de que el huésped entre al hotel.'
+  },
+  {
+    id: 'during_stay_upsell',
+    title: 'Durante estancia + upsell',
+    automationTypes: ['during_stay', 'upselling', 'weather_trigger', 'abandoned_interest_followup'],
+    trigger: 'Durante la estancia',
+    eligibility: 'Huésped alojado con contexto PMS y señales operativas o comerciales.',
+    description: 'Detecta necesidades reales, oportunidades de experiencia y upsell sin saturar al huésped.'
+  },
+  {
+    id: 'checkout_review',
+    title: 'Check-out + reseña',
+    automationTypes: ['checkout', 'review_request', 'post_stay_review', 'post_stay_review_intelligence'],
+    trigger: 'Salida y post-estancia',
+    eligibility: 'Huésped en salida o estancia completada con ventana válida de reseña.',
+    description: 'Ordena la salida y decide entre reseña pública, feedback privado o alerta interna.'
+  }
+];
+
+const pilotTypeSet = new Set(pilotJourneys.flatMap((journey) => journey.automationTypes));
+
+const statusLabels = {
+  all: 'Todos los estados',
+  preview: 'Preview',
+  scheduled: 'Programado',
+  sent: 'Histórico enviado',
+  failed: 'Incidencia'
+};
+
+const typeLabels = {
+  all: 'Todos los journeys piloto',
+  welcome: 'Bienvenida',
+  welcome_message: 'Bienvenida',
+  pre_checkin: 'Pre check-in',
+  pre_arrival_1d: 'Pre check-in',
+  pre_arrival_7d: 'Pre check-in',
+  pre_arrival: 'Pre check-in',
+  during_stay: 'Durante estancia',
+  upselling: 'Upsell contextual',
+  weather_trigger: 'Oportunidad por clima',
+  abandoned_interest_followup: 'Seguimiento de interés',
+  checkout: 'Check-out',
+  review_request: 'Reseña post-estancia',
+  post_stay_review: 'Reseña post-estancia',
+  post_stay_review_intelligence: 'Reseña post-estancia'
+};
+
+const skippedReasonLabels = {
+  welcome_already_delivered: 'Bienvenida ya preparada',
+  not_in_pre_arrival_window: 'Fuera de ventana pre-estancia',
+  guest_not_in_house: 'Huésped no alojado',
+  no_guest_interest: 'Sin señal comercial',
+  not_departing: 'No está en salida',
+  not_checked_out_24h_ago: 'Todavía no aplica reseña',
+  missing_recipient: 'Sin destinatario seguro',
+  missing_reservation: 'Sin reserva válida'
+};
 
 const normalizeTypeToken = (value) => String(value || '').trim().toLowerCase();
 const uniqueTypes = (values = []) => [...new Set(values
@@ -56,19 +124,20 @@ const recordMatchesType = (record, typeOrAliases) => {
   return family.some((type) => aliases.includes(type));
 };
 
-const formatAutomationLabel = (value) => String(value || '')
-  .replace(/_/g, ' ')
-  .replace(/\b\w/g, (letter) => letter.toUpperCase());
+const recordMatchesPilot = (record) => familyFromRecord(record).some((type) => pilotTypeSet.has(type));
 
-const formatCurrency = (value) => new Intl.NumberFormat(undefined, {
-  style: 'currency',
-  currency: 'EUR',
-  maximumFractionDigits: 0
-}).format(Number(value || 0));
+const formatAutomationLabel = (value) => {
+  const normalized = normalizeTypeToken(value);
+  return typeLabels[normalized] || String(value || 'Automatización').replace(/_/g, ' ');
+};
+
+const formatStatusLabel = (value) => statusLabels[normalizeTypeToken(value)] || String(value || 'Sin estado').replace(/_/g, ' ');
+
+const formatSkippedReason = (value) => skippedReasonLabels[normalizeTypeToken(value)] || String(value || 'Sin motivo').replace(/_/g, ' ');
 
 const formatDate = (value) => {
-  if (!value) return '-';
-  return new Intl.DateTimeFormat(undefined, {
+  if (!value) return 'Sin fecha';
+  return new Intl.DateTimeFormat('es-ES', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -76,6 +145,28 @@ const formatDate = (value) => {
     minute: '2-digit'
   }).format(new Date(value));
 };
+
+const formatDateOnly = (value) => {
+  if (!value) return 'Sin fecha';
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short'
+  }).format(new Date(value));
+};
+
+const buildPreviewResultMessage = (body = {}) => {
+  const hotelName = body.hotel?.name || 'hotel activo';
+  const evaluatedReservations = Number(body.evaluatedReservations || body.decisions?.evaluatedReservations || 0);
+  const preview = Number(body.preview ?? body.previewGenerated ?? body.scheduled ?? body.decisions?.preview ?? 0);
+  const skipped = Number(body.skipped ?? body.decisions?.skipped ?? 0);
+  const duplicateCandidate = Number(body.duplicateCandidate ?? body.decisions?.duplicateCandidate ?? 0);
+  const duplicateExisting = Number(body.duplicateExisting ?? body.decisions?.duplicateExisting ?? 0);
+  const duplicates = duplicateCandidate + duplicateExisting;
+
+  return `Preview generado para ${hotelName}: ${evaluatedReservations} reservas evaluadas, ${preview} previews preparados, ${skipped} omitidas y ${duplicates} duplicadas. Modo preview: no se enviaron mensajes reales.`;
+};
+
+const getJourneyForRecord = (record) => pilotJourneys.find((journey) => recordMatchesType(record, journey.automationTypes));
 
 const Card = ({ children, className = '' }) => {
   const { theme } = useDashboardTheme();
@@ -107,11 +198,41 @@ const StatCard = ({ icon: Icon, label, value, tone }) => (
       </div>
       <Badge tone={tone}>
         <Icon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-        AI
+        Preview
       </Badge>
     </div>
   </Card>
 );
+
+const JourneyCard = ({ journey, messages, automations }) => {
+  const { theme } = useDashboardTheme();
+  const isLight = theme === 'light';
+  const relatedMessages = messages.filter((message) => recordMatchesType(message, journey.automationTypes));
+  const relatedAutomations = automations.filter((automation) => recordMatchesType(automation, journey.automationTypes));
+  const configured = relatedAutomations.some((automation) => automation.active !== false);
+
+  return (
+    <article className={isLight ? 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm' : 'rounded-lg border border-white/10 bg-white/[0.035] p-4'}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold">{journey.title}</p>
+          <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{journey.trigger}</p>
+        </div>
+        <Badge tone="emerald">
+          <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+          Certificado para preview
+        </Badge>
+      </div>
+      <p className={cn('mt-3 text-sm leading-6', ui.text.body(isLight))}>{journey.description}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Badge tone={configured ? 'emerald' : 'amber'}>{configured ? 'Configurado' : 'Pendiente de configurar'}</Badge>
+        <Badge tone="sky">{relatedMessages.length} previews</Badge>
+        <Badge tone="slate">Sin envío real</Badge>
+      </div>
+      <p className={cn('mt-3 text-xs leading-5', ui.text.muted(isLight))}>{journey.eligibility}</p>
+    </article>
+  );
+};
 
 export const AutomationsClient = () => {
   const { theme } = useDashboardTheme();
@@ -127,7 +248,6 @@ export const AutomationsClient = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [runningPreviewPass, setRunningPreviewPass] = useState(false);
-  const [updatingAutomation, setUpdatingAutomation] = useState(null);
   const [runResult, setRunResult] = useState(null);
   const [error, setError] = useState(null);
   const [migrationRequired, setMigrationRequired] = useState(false);
@@ -146,7 +266,7 @@ export const AutomationsClient = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not load automations');
+        throw new Error(body.error || 'No se pudieron cargar las automatizaciones');
       }
 
       if (!shouldAcceptTenantPayload(body, 'automations')) {
@@ -164,36 +284,6 @@ export const AutomationsClient = () => {
       setError(caughtError.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const toggleAutomation = async (automation) => {
-    setUpdatingAutomation(automation.type);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/automations', {
-        method: 'PATCH',
-        headers: {
-          ...(await getAuthHeaders()),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          automationType: automation.type,
-          active: automation.active === false
-        })
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not update automation');
-      }
-
-      await loadAutomations();
-    } catch (caughtError) {
-      setError(caughtError.message);
-    } finally {
-      setUpdatingAutomation(null);
     }
   };
 
@@ -219,7 +309,7 @@ export const AutomationsClient = () => {
 
     try {
       if (!hotel?.id) {
-        throw new Error('Select a hotel workspace before generating automation previews.');
+        throw new Error('Selecciona un hotel antes de generar previews.');
       }
 
       const response = await fetch('/api/automations/run', {
@@ -229,14 +319,14 @@ export const AutomationsClient = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not generate automation previews');
+        throw new Error(body.error || 'No se pudieron generar los previews.');
       }
 
       if (!shouldAcceptTenantPayload(body, 'automations-run')) {
-        throw new Error('Automation preview result did not match the active hotel workspace.');
+        throw new Error('El resultado no pertenece al hotel activo.');
       }
 
-      setRunResult(buildPreviewPassResultMessage(body));
+      setRunResult(buildPreviewResultMessage(body));
       await loadAutomations();
     } catch (caughtError) {
       setError(caughtError.message);
@@ -245,110 +335,55 @@ export const AutomationsClient = () => {
     }
   };
 
+  const pilotAutomations = useMemo(() => automations.filter(recordMatchesPilot), [automations]);
+  const pilotMessages = useMemo(() => messages.filter(recordMatchesPilot), [messages]);
+  const pilotRules = useMemo(() => rules.filter(recordMatchesPilot), [rules]);
+
+  const pilotTypeOptions = useMemo(() => {
+    const options = uniqueTypes(typeOptions).filter((type) => type === 'all' || pilotTypeSet.has(type));
+    const canonical = ['all', 'welcome', 'pre_checkin', 'during_stay', 'upselling', 'checkout', 'review_request'];
+    return uniqueTypes([options.length > 1 ? options : canonical]);
+  }, [typeOptions]);
+
   const filteredMessages = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const typeFamilies = new Map();
-    const rememberFamily = (family) => {
-      family.forEach((type) => {
-        typeFamilies.set(type, uniqueTypes([...(typeFamilies.get(type) || []), family]));
-      });
-    };
 
-    automations.forEach((automation) => rememberFamily(familyFromRecord(automation)));
-    messages.forEach((message) => rememberFamily(familyFromRecord(message)));
-
-    return messages.filter((message) => {
+    return pilotMessages.filter((message) => {
       const matchesStatus = statusFilter === 'all' || message.status === statusFilter;
-      const selectedType = normalizeTypeToken(typeFilter);
-      const selectedFamily = typeFamilies.get(selectedType) || [selectedType];
-      const messageFamily = familyFromRecord(message);
-      const matchesType = typeFilter === 'all' || messageFamily.some((type) => selectedFamily.includes(type));
+      const matchesType = typeFilter === 'all' || recordMatchesType(message, typeFilter);
+      const journey = getJourneyForRecord(message);
       const haystack = [
+        journey?.title,
         message.automation_type,
         message.metadata?.canonical_automation_type,
-        message.metadata?.legacy_automation_type,
         message.status,
         message.message_preview,
-        message.guest?.phone_number,
         message.guest?.current_room,
-        message.reservation?.guest_name,
-        message.reservation?.pms_reservation_id
+        message.reservation?.guest_name
       ].filter(Boolean).join(' ').toLowerCase();
 
       return matchesStatus && matchesType && (!query || haystack.includes(query));
     });
-  }, [automations, messages, search, statusFilter, typeFilter]);
+  }, [pilotMessages, search, statusFilter, typeFilter]);
 
   const stats = useMemo(() => ({
-    scheduled: messages.filter((item) => item.status === 'scheduled').length,
-    sent: messages.filter((item) => item.status === 'sent').length,
-    failed: messages.filter((item) => item.status === 'failed').length,
-    rules: rules.length,
-    activeAutomations: metrics?.activeAutomations ?? automations.filter((item) => item.active !== false).length,
-    revenueGenerated: metrics?.revenueGenerated ?? 0,
-    conversionRate: metrics?.conversionRate ?? 0,
-    scheduledToday: metrics?.scheduledToday ?? 0,
-    aiSuggestions: metrics?.aiSuggestions || []
-  }), [automations, messages, metrics, rules]);
+    certifiedJourneys: pilotJourneys.length,
+    previews: pilotMessages.filter((item) => item.status === 'preview').length,
+    scheduled: pilotMessages.filter((item) => item.status === 'scheduled').length,
+    failed: pilotMessages.filter((item) => item.status === 'failed').length,
+    configured: pilotAutomations.filter((item) => item.active !== false).length
+  }), [pilotAutomations, pilotMessages]);
 
-  const folioStats = useMemo(() => {
-    const folioMessages = messages.filter((message) => recordMatchesType(message, folioTypeAliases));
-    const folioRuns = (metrics?.runs || []).filter((run) => recordMatchesType(run, folioTypeAliases));
-    const skippedReasons = folioRuns.reduce((acc, run) => {
+  const skippedReasons = useMemo(() => {
+    const runs = (metrics?.runs || []).filter(recordMatchesPilot);
+    return runs.reduce((acc, run) => {
       const reason = run.metadata?.skipped_reason;
       if (reason) {
         acc[reason] = (acc[reason] || 0) + 1;
       }
       return acc;
     }, {});
-
-    return {
-      previewsGenerated: folioMessages.filter((message) => message.status === 'preview').length,
-      sentCount: folioMessages.filter((message) => message.status === 'sent').length,
-      pmsFolioErrors: folioMessages.filter((message) => message.metadata?.source === 'pms_folio_error' || message.error_message).length,
-      eligibleGuests: folioRuns.filter((run) => run.status === 'preview').length || folioMessages.filter((message) => message.metadata?.source === 'pre_checkout_folio_reminder').length,
-      skippedCount: folioRuns.filter((run) => run.status === 'skipped').length,
-      skippedReasons
-    };
-  }, [messages, metrics]);
-
-  const reviewStats = useMemo(() => {
-    const reviewMessages = messages.filter((message) => recordMatchesType(message, reviewTypeAliases));
-    const reviewRuns = (metrics?.runs || []).filter((run) => recordMatchesType(run, reviewTypeAliases));
-    const byStrategy = (strategy) => reviewRuns.filter((run) => run.metadata?.strategy === strategy).length
-      || reviewMessages.filter((message) => message.metadata?.strategy === strategy).length;
-
-    return {
-      eligibleGuests: reviewRuns.filter((run) => run.status === 'preview' || run.status === 'quality_alert_created').length,
-      publicReviewRequests: byStrategy('request_public_review'),
-      privateFeedbackRequests: byStrategy('request_private_feedback'),
-      qualityAlerts: reviewRuns.filter((run) => run.status === 'quality_alert_created' || run.metadata?.strategy === 'alert_quality_team').length,
-      skipped: reviewRuns.filter((run) => run.status === 'skipped').length,
-      reviewRiskDetected: reviewRuns.filter((run) => Number(run.metadata?.review_risk_score || 0) >= 60 || run.metadata?.strategy === 'alert_quality_team').length,
-      positiveStays: reviewRuns.filter((run) => run.metadata?.stay_sentiment === 'positive').length,
-      negativeStays: reviewRuns.filter((run) => run.metadata?.stay_sentiment === 'negative').length,
-      aiAssistanceFeedback: reviewRuns.filter((run) => run.metadata?.ai_assistance_feedback).length
-    };
-  }, [messages, metrics]);
-
-  const automationCards = useMemo(() => automations.map((automation) => {
-    const automationFamily = familyFromRecord(automation);
-    const relatedRuns = (metrics?.runs || []).filter((run) => familyFromRecord(run).some((type) => automationFamily.includes(type)));
-    const relatedMessages = messages.filter((message) => familyFromRecord(message).some((type) => automationFamily.includes(type)));
-    const lastRun = relatedMessages[0]?.scheduled_for || relatedMessages[0]?.created_at || automation.updated_at || automation.created_at;
-    const revenue = relatedMessages.reduce((total, message) => total + Number(message.estimated_revenue || message.metadata?.estimated_revenue || 0), 0);
-    const sent = relatedMessages.filter((message) => message.status === 'sent').length;
-    const conversion = relatedMessages.length ? Math.round((sent / relatedMessages.length) * 100) : 0;
-
-    return {
-      ...automation,
-      relatedRuns,
-      relatedMessages,
-      lastRun,
-      revenue,
-      conversion
-    };
-  }), [automations, messages, metrics]);
+  }, [metrics]);
 
   return (
     <div className="space-y-6">
@@ -358,255 +393,156 @@ export const AutomationsClient = () => {
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="emerald">
                 <WandSparkles className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-                AI Operations & Revenue Engine
+                Journeys certificados
               </Badge>
-              <Badge tone="sky">WhatsApp ready</Badge>
-              <Badge tone="slate">Cooldowns + fatigue guard</Badge>
+              <Badge tone="sky">Modo preview</Badge>
+              <Badge tone="slate">Sin envío real</Badge>
             </div>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">Automation Center</h2>
-            <p className={isLight ? 'mt-2 text-sm leading-6 text-slate-600' : 'mt-2 text-sm leading-6 text-slate-300'}>
-              Proactive AI workflows for welcomes, late checkout, spa, experiences, transfers and VIP follow-up. Messages stay tenant-safe, translated and controlled by hotel staff.
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">Journeys piloto</h2>
+            <p className={cn('mt-2 text-sm leading-6', ui.text.body(isLight))}>
+              Staynex prepara Bienvenida, Pre check-in, Durante estancia + upsell y Check-out + reseña como previews seguros sobre contexto PMS. Modo preview — no se enviarán mensajes reales.
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
             <button
               type="button"
               onClick={loadAutomations}
-              className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
+              className={ui.button(isLight, 'secondary')}
             >
               <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-              Refresh
+              Actualizar
             </button>
             <button
               type="button"
               onClick={runPreviewPass}
               disabled={runningPreviewPass}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-wait disabled:opacity-60"
+              className={ui.button(isLight, 'primary')}
             >
               <Bot className={runningPreviewPass ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
-              Generate preview pass
+              Generar previews
             </button>
           </div>
         </div>
       </Card>
 
-      <AutomationTestCenter />
-
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard icon={Zap} label="Active automations" value={stats.activeAutomations} tone="emerald" />
-        <StatCard icon={Euro} label="Revenue generated" value={formatCurrency(stats.revenueGenerated)} tone="sky" />
-        <StatCard icon={TrendingUp} label="Conversion rate" value={`${stats.conversionRate}%`} tone="emerald" />
-        <StatCard icon={CalendarClock} label="Scheduled today" value={stats.scheduledToday} tone="amber" />
-        <StatCard icon={Sparkles} label="AI suggestions" value={stats.aiSuggestions.length} tone="sky" />
+        <StatCard icon={CheckCircle2} label="Journeys certificados" value={stats.certifiedJourneys} tone="emerald" />
+        <StatCard icon={Sparkles} label="Previews preparados" value={stats.previews} tone="sky" />
+        <StatCard icon={CalendarClock} label="Programados" value={stats.scheduled} tone="amber" />
+        <StatCard icon={ShieldCheck} label="Incidencias preview" value={stats.failed} tone={stats.failed ? 'red' : 'emerald'} />
+        <StatCard icon={Zap} label="Configuradas" value={stats.configured} tone="emerald" />
       </div>
 
       <Card className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <CalendarClock className={isLight ? 'h-4 w-4 text-emerald-600' : 'h-4 w-4 text-emerald-300'} aria-hidden="true" />
-              <p className="text-sm font-semibold">PMS-powered triggers ready</p>
+              <ShieldCheck className={isLight ? 'h-4 w-4 text-emerald-600' : 'h-4 w-4 text-emerald-300'} aria-hidden="true" />
+              <p className="text-sm font-semibold">Certificado para preview, no para envío real</p>
             </div>
-            <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
-              Automation Center can now use PMS Intelligence signals such as check-in, checkout tomorrow, room ready, low occupancy, VIP guests and upgrade opportunities.
+            <p className={cn('mt-1 text-sm', ui.text.muted(isLight))}>
+              Las automatizaciones se muestran como previews revisables por el hotel. Activar envíos reales queda fuera del piloto.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {['check-in', 'checkout', 'folio preview', 'room ready', 'occupancy', 'VIP'].map((trigger) => (
-              <Badge key={trigger} tone="emerald">{trigger}</Badge>
-            ))}
+            <Badge tone="emerald">Contexto PMS</Badge>
+            <Badge tone="sky">Revisión humana</Badge>
+            <Badge tone="slate">Envíos reales apagados</Badge>
           </div>
         </div>
       </Card>
 
-      <Card className="p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="sky">Preview only</Badge>
-              <Badge tone="emerald">PMS folio required</Badge>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {pilotJourneys.map((journey) => (
+          <JourneyCard key={journey.id} journey={journey} messages={pilotMessages} automations={pilotAutomations} />
+        ))}
+      </div>
+
+      {Object.keys(skippedReasons).length > 0 ? (
+        <Card className="p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Previews omitidos</p>
+              <p className={cn('mt-1 text-sm', ui.text.muted(isLight))}>
+                Staynex evita preparar mensajes cuando falta contexto seguro o no aplica la ventana del journey.
+              </p>
             </div>
-            <p className="mt-3 text-sm font-semibold">Pre-checkout Folio Reminder</p>
-            <p className={isLight ? 'mt-1 text-sm leading-6 text-slate-500' : 'mt-1 text-sm leading-6 text-slate-500'}>
-              Safe 24-hour checkout reminders are generated only when the PMS returns a reliable room folio with a real outstanding balance. WhatsApp sending is disabled until a live hotel validates folio quality.
-            </p>
-          </div>
-          <div className="grid w-full gap-2 text-xs sm:grid-cols-2 lg:w-auto lg:min-w-[520px] lg:grid-cols-5">
-            {[
-              ['Eligible guests', folioStats.eligibleGuests],
-              ['Previews generated', folioStats.previewsGenerated],
-              ['Skipped count', folioStats.skippedCount],
-              ['Sent count', folioStats.sentCount],
-              ['PMS folio errors', folioStats.pmsFolioErrors]
-            ].map(([label, value]) => (
-              <div key={label} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.04] p-3 text-slate-300'}>
-                <p className="font-semibold">{label}</p>
-                <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        {Object.keys(folioStats.skippedReasons).length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {Object.entries(folioStats.skippedReasons).map(([reason, count]) => (
-              <Badge key={reason} tone="amber">{formatAutomationLabel(reason)}: {count}</Badge>
-            ))}
-          </div>
-        ) : null}
-      </Card>
-
-      <Card className="p-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="sky">Preview only</Badge>
-              <Badge tone="amber">Reputation guard</Badge>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(skippedReasons).map(([reason, count]) => (
+                <Badge key={reason} tone="amber">{formatSkippedReason(reason)}: {count}</Badge>
+              ))}
             </div>
-            <p className="mt-3 text-sm font-semibold">Post-stay Review Intelligence</p>
-            <p className={isLight ? 'mt-1 text-sm leading-6 text-slate-500' : 'mt-1 text-sm leading-6 text-slate-500'}>
-              Staynex analyzes guest sentiment, tickets and review risk before choosing public review, private feedback or an internal quality alert.
-            </p>
           </div>
-          <div className="grid w-full gap-2 text-xs sm:grid-cols-2 lg:w-auto lg:min-w-[620px] lg:grid-cols-5">
-            {[
-              ['Eligible guests', reviewStats.eligibleGuests],
-              ['Public reviews', reviewStats.publicReviewRequests],
-              ['Private feedback', reviewStats.privateFeedbackRequests],
-              ['Quality alerts', reviewStats.qualityAlerts],
-              ['Skipped', reviewStats.skipped],
-              ['Review risk', reviewStats.reviewRiskDetected],
-              ['Positive stays', reviewStats.positiveStays],
-              ['Negative stays', reviewStats.negativeStays],
-              ['AI feedback', reviewStats.aiAssistanceFeedback]
-            ].map(([label, value]) => (
-              <div key={label} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.04] p-3 text-slate-300'}>
-                <p className="font-semibold">{label}</p>
-                <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Card>
-
-      {migrationRequired ? (
-        <div className={isLight ? 'rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900' : 'rounded-lg border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm text-amber-100'}>
-          Automation engine SQL migration required. Run <span className="font-semibold">supabase/sql/create_automation_engine.sql</span> manually to persist automation runs, revenue and engine settings.
-        </div>
+        </Card>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-        <Card className="p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">AI Suggested Automations</p>
-              <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
-                Suggestions are safe by design: cooldowns, max per guest, quiet hours and opt-out hooks are ready.
-              </p>
-            </div>
-            <Badge tone="emerald">Smart triggers</Badge>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            {(stats.aiSuggestions.length ? stats.aiSuggestions : [
-              'Create a Hammam upsell automation for rainy days.',
-              'Late checkout automation performs best for one-night departures.',
-              'Follow up abandoned experience interest within 12 hours.'
-            ]).map((suggestion) => (
-              <div key={suggestion} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50/80 p-3 text-sm text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.035] p-3 text-sm text-slate-300'}>
-                <Sparkles className="mb-2 h-4 w-4 text-emerald-400" aria-hidden="true" />
-                {suggestion}
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className={isLight ? 'h-5 w-5 text-emerald-600' : 'h-5 w-5 text-emerald-300'} aria-hidden="true" />
-            <div>
-              <p className="text-sm font-semibold">Safety layer</p>
-              <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
-                No spam loops. Every automation respects hotel tenant context, guest fatigue and per-guest limits.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-            {['Cooldowns', 'Max per guest', 'Quiet hours', 'Translation'].map((item) => (
-              <div key={item} className={isLight ? 'rounded-lg bg-slate-100 px-3 py-2 text-slate-700' : 'rounded-lg bg-white/[0.05] px-3 py-2 text-slate-300'}>
-                {item}
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+      {migrationRequired ? (
+        <div className={ui.notice(isLight, 'warning')}>
+          Falta configuración interna del motor de automatizaciones. Para la demo, mantén el flujo en preview y fallback humano.
+        </div>
+      ) : null}
 
       <Card className="p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold">Automation Playbooks</p>
-            <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
-              Hotel-controlled proactive journeys for operations and revenue.
+            <p className="text-sm font-semibold">Playbooks piloto</p>
+            <p className={cn('mt-1 text-sm', ui.text.muted(isLight))}>
+              Solo se destacan los journeys que se enseñarán a Checkin.
             </p>
           </div>
-          <Badge tone="sky">{automationCards.length} playbooks</Badge>
+          <Badge tone="sky">{pilotAutomations.length || pilotRules.length} configuraciones</Badge>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {automationCards.map((automation) => (
-            <article
-              key={automation.type}
-              className={isLight ? 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-200 hover:shadow-md' : 'rounded-lg border border-white/10 bg-white/[0.035] p-4 transition hover:border-emerald-300/30 hover:bg-white/[0.055]'}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">{automation.name || formatAutomationLabel(automation.type)}</p>
-                  <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
-                    {formatAutomationLabel(automation.trigger_type || automation.type)}
-                  </p>
+          {pilotAutomations.map((automation) => {
+            const journey = getJourneyForRecord(automation);
+            const relatedMessages = pilotMessages.filter((message) => recordMatchesType(message, familyFromRecord(automation)));
+            const lastPreview = relatedMessages[0]?.scheduled_for || relatedMessages[0]?.created_at || automation.updated_at || automation.created_at;
+
+            return (
+              <article
+                key={automation.type}
+                className={isLight ? 'rounded-lg border border-slate-200 bg-white p-4 shadow-sm' : 'rounded-lg border border-white/10 bg-white/[0.035] p-4'}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">{formatAutomationLabel(automation.type)}</p>
+                    <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                      {journey?.title || 'Journey piloto'}
+                    </p>
+                  </div>
+                  <Badge tone={automation.active === false ? 'amber' : 'emerald'}>{automation.active === false ? 'Pausada' : 'Configurada'}</Badge>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => toggleAutomation(automation)}
-                  disabled={updatingAutomation === automation.type}
-                  className={automation.active === false
-                    ? (isLight ? 'text-slate-400 hover:text-slate-700' : 'text-slate-500 hover:text-slate-300')
-                    : 'text-emerald-500 hover:text-emerald-400'}
-                  aria-label={`Toggle ${automation.name}`}
-                >
-                  {automation.active === false ? <ToggleLeft className="h-7 w-7" aria-hidden="true" /> : <ToggleRight className="h-7 w-7" aria-hidden="true" />}
-                </button>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Badge tone={automation.active === false ? 'slate' : 'emerald'}>{automation.active === false ? 'Inactive' : 'Active'}</Badge>
-                <Badge tone="slate">{formatAutomationLabel(automation.audience_type || 'all_guests')}</Badge>
-                <Badge tone="amber">{automation.cooldown_minutes || 0}m cooldown</Badge>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-                <div className={isLight ? 'rounded-lg bg-slate-50 p-2 text-slate-600' : 'rounded-lg bg-white/[0.04] p-2 text-slate-400'}>
-                  <p className="font-semibold">Revenue</p>
-                  <p className="mt-1">{formatCurrency(automation.revenue || automation.actions?.estimated_revenue || 0)}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Badge tone="slate">Sin envío real</Badge>
+                  <Badge tone="amber">{automation.cooldown_minutes || 0} min de pausa</Badge>
+                  <Badge tone="sky">{relatedMessages.length} previews</Badge>
                 </div>
-                <div className={isLight ? 'rounded-lg bg-slate-50 p-2 text-slate-600' : 'rounded-lg bg-white/[0.04] p-2 text-slate-400'}>
-                  <p className="font-semibold">Conv.</p>
-                  <p className="mt-1">{automation.conversion || 0}%</p>
-                </div>
-                <div className={isLight ? 'rounded-lg bg-slate-50 p-2 text-slate-600' : 'rounded-lg bg-white/[0.04] p-2 text-slate-400'}>
-                  <p className="font-semibold">Last run</p>
-                  <p className="mt-1 truncate">{automation.lastRun ? formatDate(automation.lastRun) : '-'}</p>
-                </div>
-              </div>
-            </article>
-          ))}
+                <p className={cn('mt-4 text-xs leading-5', ui.text.muted(isLight))}>
+                  Último preview: {lastPreview ? formatDate(lastPreview) : 'sin previews todavía'}.
+                </p>
+              </article>
+            );
+          })}
+          {!pilotAutomations.length ? (
+            <PremiumEmptyState
+              icon={CalendarClock}
+              title="No hay playbooks piloto configurados."
+              description="Los cuatro journeys certificados siguen disponibles como guía de preview para la demo."
+              className="md:col-span-2 xl:col-span-3"
+            />
+          ) : null}
         </div>
       </Card>
 
       <Card className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold">{hotel?.name || 'Current hotel'}</p>
-            <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
-              Automation decisions are prepared as safe previews. This pass does not send guest messages.
+            <p className="text-sm font-semibold">{hotel?.name || 'Hotel activo'}</p>
+            <p className={cn('mt-1 text-sm', ui.text.muted(isLight))}>
+              Cada decisión se prepara como preview seguro. Esta pantalla no envía mensajes al huésped.
             </p>
           </div>
-          <Badge tone="slate">Preview mode</Badge>
+          <Badge tone="slate">Modo preview</Badge>
         </div>
       </Card>
 
@@ -623,18 +559,18 @@ export const AutomationsClient = () => {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search guest, room, reservation or preview"
+              placeholder="Buscar huésped, habitación o preview"
               className={`${inputClass} w-full pl-9`}
             />
           </label>
           <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className={inputClass}>
-            {typeOptions.map((type) => (
-              <option key={type} value={type}>{type === 'all' ? 'All automation types' : formatAutomationLabel(type)}</option>
+            {pilotTypeOptions.map((type) => (
+              <option key={type} value={type}>{formatAutomationLabel(type)}</option>
             ))}
           </select>
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className={inputClass}>
             {statusOptions.map((status) => (
-              <option key={status} value={status}>{status === 'all' ? 'All statuses' : status}</option>
+              <option key={status} value={status}>{formatStatusLabel(status)}</option>
             ))}
           </select>
         </div>
@@ -642,14 +578,14 @@ export const AutomationsClient = () => {
 
       {error ? (
         <div className={ui.notice(isLight, 'danger')}>
-          {error}
+          No se pudieron actualizar los previews. Revisa la sesión del hotel y vuelve a intentarlo.
         </div>
       ) : null}
 
       {loading ? (
         <PremiumLoadingState
-          title="Loading automations"
-          description="Staynex is preparing automation previews, scheduled messages and operational safeguards."
+          title="Cargando automatizaciones"
+          description="Staynex está preparando journeys piloto, previews y salvaguardas operativas."
           rows={5}
           cards={3}
         />
@@ -657,55 +593,59 @@ export const AutomationsClient = () => {
 
       {!loading ? <Card className="overflow-hidden p-0">
         <div className={isLight ? 'border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900' : 'border-b border-white/10 px-4 py-3 text-sm font-semibold text-white'}>
-          {`${filteredMessages.length} scheduled messages`}
+          {`${filteredMessages.length} previews preparados`}
         </div>
         <div className="divide-y divide-slate-200/10">
-          {filteredMessages.map((message) => (
-            <article key={message.id} className={isLight ? 'grid gap-4 p-4 transition hover:bg-slate-50 xl:grid-cols-[1fr_0.8fr_0.8fr_0.7fr]' : 'grid gap-4 p-4 transition hover:bg-white/[0.035] xl:grid-cols-[1fr_0.8fr_0.8fr_0.7fr]'}>
-              <div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge tone="sky">{formatAutomationLabel(message.automation_type)}</Badge>
-                  <Badge tone={message.status === 'sent' ? 'emerald' : message.status === 'failed' ? 'red' : 'amber'}>
-                    {message.status === 'preview' ? 'Preview' : ui.humanize(message.status)}
-                  </Badge>
-                  {message.automation_fallback ? <Badge tone="sky">Safe preview</Badge> : null}
+          {filteredMessages.map((message) => {
+            const journey = getJourneyForRecord(message);
+
+            return (
+              <article key={message.id} className={isLight ? 'grid gap-4 p-4 transition hover:bg-slate-50 xl:grid-cols-[1fr_0.75fr_0.75fr_0.7fr]' : 'grid gap-4 p-4 transition hover:bg-white/[0.035] xl:grid-cols-[1fr_0.75fr_0.75fr_0.7fr]'}>
+                <div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone="sky">{journey?.title || formatAutomationLabel(message.automation_type)}</Badge>
+                    <Badge tone={message.status === 'failed' ? 'red' : message.status === 'sent' ? 'slate' : 'amber'}>
+                      {formatStatusLabel(message.status)}
+                    </Badge>
+                    {message.automation_fallback ? <Badge tone="emerald">Preview seguro</Badge> : null}
+                  </div>
+                  <p className={cn('mt-3 text-sm leading-6', ui.text.body(isLight))}>
+                    {message.message_preview || 'Preview pendiente de generar.'}
+                  </p>
                 </div>
-                <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-700' : 'mt-3 text-sm leading-6 text-slate-300'}>
-                  {message.message_preview}
-                </p>
-              </div>
-              <div className="text-sm">
-                <p className="font-semibold">Guest</p>
-                <p className={isLight ? 'mt-1 text-slate-600' : 'mt-1 text-slate-400'}>
-                  {message.reservation?.guest_name || message.guest?.phone_number || 'Unknown guest'}
-                </p>
-                <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
-                  Room {message.guest?.current_room || '-'}
-                </p>
-              </div>
-              <div className="text-sm">
-                <p className="font-semibold">Reservation</p>
-                <p className={isLight ? 'mt-1 text-slate-600' : 'mt-1 text-slate-400'}>
-                  {message.reservation?.pms_reservation_id || '-'}
-                </p>
-                <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
-                  {message.reservation?.arrival_date || '-'} {'->'} {message.reservation?.departure_date || '-'}
-                </p>
-              </div>
-              <div className="text-sm">
-                <p className="font-semibold">Schedule</p>
-                <p className={isLight ? 'mt-1 text-slate-600' : 'mt-1 text-slate-400'}>{formatDate(message.scheduled_for)}</p>
-                <p className={isLight ? 'mt-1 text-xs text-slate-500' : 'mt-1 text-xs text-slate-500'}>
-                  {message.ai_provider || '-'} / {message.ai_model || '-'}
-                </p>
-              </div>
-            </article>
-          ))}
+                <div className="text-sm">
+                  <p className="font-semibold">Huésped</p>
+                  <p className={cn('mt-1', ui.text.body(isLight))}>
+                    {message.reservation?.guest_name || 'Huésped demo'}
+                  </p>
+                  <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                    Habitación {message.guest?.current_room || '-'}
+                  </p>
+                </div>
+                <div className="text-sm">
+                  <p className="font-semibold">Estancia</p>
+                  <p className={cn('mt-1', ui.text.body(isLight))}>
+                    {formatDateOnly(message.reservation?.arrival_date)} a {formatDateOnly(message.reservation?.departure_date)}
+                  </p>
+                  <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                    Contexto PMS demo si aplica
+                  </p>
+                </div>
+                <div className="text-sm">
+                  <p className="font-semibold">Preview</p>
+                  <p className={cn('mt-1', ui.text.body(isLight))}>{formatDate(message.scheduled_for)}</p>
+                  <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>
+                    No se enviarán mensajes reales
+                  </p>
+                </div>
+              </article>
+            );
+          })}
           {filteredMessages.length === 0 ? (
             <PremiumEmptyState
-              icon={CalendarClock}
-              title="No scheduled automations yet."
-              description="Automation previews and scheduled guest messages will appear here when eligible reservations are detected."
+              icon={Clock3}
+              title="No hay previews para estos filtros."
+              description="Genera previews o cambia los filtros para ver mensajes preparados del piloto."
               className="m-4"
             />
           ) : null}

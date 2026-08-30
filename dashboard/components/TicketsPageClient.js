@@ -29,7 +29,7 @@ export const TicketsPageClient = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not load tickets');
+        throw new Error(body.error || 'No se pudieron cargar los tickets');
       }
 
       if (!shouldAcceptTenantPayload(body, 'tickets')) {
@@ -59,17 +59,17 @@ export const TicketsPageClient = () => {
 
   const copilotInsights = [
     {
-      label: 'Urgent risk',
+      label: 'Riesgo urgente',
       value: tickets.filter((ticket) => ticket.copilot?.aiPriority?.level === 'urgent' || ticket.priority === 'urgent').length,
       icon: ShieldAlert
     },
     {
-      label: 'High satisfaction risk',
+      label: 'Satisfacción en riesgo',
       value: tickets.filter((ticket) => ticket.copilot?.satisfactionRisk?.level === 'high').length,
       icon: AlertCircle
     },
     {
-      label: 'AI prioritized',
+      label: 'Priorizados por IA',
       value: tickets.filter((ticket) => ticket.copilot?.aiPriority?.level && ticket.copilot.aiPriority.level !== 'low').length,
       icon: BrainCircuit
     }
@@ -88,7 +88,7 @@ export const TicketsPageClient = () => {
           onClick={loadTickets}
           className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.08]"
         >
-          Refresh
+          Actualizar
         </button>
       </div>
 
@@ -98,10 +98,10 @@ export const TicketsPageClient = () => {
             <div>
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-emerald-200" aria-hidden="true" />
-                <h2 className="text-sm font-semibold text-white">Today AI Copilot Insights</h2>
+                <h2 className="text-sm font-semibold text-white">Asistencia IA de hoy</h2>
               </div>
               <p className="mt-1 text-sm text-slate-400">
-                Reception-facing risk, urgency and prioritization across the current ticket queue.
+                Riesgo, urgencia y prioridad operativa para que recepción actúe rápido sobre la cola actual.
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -124,14 +124,14 @@ export const TicketsPageClient = () => {
       ) : null}
 
       {loading ? (
-        <PremiumLoadingState title="Loading tickets" description="Staynex is preparing this hotel's operational queue." rows={5} cards={3} />
+        <PremiumLoadingState title="Cargando tickets" description="Staynex está preparando la cola operativa de este hotel." rows={5} cards={3} />
       ) : error ? (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-100">
           <div className="flex items-start gap-3">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-none text-red-300" aria-hidden="true" />
             <div>
               <p className="font-semibold">No se pudieron cargar los tickets.</p>
-              <p className="mt-1 text-red-100/80">{error.message}</p>
+              <p className="mt-1 text-red-100/80">Revisa la sesión del hotel y vuelve a actualizar.</p>
             </div>
           </div>
         </div>
