@@ -94,13 +94,6 @@ export const detectHumanEscalation = ({
     };
   }
 
-  if (aiResponse?.intent === 'unknown') {
-    return {
-      needsHuman: false,
-      humanReason: 'fallback_response'
-    };
-  }
-
   if (aiResponse?.escalate_to_human && !knowledgeUsed) {
     return {
       needsHuman: true,
@@ -118,6 +111,13 @@ export const detectHumanEscalation = ({
   ) {
     return {
       needsHuman: true,
+      humanReason: 'fallback_response'
+    };
+  }
+
+  if (aiResponse?.intent === 'unknown') {
+    return {
+      needsHuman: false,
       humanReason: 'fallback_response'
     };
   }

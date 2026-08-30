@@ -10,6 +10,7 @@ import {
   getPilotAiSafetyReadiness,
   safePilotMetadata
 } from '../../../../../shared/pilot/ai-safety.js';
+import { sanitizePilotOperationalMessage } from '../../../../../shared/pilot/operational-readiness.js';
 
 const noStore = {
   headers: {
@@ -50,7 +51,8 @@ export async function GET(request) {
   } catch (error) {
     return NextResponse.json({
       ok: false,
-      error: error.message || 'Hotel health could not be loaded'
+      error: sanitizePilotOperationalMessage(error.message, 'No se pudo cargar Pilot Health. Revisa la configuracion y vuelve a intentarlo.')
+        || 'No se pudo cargar Pilot Health. Revisa la configuracion y vuelve a intentarlo.'
     }, { status: 500, ...noStore });
   }
 }
@@ -150,7 +152,8 @@ export async function PATCH(request) {
   } catch (error) {
     return NextResponse.json({
       ok: false,
-      error: error.message || 'Hotel AI auto-reply could not be updated'
+      error: sanitizePilotOperationalMessage(error.message, 'No se pudo actualizar el Kill Switch IA.')
+        || 'No se pudo actualizar el Kill Switch IA.'
     }, { status: 500, ...noStore });
   }
 }

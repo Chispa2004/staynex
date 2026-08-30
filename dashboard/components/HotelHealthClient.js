@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  Activity,
   AlertTriangle,
   ArrowRight,
   Bot,
@@ -14,8 +15,10 @@ import {
   PowerOff,
   QrCode,
   RefreshCw,
+  ServerCog,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Workflow
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
@@ -40,6 +43,22 @@ const statusLabel = {
   healthy: 'Operational',
   warning: 'Needs attention',
   critical: 'Critical'
+};
+
+const pilotStatusTone = {
+  HEALTHY: 'emerald',
+  DEGRADED: 'amber',
+  'ACTION REQUIRED': 'amber',
+  BLOCKED: 'red'
+};
+
+const pilotIconById = {
+  backend: ServerCog,
+  pms: PlugZap,
+  whatsapp: Activity,
+  ai: Bot,
+  automations: Workflow,
+  operations: AlertTriangle
 };
 
 export const HotelHealthClient = () => {
@@ -87,6 +106,7 @@ export const HotelHealthClient = () => {
   }, [loadHealth]);
 
   const health = payload?.health || {};
+  const pilotHealth = health.pilotHealth || {};
   const pilotAiSafety = payload?.pilotAiSafety || {};
   const hotelAiStatus = pilotAiSafety.hotelStatus || {};
   const globalAiStatus = pilotAiSafety.globalStatus || {};
@@ -158,6 +178,50 @@ export const HotelHealthClient = () => {
           <SummaryTile label="Warnings" value={loading ? '...' : health.warnings?.length || 0} tone={health.warnings?.length ? 'amber' : 'emerald'} />
         </div>
       </section>
+
+      {!loading && pilotHealth.components?.length ? (
+        <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className={ui.text.eyebrow(isLight)}>{tx('PILOT HEALTH')}</p>
+              <h3 className={cn('mt-1 text-2xl font-semibold', ui.text.title(isLight))}>
+                {pilotHealth.readyForPilotDemo ? tx('Ready for pilot demo') : tx('Necesita accion antes de demo')}
+              </h3>
+              <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
+                {pilotHealth.why?.length
+                  ? tx('El estado muestra solo impacto operativo y razones accionables.')
+                  : tx('No hay problemas operativos visibles para el ensayo piloto.')}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <PilotStatusBadge status={pilotHealth.status} />
+              <span className={ui.badge(isLight, pilotHealth.readyForPilotDemo ? 'emerald' : 'amber')}>
+                {pilotHealth.readyForPilotDemo ? tx('READY FOR PILOT DEMO') : tx('DEMO NEEDS REVIEW')}
+              </span>
+              <span className={ui.badge(isLight, pilotHealth.readyForLiveAutomations ? 'emerald' : 'red')}>
+                {pilotHealth.readyForLiveAutomations ? tx('READY FOR LIVE AUTOMATIONS') : tx('LIVE AUTOMATIONS BLOCKED')}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {pilotHealth.components.map((item) => (
+              <PilotHealthRow key={item.id} item={item} />
+            ))}
+          </div>
+
+          {pilotHealth.why?.length ? (
+            <div className={cn('mt-4 rounded-xl border p-4', isLight ? 'border-amber-200 bg-amber-50' : 'border-amber-300/20 bg-amber-400/10')}>
+              <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx('Why')}</p>
+              <ul className={cn('mt-2 space-y-1 text-sm leading-6', ui.text.body(isLight))}>
+                {pilotHealth.why.map((reason) => (
+                  <li key={reason}>{tx(reason)}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -251,6 +315,51 @@ export const HotelHealthClient = () => {
         )}
       </section>
     </section>
+  );
+};
+
+const PilotStatusBadge = ({ status = 'HEALTHY' }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  const isLight = theme === 'light';
+
+  return (
+    <span className={ui.badge(isLight, pilotStatusTone[status] || 'slate')}>
+      {tx(status)}
+    </span>
+  );
+};
+
+const PilotHealthRow = ({ item }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  const isLight = theme === 'light';
+  const Icon = pilotIconById[item.id] || ShieldCheck;
+
+  return (
+    <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className={ui.badge(isLight, pilotStatusTone[item.status] || 'slate', true)}>
+            <Icon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx(item.label)}</p>
+            <p className={cn('mt-1 text-sm leading-5', ui.text.body(isLight))}>{tx(item.why)}</p>
+          </div>
+        </div>
+        <PilotStatusBadge status={item.status} />
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {item.action ? <span className={ui.badge(isLight, 'slate', true)}>{tx(item.action)}</span> : null}
+        {item.href ? (
+          <Link href={item.href} className={ui.button(isLight, 'small')}>
+            {tx('Open')}
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
+    </div>
   );
 };
 

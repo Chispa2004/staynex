@@ -212,7 +212,7 @@ export const OnboardingWizard = () => {
             Preparar hotel piloto
           </h1>
           <p className={cn('mt-3 max-w-3xl', ui.text.body(isLight))}>
-            Recorre Hotel, Usuarios, PMS, WhatsApp, Knowledge y Pilot Readiness con datos reales. Configuración puede avanzar aunque Ubikos siga esperando información externa; go-live no.
+            Recorre Hotel, Usuarios, PMS, WhatsApp, Knowledge y Pilot Readiness con datos reales. Demo piloto y live automations se revisan por separado.
           </p>
         </div>
         <button type="button" onClick={load} disabled={loading || saving} className={ui.button(isLight, 'secondary')}>
@@ -232,11 +232,19 @@ export const OnboardingWizard = () => {
         />
         <ReadyPanel
           isLight={isLight}
-          title="Ready for Go-Live"
-          ready={pilot?.readyForGoLive}
-          description={pilot?.readyForGoLive
-            ? 'Todos los gates obligatorios están listos para operar.'
-            : 'Go-live sigue bloqueado hasta PMS real, WhatsApp, Human Fallback y Kill Switch.'}
+          title="Ready for Pilot Demo"
+          ready={pilot?.readyForPilotDemo}
+          description={pilot?.readyForPilotDemo
+            ? 'El ensayo piloto puede ejecutarse con operación manual y health visible.'
+            : 'Demo piloto sigue pendiente hasta cerrar safety, observability y failure rehearsal.'}
+        />
+        <ReadyPanel
+          isLight={isLight}
+          title="Ready for Live Automations"
+          ready={pilot?.readyForLiveAutomations}
+          description={pilot?.readyForLiveAutomations
+            ? 'Automatizaciones live listas bajo rollout controlado.'
+            : 'Live automations siguen bloqueadas hasta Quiet Hours, outbound atomic delivery, WhatsApp real y PMS real.'}
         />
       </div>
 

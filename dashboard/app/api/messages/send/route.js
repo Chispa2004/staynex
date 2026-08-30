@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { getInternalApiHeaders } from '@/lib/internal-api';
 import { canAccess } from '@/lib/permissions';
+import { sanitizePilotOperationalMessage } from '../../../../../shared/pilot/operational-readiness.js';
 
 const getBackendUrl = () => (
   process.env.BACKEND_URL ||
@@ -63,7 +64,10 @@ export async function POST(request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error.message },
+      {
+        error: sanitizePilotOperationalMessage(error.message, 'No se pudo enviar el mensaje manual. Revisa Inbox y vuelve a intentarlo.')
+          || 'No se pudo enviar el mensaje manual. Revisa Inbox y vuelve a intentarlo.'
+      },
       { status: 500 }
     );
   }

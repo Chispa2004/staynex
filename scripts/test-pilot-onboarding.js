@@ -13,6 +13,10 @@ import {
   PILOT_STATUS
 } from '../dashboard/lib/pilot-onboarding.js';
 import { canAccessRoute } from '../dashboard/lib/permissions.js';
+import {
+  buildPilotFailureRehearsalMatrix,
+  buildPilotHealthSnapshot
+} from '../shared/pilot/operational-readiness.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const root = join(__dirname, '..');
@@ -22,7 +26,10 @@ const envOff = {
   SEND_AUTOMATIONS: 'false',
   PILOT_SECURITY_BASELINE_PASSED: 'true',
   PILOT_HUMAN_FALLBACK_READY: 'true',
-  PILOT_KILL_SWITCH_READY: 'true'
+  PILOT_KILL_SWITCH_READY: 'true',
+  TWILIO_AUTH_TOKEN: 'configured',
+  TWILIO_WHATSAPP_FROM: 'whatsapp:+10000000000',
+  USE_MOCK_AI: 'true'
 };
 
 const baseHotel = {
@@ -37,7 +44,10 @@ const baseHotel = {
     security_baseline_passed: true,
     human_fallback_ready: true,
     kill_switch_ready: true,
-    ai_auto_reply_enabled: true
+    ai_auto_reply_enabled: true,
+    whatsapp_inbound_ready: true,
+    whatsapp_outbound_ready: true,
+    openai_provider_configured: true
   }
 };
 
@@ -51,6 +61,7 @@ const basePms = [
     provider: 'apaleo',
     enabled: true,
     sync_status: 'connected',
+    last_sync_at: new Date().toISOString(),
     credential_configured: true,
     has_client_secret: true,
     connection_mode: 'live_api'
@@ -61,12 +72,30 @@ const baseKnowledge = [
   { id: 'kb-1', key: 'wifi', value: 'WiFi disponible.', is_active: true }
 ];
 
+const buildOperationalHealth = (overrides = {}) => buildPilotHealthSnapshot({
+  hotel: overrides.hotel || baseHotel,
+  pmsConnections: overrides.pmsConnections || basePms,
+  tickets: overrides.tickets || [],
+  conversations: overrides.conversations || [],
+  conversationStates: overrides.conversationStates || [],
+  scheduledMessages: overrides.scheduledMessages || [],
+  aiLogs: overrides.aiLogs || [],
+  env: overrides.env || envOff
+});
+
+const baseFailureRehearsal = {
+  verified: true,
+  rows: buildPilotFailureRehearsalMatrix()
+};
+
 const summary = (overrides = {}) => buildPilotOnboardingSummary({
   hotel: overrides.hotel || baseHotel,
   users: overrides.users || baseUsers,
   pmsConnections: overrides.pmsConnections || basePms,
   knowledgeEntries: overrides.knowledgeEntries || baseKnowledge,
   localKnowledge: overrides.localKnowledge || [],
+  operationalHealth: overrides.operationalHealth === undefined ? buildOperationalHealth(overrides) : overrides.operationalHealth,
+  failureRehearsal: overrides.failureRehearsal === undefined ? baseFailureRehearsal : overrides.failureRehearsal,
   env: overrides.env || envOff,
   preferredPmsProvider: overrides.preferredPmsProvider || 'ubikos',
   role: overrides.role || 'admin',
@@ -127,6 +156,19 @@ const legacyHumanFallbackFlagIgnored = summary({
 });
 assert.equal(gate(legacyHumanFallbackFlagIgnored, 'human_fallback').value, PILOT_STATUS.COMPLETED, 'Human Fallback uses the real runtime gate, not the legacy readiness flag');
 
+const observabilityMissing = summary({ operationalHealth: null });
+assert.equal(gate(observabilityMissing, 'observability').value, PILOT_STATUS.ACTION_REQUIRED, 'Observability requires Pilot Health runtime status');
+assert.equal(observabilityMissing.readyForPilotDemo, false, 'missing observability blocks pilot demo readiness');
+
+const rehearsalUnverified = summary({
+  failureRehearsal: {
+    verified: false,
+    rows: buildPilotFailureRehearsalMatrix()
+  }
+});
+assert.equal(gate(rehearsalUnverified, 'failure_rehearsal').value, PILOT_STATUS.ACTION_REQUIRED, 'Failure Rehearsal is not completed just because tests exist');
+assert.equal(rehearsalUnverified.readyForPilotDemo, false, 'unverified failure rehearsal blocks pilot demo readiness');
+
 const killSwitchMissing = summary({
   hotel: {
     ...baseHotel,
@@ -155,7 +197,9 @@ assert.equal(canAccessRoute('manager', '/dashboard/onboarding'), true, 'manager 
 
 const ready = summary();
 assert.equal(ready.readyForConfiguration, true, 'complete data is ready for configuration');
-assert.equal(ready.readyForGoLive, true, 'complete data can be go-live ready');
+assert.equal(ready.readyForPilotDemo, true, 'complete data can be pilot-demo ready');
+assert.equal(ready.readyForLiveAutomations, false, 'live automations remain blocked separately from pilot demo');
+assert.equal(ready.readyForGoLive, true, 'legacy readyForGoLive mirrors pilot demo readiness');
 assert.equal(getPilotCompletionRedirect(ready), '/dashboard/health', 'completion redirects to Pilot Readiness/Health');
 assert.equal(getPilotCompletionRedirect(ubikosWaiting), '/dashboard/health', 'configuration completion redirects even while Ubikos waits');
 
@@ -168,7 +212,7 @@ const falseReadyCases = [
   guestMemoryOn,
   killSwitchMissing
 ];
-assert.equal(falseReadyCases.some((item) => item.readyForGoLive), false, 'no false ready');
+assert.equal(falseReadyCases.some((item) => item.readyForPilotDemo), false, 'no false pilot-demo ready');
 
 assert.equal(isRealPilotPmsConnection(basePms[0]), true, 'live PMS connection is real for go-live');
 assert.equal(isRealPilotPmsConnection({ provider: 'ubikos', enabled: true, sync_status: 'pending_setup' }), false, 'Ubikos pending setup is not real go-live PMS');
@@ -181,7 +225,8 @@ assert.equal(packageJson.scripts['test:pilot-onboarding'], 'node scripts/test-pi
 
 const wizardSource = readFileSync(join(root, 'dashboard/components/onboarding/OnboardingWizard.js'), 'utf8');
 assert.ok(wizardSource.includes('Ready for Configuration'), 'UI distinguishes Ready for Configuration');
-assert.ok(wizardSource.includes('Ready for Go-Live'), 'UI distinguishes Ready for Go-Live');
+assert.ok(wizardSource.includes('Ready for Pilot Demo'), 'UI distinguishes Ready for Pilot Demo');
+assert.ok(wizardSource.includes('Ready for Live Automations'), 'UI distinguishes Ready for Live Automations');
 assert.ok(wizardSource.includes('router.push'), 'completion redirects instead of leaving a dead wizard');
 assert.ok(wizardSource.includes('Configurar PMS'), 'PMS blocker has CTA');
 assert.ok(wizardSource.includes('Configurar Knowledge'), 'Knowledge blocker has CTA');

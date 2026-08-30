@@ -6,6 +6,10 @@ import {
   getGlobalAiAutoReplyStatus,
   getHotelAiAutoReplyStatus
 } from '../../shared/pilot/ai-safety.js';
+import {
+  buildPilotHealthSnapshot,
+  sanitizePilotOperationalMessage
+} from '../../shared/pilot/operational-readiness.js';
 
 const PMS_HEALTH_SELECT = pmsConnectionSelectForSurface('health');
 
@@ -42,6 +46,29 @@ const safeRows = async (query, fallback = []) => {
   }
 
   return data || fallback;
+};
+
+const safeRowsResult = async (query, label, fallback = []) => {
+  const { data, error } = await query;
+
+  if (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('System health data unavailable', sanitizePilotOperationalMessage(error.message));
+    }
+
+    return {
+      rows: fallback,
+      issue: {
+        label,
+        message: sanitizePilotOperationalMessage(error.message)
+      }
+    };
+  }
+
+  return {
+    rows: data || fallback,
+    issue: null
+  };
 };
 
 const uniqueById = (rows = []) => Array.from(new Map(rows.map((row) => [row.id, row])).values());
@@ -297,7 +324,8 @@ export const buildHotelOperationalHealthSnapshot = ({
   scheduledMessages = [],
   qrRooms = [],
   reservations = [],
-  aiLogs = []
+  aiLogs = [],
+  dataIssues = []
 } = {}) => {
   const demoEnvironment = isDemoHotel(hotel);
   const realTickets = tickets.filter((ticket) => !isDemoRow(ticket));
@@ -321,6 +349,17 @@ export const buildHotelOperationalHealthSnapshot = ({
     reservations
   });
   const overallStatus = worstStatus(statusCards.map((card) => card.status));
+  const pilotHealth = buildPilotHealthSnapshot({
+    hotel,
+    pmsConnections,
+    tickets,
+    conversations,
+    conversationStates,
+    scheduledMessages,
+    aiLogs,
+    dataIssues,
+    env: process.env
+  });
   const score = Math.max(0, Math.min(100, Math.round(
     statusCards.reduce((total, card) => total + (card.status === 'healthy' ? 10 : card.status === 'warning' ? 5 : 0), 0)
   )));
@@ -338,6 +377,7 @@ export const buildHotelOperationalHealthSnapshot = ({
       tone: statusTone(card.status)
     })),
     warnings,
+    pilotHealth,
     safeForHotel: true,
     environment: {
       isDemo: demoEnvironment || demoTickets.length > 0,
@@ -353,38 +393,50 @@ export const buildHotelOperationalHealthSnapshot = ({
 export const getHotelOperationalHealth = async ({ supabase, hotelId, hotel }) => {
   const today = startOfTodayIso();
   const [
-    pmsConnections,
-    tickets,
-    conversations,
-    conversationStates,
-    bookings,
-    scheduledMessages,
-    qrRooms,
-    reservations,
-    aiLogs
+    pmsConnectionsResult,
+    ticketsResult,
+    conversationsResult,
+    conversationStatesResult,
+    bookingsResult,
+    scheduledMessagesResult,
+    qrRoomsResult,
+    reservationsResult,
+    aiLogsResult
   ] = await Promise.all([
-    safeRows(supabase.from('hotel_pms_connections').select(PMS_HEALTH_SELECT).eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(10)),
-    safeRows(supabase.from('tickets').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250)),
-    safeRows(supabase.from('conversations').select('*').eq('hotel_id', hotelId).order('last_message_at', { ascending: false, nullsFirst: false }).limit(250)),
-    safeRows(supabase.from('conversation_ai_state').select('*').eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(250)),
-    safeRows(supabase.from('experience_booking_requests').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250)),
-    safeRows(supabase.from('scheduled_messages').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250)),
-    safeRows(supabase.from('hotel_rooms').select('*').eq('hotel_id', hotelId).limit(500)),
-    safeRows(supabase.from('reservations').select('*').eq('hotel_id', hotelId).gte('departure_date', new Date().toISOString().slice(0, 10)).limit(500)),
-    safeRows(supabase.from('ai_logs').select('*').eq('hotel_id', hotelId).gte('created_at', today).limit(250))
+    safeRowsResult(supabase.from('hotel_pms_connections').select(PMS_HEALTH_SELECT).eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(10), 'pms'),
+    safeRowsResult(supabase.from('tickets').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'tickets'),
+    safeRowsResult(supabase.from('conversations').select('*').eq('hotel_id', hotelId).order('last_message_at', { ascending: false, nullsFirst: false }).limit(250), 'conversations'),
+    safeRowsResult(supabase.from('conversation_ai_state').select('*').eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(250), 'conversation_ai_state'),
+    safeRowsResult(supabase.from('experience_booking_requests').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'experience_booking_requests'),
+    safeRowsResult(supabase.from('scheduled_messages').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'scheduled_messages'),
+    safeRowsResult(supabase.from('hotel_rooms').select('*').eq('hotel_id', hotelId).limit(500), 'hotel_rooms'),
+    safeRowsResult(supabase.from('reservations').select('*').eq('hotel_id', hotelId).gte('departure_date', new Date().toISOString().slice(0, 10)).limit(500), 'reservations'),
+    safeRowsResult(supabase.from('ai_logs').select('*').eq('hotel_id', hotelId).gte('created_at', today).limit(250), 'ai_logs')
   ]);
+  const dataIssues = [
+    pmsConnectionsResult,
+    ticketsResult,
+    conversationsResult,
+    conversationStatesResult,
+    bookingsResult,
+    scheduledMessagesResult,
+    qrRoomsResult,
+    reservationsResult,
+    aiLogsResult
+  ].map((result) => result.issue).filter(Boolean);
 
   return buildHotelOperationalHealthSnapshot({
     hotel,
-    pmsConnections: serializePmsConnectionsSafe(pmsConnections, { surface: 'health' }),
-    tickets,
-    conversations,
-    conversationStates,
-    bookings,
-    scheduledMessages,
-    qrRooms,
-    reservations,
-    aiLogs
+    pmsConnections: serializePmsConnectionsSafe(pmsConnectionsResult.rows, { surface: 'health' }),
+    tickets: ticketsResult.rows,
+    conversations: conversationsResult.rows,
+    conversationStates: conversationStatesResult.rows,
+    bookings: bookingsResult.rows,
+    scheduledMessages: scheduledMessagesResult.rows,
+    qrRooms: qrRoomsResult.rows,
+    reservations: reservationsResult.rows,
+    aiLogs: aiLogsResult.rows,
+    dataIssues
   });
 };
 

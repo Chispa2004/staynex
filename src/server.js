@@ -32,7 +32,10 @@ app.get('/', (req, res) => {
 
 app.get('/health', (req, res) => {
   res.status(200).json({
-    ok: true
+    ok: true,
+    service: 'staynex-backend',
+    status: 'healthy',
+    requestId: req.requestId
   });
 });
 

@@ -1,6 +1,10 @@
 import { evaluateHotelLocationTimezoneIntegrity } from '../../shared/location/hotel-location-integrity.js';
 import { getGuestMemoryPilotStatus } from '../../shared/guest-memory/feature-flag.js';
 import { getPilotAiSafetyReadiness } from '../../shared/pilot/ai-safety.js';
+import {
+  buildPilotFailureRehearsalMatrix,
+  summarizePilotFailureRehearsal
+} from '../../shared/pilot/operational-readiness.js';
 import { canAccessPlatform } from './permissions.js';
 import { getPmsProvider, isPmsProviderLiveApi } from './pms-providers.js';
 
@@ -532,6 +536,72 @@ export const evaluatePilotKillSwitch = ({ hotel = {}, env = process.env } = {}) 
   });
 };
 
+export const evaluatePilotObservability = ({ operationalHealth = null } = {}) => {
+  const pilotHealth = operationalHealth?.pilotHealth || operationalHealth || null;
+  const ready = Boolean(
+    pilotHealth?.scope === 'pilot_health'
+    && Array.isArray(pilotHealth.components)
+    && pilotHealth.components.length >= 6
+    && pilotHealth.safeForUi !== false
+  );
+
+  return statusResult({
+    id: 'observability',
+    title: 'Observability',
+    status: ready ? PILOT_STATUS.COMPLETED : PILOT_STATUS.ACTION_REQUIRED,
+    description: ready
+      ? 'Pilot Health esta disponible con PMS, WhatsApp, AI, Automations y Operations.'
+      : 'Carga Pilot Health con estado agregado y razones accionables antes del piloto.',
+    actionLabel: 'Revisar Health',
+    href: '/dashboard/health',
+    readyForConfiguration: ready,
+    readyForGoLive: ready,
+    details: [
+      { label: 'Pilot Health', value: ready ? pilotHealth.status : 'Pendiente' },
+      { label: 'Demo', value: ready && pilotHealth.readyForPilotDemo ? 'READY FOR PILOT DEMO' : 'Necesita revision' },
+      { label: 'Live automations', value: ready && pilotHealth.readyForLiveAutomations ? 'READY' : 'BLOCKED' }
+    ],
+    source: ready ? 'Pilot Health runtime' : 'health runtime'
+  });
+};
+
+export const evaluatePilotFailureRehearsal = ({
+  hotel = {},
+  failureRehearsal = null
+} = {}) => {
+  const metadata = safeMetadata(hotel);
+  const rows = failureRehearsal?.rows
+    || failureRehearsal?.matrix
+    || (metadata.pilot_failure_rehearsal_completed ? buildPilotFailureRehearsalMatrix() : []);
+  const summary = rows.length
+    ? summarizePilotFailureRehearsal(rows)
+    : { status: 'NOT TESTABLE YET', passed: 0, failed: 0, notTestableYet: 0, total: 0 };
+  const verified = failureRehearsal?.verified === true
+    || metadata.pilot_failure_rehearsal_completed === true;
+  const ready = verified && summary.status === 'PASS';
+
+  return statusResult({
+    id: 'failure_rehearsal',
+    title: 'Failure Rehearsal',
+    status: ready ? PILOT_STATUS.COMPLETED : PILOT_STATUS.ACTION_REQUIRED,
+    description: ready
+      ? 'Ensayo de fallos piloto verificado con escenarios operativos cubiertos.'
+      : 'Ejecuta y marca el ensayo operativo real del hotel antes de cerrar readiness.',
+    actionLabel: 'Ver playbook',
+    href: '/dashboard/health',
+    readyForConfiguration: ready,
+    readyForGoLive: ready,
+    details: [
+      { label: 'Estado', value: summary.status },
+      { label: 'PASS', value: summary.passed },
+      { label: 'FAIL', value: summary.failed },
+      { label: 'NOT TESTABLE YET', value: summary.notTestableYet },
+      { label: 'Verificado', value: verified ? 'Si' : 'No' }
+    ],
+    source: verified ? 'pilot_failure_rehearsal_completed' : 'manual verification required'
+  });
+};
+
 export const buildPilotReadinessBlock = ({
   hotelBlock,
   usersBlock,
@@ -542,7 +612,9 @@ export const buildPilotReadinessBlock = ({
   sendAutomationsBlock,
   securityBaselineBlock,
   humanFallbackBlock,
-  killSwitchBlock
+  killSwitchBlock,
+  observabilityBlock,
+  failureRehearsalBlock
 }) => {
   const checks = [
     hotelBlock,
@@ -554,7 +626,9 @@ export const buildPilotReadinessBlock = ({
     securityBaselineBlock,
     sendAutomationsBlock,
     humanFallbackBlock,
-    killSwitchBlock
+    killSwitchBlock,
+    observabilityBlock,
+    failureRehearsalBlock
   ];
   const readyForGoLive = checks.every((item) => item.readyForGoLive);
 
@@ -594,6 +668,8 @@ export const buildPilotOnboardingSummary = ({
   pmsConnections = [],
   knowledgeEntries = [],
   localKnowledge = [],
+  operationalHealth = null,
+  failureRehearsal = null,
   env = process.env,
   preferredPmsProvider = null,
   role = null,
@@ -616,6 +692,8 @@ export const buildPilotOnboardingSummary = ({
   const securityBaselineBlock = evaluatePilotSecurityBaseline({ hotel, env });
   const humanFallbackBlock = evaluatePilotHumanFallback({ hotel, env });
   const killSwitchBlock = evaluatePilotKillSwitch({ hotel, env });
+  const observabilityBlock = evaluatePilotObservability({ operationalHealth });
+  const failureRehearsalBlock = evaluatePilotFailureRehearsal({ hotel, failureRehearsal });
   const readinessBlock = buildPilotReadinessBlock({
     hotelBlock,
     usersBlock,
@@ -626,7 +704,9 @@ export const buildPilotOnboardingSummary = ({
     sendAutomationsBlock,
     securityBaselineBlock,
     humanFallbackBlock,
-    killSwitchBlock
+    killSwitchBlock,
+    observabilityBlock,
+    failureRehearsalBlock
   });
   const blocks = [
     hotelBlock,
@@ -642,8 +722,20 @@ export const buildPilotOnboardingSummary = ({
     && whatsappBlock.readyForConfiguration
     && knowledgeBlock.readyForConfiguration
     && guestMemoryBlock.readyForConfiguration
-    && sendAutomationsBlock.readyForConfiguration;
-  const readyForGoLive = readinessBlock.readyForGoLive;
+    && sendAutomationsBlock.readyForConfiguration
+    && observabilityBlock.readyForConfiguration;
+  const readyForPilotDemo = readyForConfiguration
+    && pmsBlock.readyForGoLive
+    && whatsappBlock.readyForGoLive
+    && securityBaselineBlock.readyForConfiguration
+    && humanFallbackBlock.readyForConfiguration
+    && killSwitchBlock.readyForConfiguration
+    && failureRehearsalBlock.readyForConfiguration;
+  const liveAutomationGatesVerified = metadata.live_automation_gates_verified === true;
+  const readyForLiveAutomations = readinessBlock.readyForGoLive
+    && liveAutomationGatesVerified
+    && env?.SEND_AUTOMATIONS === 'true';
+  const readyForGoLive = readyForPilotDemo;
 
   return {
     mode: 'pilot_onboarding',
@@ -655,13 +747,29 @@ export const buildPilotOnboardingSummary = ({
       sendAutomations: sendAutomationsBlock,
       securityBaseline: securityBaselineBlock,
       humanFallback: humanFallbackBlock,
-      killSwitch: killSwitchBlock
+      killSwitch: killSwitchBlock,
+      observability: observabilityBlock,
+      failureRehearsal: failureRehearsalBlock
     },
     readyForConfiguration,
+    readyForPilotDemo,
+    readyForLiveAutomations,
     readyForGoLive,
     readyLabels: {
       configuration: readyForConfiguration ? 'READY FOR CONFIGURATION' : 'NO LISTO PARA CONFIGURACIÓN',
-      goLive: readyForGoLive ? 'READY FOR GO-LIVE' : 'NO LISTO PARA GO-LIVE'
+      pilotDemo: readyForPilotDemo ? 'READY FOR PILOT DEMO' : 'NO LISTO PARA PILOT DEMO',
+      liveAutomations: readyForLiveAutomations ? 'READY FOR LIVE AUTOMATIONS' : 'LIVE AUTOMATIONS BLOCKED',
+      goLive: readyForGoLive ? 'READY FOR PILOT DEMO' : 'NO LISTO PARA PILOT DEMO'
+    },
+    liveAutomationBlockers: [
+      'Quiet Hours/send-time runtime',
+      'outbound atomic delivery',
+      'real WhatsApp',
+      'real PMS'
+    ],
+    readinessModes: {
+      pilotDemo: readyForPilotDemo,
+      liveAutomations: readyForLiveAutomations
     },
     completion: {
       canCompleteConfiguration: readyForConfiguration,

@@ -9,6 +9,7 @@ import {
   pmsConnectionInternalSelectForSurface,
   serializePmsConnectionsSafe
 } from '../../shared/pms/safe-connection.js';
+import { getHotelOperationalHealth } from './system-health.js';
 
 const PMS_ONBOARDING_SELECT = pmsConnectionInternalSelectForSurface('tenant_settings');
 
@@ -233,7 +234,8 @@ export const getPilotOnboardingSummaryForContext = async ({
     users,
     pmsConnections,
     knowledgeEntries,
-    localKnowledge
+    localKnowledge,
+    operationalHealth
   ] = await Promise.all([
     safeRows(
       supabase
@@ -257,7 +259,12 @@ export const getPilotOnboardingSummaryForContext = async ({
         .select('id, hotel_id, title, description, active, updated_at')
         .eq('hotel_id', hotelId)
         .limit(200)
-    )
+    ),
+    getHotelOperationalHealth({
+      supabase,
+      hotelId,
+      hotel
+    }).catch(() => null)
   ]);
 
   return buildPilotOnboardingSummary({
@@ -266,6 +273,7 @@ export const getPilotOnboardingSummaryForContext = async ({
     pmsConnections: serializePmsConnectionsSafe(pmsConnections, { surface: 'tenant_settings' }),
     knowledgeEntries,
     localKnowledge,
+    operationalHealth,
     role,
     platformRole,
     fallback

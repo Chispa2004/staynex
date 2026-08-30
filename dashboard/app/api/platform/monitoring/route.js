@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPlatformContext, writePlatformAuditLog } from '@/lib/platform';
 import { canAccessPlatform } from '@/lib/permissions';
 import { getPlatformMonitoring } from '@/lib/system-health';
+import { sanitizePilotOperationalMessage } from '../../../../../shared/pilot/operational-readiness.js';
 
 const noStore = {
   headers: {
@@ -27,7 +28,8 @@ export async function GET(request) {
   } catch (error) {
     return NextResponse.json({
       ok: false,
-      error: error.message || 'Platform monitoring could not be loaded'
+      error: sanitizePilotOperationalMessage(error.message, 'No se pudo cargar monitoring. Revisa permisos o intenta de nuevo.')
+        || 'No se pudo cargar monitoring. Revisa permisos o intenta de nuevo.'
     }, { status: error.status || 500, ...noStore });
   }
 }
@@ -205,7 +207,8 @@ export async function POST(request) {
   } catch (error) {
     return NextResponse.json({
       ok: false,
-      error: error.message || 'Platform monitoring action failed'
+      error: sanitizePilotOperationalMessage(error.message, 'No se pudo completar la accion de monitoring.')
+        || 'No se pudo completar la accion de monitoring.'
     }, { status: error.status || 500, ...noStore });
   }
 }
