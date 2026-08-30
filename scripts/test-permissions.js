@@ -121,6 +121,23 @@ assert.deepEqual(receptionistNav, [
   '/dashboard/knowledge'
 ]);
 
+const executiveDashboardSource = readFileSync(join(root, 'dashboard/components/ExecutiveDashboardClient.js'), 'utf8');
+const lucideImportBlock = executiveDashboardSource.match(/import\s*\{([\s\S]*?)\}\s*from 'lucide-react';/);
+assert.ok(lucideImportBlock, 'Executive Dashboard should import lucide icons through a named import block');
+const importedLucideIcons = new Set(lucideImportBlock[1]
+  .split(',')
+  .map((name) => name.trim())
+  .filter(Boolean));
+const quickActionsStart = executiveDashboardSource.indexOf('const QuickActionsPanel');
+const quickActionsEnd = executiveDashboardSource.indexOf('const DataTile', quickActionsStart);
+assert.notEqual(quickActionsStart, -1, 'Executive Dashboard should define QuickActionsPanel');
+assert.notEqual(quickActionsEnd, -1, 'Executive Dashboard should keep QuickActionsPanel before DataTile');
+const quickActionsSource = executiveDashboardSource.slice(quickActionsStart, quickActionsEnd);
+for (const [, iconName] of quickActionsSource.matchAll(/icon:\s*([A-Z][A-Za-z0-9_]*)/g)) {
+  assert.ok(importedLucideIcons.has(iconName), `Quick action icon ${iconName} should be imported from lucide-react`);
+}
+assert.ok(quickActionsSource.includes('icon: CalendarDays'), 'Reservations quick action should render with an imported CalendarDays icon');
+
 const academySource = readFileSync(join(root, 'dashboard/components/StaynexAcademyClient.js'), 'utf8');
 const academyBlock = (id) => {
   const start = academySource.indexOf(`id: '${id}'`);

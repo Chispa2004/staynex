@@ -8,6 +8,7 @@ import {
   Bot,
   BookOpen,
   CalendarCheck,
+  CalendarDays,
   CheckCircle2,
   Clock3,
   ConciergeBell,
