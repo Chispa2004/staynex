@@ -1936,6 +1936,52 @@ const isMissingHotelDemoColumn = (error) => [
   || error?.hint?.includes(column)
 ));
 
+const CHECKIN_DEMO_OPTIONAL_TABLES = Object.freeze({
+  guest_stay_context: {
+    rowKey: 'stayContexts',
+    requiredRows: 10,
+    unavailableMessage: 'Guest stay context table is not available in this environment; demo readiness uses core reservations and guests.'
+  },
+  room_status_snapshots: {
+    rowKey: 'roomStatusSnapshots',
+    requiredRows: 10,
+    unavailableMessage: 'Room status snapshots table is not available in this environment; demo readiness uses core room assignment data.'
+  },
+  hotel_occupancy_snapshots: {
+    rowKey: 'occupancySnapshots',
+    requiredRows: 1,
+    unavailableMessage: 'Hotel occupancy snapshots table is not available in this environment; demo readiness uses core reservation data.'
+  }
+});
+
+const optionalTableResult = ({
+  table,
+  rows = [],
+  status = 'AVAILABLE',
+  message = null
+} = {}) => {
+  const config = CHECKIN_DEMO_OPTIONAL_TABLES[table] || {};
+  const available = status !== 'NOT_AVAILABLE';
+  const rowCount = rows.length;
+  const dataReady = rowCount >= (config.requiredRows || 1);
+
+  return {
+    table,
+    status,
+    requirement: 'OPTIONAL',
+    available,
+    rows: rowCount,
+    requiredRows: config.requiredRows || 1,
+    ready: available ? dataReady : true,
+    blocking: available ? !dataReady : false,
+    message: message || (available
+      ? dataReady
+        ? 'Optional demo capability is available and populated.'
+        : 'Optional demo capability is available but not fully populated.'
+      : config.unavailableMessage || 'Optional demo table is not available in this environment.')
+  };
+};
+
 const resolveCheckinHotelBy = async ({ supabase, column, value }) => {
   const { data, error } = await supabase
     .from('hotels')
@@ -2004,6 +2050,81 @@ const safeSelectRows = async ({ table, apply, supabase = getSupabase() }) => {
         error: error.message
       });
       return [];
+    }
+
+    throw error;
+  }
+};
+
+const safeOptionalSelectRows = async ({ table, apply, supabase = getSupabase() }) => {
+  try {
+    const { data, error } = await apply(supabase.from(table).select('*'));
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = data || [];
+    return {
+      rows,
+      status: optionalTableResult({
+        table,
+        rows
+      })
+    };
+  } catch (error) {
+    if (isMissingOptionalTable(error)) {
+      logger.warn('Demo data optional table unavailable; skipping select', {
+        table,
+        error: error.message
+      });
+
+      return {
+        rows: [],
+        status: optionalTableResult({
+          table,
+          rows: [],
+          status: 'NOT_AVAILABLE'
+        })
+      };
+    }
+
+    throw error;
+  }
+};
+
+const safeOptionalUpsert = async ({ table, rows, onConflict, select = '*', supabase = getSupabase() }) => {
+  try {
+    const query = supabase.from(table).upsert(rows, { onConflict });
+    const { data, error } = await query.select(select);
+
+    if (error) {
+      throw error;
+    }
+
+    const resultRows = data || [];
+    return {
+      rows: resultRows,
+      status: optionalTableResult({
+        table,
+        rows: resultRows
+      })
+    };
+  } catch (error) {
+    if (isMissingOptionalTable(error)) {
+      logger.warn('Demo data optional table unavailable; skipping optional upsert', {
+        table,
+        error: error.message
+      });
+
+      return {
+        rows: [],
+        status: optionalTableResult({
+          table,
+          rows: [],
+          status: 'NOT_AVAILABLE'
+        })
+      };
     }
 
     throw error;
@@ -2158,7 +2279,7 @@ const upsertCheckinDemoRooms = async ({ supabase, plan }) => {
 };
 
 const upsertCheckinDemoOperationalContext = async ({ supabase, plan, guestByKey, reservationByKey }) => {
-  await safeUpsert({
+  const roomStatusResult = await safeOptionalUpsert({
     table: 'room_status_snapshots',
     onConflict: 'hotel_id,room_number',
     supabase,
@@ -2174,14 +2295,14 @@ const upsertCheckinDemoOperationalContext = async ({ supabase, plan, guestByKey,
     })
   });
 
-  await safeUpsert({
+  const occupancyResult = await safeOptionalUpsert({
     table: 'hotel_occupancy_snapshots',
     onConflict: 'hotel_id,date',
     supabase,
     rows: plan.occupancySnapshots
   });
 
-  await safeUpsert({
+  const stayContextResult = await safeOptionalUpsert({
     table: 'guest_stay_context',
     onConflict: 'reservation_id',
     supabase,
@@ -2191,6 +2312,14 @@ const upsertCheckinDemoOperationalContext = async ({ supabase, plan, guestByKey,
       reservation_id: reservationByKey.get(reservation_key)?.id || null
     }))
   });
+
+  return {
+    optionalTables: {
+      guest_stay_context: stayContextResult.status,
+      room_status_snapshots: roomStatusResult.status,
+      hotel_occupancy_snapshots: occupancyResult.status
+    }
+  };
 };
 
 const upsertCheckinDemoKnowledge = async ({ supabase, plan }) => {
@@ -2306,7 +2435,7 @@ export const seedCheckinDemoScenario = async ({
   const guestByKey = await upsertCheckinDemoGuests({ supabase, plan });
   const reservationByKey = await upsertCheckinDemoReservations({ supabase, plan, guestByKey });
   await upsertCheckinDemoRooms({ supabase, plan });
-  await upsertCheckinDemoOperationalContext({ supabase, plan, guestByKey, reservationByKey });
+  const operationalContext = await upsertCheckinDemoOperationalContext({ supabase, plan, guestByKey, reservationByKey });
   await upsertCheckinDemoKnowledge({ supabase, plan });
   const conversationByKey = await createCheckinDemoConversations({ supabase, plan, guestByKey });
   const tickets = await createCheckinDemoTickets({ supabase, plan, guestByKey, conversationByKey });
@@ -2332,6 +2461,7 @@ export const seedCheckinDemoScenario = async ({
     tickets: tickets.length || plan.tickets.length,
     knowledge: plan.knowledge.length,
     scheduledPreviews: scheduledMessages.length || plan.journeys.length,
+    optionalTables: operationalContext.optionalTables,
     guestMemory: 'OFF',
     providerTraffic: 'NONE',
     ubikos: plan.ubikos.state
@@ -2351,11 +2481,23 @@ const allCheckinDemoJourneysReady = (scheduledMessages = []) => {
 export const buildCheckinDemoPreflightReport = ({
   hotel = null,
   rows = {},
-  env = process.env
+  env = process.env,
+  tableAvailability = {}
 } = {}) => {
   const plan = buildCheckinDemoFixturePlan({
     hotelId: hotel?.id || 'hotel-demo-checkin-fixture'
   });
+  const optionalTables = Object.fromEntries(
+    Object.entries(CHECKIN_DEMO_OPTIONAL_TABLES).map(([table, config]) => {
+      const provided = tableAvailability[table] || {};
+      return [table, optionalTableResult({
+        table,
+        rows: rows[config.rowKey] || [],
+        status: provided.status || 'AVAILABLE',
+        message: provided.message || null
+      })];
+    })
+  );
   const checks = {
     hotel_exists: Boolean(hotel?.id),
     target_is_hotel_demo_checkin: (() => {
@@ -2372,9 +2514,9 @@ export const buildCheckinDemoPreflightReport = ({
     messages_ready: (rows.messages || []).length >= 10,
     tickets_ready: (rows.tickets || []).length >= 4,
     knowledge_ready: (rows.knowledge || []).length >= 15,
-    stay_context_ready: (rows.stayContexts || []).length >= 10,
-    room_status_ready: (rows.roomStatusSnapshots || []).length >= 10,
-    occupancy_snapshot_ready: (rows.occupancySnapshots || []).length >= 1,
+    stay_context_ready: optionalTables.guest_stay_context.ready,
+    room_status_ready: optionalTables.room_status_snapshots.ready,
+    occupancy_snapshot_ready: optionalTables.hotel_occupancy_snapshots.ready,
     four_pilot_journeys_ready: allCheckinDemoJourneysReady(rows.scheduledMessages || []),
     scheduled_previews_only: (rows.scheduledMessages || []).every((message) => (
       message.status === OPERATIONAL_STATUSES.PREVIEW
@@ -2393,6 +2535,7 @@ export const buildCheckinDemoPreflightReport = ({
     )),
     no_real_provider_traffic: (rows.scheduledMessages || []).every((message) => !message.send_to)
   };
+  const optionalBlockingFailures = Object.values(optionalTables).filter((table) => table.blocking);
   const readyForPilotDemo = Object.values(checks).every(Boolean);
 
   return {
@@ -2417,6 +2560,8 @@ export const buildCheckinDemoPreflightReport = ({
       conversationStates: (rows.conversationStates || []).length,
       pmsConnections: (rows.pmsConnections || []).length
     },
+    optionalTables,
+    optionalBlockingFailures,
     readiness: readyForPilotDemo ? 'READY_TO_SEED_DEMO' : 'BLOCKED',
     readyForPilotDemo,
     readyForLiveAutomations: false,
@@ -2492,17 +2637,17 @@ export const getCheckinDemoPreflight = async ({
     supabase,
     apply: (query) => query.eq('hotel_id', hotel.id).eq('source', CHECKIN_DEMO_SOURCE)
   });
-  const stayContexts = await safeSelectRows({
+  const stayContextsResult = await safeOptionalSelectRows({
     table: 'guest_stay_context',
     supabase,
     apply: (query) => query.eq('hotel_id', hotel.id)
   });
-  const roomStatusSnapshots = await safeSelectRows({
+  const roomStatusSnapshotsResult = await safeOptionalSelectRows({
     table: 'room_status_snapshots',
     supabase,
     apply: (query) => query.eq('hotel_id', hotel.id).in('room_number', plan.rooms.map((room) => room.room_number))
   });
-  const occupancySnapshots = await safeSelectRows({
+  const occupancySnapshotsResult = await safeOptionalSelectRows({
     table: 'hotel_occupancy_snapshots',
     supabase,
     apply: (query) => query.eq('hotel_id', hotel.id).in('date', plan.occupancySnapshots.map((snapshot) => snapshot.date))
@@ -2526,10 +2671,15 @@ export const getCheckinDemoPreflight = async ({
       scheduledMessages,
       knowledge,
       rooms,
-      stayContexts,
-      roomStatusSnapshots,
-      occupancySnapshots,
+      stayContexts: stayContextsResult.rows,
+      roomStatusSnapshots: roomStatusSnapshotsResult.rows,
+      occupancySnapshots: occupancySnapshotsResult.rows,
       pmsConnections
+    },
+    tableAvailability: {
+      guest_stay_context: stayContextsResult.status,
+      room_status_snapshots: roomStatusSnapshotsResult.status,
+      hotel_occupancy_snapshots: occupancySnapshotsResult.status
     }
   });
 };

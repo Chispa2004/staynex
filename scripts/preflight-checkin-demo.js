@@ -10,6 +10,7 @@ const main = async () => {
     ok: report.readyForPilotDemo,
     action: 'preflight_checkin_demo',
     hotel: CHECKIN_DEMO_HOTEL,
+    optionalTables: report.optionalTables,
     report
   }, null, 2));
 

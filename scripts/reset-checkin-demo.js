@@ -23,6 +23,7 @@ const main = async () => {
     action: 'reset_checkin_demo',
     hotel: CHECKIN_DEMO_HOTEL,
     confirmationRequired: CHECKIN_DEMO_RESET_CONFIRMATION,
+    optionalTables: summary.optionalTables,
     summary
   }, null, 2));
 };

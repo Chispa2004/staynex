@@ -27,6 +27,7 @@ const {
   buildCheckinDemoJourneyPreviews,
   buildCheckinDemoPreflightReport,
   buildCheckinDemoScheduledPreviewRows,
+  getCheckinDemoPreflight,
   seedCheckinDemoScenario
 } = await import(`../src/services/demo-data.service.js?checkinDemo=${Date.now()}`);
 const {
@@ -178,7 +179,45 @@ class QueryBuilder {
   }
 }
 
-const createMockSupabase = (initial = {}) => {
+class MissingTableQueryBuilder {
+  constructor(table) {
+    this.table = table;
+  }
+
+  select() { return this; }
+  insert() { return this; }
+  update() { return this; }
+  upsert() { return this; }
+  delete() { return this; }
+  eq() { return this; }
+  in() { return this; }
+  contains() { return this; }
+  limit() { return this; }
+
+  execute() {
+    return {
+      data: null,
+      error: {
+        message: `relation "public.${this.table}" does not exist`,
+        details: this.table
+      }
+    };
+  }
+
+  maybeSingle() {
+    return Promise.resolve(this.execute());
+  }
+
+  single() {
+    return Promise.resolve(this.execute());
+  }
+
+  then(resolve, reject) {
+    return Promise.resolve(this.execute()).then(resolve, reject);
+  }
+}
+
+const createMockSupabase = (initial = {}, { missingTables = [] } = {}) => {
   const db = {
     nextId: 1,
     hotels: [],
@@ -201,6 +240,10 @@ const createMockSupabase = (initial = {}) => {
   return {
     db,
     from(table) {
+      if (missingTables.includes(table)) {
+        return new MissingTableQueryBuilder(table);
+      }
+
       return new QueryBuilder(db, table);
     }
   };
@@ -356,8 +399,56 @@ assert.equal(preflight.checks.no_real_provider_traffic, true, 'preflight should 
 assert.equal(preflight.checks.stay_context_ready, true, 'preflight should verify stay context');
 assert.equal(preflight.checks.room_status_ready, true, 'preflight should verify room statuses');
 assert.equal(preflight.checks.occupancy_snapshot_ready, true, 'preflight should verify occupancy snapshot');
+assert.equal(preflight.optionalTables.guest_stay_context.status, 'AVAILABLE', 'available optional stay context should be reported');
+assert.equal(preflight.optionalTables.guest_stay_context.requirement, 'OPTIONAL', 'optional stay context should be labeled optional');
+assert.equal(preflight.optionalTables.guest_stay_context.blocking, false, 'populated optional stay context should not block');
 assert.equal(preflight.ubikos.liveConnected, false, 'preflight should keep Ubikos non-live');
 assert.ok(preflight.liveSendBlockers.includes('SEND_AUTOMATIONS=true controlled rollout'), 'live send blockers should remain explicit');
+
+const optionalUnavailablePreflight = buildCheckinDemoPreflightReport({
+  hotel: plan.hotel,
+  rows: {
+    ...rows,
+    stayContexts: [],
+    roomStatusSnapshots: [],
+    occupancySnapshots: []
+  },
+  tableAvailability: {
+    guest_stay_context: { status: 'NOT_AVAILABLE' },
+    room_status_snapshots: { status: 'NOT_AVAILABLE' },
+    hotel_occupancy_snapshots: { status: 'NOT_AVAILABLE' }
+  },
+  env: {
+    SEND_AUTOMATIONS: 'false',
+    GUEST_MEMORY_ENABLED: 'false'
+  }
+});
+assert.equal(optionalUnavailablePreflight.readyForPilotDemo, true, 'missing optional tables should not block demo readiness');
+assert.equal(optionalUnavailablePreflight.checks.stay_context_ready, true, 'missing stay context table should be non-blocking');
+assert.equal(optionalUnavailablePreflight.checks.room_status_ready, true, 'missing room status table should be non-blocking');
+assert.equal(optionalUnavailablePreflight.checks.occupancy_snapshot_ready, true, 'missing occupancy table should be non-blocking');
+for (const table of ['guest_stay_context', 'room_status_snapshots', 'hotel_occupancy_snapshots']) {
+  assert.equal(optionalUnavailablePreflight.optionalTables[table].status, 'NOT_AVAILABLE', `${table} should report NOT_AVAILABLE`);
+  assert.equal(optionalUnavailablePreflight.optionalTables[table].requirement, 'OPTIONAL', `${table} should report OPTIONAL`);
+  assert.equal(optionalUnavailablePreflight.optionalTables[table].blocking, false, `${table} should not block when absent`);
+}
+
+const optionalAvailableButEmptyPreflight = buildCheckinDemoPreflightReport({
+  hotel: plan.hotel,
+  rows: {
+    ...rows,
+    stayContexts: [],
+    roomStatusSnapshots: [],
+    occupancySnapshots: []
+  },
+  env: {
+    SEND_AUTOMATIONS: 'false',
+    GUEST_MEMORY_ENABLED: 'false'
+  }
+});
+assert.equal(optionalAvailableButEmptyPreflight.readyForPilotDemo, false, 'available optional tables should be verified normally');
+assert.equal(optionalAvailableButEmptyPreflight.optionalTables.guest_stay_context.status, 'AVAILABLE', 'empty existing stay context table should still be available');
+assert.equal(optionalAvailableButEmptyPreflight.optionalTables.guest_stay_context.blocking, true, 'empty existing optional table should report a blocking population failure');
 
 const blockedPreflight = buildCheckinDemoPreflightReport({
   hotel: plan.hotel,
@@ -446,6 +537,46 @@ const seededPreflight = buildCheckinDemoPreflightReport({
   }
 });
 assert.equal(seededPreflight.readyForPilotDemo, true, 'seeded data should pass demo preflight');
+
+const missingOptionalTables = [
+  'guest_stay_context',
+  'room_status_snapshots',
+  'hotel_occupancy_snapshots'
+];
+const missingOptionalSupabase = createMockSupabase({
+  hotels: [{
+    ...plan.hotel,
+    id: hotelId,
+    name: CHECKIN_DEMO_HOTEL.name,
+    slug: CHECKIN_DEMO_HOTEL.slug,
+    metadata: {}
+  }]
+}, {
+  missingTables: missingOptionalTables
+});
+const missingOptionalSeed = await seedCheckinDemoScenario({
+  confirm: CHECKIN_DEMO_RESET_CONFIRMATION,
+  supabase: missingOptionalSupabase,
+  now
+});
+for (const table of missingOptionalTables) {
+  assert.equal(missingOptionalSeed.optionalTables[table].status, 'NOT_AVAILABLE', `${table} seed should report NOT_AVAILABLE`);
+  assert.equal(missingOptionalSeed.optionalTables[table].requirement, 'OPTIONAL', `${table} seed should report OPTIONAL`);
+  assert.equal(missingOptionalSeed.optionalTables[table].blocking, false, `${table} seed should be non-blocking when absent`);
+}
+const missingOptionalRuntimePreflight = await getCheckinDemoPreflight({
+  supabase: missingOptionalSupabase,
+  env: {
+    SEND_AUTOMATIONS: 'false',
+    GUEST_MEMORY_ENABLED: 'false'
+  }
+});
+assert.equal(missingOptionalRuntimePreflight.readyForPilotDemo, true, 'runtime preflight should pass without optional tables');
+for (const table of missingOptionalTables) {
+  assert.equal(missingOptionalRuntimePreflight.optionalTables[table].status, 'NOT_AVAILABLE', `${table} runtime preflight should report NOT_AVAILABLE`);
+  assert.equal(missingOptionalRuntimePreflight.optionalTables[table].requirement, 'OPTIONAL', `${table} runtime preflight should report OPTIONAL`);
+  assert.equal(missingOptionalRuntimePreflight.optionalTables[table].blocking, false, `${table} runtime preflight should not block when absent`);
+}
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 assert.equal(packageJson.scripts['test:checkin-demo'], 'node scripts/test-checkin-demo.js', 'package script should register the Checkin demo test');
