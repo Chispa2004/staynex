@@ -10,7 +10,6 @@ import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
-import { PageHeader } from './PageHeader';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { cn, ui } from '@/lib/ui/styles';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
@@ -505,6 +504,7 @@ export const InboxClient = ({ conversations }) => {
     requestedConversationId || null
   );
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(sortedConversations.length === 0);
   const [sending, setSending] = useState(false);
   const [takeoverUpdating, setTakeoverUpdating] = useState(false);
   const [hiddenTranslations, setHiddenTranslations] = useState({});
@@ -641,6 +641,9 @@ export const InboxClient = ({ conversations }) => {
     if (!silent) {
       setRefreshing(true);
     }
+    if (!silent || itemsRef.current.length === 0) {
+      setLoading(true);
+    }
 
     try {
       const response = await fetch('/api/inbox', {
@@ -714,6 +717,7 @@ export const InboxClient = ({ conversations }) => {
       if (!silent) {
         setRefreshing(false);
       }
+      setLoading(false);
     }
   }, [currentHotel?.id, requestedConversationId]);
 
@@ -1289,16 +1293,32 @@ export const InboxClient = ({ conversations }) => {
 
   if (items.length === 0) {
     return (
-      <section className="space-y-6">
-        <PageHeader
-          titleKey="screens.inbox"
-          descriptionKey="screens.inboxDescription"
-        />
-        <PremiumEmptyState
-          icon={Bot}
-          title={t('inbox.noConversations')}
-          description={t('inbox.noConversationsDescription')}
-        />
+      <section className="h-full min-h-0">
+        <div className={cn(
+          'premium-fade-in flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 lg:rounded-xl lg:border',
+          isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-[#0b1019]'
+        )}>
+          <div className={cn('shrink-0 border-b px-4 py-4 sm:px-6', isLight ? 'border-slate-200 bg-white' : 'border-white/10')}>
+            <p className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Inbox</p>
+            <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
+              {loading ? 'Cargando conversaciones' : t('inbox.noConversations')}
+            </p>
+          </div>
+          {loading ? (
+            <div className="space-y-3 p-4 sm:p-6">
+              {[0, 1, 2, 3, 4, 5].map((item) => (
+                <div key={item} className={cn('h-20 rounded-lg', ui.skeleton(isLight))} />
+              ))}
+            </div>
+          ) : (
+            <PremiumEmptyState
+              icon={Bot}
+              title={t('inbox.noConversations')}
+              description={t('inbox.noConversationsDescription')}
+              className="m-4"
+            />
+          )}
+        </div>
       </section>
     );
   }
@@ -1314,10 +1334,10 @@ export const InboxClient = ({ conversations }) => {
     selectedConversation?.aiState?.escalation_level && selectedConversation.aiState.escalation_level !== 'ai_handled'
   ].filter(Boolean).length;
   const chatOpen = Boolean(selectedConversation && mobileChatOpen);
-  const inboxGridColumns = chatOpen
+  const inboxGridColumns = selectedConversation
     ? copilotOpen
-      ? 'lg:grid-cols-[minmax(0,1fr)_380px]'
-      : 'lg:grid-cols-[minmax(0,1fr)]'
+      ? 'lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)_380px]'
+      : 'lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]'
     : 'grid-cols-1';
   const selectedGuestLanguage = selectedConversation?.guest?.preferred_language
     || [...(selectedConversation?.messages || [])].reverse().find((item) => item.sender_type === 'guest')?.original_language
@@ -1332,33 +1352,21 @@ export const InboxClient = ({ conversations }) => {
     { key: 'vip', label: 'VIP', count: items.filter((conversation) => isVipConversation(conversation)).length },
     { key: 'ai', label: 'IA activa', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
-  const inboxHeightClass = chatOpen
-    ? 'h-[calc(100dvh-28px)] min-h-[620px] sm:h-[calc(100dvh-44px)] lg:h-[calc(100vh-104px)] lg:min-h-[640px]'
-    : 'h-[calc(100dvh-92px)] min-h-[520px] sm:h-[calc(100dvh-118px)] lg:h-[calc(100vh-190px)] lg:min-h-[560px]';
-
   return (
-    <section className={chatOpen ? 'space-y-0' : 'space-y-6'}>
-      {!chatOpen ? (
-        <PageHeader
-          titleKey="screens.inbox"
-          descriptionKey="screens.inboxDescription"
-        />
-      ) : null}
-
+    <section className="h-full min-h-0">
       <div
         className={[
-          'premium-fade-in relative grid overflow-hidden rounded-2xl border shadow-2xl backdrop-blur',
-          inboxHeightClass,
+          'premium-fade-in relative grid h-full min-h-0 overflow-hidden rounded-none border-0 shadow-none backdrop-blur lg:rounded-xl lg:border',
           inboxGridColumns,
           isLight
-            ? 'border-slate-200 bg-white shadow-slate-200/80'
-            : 'border-white/10 bg-gradient-to-br from-[#0b1019]/95 via-[#0b1019]/88 to-[#101827]/90 shadow-black/25'
+            ? 'border-slate-200 bg-white'
+            : 'border-white/10 bg-[#0b1019]'
         ].join(' ')}
       >
       <aside className={[
-        chatOpen ? 'hidden' : 'flex',
-        'min-h-0 flex-col',
-        isLight ? 'border-slate-200 bg-slate-50/80' : 'border-white/10 bg-black/10'
+        chatOpen ? 'hidden lg:flex' : 'flex',
+        'min-h-0 flex-col lg:border-r',
+        isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-black/10'
       ].join(' ')}
       >
         <div className={[
@@ -1505,25 +1513,34 @@ export const InboxClient = ({ conversations }) => {
                   markConversationAsRead(conversation.id);
                   setMobileChatOpen(true);
                 }}
-                className={[
-              'premium-fade-in relative block w-full rounded-xl border px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5',
+                className={cn(
+                  'premium-fade-in relative block w-full rounded-lg border px-4 py-3 text-left transition duration-150',
                   isLight
                     ? active
-                      ? 'border-emerald-200 bg-emerald-50 shadow-sm shadow-emerald-100'
+                      ? 'border-emerald-200 bg-white shadow-sm ring-1 ring-emerald-100'
                       : needsAttention
-                        ? 'border-red-200 bg-red-50/80 shadow-sm shadow-red-100'
+                        ? 'border-amber-200 bg-white shadow-sm'
                         : unread
-                          ? 'border-emerald-200 bg-emerald-50/65 shadow-sm shadow-emerald-100'
-                          : 'border-transparent hover:border-slate-200 hover:bg-white'
+                          ? 'border-slate-200 bg-white shadow-sm'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
                     : active
-                      ? 'border-emerald-300/20 bg-white/[0.075] shadow-lg shadow-black/10'
+                      ? 'border-emerald-300/25 bg-white/[0.055] shadow-lg shadow-black/10'
                       : needsAttention
-                        ? 'border-red-300/25 bg-red-500/[0.08] shadow-lg shadow-red-950/10'
+                        ? 'border-amber-300/25 bg-white/[0.035] shadow-lg shadow-black/10'
                         : unread
-                          ? 'border-emerald-300/20 bg-emerald-300/[0.055] shadow-lg shadow-emerald-950/10'
-                          : 'border-transparent hover:border-white/10 hover:bg-white/[0.04]'
-                ].join(' ')}
+                          ? 'border-white/10 bg-white/[0.035] shadow-lg shadow-black/10'
+                          : 'border-white/10 bg-white/[0.025] hover:bg-white/[0.045]'
+                )}
               >
+                {(active || needsAttention || unread) ? (
+                  <span
+                    className={cn(
+                      'absolute bottom-3 left-0 top-3 w-1 rounded-r-full',
+                      needsAttention ? 'bg-amber-400' : active ? 'bg-emerald-400' : 'bg-sky-400'
+                    )}
+                    aria-hidden="true"
+                  />
+                ) : null}
                 <div className="flex items-start gap-4">
                   <span className={cn(
                     'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-sm font-bold shadow-sm',
@@ -1594,7 +1611,7 @@ export const InboxClient = ({ conversations }) => {
       </aside>
 
       <section className={[
-        chatOpen ? 'flex' : 'hidden',
+        selectedConversation ? chatOpen ? 'flex' : 'hidden lg:flex' : 'hidden',
         'min-h-0 flex-col overflow-hidden'
       ].join(' ')}
       >

@@ -27,6 +27,13 @@ const isMissingMessageTranslationFields = (error) => (
   || error?.details?.includes('metadata')
 );
 
+const isMissingGuestIdentityFields = (error) => (
+  error?.message?.includes('name')
+  || error?.message?.includes('full_name')
+  || error?.details?.includes('name')
+  || error?.details?.includes('full_name')
+);
+
 const getMessagesForConversations = async ({ supabase, conversationIds, hotelId }) => {
   if (!hotelId || !conversationIds.length) {
     return [];
@@ -50,6 +57,37 @@ const getMessagesForConversations = async ({ supabase, conversationIds, hotelId 
       .in('conversation_id', conversationIds)
       .order('created_at', { ascending: true })
       .limit(INBOX_MESSAGE_LIMIT);
+
+    data = fallback.data;
+    error = fallback.error;
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+};
+
+const getGuestsForInbox = async ({ supabase, guestIds, hotelId }) => {
+  if (!guestIds.length || !hotelId) {
+    return [];
+  }
+
+  const baseSelect = 'id, hotel_id, phone_number, current_room, preferred_language';
+  const identitySelect = `${baseSelect}, name, full_name`;
+  let { data, error } = await supabase
+    .from('guests')
+    .select(identitySelect)
+    .eq('hotel_id', hotelId)
+    .in('id', guestIds);
+
+  if (error && isMissingGuestIdentityFields(error)) {
+    const fallback = await supabase
+      .from('guests')
+      .select(baseSelect)
+      .eq('hotel_id', hotelId)
+      .in('id', guestIds);
 
     data = fallback.data;
     error = fallback.error;
@@ -316,6 +354,8 @@ const RESERVATION_CANCELLED_STATUSES = new Set(['cancelled', 'canceled', 'no_sho
 const RESERVATION_COMPLETED_STATUSES = new Set(['completed', 'checked_out', 'departed']);
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
+const normalizePhone = (value) => String(value || '').replace(/\D/g, '');
+const uniqueById = (rows = []) => [...new Map(rows.map((row) => [row.id, row])).values()];
 
 const reservationDateTime = (reservation = {}) => {
   const value = reservation.arrival_date || reservation.departure_date;
@@ -354,35 +394,79 @@ const scoreReservationForInbox = (reservation = {}) => {
   return reservationDateTime(reservation) / 10000000000000;
 };
 
-const getReservationsByGuest = async ({ supabase, guestIds, hotelId }) => {
-  if (!guestIds.length || !hotelId) {
-    return new Map();
+const getReservationIdentityLookups = async ({ supabase, guestIds, guestPhones, hotelId }) => {
+  const phoneValues = [...new Set((guestPhones || []).flatMap((phone) => {
+    const raw = String(phone || '').trim();
+    const normalized = normalizePhone(raw);
+    return [raw, normalized].filter(Boolean);
+  }))];
+
+  if ((!guestIds.length && !phoneValues.length) || !hotelId) {
+    return {
+      byGuestId: new Map(),
+      byPhone: new Map()
+    };
   }
 
   try {
-    const { data, error } = await supabase
-      .from('reservations')
-      .select('id, hotel_id, guest_id, guest_name, guest_phone, room_number, room_type, arrival_date, departure_date, status, pms_provider, pms_reservation_id, source')
-      .eq('hotel_id', hotelId)
-      .in('guest_id', guestIds)
-      .order('arrival_date', { ascending: false, nullsFirst: false })
-      .limit(500);
+    const select = 'id, hotel_id, guest_id, guest_name, guest_phone, room_number, room_type, arrival_date, departure_date, status, pms_provider, pms_reservation_id, source';
+    const queries = [];
 
-    if (error) {
-      throw error;
+    if (guestIds.length) {
+      queries.push(supabase
+        .from('reservations')
+        .select(select)
+        .eq('hotel_id', hotelId)
+        .in('guest_id', guestIds)
+        .order('arrival_date', { ascending: false, nullsFirst: false })
+        .limit(500));
     }
 
-    return (data || []).reduce((reservationsByGuest, reservation) => {
-      const current = reservationsByGuest.get(reservation.guest_id);
-      if (!current || scoreReservationForInbox(reservation) > scoreReservationForInbox(current)) {
-        reservationsByGuest.set(reservation.guest_id, reservation);
+    if (phoneValues.length) {
+      queries.push(supabase
+        .from('reservations')
+        .select(select)
+        .eq('hotel_id', hotelId)
+        .in('guest_phone', phoneValues)
+        .order('arrival_date', { ascending: false, nullsFirst: false })
+        .limit(500));
+    }
+
+    const results = await Promise.all(queries);
+    const reservations = uniqueById(results.flatMap((result) => {
+      if (result.error) {
+        throw result.error;
       }
 
-      return reservationsByGuest;
-    }, new Map());
+      return result.data || [];
+    }));
+    const byGuestId = new Map();
+    const byPhone = new Map();
+
+    for (const reservation of reservations) {
+      if (reservation.guest_id) {
+        const currentByGuest = byGuestId.get(reservation.guest_id);
+        if (!currentByGuest || scoreReservationForInbox(reservation) > scoreReservationForInbox(currentByGuest)) {
+          byGuestId.set(reservation.guest_id, reservation);
+        }
+      }
+
+      const phoneKey = normalizePhone(reservation.guest_phone);
+      if (phoneKey) {
+        const currentByPhone = byPhone.get(phoneKey);
+        if (!currentByPhone || scoreReservationForInbox(reservation) > scoreReservationForInbox(currentByPhone)) {
+          byPhone.set(phoneKey, reservation);
+        }
+      }
+    }
+
+    return { byGuestId, byPhone };
   } catch (error) {
     console.warn('Inbox reservation context unavailable', error.message);
-    return new Map();
+    return {
+      byGuestId: new Map(),
+      byPhone: new Map()
+    };
   }
 };
 
@@ -490,19 +574,8 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
 
   const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id).filter(Boolean))];
   const conversationIds = conversations.map((conversation) => conversation.id).filter(Boolean);
-  let guestsQuery = guestIds.length
-    ? supabase
-      .from('guests')
-      .select('id, phone_number, current_room, preferred_language')
-      .in('id', guestIds)
-    : Promise.resolve({ data: [], error: null });
-
-  if (guestIds.length && resolvedHotelId) {
-    guestsQuery = guestsQuery.eq('hotel_id', resolvedHotelId);
-  }
-
-  const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, reservationsByGuest, intelligenceByGuest] = await Promise.all([
-    guestsQuery,
+  const [guests, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, intelligenceByGuest] = await Promise.all([
+    getGuestsForInbox({ supabase, guestIds, hotelId: resolvedHotelId }),
     getMessagesForConversations({ supabase, conversationIds, hotelId: resolvedHotelId }),
     getLatestAiLogsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
     getActiveUpsellsByConversation({ supabase, conversationIds }),
@@ -513,18 +586,20 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
       ? getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
       : Promise.resolve(new Map()),
     getGuestStayContextByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
-    getReservationsByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
     getGuestIntelligenceByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
   ]);
 
-  if (guestsError) {
-    throw guestsError;
-  }
-
   const guestsById = new Map((guests || []).map((guest) => [guest.id, guest]));
+  const reservationIdentityLookups = await getReservationIdentityLookups({
+    supabase,
+    guestIds,
+    guestPhones: (guests || []).map((guest) => guest.phone_number),
+    hotelId: resolvedHotelId
+  });
   const roomNumbers = [...new Set([
     ...(guests || []).map((guest) => guest.current_room),
-    ...[...reservationsByGuest.values()].map((reservation) => reservation.room_number),
+    ...[...reservationIdentityLookups.byGuestId.values()].map((reservation) => reservation.room_number),
+    ...[...reservationIdentityLookups.byPhone.values()].map((reservation) => reservation.room_number),
     ...[...stayContextByGuest.values()].map((context) => context.room_number)
   ].filter(Boolean))];
   const roomStatusByRoom = await getRoomStatusByRoomNumber({
@@ -539,7 +614,9 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
     const guest = guestsById.get(conversation.guest_id) || null;
     const guestStayContext = stayContextByGuest.get(conversation.guest_id) || null;
-    const reservation = reservationsByGuest.get(conversation.guest_id) || null;
+    const reservation = reservationIdentityLookups.byGuestId.get(conversation.guest_id)
+      || reservationIdentityLookups.byPhone.get(normalizePhone(guest?.phone_number))
+      || null;
     const resolvedGuest = guest || reservation ? {
       ...(guest || { id: conversation.guest_id }),
       name: guest?.name || guest?.full_name || reservation?.guest_name || null,

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -160,6 +160,7 @@ assert.ok(knowledgeSource.includes('PROTECTED_KNOWLEDGE_CATEGORIES'), 'Knowledge
 assert.ok(knowledgeSource.includes("getKnowledgeContext(request, 'knowledge_base_manage')"), 'Knowledge writes should require knowledge_base_manage');
 
 const appShellSource = readFileSync(join(root, 'dashboard/components/AppShell.js'), 'utf8');
+const dashboardRootLayoutSource = readFileSync(join(root, 'dashboard/app/layout.js'), 'utf8');
 const workspaceContextSource = readFileSync(join(root, 'dashboard/lib/workspace-context.js'), 'utf8');
 const currentHotelSource = readFileSync(join(root, 'dashboard/lib/current-hotel.js'), 'utf8');
 const platformHotelsSource = readFileSync(join(root, 'dashboard/components/PlatformHotelsClient.js'), 'utf8');
@@ -179,6 +180,15 @@ assert.ok(appShellSource.includes('window.addEventListener(WORKSPACE_SELECTION_E
 assert.ok(appShellSource.includes('setWorkspaceRetryNonce((current) => current + 1)'), 'AppShell should reload workspace context after platform hotel selection');
 assert.ok(appShellSource.includes("parsed.hotelId === currentHotel.id"), 'Support session must be scoped to the active hotel');
 assert.ok(appShellSource.includes("'x-staynex-workspace-path': pathname || ''"), 'AppShell should pass the current route while resolving workspace context');
+assert.ok(dashboardRootLayoutSource.includes('<AppShell>{children}</AppShell>'), 'Dashboard routes should share one persistent application shell');
+assert.equal(existsSync(join(root, 'dashboard/app/loading.js')), false, 'Root dashboard app should not define a global loading boundary');
+assert.equal(existsSync(join(root, 'dashboard/app/dashboard/loading.js')), false, 'Dashboard sections should not use a full-screen nested loading boundary');
+assert.match(appShellSource, /PRIMARY_DASHBOARD_PREFETCH_ROUTES = new Set\(\[[\s\S]*?'\/dashboard\/inbox'[\s\S]*?'\/dashboard\/reservations'[\s\S]*?'\/dashboard\/tickets'[\s\S]*?'\/dashboard\/automations'[\s\S]*?'\/dashboard\/health'/, 'Primary dashboard routes should be declared for prefetching');
+assert.match(appShellSource, /router\.prefetch\(href\)/, 'AppShell should prefetch primary dashboard destinations');
+assert.match(appShellSource, /prefetch=\{PRIMARY_DASHBOARD_PREFETCH_ROUTES\.has\(item\.href\) \? true : undefined\}/, 'Primary sidebar navigation should retain Next.js prefetching');
+assert.match(appShellSource, /\}, \[authLoading, isAuthenticated, isLoginPage, sessionAccessToken, workspaceRetryNonce\]\);/, 'Workspace resolution should not rerun on ordinary pathname changes');
+assert.match(appShellSource, /if \(onboardingChecked\) \{[\s\S]*?return undefined;[\s\S]*?\}/, 'Onboarding state should stay checked during ordinary route changes');
+assert.doesNotMatch(appShellSource, /window\.location|location\.href|router\.refresh\(\)/, 'AppShell internal navigation should avoid full reloads and forced refreshes');
 assert.ok(appShellSource.includes("router.replace('/platform/hotels')"), 'Workspace-required errors should guide platform admins back to Platform Hotels');
 assert.ok(platformHotelsSource.includes("notify: true"), 'Platform Hotels enter workspace should notify AppShell');
 assert.ok(platformHotelsSource.includes('/dashboard?hotelId='), 'Platform Hotels enter workspace should route with selected hotelId');

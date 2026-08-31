@@ -142,6 +142,14 @@ const TENANT_CHANGED_EVENT = 'staynex:tenant-changed';
 const INTERNAL_PLATFORM_ROLES = ['platform_admin', 'super_admin', 'internal_only'];
 const scopedKey = (key, hotelId) => `${key}:${hotelId || 'none'}`;
 const WORKSPACE_RESOLUTION_TIMEOUT_MS = 7000;
+const PRIMARY_DASHBOARD_PREFETCH_ROUTES = new Set([
+  '/dashboard',
+  '/dashboard/inbox',
+  '/dashboard/reservations',
+  '/dashboard/tickets',
+  '/dashboard/automations',
+  '/dashboard/health'
+]);
 
 const AppShellContent = ({ children }) => {
   const pathname = usePathname();
@@ -196,6 +204,12 @@ const AppShellContent = ({ children }) => {
     [activeRole, hotelContext.platformRole, pilotNavigationGroups]
   );
   const canAccessPlatformConsole = INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole);
+  const primaryDashboardPrefetchRoutes = useMemo(() => (
+    allowedNavigationGroups
+      .flatMap((group) => group.items)
+      .map((item) => item.href)
+      .filter((href) => PRIMARY_DASHBOARD_PREFETCH_ROUTES.has(href))
+  ), [allowedNavigationGroups]);
 
   useEffect(() => {
     setMobileSidebarOpen(false);
@@ -295,14 +309,7 @@ const AppShellContent = ({ children }) => {
       setHotelContextLoaded(true);
     }, WORKSPACE_RESOLUTION_TIMEOUT_MS);
 
-    setHotelContextLoaded(false);
     setWorkspaceError(null);
-    setCurrentHotel(null);
-    setUrgentCount(0);
-    setInboxUnreadCount(0);
-    setInboxHumanCount(0);
-    setOnboardingChecked(false);
-    setOnboardingCompleted(true);
 
     const loadCurrentHotel = async () => {
       try {
@@ -380,7 +387,7 @@ const AppShellContent = ({ children }) => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [authLoading, isAuthenticated, isLoginPage, pathname, sessionAccessToken, workspaceRetryNonce]);
+  }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken, workspaceRetryNonce]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isLoginPage) {
@@ -422,8 +429,15 @@ const AppShellContent = ({ children }) => {
       return undefined;
     }
 
+    if (onboardingChecked) {
+      if (!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
+        router.replace('/dashboard/onboarding');
+      }
+
+      return undefined;
+    }
+
     let active = true;
-    setOnboardingChecked(false);
 
     const loadOnboardingState = async () => {
       try {
@@ -487,7 +501,7 @@ const AppShellContent = ({ children }) => {
       active = false;
       window.removeEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
     };
-  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, router, sessionAccessToken]);
+  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, onboardingChecked, onboardingCompleted, router, sessionAccessToken]);
 
   useEffect(() => {
     if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
@@ -610,7 +624,6 @@ const AppShellContent = ({ children }) => {
       });
       setHotelContextLoaded(true);
       router.replace(getFirstAllowedRoute(body.role || 'owner'));
-      router.refresh();
     } catch (error) {
       console.error('Hotel switch failed', error);
       setHotelContextLoaded(true);
@@ -662,7 +675,7 @@ const AppShellContent = ({ children }) => {
       window.sessionStorage.removeItem('staynex_support_session');
       setSupportSession(null);
     }
-  }, [currentHotel?.id, pathname]);
+  }, [currentHotel?.id]);
 
   useEffect(() => {
     if (!hotelContextLoaded || !currentHotel?.id || typeof window === 'undefined') {
@@ -684,7 +697,7 @@ const AppShellContent = ({ children }) => {
         pathname
       });
     }
-  }, [currentHotel?.id, hotelContext.hotelUser?.user_id, hotelContext.platformRole, hotelContextLoaded, pathname, supportSession]);
+  }, [currentHotel?.id, hotelContext.hotelUser?.user_id, hotelContext.platformRole, hotelContextLoaded, supportSession]);
 
   useEffect(() => {
     const loadUrgentCount = async () => {
@@ -713,7 +726,17 @@ const AppShellContent = ({ children }) => {
     };
 
     loadUrgentCount();
-  }, [currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, pathname, sessionAccessToken]);
+  }, [currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, sessionAccessToken]);
+
+  useEffect(() => {
+    if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
+      return;
+    }
+
+    for (const href of primaryDashboardPrefetchRoutes) {
+      router.prefetch(href);
+    }
+  }, [authLoading, hotelContextLoaded, isAuthenticated, isLoginPage, primaryDashboardPrefetchRoutes, router]);
 
   useEffect(() => {
     if (!hotelContextLoaded || !currentHotel?.id) {
@@ -886,6 +909,7 @@ const AppShellContent = ({ children }) => {
 
   const sidebarHotelName = currentHotel?.name || 'Staynex';
   const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
+  const isInboxRoute = pathname === '/dashboard/inbox';
   const workspaceBrandColor = isPlatformContext ? STAYNEX_BLUE : currentHotel?.brand_color || '#34d399';
   const workspaceSecondaryColor = isPlatformContext ? '#084EC7' : currentHotel?.secondary_color || '#0f766e';
   const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext;
@@ -1203,6 +1227,7 @@ const AppShellContent = ({ children }) => {
                           <Link
                             key={item.href}
                             href={item.href}
+                            prefetch={PRIMARY_DASHBOARD_PREFETCH_ROUTES.has(item.href) ? true : undefined}
                             className={[
                               'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
                               isLight
@@ -1276,12 +1301,21 @@ const AppShellContent = ({ children }) => {
           </div>
         </aside>
 
-        <main className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
-          <div className="mx-auto w-full max-w-7xl px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 lg:px-10 lg:pb-8 lg:pt-8">
-            <div className="mb-6 hidden justify-end gap-2 lg:flex">
-              <ThemeToggle />
-              <LanguageSelector />
-            </div>
+        <main className={cn(
+          'min-h-0 w-full flex-1 overflow-x-hidden overscroll-contain',
+          isInboxRoute ? 'overflow-hidden' : 'overflow-y-auto'
+        )}>
+          <div className={cn(
+            isInboxRoute
+              ? 'flex h-full min-h-0 w-full flex-col px-0 pb-0 pt-0 sm:px-2 sm:pb-2 sm:pt-2 lg:px-4 lg:pb-4 lg:pt-4'
+              : 'mx-auto w-full max-w-7xl px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 lg:px-10 lg:pb-8 lg:pt-8'
+          )}>
+            {!isInboxRoute ? (
+              <div className="mb-6 hidden justify-end gap-2 lg:flex">
+                <ThemeToggle />
+                <LanguageSelector />
+              </div>
+            ) : null}
             {showBackToPlatform ? (
               <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1339,7 +1373,10 @@ const AppShellContent = ({ children }) => {
                 </div>
               </div>
             ) : null}
-            <div key={`${currentHotel.id}:${supportSession ? 'support' : 'hotel'}`}>
+            <div
+              key={`${currentHotel.id}:${supportSession ? 'support' : 'hotel'}`}
+              className={isInboxRoute ? 'min-h-0 flex-1' : undefined}
+            >
               {children}
             </div>
           </div>

@@ -330,7 +330,8 @@ for (const key of ['check_in', 'check_out', 'desayuno', 'wifi', 'housekeeping_to
 }
 
 const inboxSource = readFileSync(new URL('../dashboard/lib/inbox.js', import.meta.url), 'utf8');
-assert.match(inboxSource, /getReservationsByGuest/, 'Inbox should use reservation context for guest identity');
+assert.match(inboxSource, /getReservationIdentityLookups/, 'Inbox should use reservation context for guest identity');
+assert.match(inboxSource, /byPhone\.get\(normalizePhone\(guest\?\.phone_number\)\)/, 'Inbox should recover reservation identity through same-tenant guest phone when guest_id links drift');
 assert.match(inboxSource, /guest_name/, 'Inbox should prefer reservation guest names when guest rows only have phones');
 assert.match(inboxSource, /room_number/, 'Inbox should derive room context from reservations when needed');
 
