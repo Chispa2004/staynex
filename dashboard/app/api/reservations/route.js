@@ -3,11 +3,18 @@ import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess, getPermissionsForRole } from '@/lib/permissions';
 
 const getTodayKey = () => new Date().toISOString().slice(0, 10);
+const CANCELLED_RESERVATION_STATUSES = new Set(['cancelled', 'canceled', 'no_show', 'void']);
+const COMPLETED_RESERVATION_STATUSES = new Set(['completed', 'checked_out', 'departed']);
 
 const getJourneyStatus = (reservation) => {
   const today = getTodayKey();
+  const rawStatus = String(reservation.status || '').toLowerCase();
 
-  if (reservation.departure_date && today > reservation.departure_date) {
+  if (CANCELLED_RESERVATION_STATUSES.has(rawStatus)) {
+    return 'cancelled';
+  }
+
+  if (COMPLETED_RESERVATION_STATUSES.has(rawStatus) || (reservation.departure_date && today > reservation.departure_date)) {
     return 'post_stay';
   }
 

@@ -8,6 +8,12 @@ import {
 import { isGuestMemoryEnabled } from '../../../../shared/guest-memory/feature-flag.js';
 
 const PMS_EXECUTIVE_SELECT = pmsConnectionSelectForSurface('tenant_settings');
+const CHECKIN_DEMO_SLUG = 'hotel-demo-checkin';
+
+const isCheckinDemoHotel = (hotel = {}) => (
+  hotel.slug === CHECKIN_DEMO_SLUG
+  || String(hotel.name || '').toLowerCase() === 'hotel demo checkin'
+);
 
 const startOfTodayIso = () => {
   const date = new Date();
@@ -537,7 +543,13 @@ export async function GET(request) {
       || Object.entries(upsellTypeCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
       || null;
     const completedTickets = allTickets.filter((item) => item.status === 'completed').length;
-    const guestSatisfactionScore = Math.max(78, Math.min(98, 94 - urgentTickets * 2 + completedTickets));
+    const satisfactionValues = recentAiLogs.map((item) => Number(item.ai_satisfaction_estimate)).filter(Number.isFinite);
+    const guestSatisfactionScore = satisfactionValues.length
+      ? Math.round(satisfactionValues.reduce((total, value) => total + value, 0) / satisfactionValues.length)
+      : Math.max(78, Math.min(98, 94 - urgentTickets * 2 + completedTickets));
+    const guestSatisfactionSource = satisfactionValues.length
+      ? 'ai_logs'
+      : isCheckinDemoHotel(hotel) ? 'demo_estimate' : 'operational_estimate';
     const arrivalsToday = reservationsToday.filter((item) => item.arrival_date === todayDate).length;
     const departuresToday = reservationsToday.filter((item) => item.departure_date === todayDate).length;
     const signalGuestIds = [...new Set([
@@ -603,7 +615,6 @@ export async function GET(request) {
     const highValueConversations = recentConversationStates.filter((item) => ['room_upgrade_interest', 'late_checkout_interest', 'airport_transfer_interest'].includes(item.current_intent));
     const openAiLogs = recentAiLogs.filter((item) => item.openai_concierge_used);
     const openAiConfidenceValues = recentAiLogs.map((item) => Number(item.confidence_score)).filter(Number.isFinite);
-    const satisfactionValues = recentAiLogs.map((item) => Number(item.ai_satisfaction_estimate)).filter(Number.isFinite);
     const latestOccupancy = latestOccupancyRows[0] || null;
     const operationalContext = {
       occupancyToday: latestOccupancy?.occupancy_percent ?? null,
@@ -786,6 +797,7 @@ export async function GET(request) {
         automationsScheduled,
         estimatedAiRevenue: acceptedRevenue || estimatedAiRevenue,
         guestSatisfactionScore,
+        guestSatisfactionSource,
         urgentTickets
       },
       summary: {

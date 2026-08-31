@@ -31,6 +31,7 @@ const categoryLabels = {
   room_service: 'Servicio de habitaciones',
   hotel_info: 'Información del hotel',
   transport: 'Transporte',
+  reception: 'Recepción',
   complaint: 'Incidencia huésped',
   guest_request: 'Solicitud huésped'
 };

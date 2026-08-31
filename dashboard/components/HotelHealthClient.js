@@ -49,7 +49,9 @@ const pilotStatusLabel = {
   HEALTHY: 'Operativo',
   DEGRADED: 'Degradado',
   'ACTION REQUIRED': 'Acción requerida',
-  BLOCKED: 'Bloqueado'
+  BLOCKED: 'Bloqueado',
+  DEMO_READY: 'Lista para demostración',
+  GO_LIVE_PENDING: 'Go-Live pendiente'
 };
 
 const severityLabel = {
@@ -157,6 +159,7 @@ const formatHealthText = (value) => {
   return text
     .replace(/^(\d+) active urgent tickets need attention\.$/, '$1 tickets urgentes requieren atención.')
     .replace(/^(\d+) real operational tickets are unresolved\.$/, '$1 tickets operativos reales siguen pendientes.')
+    .replace(/^(\d+) demo scenario tickets are open\.$/, '$1 tickets abiertos en el escenario demo.')
     .replace(/^(\d+) conversations are handled by reception\.$/, '$1 conversaciones están en control humano.')
     .replace(/^(\d+) arrivals still need operational review\.$/, '$1 llegadas necesitan revisión operativa.')
     .replace(/^(\d+) conversations may need careful follow-up\.$/, '$1 conversaciones pueden necesitar seguimiento cuidadoso.')
@@ -191,14 +194,21 @@ const formatPilotWhyLine = (value) => {
   }
 
   const [, label, status, reason] = match;
-  return `${formatHealthText(label)}: ${pilotStatusLabel[status] || status}. ${formatHealthText(reason)}`;
+  const displayStatus = label === 'Automations'
+    && status === 'BLOCKED'
+    && /Live send esta desactivado/.test(reason)
+    ? 'GO_LIVE_PENDING'
+    : status;
+  return `${formatHealthText(label)}: ${pilotStatusLabel[displayStatus] || displayStatus}. ${formatHealthText(reason)}`;
 };
 
 const pilotStatusTone = {
   HEALTHY: 'emerald',
   DEGRADED: 'amber',
   'ACTION REQUIRED': 'amber',
-  BLOCKED: 'red'
+  BLOCKED: 'red',
+  DEMO_READY: 'emerald',
+  GO_LIVE_PENDING: 'amber'
 };
 
 const pilotIconById = {
@@ -209,6 +219,14 @@ const pilotIconById = {
   automations: Workflow,
   operations: AlertTriangle
 };
+
+const getPilotComponentDisplayStatus = (item = {}) => (
+  item.id === 'automations'
+  && item.details?.previewRuntimeHealthy === true
+  && item.details?.liveSendExplicitlyOff === true
+    ? 'GO_LIVE_PENDING'
+    : item.status
+);
 
 export const HotelHealthClient = () => {
   const { theme } = useDashboardTheme();
@@ -263,6 +281,17 @@ export const HotelHealthClient = () => {
   const hotelAutoReplyEnabled = Boolean(hotelAiStatus.enabled);
   const globalAutoReplyAllowed = globalAiStatus.allowed !== false;
   const allOperational = health.overallStatus === 'healthy' && !health.warnings?.length;
+  const demoReadyLivePending = Boolean(pilotHealth.readyForPilotDemo && pilotHealth.readyForLiveAutomations === false);
+  const pilotHeaderStatus = demoReadyLivePending ? 'DEMO_READY' : pilotHealth.demoStatus || pilotHealth.status;
+  const healthHeadline = demoReadyLivePending
+    ? 'Demo preparada; Go-Live pendiente.'
+    : allOperational ? 'Staynex está preparado y funcionando.' : 'Staynex necesita revisión antes de demo o envío real.';
+  const healthStateValue = demoReadyLivePending
+    ? 'Lista para demostración'
+    : statusLabel[health.overallStatus] || 'Operativo';
+  const healthStateTone = demoReadyLivePending
+    ? 'emerald'
+    : health.overallStatus === 'warning' ? 'amber' : health.overallStatus === 'critical' ? 'red' : 'emerald';
 
   const updateHotelAutoReply = async (enabled) => {
     setKillSwitchUpdating(true);
@@ -305,7 +334,7 @@ export const HotelHealthClient = () => {
           <div>
             <p className={ui.text.eyebrow(isLight)}>Salud operativa del hotel</p>
             <h2 className={cn('mt-2 text-3xl', ui.text.title(isLight))}>
-              {allOperational ? 'Staynex está preparado y funcionando.' : 'Staynex necesita revisión antes de demo o envío real.'}
+              {healthHeadline}
             </h2>
             <p className={cn('mt-2 max-w-3xl', ui.text.body(isLight))}>
               Vista operativa para recepción y administración: impacto en huésped, causa y siguiente acción.
@@ -314,6 +343,7 @@ export const HotelHealthClient = () => {
           <div className="flex flex-wrap gap-2">
             <HealthBadge status={health.overallStatus || 'healthy'} />
             {health.environment?.isDemo ? <span className={ui.badge(isLight, 'sky')}>{formatHealthText(health.environment.label)}</span> : null}
+            {demoReadyLivePending ? <span className={ui.badge(isLight, 'amber')}>Go-Live pendiente</span> : null}
             <button type="button" onClick={() => loadHealth()} disabled={refreshing} className={ui.button(isLight, 'secondary')}>
               <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
               Actualizar
@@ -323,7 +353,7 @@ export const HotelHealthClient = () => {
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <SummaryTile label="Score operativo" value={loading ? '...' : `${health.healthScore || 0}%`} tone={health.overallStatus === 'critical' ? 'red' : health.overallStatus === 'warning' ? 'amber' : 'emerald'} />
-          <SummaryTile label="Estado actual" value={loading ? '...' : statusLabel[health.overallStatus] || 'Operativo'} tone={health.overallStatus === 'warning' ? 'amber' : health.overallStatus === 'critical' ? 'red' : 'emerald'} />
+          <SummaryTile label="Estado actual" value={loading ? '...' : healthStateValue} tone={healthStateTone} />
           <SummaryTile label="Avisos" value={loading ? '...' : health.warnings?.length || 0} tone={health.warnings?.length ? 'amber' : 'emerald'} />
         </div>
       </section>
@@ -334,21 +364,23 @@ export const HotelHealthClient = () => {
             <div>
               <p className={ui.text.eyebrow(isLight)}>Salud piloto</p>
               <h3 className={cn('mt-1 text-2xl font-semibold', ui.text.title(isLight))}>
-                {pilotHealth.readyForPilotDemo ? 'Listo para demo piloto' : 'Necesita acción antes de la demo'}
+                {pilotHealth.readyForPilotDemo ? 'Demo preparada' : 'Necesita acción antes de la demo'}
               </h3>
               <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
-                {pilotHealth.why?.length
+                {demoReadyLivePending
+                  ? 'La demo está lista; el Go-Live queda pendiente hasta cerrar los controles de envío real.'
+                  : pilotHealth.why?.length
                   ? 'El estado muestra solo impacto operativo y razones accionables.'
                   : 'No hay problemas operativos visibles para el ensayo piloto.'}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <PilotStatusBadge status={pilotHealth.status} />
+              <PilotStatusBadge status={pilotHeaderStatus} />
               <span className={ui.badge(isLight, pilotHealth.readyForPilotDemo ? 'emerald' : 'amber')}>
-                {pilotHealth.readyForPilotDemo ? 'Listo para demo piloto' : 'Revisar antes de demo'}
+                {pilotHealth.readyForPilotDemo ? 'Lista para demostración' : 'Revisar antes de demo'}
               </span>
               <span className={ui.badge(isLight, pilotHealth.readyForLiveAutomations ? 'emerald' : 'red')}>
-                {pilotHealth.readyForLiveAutomations ? 'Envío real permitido' : 'Envío real bloqueado'}
+                {pilotHealth.readyForLiveAutomations ? 'Envío real permitido' : 'Go-Live pendiente'}
               </span>
             </div>
           </div>
@@ -482,12 +514,13 @@ const PilotHealthRow = ({ item }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const Icon = pilotIconById[item.id] || ShieldCheck;
+  const displayStatus = getPilotComponentDisplayStatus(item);
 
   return (
     <div className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <span className={ui.badge(isLight, pilotStatusTone[item.status] || 'slate', true)}>
+          <span className={ui.badge(isLight, pilotStatusTone[displayStatus] || 'slate', true)}>
             <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
@@ -496,7 +529,7 @@ const PilotHealthRow = ({ item }) => {
             <p className={cn('mt-1 text-sm leading-5', ui.text.body(isLight))}>{formatHealthText(item.why)}</p>
           </div>
         </div>
-        <PilotStatusBadge status={item.status} />
+        <PilotStatusBadge status={displayStatus} />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {item.action ? <span className={ui.badge(isLight, 'slate', true)}>Acción: {formatHealthText(item.action)}</span> : null}

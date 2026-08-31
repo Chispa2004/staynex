@@ -859,7 +859,7 @@ const CHECKIN_DEMO_ROOMS = Object.freeze([
 const CHECKIN_DEMO_RESERVATIONS = Object.freeze([
   {
     key: 'main-lucia',
-    guestName: 'Lucia Martin',
+    guestName: 'Lucía Martín',
     emailKey: 'lucia.martin',
     phoneIndex: 1,
     roomNumber: '208',
@@ -1126,7 +1126,7 @@ const CHECKIN_DEMO_CONVERSATIONS = Object.freeze([
     offsetMinutes: -6,
     messages: [
       ['guest', 'Hola, acabamos de llegar a la habitacion 208.'],
-      ['ai', 'Bienvenida, Lucia. Recepcion esta disponible por aqui si necesitais cualquier cosa durante la estancia.'],
+      ['ai', 'Bienvenida, Lucía. Recepcion esta disponible por aqui si necesitais cualquier cosa durante la estancia.'],
       ['guest', 'Hola, me podeis traer dos toallas mas a la habitacion?']
     ]
   },

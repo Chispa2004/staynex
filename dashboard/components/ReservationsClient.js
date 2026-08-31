@@ -32,6 +32,7 @@ const filterOptions = [
   { key: 'upcoming', labelKey: 'reservations.filters.upcoming' },
   { key: 'in_house', labelKey: 'reservations.filters.inHouse' },
   { key: 'completed', labelKey: 'reservations.filters.completed' },
+  { key: 'cancelled', labelKey: 'reservations.filters.cancelled' },
   { key: 'today_arrivals', labelKey: 'reservations.filters.todayArrivals' },
   { key: 'today_departures', labelKey: 'reservations.filters.todayDepartures' }
 ];
@@ -58,6 +59,13 @@ const addDaysToDate = (dateValue, days) => {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString();
 };
+
+const CANCELLED_RESERVATION_STATUSES = new Set(['cancelled', 'canceled', 'no_show', 'void']);
+const COMPLETED_RESERVATION_STATUSES = new Set(['completed', 'checked_out', 'departed']);
+
+const isCancelledReservation = (reservation = {}) => (
+  CANCELLED_RESERVATION_STATUSES.has(String(reservation.status || '').toLowerCase())
+);
 
 const formatDate = (value) => {
   if (!value) {
@@ -91,7 +99,11 @@ const getStayStatus = (reservation) => {
   const departure = reservation.departure_date;
   const rawStatus = String(reservation.status || '').toLowerCase();
 
-  if (['completed', 'checked_out'].includes(rawStatus) || (departure && departure < today)) {
+  if (isCancelledReservation(reservation)) {
+    return 'cancelled';
+  }
+
+  if (COMPLETED_RESERVATION_STATUSES.has(rawStatus) || (departure && departure < today)) {
     return 'completed';
   }
 
@@ -103,6 +115,10 @@ const getStayStatus = (reservation) => {
 };
 
 const getJourneyStatus = (reservation) => {
+  if (isCancelledReservation(reservation)) {
+    return 'cancelled';
+  }
+
   if (reservation.computedJourneyStatus) {
     return reservation.computedJourneyStatus;
   }
@@ -130,7 +146,7 @@ const statusTone = (status) => {
     return 'emerald';
   }
 
-  if (status === 'completed' || status === 'post_stay' || status === 'not_linked') {
+  if (status === 'completed' || status === 'post_stay' || status === 'not_linked' || status === 'cancelled') {
     return 'slate';
   }
 
@@ -280,11 +296,11 @@ const matchesFilter = (reservation, filter) => {
   const today = todayKey();
 
   if (filter === 'today_arrivals') {
-    return reservation.arrival_date === today;
+    return status !== 'cancelled' && reservation.arrival_date === today;
   }
 
   if (filter === 'today_departures') {
-    return reservation.departure_date === today;
+    return status !== 'cancelled' && reservation.departure_date === today;
   }
 
   return status === filter;
@@ -781,11 +797,8 @@ export const ReservationsClient = () => {
       }));
       setReservations(nextReservations);
       setSelectedReservation((current) => {
-        if (!current) {
-          return nextReservations[0] || null;
-        }
-
-        return nextReservations.find((reservation) => reservation.id === current.id) || nextReservations[0] || null;
+        if (!current) return null;
+        return nextReservations.find((reservation) => reservation.id === current.id) || null;
       });
     } catch (loadError) {
       console.error('Reservations fetch failed', loadError);
@@ -808,6 +821,8 @@ export const ReservationsClient = () => {
     return {
       total: reservations.length,
       arrivingSoon: reservations.filter((reservation) => (
+        !isCancelledReservation(reservation)
+        &&
         reservation.arrival_date
         && reservation.arrival_date >= today
         && reservation.arrival_date <= soon
@@ -823,6 +838,20 @@ export const ReservationsClient = () => {
       && matchesSearch(reservation, search)
     ))
   ), [reservations, activeFilter, search]);
+
+  useEffect(() => {
+    setSelectedReservation((current) => {
+      if (!filteredReservations.length) {
+        return null;
+      }
+
+      if (current && filteredReservations.some((reservation) => reservation.id === current.id)) {
+        return current;
+      }
+
+      return filteredReservations[0];
+    });
+  }, [filteredReservations]);
 
   useEffect(() => {
     setPage(1);

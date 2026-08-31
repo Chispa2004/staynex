@@ -329,6 +329,9 @@ const OverviewPanel = ({ data, loading, permissions }) => {
   const revenue = data?.revenue || {};
   const experienceBookings = data?.experienceBookings || {};
   const conversationIntelligence = data?.conversationIntelligence || {};
+  const satisfactionLabel = kpis.guestSatisfactionSource === 'demo_estimate'
+    ? 'Satisfacción huésped (demo)'
+    : 'Satisfacción huésped';
   const stats = [
     { label: 'Mensajes gestionados hoy', value: kpis.aiResponses || 0, icon: Bot, tone: 'violet' },
     { label: 'Conversaciones activas', value: summary.activeConversations || 0, icon: Inbox, tone: 'sky' },
@@ -341,7 +344,7 @@ const OverviewPanel = ({ data, loading, permissions }) => {
     permissions.experienceBookings
       ? { label: 'Solicitudes de experiencias', value: experienceBookings.active || summary.experienceRequests || 0, icon: CalendarCheck, tone: 'sky' }
       : null,
-    { label: 'Satisfacción huésped', value: formatPercent(kpis.guestSatisfactionScore || conversationIntelligence.aiSatisfactionEstimate || 0), icon: Sparkles, tone: 'amber' }
+    { label: satisfactionLabel, value: formatPercent(kpis.guestSatisfactionScore || conversationIntelligence.aiSatisfactionEstimate || 0), icon: Sparkles, tone: 'amber' }
   ].filter(Boolean);
 
   return (

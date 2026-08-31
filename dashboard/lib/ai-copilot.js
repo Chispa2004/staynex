@@ -460,12 +460,12 @@ export const buildConversationCopilot = (conversation = {}) => {
 const departmentFromTicket = (ticket = {}) => {
   const text = normalizeText(`${ticket.category || ''} ${ticket.title || ''} ${ticket.description || ''}`);
 
-  if (hasAny(text, ['maintenance', 'ac', 'air conditioning', 'electric', 'water', 'broken', 'no funciona'])) {
-    return 'Maintenance';
+  if (hasAny(text, ['housekeeping', 'pisos', 'clean', 'towel', 'towels', 'limpieza', 'toalla', 'toallas', 'sabana', 'sabanas', 'amenity', 'amenities'])) {
+    return 'Housekeeping';
   }
 
-  if (hasAny(text, ['housekeeping', 'clean', 'towel', 'limpieza', 'toalla'])) {
-    return 'Housekeeping';
+  if (hasAny(text, ['maintenance', 'mantenimiento', 'ac', 'air conditioning', 'aire acondicionado', 'electric', 'water', 'broken', 'no funciona'])) {
+    return 'Maintenance';
   }
 
   if (hasAny(text, ['restaurant', 'breakfast', 'spa', 'experience', 'booking'])) {

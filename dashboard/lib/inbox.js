@@ -312,6 +312,80 @@ const getRoomStatusByRoomNumber = async ({ supabase, roomNumbers, hotelId }) => 
   }
 };
 
+const RESERVATION_CANCELLED_STATUSES = new Set(['cancelled', 'canceled', 'no_show', 'void']);
+const RESERVATION_COMPLETED_STATUSES = new Set(['completed', 'checked_out', 'departed']);
+
+const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
+const reservationDateTime = (reservation = {}) => {
+  const value = reservation.arrival_date || reservation.departure_date;
+  const time = value ? new Date(`${value}T12:00:00.000Z`).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+};
+
+const scoreReservationForInbox = (reservation = {}) => {
+  const today = getTodayKey();
+  const status = String(reservation.status || '').toLowerCase();
+  const arrival = reservation.arrival_date;
+  const departure = reservation.departure_date;
+
+  if (RESERVATION_CANCELLED_STATUSES.has(status)) {
+    return -1000 + reservationDateTime(reservation) / 10000000000000;
+  }
+
+  if (
+    !RESERVATION_COMPLETED_STATUSES.has(status)
+    && arrival
+    && departure
+    && arrival <= today
+    && departure >= today
+  ) {
+    return 1000 + reservationDateTime(reservation) / 10000000000000;
+  }
+
+  if (arrival && arrival >= today) {
+    return 500 - Math.abs(reservationDateTime(reservation) - Date.now()) / 1000000000;
+  }
+
+  if (RESERVATION_COMPLETED_STATUSES.has(status) || (departure && departure < today)) {
+    return 100 + reservationDateTime(reservation) / 10000000000000;
+  }
+
+  return reservationDateTime(reservation) / 10000000000000;
+};
+
+const getReservationsByGuest = async ({ supabase, guestIds, hotelId }) => {
+  if (!guestIds.length || !hotelId) {
+    return new Map();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('id, hotel_id, guest_id, guest_name, guest_phone, room_number, room_type, arrival_date, departure_date, status, pms_provider, pms_reservation_id, source')
+      .eq('hotel_id', hotelId)
+      .in('guest_id', guestIds)
+      .order('arrival_date', { ascending: false, nullsFirst: false })
+      .limit(500);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data || []).reduce((reservationsByGuest, reservation) => {
+      const current = reservationsByGuest.get(reservation.guest_id);
+      if (!current || scoreReservationForInbox(reservation) > scoreReservationForInbox(current)) {
+        reservationsByGuest.set(reservation.guest_id, reservation);
+      }
+
+      return reservationsByGuest;
+    }, new Map());
+  } catch (error) {
+    console.warn('Inbox reservation context unavailable', error.message);
+    return new Map();
+  }
+};
+
 const getGuestIntelligenceByGuest = async ({ supabase, guestIds, hotelId }) => {
   if (!guestIds.length || !hotelId) {
     return new Map();
@@ -427,7 +501,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     guestsQuery = guestsQuery.eq('hotel_id', resolvedHotelId);
   }
 
-  const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, intelligenceByGuest] = await Promise.all([
+  const [{ data: guests, error: guestsError }, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, reservationsByGuest, intelligenceByGuest] = await Promise.all([
     guestsQuery,
     getMessagesForConversations({ supabase, conversationIds, hotelId: resolvedHotelId }),
     getLatestAiLogsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
@@ -439,6 +513,7 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
       ? getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
       : Promise.resolve(new Map()),
     getGuestStayContextByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
+    getReservationsByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
     getGuestIntelligenceByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
   ]);
 
@@ -447,7 +522,11 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   }
 
   const guestsById = new Map((guests || []).map((guest) => [guest.id, guest]));
-  const roomNumbers = [...new Set((guests || []).map((guest) => guest.current_room).filter(Boolean))];
+  const roomNumbers = [...new Set([
+    ...(guests || []).map((guest) => guest.current_room),
+    ...[...reservationsByGuest.values()].map((reservation) => reservation.room_number),
+    ...[...stayContextByGuest.values()].map((context) => context.room_number)
+  ].filter(Boolean))];
   const roomStatusByRoom = await getRoomStatusByRoomNumber({
     supabase,
     roomNumbers,
@@ -460,10 +539,21 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
     const guest = guestsById.get(conversation.guest_id) || null;
     const guestStayContext = stayContextByGuest.get(conversation.guest_id) || null;
-    const roomStatus = roomStatusByRoom.get(guest?.current_room || guestStayContext?.room_number) || null;
+    const reservation = reservationsByGuest.get(conversation.guest_id) || null;
+    const resolvedGuest = guest || reservation ? {
+      ...(guest || { id: conversation.guest_id }),
+      name: guest?.name || guest?.full_name || reservation?.guest_name || null,
+      full_name: guest?.full_name || guest?.name || reservation?.guest_name || null,
+      phone_number: guest?.phone_number || reservation?.guest_phone || null,
+      current_room: guest?.current_room || reservation?.room_number || guestStayContext?.room_number || null,
+      preferred_language: guest?.preferred_language || null
+    } : null;
+    const roomNumber = resolvedGuest?.current_room || reservation?.room_number || guestStayContext?.room_number || null;
+    const roomStatus = roomStatusByRoom.get(roomNumber) || null;
     const enrichedConversation = {
       ...conversation,
-      guest,
+      guest: resolvedGuest,
+      reservation,
       guestMemoryEnabled,
       guestMemory: memoryByGuest.get(conversation.guest_id) || [],
       messages: conversationMessages,
@@ -490,7 +580,19 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
         lateCheckoutEligible: Boolean(guestStayContext?.late_checkout_eligible),
         transferLikely: Boolean(guestStayContext?.transfer_likely),
         experienceLikely: Boolean(guestStayContext?.experience_likely),
-        guestStayContext
+        guestStayContext,
+        reservation: reservation ? {
+          id: reservation.id,
+          guestName: reservation.guest_name || null,
+          roomNumber: reservation.room_number || null,
+          roomType: reservation.room_type || null,
+          arrivalDate: reservation.arrival_date || null,
+          departureDate: reservation.departure_date || null,
+          status: reservation.status || null,
+          pmsProvider: reservation.pms_provider || null,
+          pmsReservationId: reservation.pms_reservation_id || null,
+          source: reservation.source || null
+        } : null
       }
     };
 

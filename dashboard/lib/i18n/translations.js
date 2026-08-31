@@ -294,6 +294,7 @@ export const translations = {
         upcoming: 'Próximas',
         inHouse: 'Alojados',
         completed: 'Completadas',
+        cancelled: 'Canceladas',
         todayArrivals: 'Llegadas hoy',
         todayDepartures: 'Salidas hoy'
       },
@@ -325,12 +326,14 @@ export const translations = {
       status: {
         upcoming: 'Próxima',
         in_house: 'Alojado',
-        completed: 'Completada'
+        completed: 'Completada',
+        cancelled: 'Cancelada'
       },
       journey: {
         pre_arrival: 'Pre-estancia',
         in_house: 'Durante estancia',
-        post_stay: 'Post-estancia'
+        post_stay: 'Post-estancia',
+        cancelled: 'Cancelada'
       },
       searchPlaceholder: 'Buscar por nombre, email, teléfono o localizador...',
       results: '{count} reservas',
@@ -658,6 +661,7 @@ export const translations = {
         upcoming: 'Upcoming',
         inHouse: 'In house',
         completed: 'Completed',
+        cancelled: 'Cancelled',
         todayArrivals: 'Llegadas hoy',
         todayDepartures: 'Salidas hoy'
       },
@@ -689,12 +693,14 @@ export const translations = {
       status: {
         upcoming: 'Upcoming',
         in_house: 'In house',
-        completed: 'Completed'
+        completed: 'Completed',
+        cancelled: 'Cancelled'
       },
       journey: {
         pre_arrival: 'PRE-ARRIVAL',
         in_house: 'IN-HOUSE',
-        post_stay: 'POST-STAY'
+        post_stay: 'POST-STAY',
+        cancelled: 'CANCELLED'
       },
       searchPlaceholder: 'Search by name, email, phone or reservation id...',
       results: '{count} reservations',
@@ -1022,6 +1028,7 @@ export const translations = {
         upcoming: 'A venir',
         inHouse: 'In house',
         completed: 'Terminees',
+        cancelled: 'Annulees',
         todayArrivals: 'Arrivees aujourd hui',
         todayDepartures: 'Departs aujourd hui'
       },
@@ -1053,12 +1060,14 @@ export const translations = {
       status: {
         upcoming: 'A venir',
         in_house: 'In house',
-        completed: 'Terminee'
+        completed: 'Terminee',
+        cancelled: 'Annulee'
       },
       journey: {
         pre_arrival: 'PRE-ARRIVAL',
         in_house: 'IN-HOUSE',
-        post_stay: 'POST-STAY'
+        post_stay: 'POST-STAY',
+        cancelled: 'ANNULEE'
       },
       searchPlaceholder: 'Rechercher par nom, email, telephone ou reservation...',
       results: '{count} reservations',
@@ -1390,6 +1399,7 @@ export const translations = {
         upcoming: 'Bevorstehend',
         inHouse: 'In house',
         completed: 'Abgeschlossen',
+        cancelled: 'Storniert',
         todayArrivals: 'Anreisen heute',
         todayDepartures: 'Abreisen heute'
       },
@@ -1421,12 +1431,14 @@ export const translations = {
       status: {
         upcoming: 'Bevorstehend',
         in_house: 'In house',
-        completed: 'Abgeschlossen'
+        completed: 'Abgeschlossen',
+        cancelled: 'Storniert'
       },
       journey: {
         pre_arrival: 'PRE-ARRIVAL',
         in_house: 'IN-HOUSE',
-        post_stay: 'POST-STAY'
+        post_stay: 'POST-STAY',
+        cancelled: 'STORNIERT'
       },
       searchPlaceholder: 'Nach Name, Email, Telefon oder Reservierung suchen...',
       results: '{count} Reservierungen',

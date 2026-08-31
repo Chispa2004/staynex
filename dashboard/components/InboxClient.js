@@ -417,13 +417,31 @@ const getConversationMessageCount = (conversations, conversationId) => (
 const getConversationGuestLabel = (conversation) => (
   conversation?.guest?.name
   || conversation?.guest?.full_name
+  || conversation?.reservation?.guest_name
+  || conversation?.pmsIntelligenceContext?.reservation?.guestName
   || conversation?.guest?.phone_number
+  || conversation?.reservation?.guest_phone
   || 'Huésped'
+);
+
+const getConversationRoomNumber = (conversation) => (
+  conversation?.guest?.current_room
+  || conversation?.reservation?.room_number
+  || conversation?.pmsIntelligenceContext?.reservation?.roomNumber
+  || conversation?.pmsIntelligenceContext?.guestStayContext?.room_number
+  || conversation?.pmsIntelligenceContext?.roomStatus?.roomNumber
+  || null
+);
+
+const getConversationPhoneNumber = (conversation) => (
+  conversation?.guest?.phone_number
+  || conversation?.reservation?.guest_phone
+  || null
 );
 
 const getConversationInitials = (conversation) => {
   const label = getConversationGuestLabel(conversation);
-  const cleanLabel = String(label || 'Huésped').replace(/[^A-Za-z0-9\s+]/g, ' ').trim();
+  const cleanLabel = String(label || 'Huésped').replace(/[^\p{L}0-9\s+]/gu, ' ').trim();
   const words = cleanLabel.split(/\s+/).filter(Boolean);
 
   if (!words.length) {
@@ -523,6 +541,13 @@ export const InboxClient = ({ conversations }) => {
   const selectedAiMode = getConversationAiMode(selectedConversation);
   const selectedHumanTakeoverActive = isHumanTakeoverActive(selectedConversation);
   const selectedTakeoverMetadata = getHumanTakeoverMetadata(selectedConversation);
+  const selectedDisplayName = selectedConversation ? getConversationGuestLabel(selectedConversation) : 'Huésped';
+  const selectedRoomNumber = getConversationRoomNumber(selectedConversation);
+  const selectedPhoneNumber = getConversationPhoneNumber(selectedConversation);
+  const selectedSecondaryLine = [
+    selectedRoomNumber ? `Habitación ${selectedRoomNumber}` : null,
+    selectedPhoneNumber
+  ].filter(Boolean).join(' · ') || t('inbox.noPhone');
   const visibleItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -532,8 +557,8 @@ export const InboxClient = ({ conversations }) => {
         const language = getConversationLanguage(conversation);
         const searchable = [
           getConversationGuestLabel(conversation),
-          conversation.guest?.phone_number,
-          conversation.guest?.current_room,
+          getConversationPhoneNumber(conversation),
+          getConversationRoomNumber(conversation),
           conversation.lastMessage?.content,
           conversation.aiState?.current_intent,
           language
@@ -1457,7 +1482,7 @@ export const InboxClient = ({ conversations }) => {
             const aiState = conversation.aiState;
             const humanTakeoverActive = isHumanTakeoverActive(conversation);
             const displayName = getConversationGuestLabel(conversation);
-            const roomNumber = conversation.guest?.current_room || conversation.pmsIntelligenceContext?.roomStatus?.roomNumber || null;
+            const roomNumber = getConversationRoomNumber(conversation);
             const languageBadge = getConversationLanguage(conversation);
             const sentiment = conversation.copilot?.sentiment?.label || aiState?.sentiment || 'neutral';
             const priority = conversation.copilot?.priority?.level || (needsAttention ? 'high' : 'normal');
@@ -1595,10 +1620,10 @@ export const InboxClient = ({ conversations }) => {
               </button>
               <div className="min-w-0">
                 <p className={isLight ? 'truncate text-sm font-semibold text-slate-900' : 'truncate text-sm font-semibold text-white'}>
-                  {t('table.room')} {selectedConversation?.guest?.current_room || t('status.unknown').toLowerCase()}
+                  {selectedDisplayName}
                 </p>
                 <p className={isLight ? 'truncate text-xs text-slate-600' : 'truncate text-xs text-slate-500'}>
-                  {selectedConversation?.guest?.phone_number || t('inbox.noPhone')}
+                  {selectedSecondaryLine}
                 </p>
               </div>
             </div>

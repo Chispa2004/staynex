@@ -30,6 +30,7 @@ const {
   getCheckinDemoPreflight,
   seedCheckinDemoScenario
 } = await import(`../src/services/demo-data.service.js?checkinDemo=${Date.now()}`);
+const { buildTicketCopilot } = await import(`../dashboard/lib/ai-copilot.js?checkinDemo=${Date.now()}`);
 const {
   EXECUTION_MODES,
   OPERATIONAL_STATUSES
@@ -291,9 +292,11 @@ for (const status of ['confirmed', 'checked_in', 'checked_out', 'cancelled']) {
 }
 
 const mainReservation = plan.reservations.find((reservation) => reservation.key === 'main-lucia');
+assert.equal(mainReservation.guest_name, 'Lucía Martín', 'main story guest should show the real demo identity');
 assert.equal(mainReservation.status, 'checked_in', 'main story guest should be checked in');
 assert.equal(mainReservation.room_number, '208', 'main story should happen in room 208');
 const mainConversation = plan.conversations.find((conversation) => conversation.key === 'main-lucia');
+assert.match(mainConversation.messages[1].content, /Lucía/, 'main story AI reply should keep the guest name visible');
 assert.equal(
   mainConversation.messages.at(-1).content,
   'Hola, me podeis traer dos toallas mas a la habitacion?',
@@ -303,6 +306,12 @@ assert.equal(mainConversation.ai_state.state_metadata.conversation_ai_mode, 'ai_
 const mainTicket = plan.tickets.find((ticket) => ticket.key === 'main-towels');
 assert.equal(mainTicket.category, 'housekeeping', 'main story should create a housekeeping ticket');
 assert.equal(mainTicket.status, 'open', 'main ticket should be open for demo handling');
+assert.equal(buildTicketCopilot(mainTicket).suggestedDepartment, 'Housekeeping', 'towel requests should route to housekeeping');
+assert.equal(
+  buildTicketCopilot({ category: 'maintenance', title: 'Aire acondicionado habitacion 401', description: 'No enfria' }).suggestedDepartment,
+  'Maintenance',
+  'AC maintenance should keep routing to maintenance'
+);
 
 const complaintConversation = plan.conversations.find((conversation) => conversation.key === 'complaint-david');
 assert.equal(complaintConversation.ai_state.escalation_level, 'reception_required', 'fallback conversation should require reception');
@@ -319,6 +328,29 @@ const knowledgeKeys = new Set(plan.knowledge.map((entry) => entry.key));
 for (const key of ['check_in', 'check_out', 'desayuno', 'wifi', 'housekeeping_toallas', 'late_checkout', 'transfer', 'emergencias']) {
   assert.ok(knowledgeKeys.has(key), `${key} knowledge should exist`);
 }
+
+const inboxSource = readFileSync(new URL('../dashboard/lib/inbox.js', import.meta.url), 'utf8');
+assert.match(inboxSource, /getReservationsByGuest/, 'Inbox should use reservation context for guest identity');
+assert.match(inboxSource, /guest_name/, 'Inbox should prefer reservation guest names when guest rows only have phones');
+assert.match(inboxSource, /room_number/, 'Inbox should derive room context from reservations when needed');
+
+const reservationsClientSource = readFileSync(new URL('../dashboard/components/ReservationsClient.js', import.meta.url), 'utf8');
+assert.match(reservationsClientSource, /CANCELLED_RESERVATION_STATUSES/, 'Reservations UI should classify cancelled stays explicitly');
+assert.match(reservationsClientSource, /status !== 'cancelled' && reservation\.arrival_date === today/, 'Cancelled reservations should not appear as today arrivals');
+assert.match(reservationsClientSource, /filteredReservations\.some/, 'Reservation detail should follow the visible filtered result');
+
+const reservationsApiSource = readFileSync(new URL('../dashboard/app/api/reservations/route.js', import.meta.url), 'utf8');
+assert.match(reservationsApiSource, /return 'cancelled'/, 'Reservations API should not compute cancelled rows as pre-arrival');
+
+const healthSource = readFileSync(new URL('../dashboard/components/HotelHealthClient.js', import.meta.url), 'utf8');
+assert.match(healthSource, /DEMO_READY/, 'Pilot Health should present demo readiness separately from live status');
+assert.match(healthSource, /Go-Live pendiente/, 'Pilot Health should keep live automation blockers honest');
+
+const systemHealthSource = readFileSync(new URL('../dashboard/lib/system-health.js', import.meta.url), 'utf8');
+assert.match(systemHealthSource, /demo scenario tickets are open/, 'Hotel Health should label demo tickets as demo scenario data');
+
+const executiveDashboardSource = readFileSync(new URL('../dashboard/app/api/executive-dashboard/route.js', import.meta.url), 'utf8');
+assert.match(executiveDashboardSource, /guestSatisfactionSource/, 'Executive KPI should expose whether satisfaction is demo-estimated');
 
 const previews = buildCheckinDemoJourneyPreviews({ plan, now });
 assert.equal(previews.length, 6, 'four pilot journey families should produce six concrete previews');

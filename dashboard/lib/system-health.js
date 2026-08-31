@@ -165,6 +165,7 @@ const buildHotelStatusCards = ({
   const enabledPms = pmsConnections.find((item) => item.enabled);
   const realTickets = tickets.filter((ticket) => !isDemoRow(ticket));
   const demoTickets = tickets.filter(isDemoRow);
+  const demoOpenTickets = demoTickets.filter(isOpenTicket);
   const openTickets = realTickets.filter(isOpenTicket);
   const urgentTickets = openTickets.filter((ticket) => ticket.priority === 'urgent');
   const activeConversations = conversations.filter((item) => ['active', 'open', 'needs_human'].includes(item.status || 'active'));
@@ -217,14 +218,20 @@ const buildHotelStatusCards = ({
       id: 'tickets',
       label: 'Open Tickets',
       status: urgentTickets.length ? 'critical' : openTickets.length ? 'warning' : 'healthy',
-      value: demoTickets.length ? `${openTickets.length} real` : openTickets.length,
+      value: demoOpenTickets.length
+        ? openTickets.length
+          ? `${openTickets.length} real / ${demoOpenTickets.length} demo`
+          : `${demoOpenTickets.length} demo`
+        : demoTickets.length ? `${openTickets.length} real` : openTickets.length,
       badge: demoTickets.length || demoEnvironment ? 'Demo separated' : null,
       description: urgentTickets.length
         ? `${urgentTickets.length} active urgent tickets need attention.`
         : openTickets.length
           ? `${openTickets.length} real operational tickets are unresolved.`
-          : demoTickets.length
-            ? 'No real operational tickets. Demo tickets are separated from live health.'
+          : demoOpenTickets.length
+            ? `${demoOpenTickets.length} demo scenario tickets are open.`
+            : demoTickets.length
+              ? 'No real operational tickets. Demo tickets are separated from live health.'
             : 'No unresolved tickets.'
     },
     {
