@@ -92,7 +92,7 @@ const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = ge
   try {
     const { data, error } = await supabase
       .from('hotels')
-      .select('id, metadata')
+      .select('id, metadata, ai_auto_reply_enabled')
       .eq('id', scheduledMessage.hotel_id)
       .maybeSingle();
 

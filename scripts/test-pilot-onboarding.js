@@ -40,11 +40,11 @@ const baseHotel = {
   timezone: 'Africa/Casablanca',
   timezone_integrity_status: 'verified',
   whatsapp_number: '+212600000000',
+  ai_auto_reply_enabled: true,
   metadata: {
     security_baseline_passed: true,
     human_fallback_ready: true,
     kill_switch_ready: true,
-    ai_auto_reply_enabled: true,
     whatsapp_inbound_ready: true,
     whatsapp_outbound_ready: true,
     openai_provider_configured: true
@@ -171,7 +171,10 @@ assert.equal(rehearsalUnverified.readyForPilotDemo, false, 'unverified failure r
 
 const killSwitchMissing = summary({
   hotel: {
-    ...baseHotel,
+    ...(() => {
+      const { ai_auto_reply_enabled: _omitted, ...hotelWithoutSwitch } = baseHotel;
+      return hotelWithoutSwitch;
+    })(),
     metadata: {
       security_baseline_passed: true,
       human_fallback_ready: true,
@@ -185,7 +188,7 @@ assert.equal(killSwitchMissing.readyForGoLive, false);
 const killSwitchOffConfigured = summary({
   hotel: {
     ...baseHotel,
-    metadata: { ...baseHotel.metadata, ai_auto_reply_enabled: false }
+    ai_auto_reply_enabled: false
   }
 });
 assert.equal(gate(killSwitchOffConfigured, 'kill_switch').value, PILOT_STATUS.COMPLETED, 'Kill Switch OFF is a configured pilot-safe state');

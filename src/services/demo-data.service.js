@@ -6,6 +6,7 @@ import { getDefaultUpsellAmount } from './revenue.service.js';
 import { createAiLog } from './ai-log.service.js';
 import { logger } from '../utils/logger.js';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
+import { getHotelAiAutoReplyStatus } from '../../shared/pilot/ai-safety.js';
 import {
   EXECUTION_MODES,
   OPERATIONAL_STATUSES
@@ -1398,13 +1399,11 @@ export const buildCheckinDemoFixturePlan = ({
     check_in_time: '15:00',
     check_out_time: '12:00',
     description: 'Escenario demo seguro para Checkin y Ubikos en piloto.',
+    ai_auto_reply_enabled: true,
     metadata: {
       fixture: CHECKIN_DEMO_FIXTURE_MARKER,
       checkin_demo: true,
       source: CHECKIN_DEMO_SOURCE,
-      ai_auto_reply_enabled: true,
-      pilot_kill_switch_configured: true,
-      pilot_kill_switch_last_changed_at: nowIso,
       automation_live_enabled: false,
       automation_execution_mode: EXECUTION_MODES.PREVIEW,
       send_automations_required: false,
@@ -1694,7 +1693,7 @@ export const buildCheckinDemoFixturePlan = ({
       returnToAiAvailable: true,
       humanAttentionConversationKey: 'complaint-david',
       killSwitchAvailable: true,
-      killSwitchMetadataKey: 'ai_auto_reply_enabled'
+      killSwitchColumn: 'hotels.ai_auto_reply_enabled'
     },
     pilotHealth: {
       readyForPilotDemo: true,
@@ -1928,13 +1927,22 @@ const isMissingHotelDemoColumn = (error) => [
   'check_in_time',
   'check_out_time',
   'description',
-  'metadata',
   'updated_at'
 ].some((column) => (
   error?.message?.includes(column)
   || error?.details?.includes(column)
   || error?.hint?.includes(column)
 ));
+
+const isMissingCanonicalHotelAiSwitchColumn = (error) => (
+  error?.message?.includes('ai_auto_reply_enabled')
+  || error?.details?.includes('ai_auto_reply_enabled')
+  || error?.hint?.includes('ai_auto_reply_enabled')
+);
+
+const canonicalHotelAiSwitchColumnError = () => new Error(
+  'hotels.ai_auto_reply_enabled column is required for the Checkin demo AI Kill Switch. Apply supabase/sql/add_hotel_ai_auto_reply_enabled.sql before resetting demo data.'
+);
 
 const CHECKIN_DEMO_OPTIONAL_TABLES = Object.freeze({
   guest_stay_context: {
@@ -2133,11 +2141,6 @@ const safeOptionalUpsert = async ({ table, rows, onConflict, select = '*', supab
 
 const updateCheckinDemoHotel = async ({ supabase, hotel, plan }) => {
   const nowIso = new Date().toISOString();
-  const metadata = {
-    ...(hotel.metadata && typeof hotel.metadata === 'object' ? hotel.metadata : {}),
-    ...(plan.hotel.metadata || {}),
-    checkin_demo_seeded_at: nowIso
-  };
   const richUpdate = {
     brand_name: plan.hotel.brand_name,
     timezone: plan.hotel.timezone,
@@ -2145,7 +2148,7 @@ const updateCheckinDemoHotel = async ({ supabase, hotel, plan }) => {
     check_in_time: plan.hotel.check_in_time,
     check_out_time: plan.hotel.check_out_time,
     description: plan.hotel.description,
-    metadata,
+    ai_auto_reply_enabled: plan.hotel.ai_auto_reply_enabled,
     updated_at: nowIso
   };
   const { data, error } = await supabase
@@ -2159,6 +2162,10 @@ const updateCheckinDemoHotel = async ({ supabase, hotel, plan }) => {
     return data;
   }
 
+  if (isMissingCanonicalHotelAiSwitchColumn(error)) {
+    throw canonicalHotelAiSwitchColumnError();
+  }
+
   if (!isMissingHotelIdentityColumn(error) && !isMissingHotelDemoColumn(error) && !isMissingOptionalTable(error)) {
     throw error;
   }
@@ -2166,7 +2173,7 @@ const updateCheckinDemoHotel = async ({ supabase, hotel, plan }) => {
   const { data: fallbackData, error: fallbackError } = await supabase
     .from('hotels')
     .update({
-      metadata,
+      ai_auto_reply_enabled: plan.hotel.ai_auto_reply_enabled,
       updated_at: nowIso
     })
     .eq('id', hotel.id)
@@ -2174,6 +2181,10 @@ const updateCheckinDemoHotel = async ({ supabase, hotel, plan }) => {
     .single();
 
   if (fallbackError) {
+    if (isMissingCanonicalHotelAiSwitchColumn(fallbackError)) {
+      throw canonicalHotelAiSwitchColumnError();
+    }
+
     throw fallbackError;
   }
 
@@ -2498,6 +2509,7 @@ export const buildCheckinDemoPreflightReport = ({
       })];
     })
   );
+  const hotelAiStatus = getHotelAiAutoReplyStatus(hotel || {});
   const checks = {
     hotel_exists: Boolean(hotel?.id),
     target_is_hotel_demo_checkin: (() => {
@@ -2527,7 +2539,7 @@ export const buildCheckinDemoPreflightReport = ({
     guest_memory_off: env.GUEST_MEMORY_ENABLED !== 'true',
     human_takeover_ready: (rows.conversationStates || []).some((state) => state.state_metadata?.conversation_ai_mode === 'human_takeover'),
     return_to_ai_ready: (rows.conversationStates || []).some((state) => state.state_metadata?.conversation_ai_mode === 'ai_active'),
-    kill_switch_ready: Boolean(hotel?.metadata?.pilot_kill_switch_configured && typeof hotel?.metadata?.ai_auto_reply_enabled === 'boolean'),
+    kill_switch_ready: hotelAiStatus.configured && hotelAiStatus.valid !== false,
     ubikos_demo_state_ready: !(rows.pmsConnections || []).some((connection) => (
       connection.provider === 'ubikos'
       && connection.enabled === true
@@ -2566,6 +2578,7 @@ export const buildCheckinDemoPreflightReport = ({
     readyForPilotDemo,
     readyForLiveAutomations: false,
     liveSendBlockers: plan.pilotHealth.liveSendBlockers,
+    hotelAiKillSwitch: hotelAiStatus,
     ubikos: {
       state: plan.ubikos.state,
       liveConnected: false,

@@ -58,9 +58,9 @@ const hotel = {
   timezone: 'Europe/Madrid',
   timezone_integrity_status: 'verified',
   whatsapp_number: 'configured',
+  ai_auto_reply_enabled: true,
   metadata: {
     security_baseline_passed: true,
-    ai_auto_reply_enabled: true,
     whatsapp_inbound_ready: true,
     whatsapp_outbound_ready: true,
     openai_provider_configured: true
@@ -197,7 +197,7 @@ const resumedGate = shouldAiAutoRespond({
 assert.equal(resumedGate.allowed, true, 'next inbound after release can use AI');
 
 const hotelKillGate = shouldAiAutoRespond({
-  hotel: { ...hotel, metadata: { ...hotel.metadata, ai_auto_reply_enabled: false } },
+  hotel: { ...hotel, ai_auto_reply_enabled: false },
   conversationState: { state_metadata: { conversation_ai_mode: CONVERSATION_AI_MODES.AI_ACTIVE } },
   env: envSafe
 });

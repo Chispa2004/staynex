@@ -32,12 +32,12 @@ const hotel = {
   id: 'hotel-phase2a1',
   name: 'Staynex Test Hotel',
   timezone: 'Europe/Madrid',
+  ai_auto_reply_enabled: true,
   metadata: {
     automation_live_enabled: true,
     automation_execution_mode: EXECUTION_MODES.LIVE,
     automation_live_approved_at: '2026-08-10T08:00:00.000Z',
-    automation_live_approved_by: 'ops-user',
-    ai_auto_reply_enabled: true
+    automation_live_approved_by: 'ops-user'
   }
 };
 const previousReservation = {

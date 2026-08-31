@@ -52,8 +52,8 @@ const hotel = {
   name: 'Hotel Piloto',
   default_language: 'es',
   timezone: 'Europe/Madrid',
+  ai_auto_reply_enabled: true,
   metadata: {
-    ai_auto_reply_enabled: true,
     automation_live_enabled: true,
     automation_execution_mode: EXECUTION_MODES.LIVE,
     automation_live_approved_at: '2026-09-01T09:00:00.000Z',
@@ -641,7 +641,7 @@ const takeoverBlocked = evaluate({
 });
 assert.equal(takeoverBlocked.skipReason, 'skipped_human_takeover', 'Human takeover should block guest-facing automation decisions');
 const hotelKill = shouldAiAutoRespond({
-  hotel: { ...hotel, metadata: { ...hotel.metadata, ai_auto_reply_enabled: false } },
+  hotel: { ...hotel, ai_auto_reply_enabled: false },
   conversationState: null,
   env: { SEND_AUTOMATIONS: 'false' }
 });

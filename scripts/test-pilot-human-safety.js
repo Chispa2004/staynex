@@ -41,18 +41,15 @@ const hotelOn = {
   timezone: 'Europe/Madrid',
   timezone_integrity_status: 'verified',
   whatsapp_number: '+34123456789',
+  ai_auto_reply_enabled: true,
   metadata: {
-    security_baseline_passed: true,
-    ai_auto_reply_enabled: true
+    security_baseline_passed: true
   }
 };
 
 const hotelOff = {
   ...hotelOn,
-  metadata: {
-    ...hotelOn.metadata,
-    ai_auto_reply_enabled: false
-  }
+  ai_auto_reply_enabled: false
 };
 
 const activeConversationState = {
@@ -194,9 +191,10 @@ assert.equal(fallbackReady.status, PILOT_STATUS.COMPLETED, '12. onboarding fallb
 
 const killReadyOn = evaluatePilotKillSwitch({ hotel: hotelOn, env: envSafe });
 const killReadyOff = evaluatePilotKillSwitch({ hotel: hotelOff, env: envSafe });
+const { ai_auto_reply_enabled: _omittedAiSwitch, ...hotelWithoutAiSwitch } = hotelOn;
 const killMissing = evaluatePilotKillSwitch({
   hotel: {
-    ...hotelOn,
+    ...hotelWithoutAiSwitch,
     metadata: { security_baseline_passed: true }
   },
   env: envSafe
@@ -204,6 +202,13 @@ const killMissing = evaluatePilotKillSwitch({
 assert.equal(killReadyOn.status, PILOT_STATUS.COMPLETED, '13. onboarding kill-switch readiness accepts configured ON');
 assert.equal(killReadyOff.status, PILOT_STATUS.COMPLETED, '13. onboarding kill-switch readiness accepts configured OFF');
 assert.equal(killMissing.status, PILOT_STATUS.ACTION_REQUIRED, '13. onboarding kill-switch readiness requires durable hotel state');
+assert.equal(PILOT_AI_SAFETY_RUNTIME.hotelKillSwitchSource, 'hotels.ai_auto_reply_enabled', '13. canonical kill switch source is the hotels column');
+const metadataOnlyStatus = getHotelAiAutoReplyStatus({ id: 'hotel-metadata-only', metadata: { ai_auto_reply_enabled: true } });
+assert.equal(metadataOnlyStatus.configured, false, '13. metadata-only AI switch is ignored');
+assert.equal(metadataOnlyStatus.allowed, false, '13. metadata-only AI switch fails closed');
+const healthRouteSource = readFileSync(join(root, 'dashboard/app/api/health/hotel/route.js'), 'utf8');
+assert.match(healthRouteSource, /\[HOTEL_AI_AUTO_REPLY_COLUMN\]: body\.enabled/, '13. health updater writes the canonical hotel AI switch column');
+assert.doesNotMatch(healthRouteSource, /metadata: nextMetadata|HOTEL_AI_AUTO_REPLY_METADATA_KEY/, '13. health updater must not write hotel metadata for the AI switch');
 
 assert.equal(evaluatePilotSendAutomations(envSafe).status, PILOT_STATUS.COMPLETED, '14. SEND_AUTOMATIONS remains false/unmodified');
 assert.equal(envSafe.SEND_AUTOMATIONS, 'false', '14. test keeps SEND_AUTOMATIONS disabled');
@@ -227,5 +232,11 @@ const fullSummary = baseSummary();
 assert.equal(fullSummary.gates.humanFallback.status, PILOT_STATUS.COMPLETED, 'Human Fallback gate is closed for pilot');
 assert.equal(fullSummary.gates.killSwitch.status, PILOT_STATUS.COMPLETED, 'Kill Switch gate is closed when hotel state is configured');
 assert.equal(getHotelAiAutoReplyStatus({ id: 'hotel-missing', metadata: {} }).allowed, false, 'missing hotel kill switch state fails closed');
+const aiSafetySource = readFileSync(join(root, 'shared/pilot/ai-safety.js'), 'utf8');
+assert.doesNotMatch(aiSafetySource, /hotels\.metadata\.ai_auto_reply_enabled|HOTEL_AI_AUTO_REPLY_METADATA/, 'AI gate must not depend on hotels.metadata for the kill switch');
+const messageQueueSource = readFileSync(join(root, 'src/services/message-queue.service.js'), 'utf8');
+assert.match(messageQueueSource, /select\('id, metadata, ai_auto_reply_enabled'\)/, 'scheduled message gate selects the canonical hotel AI switch column');
+const migrationSource = readFileSync(join(root, 'supabase/sql/add_hotel_ai_auto_reply_enabled.sql'), 'utf8');
+assert.match(migrationSource, /add column if not exists ai_auto_reply_enabled boolean not null default false/i, 'migration adds the fail-closed canonical hotel AI switch column');
 
 console.log('Pilot human safety tests passed');

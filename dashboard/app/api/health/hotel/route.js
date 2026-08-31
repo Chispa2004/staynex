@@ -5,10 +5,9 @@ import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 import { canModifyPilotProtectedConfig } from '@/lib/pilot-onboarding';
 import { getHotelOperationalHealth } from '@/lib/system-health';
 import {
-  HOTEL_AI_AUTO_REPLY_METADATA_KEY,
+  HOTEL_AI_AUTO_REPLY_COLUMN,
   getHotelAiAutoReplyStatus,
-  getPilotAiSafetyReadiness,
-  safePilotMetadata
+  getPilotAiSafetyReadiness
 } from '../../../../../shared/pilot/ai-safety.js';
 import { sanitizePilotOperationalMessage } from '../../../../../shared/pilot/operational-readiness.js';
 
@@ -89,19 +88,11 @@ export async function PATCH(request) {
 
     const now = new Date().toISOString();
     const previousStatus = getHotelAiAutoReplyStatus(hotel);
-    const metadata = safePilotMetadata(hotel.metadata);
-    const nextMetadata = {
-      ...metadata,
-      [HOTEL_AI_AUTO_REPLY_METADATA_KEY]: body.enabled,
-      pilot_kill_switch_configured: true,
-      pilot_kill_switch_last_changed_at: now,
-      pilot_kill_switch_last_changed_by: user?.id || null
-    };
 
     const { data: updatedHotel, error: updateError } = await supabase
       .from('hotels')
       .update({
-        metadata: nextMetadata,
+        [HOTEL_AI_AUTO_REPLY_COLUMN]: body.enabled,
         updated_at: now
       })
       .eq('id', hotel.id)

@@ -256,7 +256,8 @@ const plan = buildCheckinDemoFixturePlan({ hotelId, now });
 assert.equal(plan.hotelTarget.slug, CHECKIN_DEMO_HOTEL.slug, 'fixture should target Hotel Demo Checkin only');
 assert.equal(plan.hotel.id, hotelId, 'fixture should be scoped to explicit hotel id');
 assert.equal(plan.hotel.name, CHECKIN_DEMO_HOTEL.name, 'fixture should keep the demo hotel name');
-assert.equal(plan.hotel.metadata.ai_auto_reply_enabled, true, 'hotel kill switch should be configured on for the demo');
+assert.equal(plan.hotel.ai_auto_reply_enabled, true, 'hotel kill switch should be configured on for the demo');
+assert.equal(plan.hotel.metadata.ai_auto_reply_enabled, undefined, 'hotel kill switch must not be stored in metadata');
 assert.equal(plan.hotel.metadata.automation_execution_mode, EXECUTION_MODES.PREVIEW, 'automations must remain preview');
 assert.equal(plan.safety.guestMemory, false, 'Guest Memory must stay off');
 assert.equal(plan.safety.twilioReal, false, 'Twilio must not be touched');
@@ -395,6 +396,8 @@ assert.equal(preflight.readyForPilotDemo, true, 'complete fixture should be read
 assert.equal(preflight.readyForLiveAutomations, false, 'demo preflight must not certify live automations');
 assert.equal(preflight.productionDataSeeded, false, 'test should not seed production data');
 assert.equal(preflight.checks.four_pilot_journeys_ready, true, 'preflight should verify four pilot journeys');
+assert.equal(preflight.checks.kill_switch_ready, true, 'preflight should verify the canonical hotel AI switch');
+assert.equal(preflight.hotelAiKillSwitch.source, 'hotels.ai_auto_reply_enabled', 'preflight should read the canonical hotel AI switch column');
 assert.equal(preflight.checks.no_real_provider_traffic, true, 'preflight should confirm no provider traffic');
 assert.equal(preflight.checks.stay_context_ready, true, 'preflight should verify stay context');
 assert.equal(preflight.checks.room_status_ready, true, 'preflight should verify room statuses');
@@ -450,6 +453,24 @@ assert.equal(optionalAvailableButEmptyPreflight.readyForPilotDemo, false, 'avail
 assert.equal(optionalAvailableButEmptyPreflight.optionalTables.guest_stay_context.status, 'AVAILABLE', 'empty existing stay context table should still be available');
 assert.equal(optionalAvailableButEmptyPreflight.optionalTables.guest_stay_context.blocking, true, 'empty existing optional table should report a blocking population failure');
 
+const { ai_auto_reply_enabled: _omittedHotelAiSwitch, ...hotelWithoutAiSwitch } = plan.hotel;
+const metadataOnlyPreflight = buildCheckinDemoPreflightReport({
+  hotel: {
+    ...hotelWithoutAiSwitch,
+    metadata: {
+      ...(plan.hotel.metadata || {}),
+      ai_auto_reply_enabled: true
+    }
+  },
+  rows,
+  env: {
+    SEND_AUTOMATIONS: 'false',
+    GUEST_MEMORY_ENABLED: 'false'
+  }
+});
+assert.equal(metadataOnlyPreflight.checks.kill_switch_ready, false, 'metadata-only AI switch should not satisfy demo preflight');
+assert.equal(metadataOnlyPreflight.readyForPilotDemo, false, 'metadata-only AI switch should not create a false ready state');
+
 const blockedPreflight = buildCheckinDemoPreflightReport({
   hotel: plan.hotel,
   rows: {
@@ -463,13 +484,14 @@ const blockedPreflight = buildCheckinDemoPreflightReport({
 });
 assert.equal(blockedPreflight.readyForPilotDemo, false, 'preflight should fail if a scheduled preview has a send target');
 
+const { metadata: _planHotelMetadata, ...planHotelDbRecord } = plan.hotel;
 const supabase = createMockSupabase({
   hotels: [{
-    ...plan.hotel,
+    ...planHotelDbRecord,
     id: hotelId,
     name: CHECKIN_DEMO_HOTEL.name,
     slug: CHECKIN_DEMO_HOTEL.slug,
-    metadata: {}
+    ai_auto_reply_enabled: false
   }]
 });
 const firstSeed = await seedCheckinDemoScenario({
@@ -489,6 +511,8 @@ assert.equal(supabase.db.hotel_knowledge.length, 18, 'seeded knowledge should be
 assert.equal(supabase.db.scheduled_messages.length, 6, 'seeded scheduled previews should be present');
 assert.ok(supabase.db.scheduled_messages.every((message) => message.send_to === null), 'seeded previews should not include send targets');
 assert.ok(supabase.db.scheduled_messages.every((message) => message.metadata.fixture === CHECKIN_DEMO_FIXTURE_MARKER), 'seeded previews should carry fixture marker');
+assert.equal(supabase.db.hotels[0].ai_auto_reply_enabled, true, 'reset should enable AI only through the canonical hotel column');
+assert.equal(process.env.SEND_AUTOMATIONS, 'false', 'reset must not enable SEND_AUTOMATIONS');
 
 const firstCounts = {
   guests: supabase.db.guests.length,
@@ -545,11 +569,11 @@ const missingOptionalTables = [
 ];
 const missingOptionalSupabase = createMockSupabase({
   hotels: [{
-    ...plan.hotel,
+    ...planHotelDbRecord,
     id: hotelId,
     name: CHECKIN_DEMO_HOTEL.name,
     slug: CHECKIN_DEMO_HOTEL.slug,
-    metadata: {}
+    ai_auto_reply_enabled: false
   }]
 }, {
   missingTables: missingOptionalTables

@@ -34,9 +34,8 @@ const hotelA = {
   name: 'Hotel A',
   default_language: 'es',
   timezone: 'Europe/Madrid',
-  metadata: {
-    ai_auto_reply_enabled: true
-  }
+  ai_auto_reply_enabled: true,
+  metadata: {}
 };
 const hotelB = {
   ...hotelA,

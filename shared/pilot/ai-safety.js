@@ -1,20 +1,5 @@
-export const HOTEL_AI_AUTO_REPLY_METADATA_KEY = 'ai_auto_reply_enabled';
-
-export const HOTEL_AI_AUTO_REPLY_METADATA_KEYS = Object.freeze([
-  HOTEL_AI_AUTO_REPLY_METADATA_KEY,
-  'hotel_ai_auto_reply_enabled',
-  'pilot_ai_auto_reply_enabled',
-  'ai_automation_enabled',
-  'ai_enabled'
-]);
-
-export const HOTEL_AI_AUTO_REPLY_ROOT_KEYS = Object.freeze([
-  'ai_auto_reply_enabled',
-  'hotel_ai_auto_reply_enabled',
-  'pilot_ai_auto_reply_enabled',
-  'ai_automation_enabled',
-  'ai_enabled'
-]);
+export const HOTEL_AI_AUTO_REPLY_COLUMN = 'ai_auto_reply_enabled';
+export const HOTEL_AI_AUTO_REPLY_SOURCE = `hotels.${HOTEL_AI_AUTO_REPLY_COLUMN}`;
 
 export const GLOBAL_AI_AUTO_REPLY_STATE_ENV_KEYS = Object.freeze([
   'STAYNEX_GLOBAL_AI_AUTO_REPLY',
@@ -44,7 +29,7 @@ export const PILOT_AI_GATE_REASONS = Object.freeze({
 export const PILOT_AI_SAFETY_RUNTIME = Object.freeze({
   centralGate: 'shouldAiAutoRespond',
   humanTakeoverSource: 'conversation_ai_state',
-  hotelKillSwitchSource: 'hotels.metadata.ai_auto_reply_enabled',
+  hotelKillSwitchSource: HOTEL_AI_AUTO_REPLY_SOURCE,
   globalOverrideSource: GLOBAL_AI_AUTO_REPLY_STATE_ENV_KEYS.join(','),
   failClosedOnStateLookup: true,
   resumeReprocessesHistory: false,
@@ -177,10 +162,12 @@ export const getGlobalAiAutoReplyStatus = (env = process.env) => {
 };
 
 export const getHotelAiAutoReplyStatus = (hotel = {}) => {
-  const metadata = safePilotMetadata(hotel.metadata);
   const configured = firstConfiguredFlag([
-    ...HOTEL_AI_AUTO_REPLY_ROOT_KEYS.map((key) => ({ key, value: hotel?.[key], source: `hotels.${key}` })),
-    ...HOTEL_AI_AUTO_REPLY_METADATA_KEYS.map((key) => ({ key, value: metadata[key], source: `hotels.metadata.${key}` }))
+    {
+      key: HOTEL_AI_AUTO_REPLY_COLUMN,
+      value: hotel?.[HOTEL_AI_AUTO_REPLY_COLUMN],
+      source: HOTEL_AI_AUTO_REPLY_SOURCE
+    }
   ]);
 
   if (!configured) {
@@ -189,7 +176,7 @@ export const getHotelAiAutoReplyStatus = (hotel = {}) => {
       enabled: false,
       allowed: false,
       reason: PILOT_AI_GATE_REASONS.HOTEL_AI_AUTO_REPLY_NOT_CONFIGURED,
-      source: 'hotels.metadata.ai_auto_reply_enabled',
+      source: HOTEL_AI_AUTO_REPLY_SOURCE,
       label: 'HOTEL AUTO-REPLY NO CONFIGURADO'
     };
   }
@@ -202,7 +189,7 @@ export const getHotelAiAutoReplyStatus = (hotel = {}) => {
     enabled: parsed.valid ? parsed.enabled : false,
     allowed: parsed.valid ? parsed.enabled : false,
     reason: parsed.valid && parsed.enabled ? null : PILOT_AI_GATE_REASONS.HOTEL_AI_AUTO_REPLY_OFF,
-    source: configured.source,
+    source: HOTEL_AI_AUTO_REPLY_SOURCE,
     label: parsed.valid && parsed.enabled ? 'HOTEL AUTO-REPLY ON' : 'HOTEL AUTO-REPLY OFF'
   };
 };
