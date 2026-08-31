@@ -400,6 +400,7 @@ const getReservationIdentityLookups = async ({ supabase, guestIds, guestPhones, 
     const normalized = normalizePhone(raw);
     return [raw, normalized].filter(Boolean);
   }))];
+  const phoneKeys = new Set(phoneValues.map(normalizePhone).filter(Boolean));
 
   if ((!guestIds.length && !phoneValues.length) || !hotelId) {
     return {
@@ -433,13 +434,35 @@ const getReservationIdentityLookups = async ({ supabase, guestIds, guestPhones, 
     }
 
     const results = await Promise.all(queries);
-    const reservations = uniqueById(results.flatMap((result) => {
+    let reservations = uniqueById(results.flatMap((result) => {
       if (result.error) {
         throw result.error;
       }
 
       return result.data || [];
     }));
+
+    const matchedPhoneKeys = new Set(reservations.map((reservation) => normalizePhone(reservation.guest_phone)).filter(Boolean));
+    const needsNormalizedPhoneLookup = [...phoneKeys].some((phoneKey) => !matchedPhoneKeys.has(phoneKey));
+
+    if (needsNormalizedPhoneLookup) {
+      const { data: hotelReservations, error } = await supabase
+        .from('reservations')
+        .select(select)
+        .eq('hotel_id', hotelId)
+        .order('arrival_date', { ascending: false, nullsFirst: false })
+        .limit(1000);
+
+      if (error) {
+        throw error;
+      }
+
+      reservations = uniqueById([
+        ...reservations,
+        ...(hotelReservations || []).filter((reservation) => phoneKeys.has(normalizePhone(reservation.guest_phone)))
+      ]);
+    }
+
     const byGuestId = new Map();
     const byPhone = new Map();
 
@@ -627,8 +650,16 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     } : null;
     const roomNumber = resolvedGuest?.current_room || reservation?.room_number || guestStayContext?.room_number || null;
     const roomStatus = roomStatusByRoom.get(roomNumber) || null;
+    const guestName = resolvedGuest?.name || resolvedGuest?.full_name || reservation?.guest_name || null;
+    const guestPhone = resolvedGuest?.phone_number || reservation?.guest_phone || null;
     const enrichedConversation = {
       ...conversation,
+      guestName,
+      guest_name: guestName,
+      roomNumber,
+      room_number: roomNumber,
+      phoneNumber: guestPhone,
+      phone_number: guestPhone,
       guest: resolvedGuest,
       reservation,
       guestMemoryEnabled,

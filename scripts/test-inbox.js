@@ -151,9 +151,58 @@ assert.match(takeoverRoute, /platformRole === 'support'/, 'Support sessions shou
 assert.match(takeoverRoute, /writeEnterpriseAuditLog/, 'Takeover changes should write a PII-safe audit event');
 
 const { getInboxConversations } = loadInboxModuleForTest();
+const { buildCheckinDemoFixturePlan } = await import(`../src/services/demo-data.service.js?inboxPayload=${Date.now()}`);
 const luciaName = 'Luc\u00eda Mart\u00edn';
 const hotelA = 'hotel-checkin';
 const hotelB = 'hotel-other';
+
+const withoutFixtureFields = (row, fields = ['key', 'metadata', 'runtime_metadata']) => {
+  const next = { ...row };
+
+  for (const field of fields) {
+    delete next[field];
+  }
+
+  return next;
+};
+
+const buildCheckinInboxTables = (plan) => {
+  const guests = plan.guests.map((guest) => ({
+    id: `guest-${guest.key}`,
+    ...withoutFixtureFields(guest)
+  }));
+  const guestByKey = new Map(plan.guests.map((guest, index) => [guest.key, guests[index]]));
+  const conversations = plan.conversations.map((conversation) => ({
+    id: `conversation-${conversation.key}`,
+    hotel_id: conversation.hotel_id,
+    guest_id: guestByKey.get(conversation.guest_key)?.id || null,
+    status: conversation.status,
+    last_message_at: conversation.last_message_at,
+    created_at: conversation.created_at
+  }));
+  const conversationByKey = new Map(plan.conversations.map((conversation, index) => [conversation.key, conversations[index]]));
+
+  return {
+    conversations,
+    guests,
+    messages: plan.conversations.flatMap((conversation) => conversation.messages.map((message, index) => ({
+      id: `message-${conversation.key}-${index + 1}`,
+      ...message,
+      hotel_id: conversation.hotel_id,
+      conversation_id: conversationByKey.get(conversation.key)?.id
+    }))),
+    reservations: plan.reservations.map((reservation) => ({
+      id: `reservation-${reservation.key}`,
+      ...withoutFixtureFields(reservation),
+      guest_id: guestByKey.get(reservation.key)?.id || null
+    })),
+    conversation_ai_state: plan.conversations.map((conversation) => ({
+      ...conversation.ai_state,
+      id: `state-${conversation.key}`,
+      conversation_id: conversationByKey.get(conversation.key)?.id
+    }))
+  };
+};
 
 const baseTables = {
   conversations: [
@@ -191,7 +240,7 @@ const baseTables = {
       hotel_id: hotelA,
       guest_id: 'legacy-guest-link',
       guest_name: luciaName,
-      guest_phone: '+15005550001',
+      guest_phone: '+1 (500) 555-0001',
       room_number: '208',
       room_type: 'Double',
       arrival_date: '2026-09-01',
@@ -222,6 +271,8 @@ const inboxConversations = await getInboxConversations({
 
 assert.equal(inboxConversations.length, 1, 'Inbox should return the same-tenant conversation');
 assert.equal(inboxConversations[0].guest.name, luciaName, 'Inbox should resolve guest identity from same-tenant reservation data');
+assert.equal(inboxConversations[0].guestName, luciaName, 'Inbox payload should expose the canonical rendered guestName');
+assert.equal(inboxConversations[0].roomNumber, '208', 'Inbox payload should expose the canonical rendered roomNumber');
 assert.equal(inboxConversations[0].guest.current_room, '208', 'Lucia fixture should resolve room 208 from reservation data');
 assert.equal(inboxConversations[0].guest.phone_number, '+15005550001', 'Phone should remain available as secondary identity');
 assert.notEqual(inboxConversations[0].guest.name, 'Wrong Tenant', 'Inbox must never resolve identity from another tenant');
@@ -237,11 +288,35 @@ const phoneFallbackConversations = await getInboxConversations({
 assert.equal(phoneFallbackConversations[0].guest.name, null, 'Missing same-tenant name should not invent an identity');
 assert.equal(phoneFallbackConversations[0].guest.phone_number, '+15005550001', 'Phone remains the safe fallback when no name exists');
 
+const checkinPlan = buildCheckinDemoFixturePlan({
+  hotelId: hotelA,
+  now: new Date('2026-09-01T10:00:00.000Z')
+});
+const checkinPayload = await getInboxConversations({
+  supabase: createFakeSupabase(buildCheckinInboxTables(checkinPlan), { guestIdentityColumnsMissing: true }),
+  hotelId: hotelA
+});
+const room208Conversation = checkinPayload.find((conversation) => conversation.roomNumber === '208');
+
+assert.ok(room208Conversation, 'Checkin room 208 conversation should be present in the Inbox payload');
+assert.equal(room208Conversation.guestName, luciaName, 'Checkin room 208 Inbox payload should expose Lucia as guestName');
+assert.equal(room208Conversation.guest.name, luciaName, 'Checkin room 208 rendered guest field should contain Lucia');
+assert.equal(room208Conversation.pmsIntelligenceContext.reservation.guestName, luciaName, 'Checkin room 208 reservation context should retain Lucia');
+assert.equal(room208Conversation.lastMessage.content, 'Hola, me podeis traer dos toallas mas a la habitacion?', 'Checkin room 208 payload should include the visible latest message');
+
 const inboxSource = readFileSync(new URL('../dashboard/lib/inbox.js', import.meta.url), 'utf8');
 const inboxComponentSource = readFileSync(new URL('../dashboard/components/InboxClient.js', import.meta.url), 'utf8');
+const appShellSource = readFileSync(new URL('../dashboard/components/AppShell.js', import.meta.url), 'utf8');
 assert.match(inboxSource, /getReservationIdentityLookups/, 'Inbox should use reservation identity lookups');
 assert.match(inboxSource, /\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('guest_phone', phoneValues\)/, 'Reservation phone fallback must stay scoped to the active hotel');
+assert.match(inboxSource, /phoneKeys\.has\(normalizePhone\(reservation\.guest_phone\)\)/, 'Reservation phone fallback should normalize candidate phones inside the same hotel');
+assert.match(inboxSource, /guestName,/, 'Inbox serializer should expose the canonical rendered guestName');
 assert.match(inboxSource, /guest\?\.name \|\| guest\?\.full_name \|\| reservation\?\.guest_name/, 'Guest and reservation names should outrank phone fallback');
+assert.match(inboxComponentSource, /conversation\?\.guestName[\s\S]*?conversation\?\.guest_name[\s\S]*?conversation\?\.guest\?\.name/, 'Inbox UI should render the canonical payload guest name before phone fallback');
+assert.match(inboxComponentSource, /<div className="space-y-3 p-3 sm:p-4">/, 'Inbox conversation rows should expand in normal page flow');
+assert.doesNotMatch(inboxComponentSource, /executive-scroll min-h-0 flex-1 overflow-y-auto p-3 sm:p-4/, 'Inbox conversation list should not use an inner vertical scroll container');
+assert.doesNotMatch(inboxComponentSource, /const inboxHeightClass|h-\[calc\(100(?:d)?vh/, 'Inbox list should not rely on fixed viewport contracts');
+assert.doesNotMatch(appShellSource, /isInboxRoute \? 'overflow-hidden'/, 'Inbox should use the dashboard main scroll instead of clipping page overflow');
 assert.doesNotMatch(inboxComponentSource, /Luc(?:i|\\u00ed)a Mart(?:i|\\u00ed)n/, 'Inbox UI must not hardcode the demo guest name');
 
 console.log('Inbox human takeover checks passed');

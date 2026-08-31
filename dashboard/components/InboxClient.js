@@ -414,7 +414,9 @@ const getConversationMessageCount = (conversations, conversationId) => (
 );
 
 const getConversationGuestLabel = (conversation) => (
-  conversation?.guest?.name
+  conversation?.guestName
+  || conversation?.guest_name
+  || conversation?.guest?.name
   || conversation?.guest?.full_name
   || conversation?.reservation?.guest_name
   || conversation?.pmsIntelligenceContext?.reservation?.guestName
@@ -424,7 +426,9 @@ const getConversationGuestLabel = (conversation) => (
 );
 
 const getConversationRoomNumber = (conversation) => (
-  conversation?.guest?.current_room
+  conversation?.roomNumber
+  || conversation?.room_number
+  || conversation?.guest?.current_room
   || conversation?.reservation?.room_number
   || conversation?.pmsIntelligenceContext?.reservation?.roomNumber
   || conversation?.pmsIntelligenceContext?.guestStayContext?.room_number
@@ -433,7 +437,9 @@ const getConversationRoomNumber = (conversation) => (
 );
 
 const getConversationPhoneNumber = (conversation) => (
-  conversation?.guest?.phone_number
+  conversation?.phoneNumber
+  || conversation?.phone_number
+  || conversation?.guest?.phone_number
   || conversation?.reservation?.guest_phone
   || null
 );
@@ -1293,9 +1299,9 @@ export const InboxClient = ({ conversations }) => {
 
   if (items.length === 0) {
     return (
-      <section className="h-full min-h-0">
+      <section className="w-full">
         <div className={cn(
-          'premium-fade-in flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 lg:rounded-xl lg:border',
+          'premium-fade-in flex flex-col overflow-visible rounded-none border-0 lg:rounded-xl lg:border',
           isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-[#0b1019]'
         )}>
           <div className={cn('shrink-0 border-b px-4 py-4 sm:px-6', isLight ? 'border-slate-200 bg-white' : 'border-white/10')}>
@@ -1353,10 +1359,10 @@ export const InboxClient = ({ conversations }) => {
     { key: 'ai', label: 'IA activa', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
   return (
-    <section className="h-full min-h-0">
+    <section className="w-full">
       <div
         className={[
-          'premium-fade-in relative grid h-full min-h-0 overflow-hidden rounded-none border-0 shadow-none backdrop-blur lg:rounded-xl lg:border',
+          'premium-fade-in relative grid overflow-visible rounded-none border-0 shadow-none backdrop-blur lg:rounded-xl lg:border',
           inboxGridColumns,
           isLight
             ? 'border-slate-200 bg-white'
@@ -1365,7 +1371,7 @@ export const InboxClient = ({ conversations }) => {
       >
       <aside className={[
         chatOpen ? 'hidden lg:flex' : 'flex',
-        'min-h-0 flex-col lg:border-r',
+        'flex-col lg:border-r',
         isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-black/10'
       ].join(' ')}
       >
@@ -1467,7 +1473,7 @@ export const InboxClient = ({ conversations }) => {
           })}
         </div>
 
-        <div className="executive-scroll min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+        <div className="space-y-3 p-3 sm:p-4">
           {visibleItems.length === 0 ? (
             <PremiumEmptyState
               icon={AlertTriangle}

@@ -1303,11 +1303,11 @@ const AppShellContent = ({ children }) => {
 
         <main className={cn(
           'min-h-0 w-full flex-1 overflow-x-hidden overscroll-contain',
-          isInboxRoute ? 'overflow-hidden' : 'overflow-y-auto'
+          'overflow-y-auto'
         )}>
           <div className={cn(
             isInboxRoute
-              ? 'flex h-full min-h-0 w-full flex-col px-0 pb-0 pt-0 sm:px-2 sm:pb-2 sm:pt-2 lg:px-4 lg:pb-4 lg:pt-4'
+              ? 'w-full px-0 pb-0 pt-0 sm:px-2 sm:pb-2 sm:pt-2 lg:px-4 lg:pb-4 lg:pt-4'
               : 'mx-auto w-full max-w-7xl px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 lg:px-10 lg:pb-8 lg:pt-8'
           )}>
             {!isInboxRoute ? (
@@ -1375,7 +1375,6 @@ const AppShellContent = ({ children }) => {
             ) : null}
             <div
               key={`${currentHotel.id}:${supportSession ? 'support' : 'hotel'}`}
-              className={isInboxRoute ? 'min-h-0 flex-1' : undefined}
             >
               {children}
             </div>
