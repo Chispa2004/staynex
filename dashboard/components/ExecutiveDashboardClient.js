@@ -59,6 +59,25 @@ const formatSentimentLabel = (value) => ({
   Neutral: 'Neutral',
   Negative: 'Negativo'
 }[value] || value || 'Sin datos suficientes');
+const getAiAutoReplyDisplay = (data = {}) => {
+  const safety = data?.pilotAiSafety || {};
+  const hotelStatus = safety.hotelStatus || {};
+  const globalStatus = safety.globalStatus || {};
+
+  if (globalStatus.allowed === false) {
+    return { value: 'Bloqueo global activo', tone: 'red' };
+  }
+
+  if (hotelStatus.configured && hotelStatus.enabled) {
+    return { value: 'Respuestas IA activas', tone: 'emerald' };
+  }
+
+  if (hotelStatus.configured) {
+    return { value: 'Respuestas IA desactivadas', tone: 'amber' };
+  }
+
+  return { value: 'Respuestas IA no configuradas', tone: 'amber' };
+};
 
 const formatDateTime = (value, timezone) => {
   try {
@@ -437,8 +456,9 @@ const AIOperationsPanel = ({ data, loading }) => {
   const ai = data?.conversationIntelligence || {};
   const summary = data?.summary || {};
   const automations = data?.kpis?.automationsScheduled || 0;
+  const aiAutoReply = getAiAutoReplyDisplay(data);
   const items = [
-    { label: 'Estado IA', value: 'Activa', tone: 'emerald' },
+    { label: 'Estado IA', value: aiAutoReply.value, tone: aiAutoReply.tone },
     { label: 'Control humano', value: ai.humanTakeovers || summary.humanTakeovers || 0, tone: Number(ai.humanTakeovers || summary.humanTakeovers || 0) > 0 ? 'amber' : 'slate' },
     { label: 'Fiabilidad media', value: formatPercent(ai.avgAiConfidence || summary.averageAiConfidence || 0), tone: 'sky' },
     { label: 'Escalaciones', value: ai.activeEscalations || 0, tone: Number(ai.activeEscalations || 0) > 0 ? 'amber' : 'emerald' },

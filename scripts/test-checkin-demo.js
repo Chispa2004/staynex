@@ -339,6 +339,8 @@ const reservationsClientSource = readFileSync(new URL('../dashboard/components/R
 assert.match(reservationsClientSource, /CANCELLED_RESERVATION_STATUSES/, 'Reservations UI should classify cancelled stays explicitly');
 assert.match(reservationsClientSource, /status !== 'cancelled' && reservation\.arrival_date === today/, 'Cancelled reservations should not appear as today arrivals');
 assert.match(reservationsClientSource, /filteredReservations\.some/, 'Reservation detail should follow the visible filtered result');
+assert.match(reservationsClientSource, /isCheckinDemoHotel/, 'Reservations demo controls should be scoped to the Checkin demo hotel');
+assert.match(reservationsClientSource, /canCreateDemoReservation = canManageReservations && isCheckinDemoHotel\(currentHotel\)/, 'Demo reservation creation should stay hidden in normal hotel workspaces');
 
 const reservationsApiSource = readFileSync(new URL('../dashboard/app/api/reservations/route.js', import.meta.url), 'utf8');
 assert.match(reservationsApiSource, /return 'cancelled'/, 'Reservations API should not compute cancelled rows as pre-arrival');
@@ -352,6 +354,27 @@ assert.match(systemHealthSource, /demo scenario tickets are open/, 'Hotel Health
 
 const executiveDashboardSource = readFileSync(new URL('../dashboard/app/api/executive-dashboard/route.js', import.meta.url), 'utf8');
 assert.match(executiveDashboardSource, /guestSatisfactionSource/, 'Executive KPI should expose whether satisfaction is demo-estimated');
+assert.match(executiveDashboardSource, /getPilotAiSafetyReadiness/, 'Executive dashboard API should reuse canonical Pilot Health AI safety readiness');
+assert.match(executiveDashboardSource, /pilotAiSafety/, 'Executive dashboard API should serialize canonical AI safety state');
+
+const executiveDashboardClientSource = readFileSync(new URL('../dashboard/components/ExecutiveDashboardClient.js', import.meta.url), 'utf8');
+assert.match(executiveDashboardClientSource, /Respuestas IA activas/, 'Dashboard should show AI active only from canonical safety state');
+assert.match(executiveDashboardClientSource, /Respuestas IA desactivadas/, 'Dashboard should show hotel AI switch OFF honestly');
+assert.match(executiveDashboardClientSource, /Bloqueo global activo/, 'Dashboard should show global AI block state');
+assert.doesNotMatch(executiveDashboardClientSource, /value: 'Activa'/, 'Dashboard must not hardcode AI as active');
+
+const ticketsTableSource = readFileSync(new URL('../dashboard/components/TicketsTable.js', import.meta.url), 'utf8');
+assert.match(ticketsTableSource, /getTicketPrimaryText/, 'Tickets table should expose the canonical ticket issue summary');
+assert.match(ticketsTableSource, /ticket\.title \|\| ticket\.subject \|\| ticket\.short_description \|\| ticket\.description/, 'Tickets table should use existing title/subject/description data only');
+assert.match(ticketsTableSource, /Problema/, 'Tickets desktop table should make the issue primary, not only the room number');
+
+const receptionPreCheckinSource = readFileSync(new URL('../dashboard/components/ReceptionPreCheckinClient.js', import.meta.url), 'utf8');
+assert.match(receptionPreCheckinSource, /guestMemoryEnabled \? \['Guest memory'/, 'Pre Check-in should hide Guest Memory when the feature flag is off');
+assert.doesNotMatch(receptionPreCheckinSource, /label="Create ticket"/, 'Pre Check-in should not advertise contextual ticket creation');
+assert.match(receptionPreCheckinSource, /label="Ver tickets"/, 'Pre Check-in ticket action should be an honest navigation label');
+
+const receptionApiSource = readFileSync(new URL('../dashboard/app/api/reception/route.js', import.meta.url), 'utf8');
+assert.match(receptionApiSource, /guestMemoryEnabled: isGuestMemoryEnabled\(\)/, 'Reception API should expose the server Guest Memory flag to the UI');
 
 const previews = buildCheckinDemoJourneyPreviews({ plan, now });
 assert.equal(previews.length, 6, 'four pilot journey families should produce six concrete previews');

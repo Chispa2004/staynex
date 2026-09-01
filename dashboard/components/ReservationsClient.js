@@ -62,9 +62,15 @@ const addDaysToDate = (dateValue, days) => {
 
 const CANCELLED_RESERVATION_STATUSES = new Set(['cancelled', 'canceled', 'no_show', 'void']);
 const COMPLETED_RESERVATION_STATUSES = new Set(['completed', 'checked_out', 'departed']);
+const CHECKIN_DEMO_SLUG = 'hotel-demo-checkin';
 
 const isCancelledReservation = (reservation = {}) => (
   CANCELLED_RESERVATION_STATUSES.has(String(reservation.status || '').toLowerCase())
+);
+
+const isCheckinDemoHotel = (hotel = {}) => (
+  hotel?.slug === CHECKIN_DEMO_SLUG
+  || String(hotel?.name || '').toLowerCase() === 'hotel demo checkin'
 );
 
 const formatDate = (value) => {
@@ -863,6 +869,7 @@ export const ReservationsClient = () => {
   }, [filteredReservations, page, pageSize]);
 
   const canManageReservations = canAccess(currentRole, 'reservations_manage');
+  const canCreateDemoReservation = canManageReservations && isCheckinDemoHotel(currentHotel);
 
   const copyValue = async ({ key, value }) => {
     if (!value) {
@@ -903,7 +910,7 @@ export const ReservationsClient = () => {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {canManageReservations ? (
+          {canCreateDemoReservation ? (
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}
@@ -924,7 +931,7 @@ export const ReservationsClient = () => {
         </div>
       </div>
 
-      {canManageReservations ? (
+      {canCreateDemoReservation ? (
         <TestReservationModal
           open={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
@@ -1012,7 +1019,7 @@ export const ReservationsClient = () => {
             <PremiumEmptyState
               icon={CalendarDays}
               title={reservations.length === 0 ? t('reservations.empty') : t('reservations.noMatches')}
-              description="Crea una reserva demo o sincroniza el PMS cuando la integración real esté lista."
+              description={canCreateDemoReservation ? 'Crea una reserva demo o sincroniza el PMS cuando la integración real esté lista.' : 'Sincroniza el PMS cuando la integración real esté lista.'}
               className="m-4"
             />
           ) : (

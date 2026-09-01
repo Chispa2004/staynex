@@ -6,6 +6,7 @@ import {
   serializePmsConnectionsSafe
 } from '../../../../shared/pms/safe-connection.js';
 import { isGuestMemoryEnabled } from '../../../../shared/guest-memory/feature-flag.js';
+import { getPilotAiSafetyReadiness } from '../../../../shared/pilot/ai-safety.js';
 
 const PMS_EXECUTIVE_SELECT = pmsConnectionSelectForSurface('tenant_settings');
 const CHECKIN_DEMO_SLUG = 'hotel-demo-checkin';
@@ -787,6 +788,7 @@ export async function GET(request) {
       role,
       permissions,
       fallback,
+      pilotAiSafety: getPilotAiSafetyReadiness({ hotel, env: process.env }),
       refreshedAt: new Date().toISOString(),
       kpis: {
         conversationsToday,

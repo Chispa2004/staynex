@@ -115,6 +115,7 @@ export const ReceptionPreCheckinClient = () => {
   const [metrics, setMetrics] = useState({});
   const [hotel, setHotel] = useState(null);
   const [role, setRole] = useState('receptionist');
+  const [guestMemoryEnabled, setGuestMemoryEnabled] = useState(false);
   const [query, setQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedId, setSelectedId] = useState(null);
@@ -153,6 +154,7 @@ export const ReceptionPreCheckinClient = () => {
       setMetrics(payload.metrics || {});
       setHotel(payload.hotel || null);
       setRole(payload.role || 'receptionist');
+      setGuestMemoryEnabled(payload.guestMemoryEnabled === true);
       setError(null);
       const nextSelectedId = selectedId && payload.reservations?.some((item) => item.id === selectedId)
         ? selectedId
@@ -194,6 +196,7 @@ export const ReceptionPreCheckinClient = () => {
       const payload = await response.json();
       if (response.ok && payload.reservation) {
         setSelected(payload.reservation);
+        setGuestMemoryEnabled(payload.guestMemoryEnabled === true);
       }
     } catch {
       // The list item already has enough safe detail for reception.
@@ -309,6 +312,7 @@ export const ReceptionPreCheckinClient = () => {
           role={role}
           note={note}
           setNote={setNote}
+          guestMemoryEnabled={guestMemoryEnabled}
           onCopyPhone={copyPhone}
           onAddNote={() => submitReceptionAction('add_note')}
           onMarkAttention={() => submitReceptionAction('mark_needs_attention')}
@@ -416,6 +420,7 @@ const ReservationDetail = ({
   role,
   note,
   setNote,
+  guestMemoryEnabled,
   onCopyPhone,
   onAddNote,
   onMarkAttention
@@ -446,6 +451,14 @@ const ReservationDetail = ({
 
   const canOpenConversation = Boolean(reservation.connectedData?.conversation?.id);
   const canViewQr = Boolean(reservation.roomNumber);
+  const connectedDataRows = [
+    ['WhatsApp conversation', reservation.connectedData?.conversation?.id ? 'Linked' : 'Not linked'],
+    ['Open tickets', reservation.connectedData?.tickets?.length || 0],
+    guestMemoryEnabled ? ['Guest memory', reservation.connectedData?.guestMemory?.length || 0] : null,
+    ['Experience bookings', reservation.connectedData?.experienceBookings?.length || 0],
+    ['Revenue potential', reservation.connectedData?.revenueOpportunities?.revenuePotential || 0],
+    ['Upgrade eligible', reservation.connectedData?.revenueOpportunities?.upgradeEligible ? 'Yes' : 'No']
+  ].filter(Boolean);
 
   return (
     <div className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
@@ -465,7 +478,7 @@ const ReservationDetail = ({
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:min-w-72">
           <ActionLink href={canOpenConversation ? `/dashboard/inbox?conversationId=${reservation.connectedData.conversation.id}` : null} icon={Inbox} label="Open WhatsApp conversation" />
-          <ActionLink href="/dashboard/tickets" icon={TicketCheck} label="Create ticket" />
+          <ActionLink href="/dashboard/tickets" icon={TicketCheck} label="Ver tickets" />
           <ActionButton onClick={onCopyPhone} icon={Copy} label="Copy guest phone" disabled={!reservation.phone} />
           <ActionLink href={canViewQr ? `/dashboard/qr-rooms?room=${encodeURIComponent(reservation.roomNumber)}` : null} icon={QrCode} label="View room QR" />
           <ActionLink href="/dashboard/experience-bookings" icon={CalendarCheck} label="View experience bookings" />
@@ -538,14 +551,7 @@ const ReservationDetail = ({
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,0.54fr)_minmax(0,0.46fr)]">
         <DetailPanel title="Connected Staynex data" icon={Sparkles}>
-          <DetailGrid rows={[
-            ['WhatsApp conversation', reservation.connectedData?.conversation?.id ? 'Linked' : 'Not linked'],
-            ['Open tickets', reservation.connectedData?.tickets?.length || 0],
-            ['Guest memory', reservation.connectedData?.guestMemory?.length || 0],
-            ['Experience bookings', reservation.connectedData?.experienceBookings?.length || 0],
-            ['Revenue potential', reservation.connectedData?.revenueOpportunities?.revenuePotential || 0],
-            ['Upgrade eligible', reservation.connectedData?.revenueOpportunities?.upgradeEligible ? 'Yes' : 'No']
-          ]} />
+          <DetailGrid rows={connectedDataRows} />
           {reservation.connectedData?.notes ? (
             <div className={cn('mt-3 rounded-xl border p-3 text-sm leading-6 whitespace-pre-wrap', isLight ? 'border-slate-200 bg-slate-50 text-slate-600' : 'border-white/10 bg-white/[0.025] text-slate-400')}>
               {reservation.connectedData.notes}

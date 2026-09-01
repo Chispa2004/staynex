@@ -51,6 +51,7 @@ export async function GET(request) {
         hotel,
         hotelId: hotel.id,
         role,
+        guestMemoryEnabled: isGuestMemoryEnabled(),
         reservation
       }, noStore);
     }
@@ -70,6 +71,7 @@ export async function GET(request) {
       hotel,
       hotelId: hotel.id,
       role,
+      guestMemoryEnabled: isGuestMemoryEnabled(),
       reservations,
       metrics: {
         total: reservations.length,

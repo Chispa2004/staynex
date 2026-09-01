@@ -235,6 +235,17 @@ assert.ok(wizardSource.includes('Configurar PMS'), 'PMS blocker has CTA');
 assert.ok(wizardSource.includes('Configurar Knowledge'), 'Knowledge blocker has CTA');
 assert.ok(!wizardSource.includes('Generate starter knowledge base'), 'onboarding must not autogenerate Knowledge');
 
+const pmsStepSource = readFileSync(join(root, 'dashboard/components/onboarding/StepPmsConnection.js'), 'utf8');
+assert.ok(pmsStepSource.includes('PMS del hotel'), 'PMS onboarding should be provider-neutral for the hotel');
+assert.ok(pmsStepSource.includes('Ubikos'), 'PMS onboarding should show Ubikos in the pilot context');
+assert.ok(pmsStepSource.includes('Pendiente de integración'), 'Ubikos should be presented as waiting external integration');
+assert.ok(pmsStepSource.includes('Piloto read-only'), 'Ubikos pilot status should be read-only');
+assert.ok(pmsStepSource.includes('CONNECTED'), 'PMS onboarding should distinguish CONNECTED');
+assert.ok(pmsStepSource.includes('WAITING_EXTERNAL'), 'PMS onboarding should distinguish WAITING EXTERNAL');
+assert.ok(pmsStepSource.includes('NOT_CONFIGURED'), 'PMS onboarding should distinguish NOT CONFIGURED');
+assert.ok(!pmsStepSource.includes('Connect Apaleo now'), 'PMS onboarding should not be Apaleo-first copy');
+assert.ok(!pmsStepSource.includes('Apaleo status'), 'PMS onboarding status should not be hardcoded to Apaleo');
+
 const onboardingApiSource = readFileSync(join(root, 'dashboard/app/api/onboarding/state/route.js'), 'utf8');
 assert.ok(onboardingApiSource.includes('canModifyPilotProtectedConfig'), 'onboarding state writes are permission guarded');
 

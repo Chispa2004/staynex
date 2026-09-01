@@ -85,6 +85,17 @@ const formatText = (value, fallback, labels = {}) => {
   return labels[key] || labels[normalized] || normalized.replaceAll('_', ' ');
 };
 
+const getTicketPrimaryText = (ticket = {}) => (
+  String(ticket.title || ticket.subject || ticket.short_description || ticket.description || '').trim()
+  || 'Ticket sin título'
+);
+
+const getTicketSecondaryText = (ticket = {}) => {
+  const description = String(ticket.description || '').trim();
+  const primary = getTicketPrimaryText(ticket);
+  return description && description !== primary ? description : null;
+};
+
 const isUrgentTicket = (ticket) => ticket.priority === 'urgent' || ticket.category === 'emergency';
 
 const copilotToneClass = (tone = 'slate') => {
@@ -226,6 +237,8 @@ export const TicketsTable = ({ tickets }) => {
             const urgent = isUrgentTicket(ticket);
             const loading = updatingId === ticket.id;
             const copilot = getTicketCopilot(ticket);
+            const primaryText = getTicketPrimaryText(ticket);
+            const secondaryText = getTicketSecondaryText(ticket);
 
             return (
               <article
@@ -242,9 +255,13 @@ export const TicketsTable = ({ tickets }) => {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-100">
-                      {ticket.room_number || t('tickets.noRoom')}
+                    <p className="line-clamp-2 text-sm font-semibold text-slate-100">{primaryText}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {ticket.room_number ? `Habitación ${ticket.room_number}` : t('tickets.noRoom')}
                     </p>
+                    {secondaryText ? (
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{secondaryText}</p>
+                    ) : null}
                     <div className="mt-2 flex items-center gap-2 text-sm text-slate-300">
                       <TicketCategoryIcon category={ticket.category} />
                       <span className="truncate">{formatText(ticket.category, t('tickets.noData'), categoryLabels)}</span>
@@ -313,7 +330,7 @@ export const TicketsTable = ({ tickets }) => {
           <table className="min-w-full divide-y divide-white/10">
             <thead className="bg-white/[0.035]">
               <tr>
-                <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.room')}</th>
+                <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Problema</th>
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.category')}</th>
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.priority')}</th>
                 <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{t('table.status')}</th>
@@ -327,6 +344,8 @@ export const TicketsTable = ({ tickets }) => {
               {items.map((ticket) => {
                 const urgent = isUrgentTicket(ticket);
                 const copilot = getTicketCopilot(ticket);
+                const primaryText = getTicketPrimaryText(ticket);
+                const secondaryText = getTicketSecondaryText(ticket);
 
                 return (
                   <tr
@@ -341,8 +360,14 @@ export const TicketsTable = ({ tickets }) => {
                     }}
                     className={`cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-400/40 ${getTicketRowClass(ticket)}`}
                   >
-                    <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold text-slate-100">
-                      {ticket.room_number || t('tickets.noRoom')}
+                    <td className="min-w-[260px] max-w-[340px] px-5 py-4">
+                      <p className="line-clamp-2 text-sm font-semibold text-slate-100">{primaryText}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {ticket.room_number ? `Habitación ${ticket.room_number}` : t('tickets.noRoom')}
+                      </p>
+                      {secondaryText ? (
+                        <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{secondaryText}</p>
+                      ) : null}
                     </td>
                     <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-300">
                       <div className="flex items-center gap-2">
