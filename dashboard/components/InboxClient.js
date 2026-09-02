@@ -1297,11 +1297,17 @@ export const InboxClient = ({ conversations }) => {
     }
   };
 
+  const closeActiveConversation = useCallback(() => {
+    setSelectedId(null);
+    setMobileChatOpen(false);
+    setCopilotOpen(false);
+  }, []);
+
   if (items.length === 0) {
     return (
-      <section className="w-full">
+      <section className="h-full min-h-0 w-full">
         <div className={cn(
-          'premium-fade-in flex flex-col overflow-visible rounded-none border-0 lg:rounded-xl lg:border',
+          'premium-fade-in flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 lg:rounded-xl lg:border',
           isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-[#0b1019]'
         )}>
           <div className={cn('shrink-0 border-b px-4 py-4 sm:px-6', isLight ? 'border-slate-200 bg-white' : 'border-white/10')}>
@@ -1311,7 +1317,7 @@ export const InboxClient = ({ conversations }) => {
             </p>
           </div>
           {loading ? (
-            <div className="space-y-3 p-4 sm:p-6">
+            <div className="executive-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
               {[0, 1, 2, 3, 4, 5].map((item) => (
                 <div key={item} className={cn('h-20 rounded-lg', ui.skeleton(isLight))} />
               ))}
@@ -1359,10 +1365,10 @@ export const InboxClient = ({ conversations }) => {
     { key: 'ai', label: 'IA activa', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
   return (
-    <section className="w-full">
+    <section className="h-full min-h-0 w-full">
       <div
         className={[
-          'premium-fade-in relative grid overflow-visible rounded-none border-0 shadow-none backdrop-blur lg:rounded-xl lg:border',
+          'premium-fade-in relative grid h-full min-h-0 overflow-hidden rounded-none border-0 shadow-none backdrop-blur lg:rounded-xl lg:border',
           inboxGridColumns,
           isLight
             ? 'border-slate-200 bg-white'
@@ -1371,7 +1377,7 @@ export const InboxClient = ({ conversations }) => {
       >
       <aside className={[
         chatOpen ? 'hidden lg:flex' : 'flex',
-        'flex-col lg:border-r',
+        'min-h-0 flex-col lg:border-r',
         isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-black/10'
       ].join(' ')}
       >
@@ -1473,7 +1479,10 @@ export const InboxClient = ({ conversations }) => {
           })}
         </div>
 
-        <div className="space-y-3 p-3 sm:p-4">
+        <div
+          className="executive-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4"
+          data-inbox-scroll-region="conversation-list"
+        >
           {visibleItems.length === 0 ? (
             <PremiumEmptyState
               icon={AlertTriangle}
@@ -1618,7 +1627,7 @@ export const InboxClient = ({ conversations }) => {
 
       <section className={[
         selectedConversation ? chatOpen ? 'flex' : 'hidden lg:flex' : 'hidden',
-        'min-h-0 flex-col overflow-hidden'
+        'h-full min-h-0 flex-col overflow-hidden'
       ].join(' ')}
       >
         <header className={[
@@ -1630,7 +1639,7 @@ export const InboxClient = ({ conversations }) => {
             <div className="flex min-w-0 items-center gap-2">
               <button
                 type="button"
-                onClick={() => setMobileChatOpen(false)}
+                onClick={closeActiveConversation}
                 className={cn(
                   'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition',
                   isLight
@@ -1774,6 +1783,7 @@ export const InboxClient = ({ conversations }) => {
           isLight ? 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_32%),#f8fafc]' : 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#080c14]/70'
         ].join(' ')}
         ref={messagesScrollRef}
+        data-inbox-scroll-region="message-history"
         >
           {selectedHumanTakeoverActive ? (
             <div className={cn(

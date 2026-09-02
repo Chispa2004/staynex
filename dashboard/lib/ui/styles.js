@@ -4,13 +4,13 @@ export const ui = {
   surface: (isLight, variant = 'card') => {
     const variants = {
       card: isLight
-        ? 'border-slate-200/80 bg-white text-slate-950 shadow-[0_18px_50px_rgba(15,23,42,0.08)]'
+        ? 'border-slate-200/90 bg-white text-slate-950 shadow-[0_20px_54px_rgba(15,23,42,0.10)]'
         : 'border-white/10 bg-[#0b1019]/90 text-slate-100 shadow-[0_18px_55px_rgba(0,0,0,0.24)]',
       subtle: isLight
-        ? 'border-slate-200 bg-slate-50/90 text-slate-900'
+        ? 'border-slate-200/90 bg-slate-50/95 text-slate-900'
         : 'border-white/10 bg-white/[0.035] text-slate-100',
       inset: isLight
-        ? 'border-slate-200 bg-slate-50 text-slate-900 shadow-inner shadow-slate-200/70'
+        ? 'border-slate-200/90 bg-slate-50/95 text-slate-900 shadow-inner shadow-slate-300/60'
         : 'border-white/10 bg-black/20 text-slate-100 shadow-inner shadow-black/20'
     };
 
@@ -28,7 +28,7 @@ export const ui = {
   ),
   row: (isLight, interactive = false) => cn(
     'rounded-xl border transition duration-200',
-    isLight ? 'border-slate-200 bg-slate-50/85' : 'border-white/10 bg-white/[0.025]',
+    isLight ? 'border-slate-200/90 bg-white/85' : 'border-white/10 bg-white/[0.025]',
     interactive ? (isLight ? 'hover:bg-white hover:shadow-sm' : 'hover:bg-white/[0.055]') : ''
   ),
   text: {
