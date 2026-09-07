@@ -1168,12 +1168,13 @@ const AppShellContent = ({ children }) => {
               </section>
             ) : null}
             {!isPlatformContext ? allowedNavigationGroups.map((group) => {
-              const isOpen = openGroups[group.id];
+              const isPrimaryNavigation = group.id === 'operations';
+              const isOpen = isPrimaryNavigation || openGroups[group.id];
               const activeGroup = groupHasActiveRoute(group);
 
               return (
                 <section key={group.id} className="space-y-1.5" data-group={group.id}>
-                  <button
+                  {!isPrimaryNavigation ? <button
                     type="button"
                     onClick={() => toggleGroup(group.id)}
                     className={[
@@ -1196,7 +1197,7 @@ const AppShellContent = ({ children }) => {
                       ].join(' ')}
                       aria-hidden="true"
                     />
-                  </button>
+                  </button> : null}
 
                   {isOpen ? (
                     <div className="space-y-1">
@@ -1263,7 +1264,7 @@ const AppShellContent = ({ children }) => {
           </nav>
 
           <div className={shellStyles.account}>
-            <div className="mb-3 flex items-center gap-2 lg:hidden"><ThemeToggle /><LanguageSelector /></div>
+            <div className="mb-3 flex items-center gap-2 lg:hidden"><ThemeToggle /><LanguageSelector placement="top" /></div>
             {!isPlatformContext ? <>
               <HotelWorkspaceSwitcher
                 compact

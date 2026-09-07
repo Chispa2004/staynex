@@ -3,7 +3,7 @@
   --ops-panel: #fff;
   --ops-border: #dde6f0;
   --ops-text: #101c3d;
-  --ops-muted: #61769a;
+  --ops-muted: #465a77;
   --ops-soft: #f5f8fc;
   --ops-green: #007b55;
   --ops-green-soft: #e7f7f1;
@@ -42,7 +42,12 @@
 .controls { display: flex; align-items: center; gap: 6px; }
 .controls > * { box-shadow: none !important; }
 .controls button { font-size: 12px; }
-.role { border-left: 1px solid var(--ops-border); padding-left: 14px; font-size: 13px; color: var(--ops-muted); }
+.userAccount { display: flex; align-items: center; gap: 10px; border-left: 1px solid var(--ops-border); padding-left: 14px; max-width: 240px; min-width: 0; }
+.userAccount p { font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.userAccount span:not(.userAvatar) { font-size: 12px; color: var(--ops-muted); }
+.userAvatar { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: var(--ops-soft); border: 1px solid var(--ops-border); color: var(--ops-text); font-size: 13px; font-weight: 650; }
+.topbar > div:first-child { min-width: 0; }
+.greeting { overflow-wrap: anywhere; }
 .demo { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 18px; background: var(--ops-green-soft); color: var(--ops-green); font-size: 12px; white-space: nowrap; }
 .demo::before { content: ''; width: 7px; height: 7px; background: currentColor; border-radius: 50%; }
 .refresh { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--ops-border); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--ops-muted); }
@@ -134,13 +139,12 @@
 }
 @media (max-width: 1199px) {
   .greeting { font-size: 15px; }
-  .toolbar > time, .role { display: none; }
+  .toolbar > time { display: none; }
   .columns { grid-template-columns: minmax(0,1fr); }
   .movement { min-height: 360px; }
 }
 @media (max-width: 767px) {
   .topbar { margin: -16px -16px 0; padding: 12px 16px; flex-wrap: wrap; }
-  .controls { display: none; }
   .toolbar { justify-content: flex-start; }
   .identity { gap: 12px; padding: 0; }
   .identity h1 { font-size: 25px; }

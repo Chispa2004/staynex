@@ -32,6 +32,8 @@ import {
 import styles from './HotelOperations.module.css';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
+import { useSessionDisplayName } from '@/lib/use-session-display-name';
+import { getHotelGreeting } from '@/lib/user-presentation';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { canAccess } from '@/lib/permissions';
@@ -56,7 +58,7 @@ const formatRoleLabel = (role) => ({
   receptionist: 'Recepción',
   manager: 'Dirección',
   owner: 'Propiedad',
-  admin: 'Admin'
+  admin: 'Administrador'
 }[role] || formatProfileLabel(role));
 const formatSentimentLabel = (value) => ({
   'Needs attention': 'Necesita atención',
@@ -385,6 +387,7 @@ const initialsFor = (name) => String(name || '').split(/\s+/).filter(Boolean).sl
 
 const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshing, onRefresh }) => {
   const { tx, language } = useDashboardLanguage();
+  const displayName = useSessionDisplayName();
   let country = hotel.country || '';
   try {
     if (hotel.country_code) country = new Intl.DisplayNames([language], { type: 'region' }).of(hotel.country_code);
@@ -394,8 +397,8 @@ const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshi
     <>
       <header className={styles.topbar}>
         <div>
-          <p className={styles.greeting}>{tx('Resumen operativo')}</p>
-          <p className={styles.subtitle}>{tx('Aquí tienes el resumen de tu hotel.')}</p>
+          <p className={styles.greeting}>{displayName ? `${tx(getHotelGreeting(timezone))}, ${displayName}` : tx('Bienvenido')}</p>
+          <p className={styles.subtitle}>{tx('Aquí tienes el resumen operativo de tu hotel.')}</p>
         </div>
         <div className={styles.toolbar}>
           <time>{formatHotelDate(timezone, language)}</time>
@@ -404,7 +407,10 @@ const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshi
             <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />{tx('Actualizar')}
           </button>
           <div className={styles.controls}><ThemeToggle /><LanguageSelector /></div>
-          {!loading ? <span className={styles.role}>{formatRoleLabel(role)}</span> : null}
+          {!loading ? <div className={styles.userAccount}>
+            <span className={styles.userAvatar} aria-hidden="true">{initialsFor(displayName || tx('Usuario'))}</span>
+            <div><p>{displayName || tx('Usuario')}</p><span>{tx(formatRoleLabel(role))}</span></div>
+          </div> : null}
         </div>
       </header>
       <div className={styles.identity}>
