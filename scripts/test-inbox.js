@@ -389,6 +389,7 @@ assert.equal(room208Conversation.lastMessage.content, 'Hola, me podeis traer dos
 
 const inboxSource = readFileSync(new URL('../dashboard/lib/inbox.js', import.meta.url), 'utf8');
 const inboxComponentSource = readFileSync(new URL('../dashboard/components/InboxClient.js', import.meta.url), 'utf8');
+const inboxApiSource = readFileSync(new URL('../dashboard/app/api/inbox/route.js', import.meta.url), 'utf8');
 const appShellSource = readFileSync(new URL('../dashboard/components/AppShell.js', import.meta.url), 'utf8');
 const globalStylesSource = readFileSync(new URL('../dashboard/app/globals.css', import.meta.url), 'utf8');
 const uiStylesSource = readFileSync(new URL('../dashboard/lib/ui/styles.js', import.meta.url), 'utf8');
@@ -409,6 +410,15 @@ assert.match(inboxComponentSource, /executive-scroll min-h-0 flex-1 space-y-4 ov
 assert.match(inboxComponentSource, /const closeActiveConversation = useCallback\(\(\) => \{[\s\S]*setSelectedId\(null\)[\s\S]*setMobileChatOpen\(false\)[\s\S]*setCopilotOpen\(false\)/, 'Back action should locally clear the selected conversation and close chat detail');
 assert.match(inboxComponentSource, /onClick=\{closeActiveConversation\}/, 'Back arrow should use the local close action');
 assert.doesNotMatch(inboxComponentSource, /useRouter|router\.push|window\.location/, 'Inbox back action should not route or reload');
+assert.match(inboxComponentSource, /locallyClosedConversationIdsRef\.current\.add\(selectedIdRef\.current\)/, 'Back action should remember locally closed conversations');
+assert.match(inboxComponentSource, /locallyClosedConversationIdsRef\.current\.has\(requestedConversationId\)/, 'Polling or URL params should not reopen a locally closed chat');
+assert.match(inboxComponentSource, /draftsByConversation/, 'Inbox drafts should stay separated by conversation in ephemeral state');
+assert.match(inboxComponentSource, /\$\{currentHotel\.id\}:\$\{selectedConversation\.id\}/, 'Inbox draft keys should be scoped by hotel and conversation');
+assert.match(inboxComponentSource, /setDraftsByConversation\(\{\}\)/, 'Hotel changes should clear conversation drafts');
+assert.doesNotMatch(inboxComponentSource, /localStorage\.(?:setItem|getItem|removeItem)\([^)]*draft/i, 'Inbox should not persist PII drafts in localStorage');
+assert.match(inboxComponentSource, /getHotelAiReplyAllowed/, 'Inbox should derive effective AI labels from the hotel safety state');
+assert.match(inboxComponentSource, /Respuestas off/, 'Inbox should avoid showing AI active when automatic replies are blocked');
+assert.match(inboxApiSource, /getPilotAiSafetyReadiness/, 'Inbox API should return canonical AI safety state for labels');
 assert.match(appShellSource, /isInboxRoute \? 'flex flex-col overflow-hidden' : 'overflow-y-auto'/, 'Inbox should let its workspace panes own scrolling');
 assert.match(appShellSource, /isInboxRoute[\s\S]*'flex min-h-0 flex-1 flex-col w-full/, 'Inbox route wrapper should pass full height to the workspace');
 assert.match(globalStylesSource, /--staynex-canvas-light-start: #f4f7fb/, 'Light canvas should be subtly darker than pure white');

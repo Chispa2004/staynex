@@ -485,6 +485,30 @@ const isUrgentConversation = (conversation, unreadCount) => (
   || ['medium', 'high'].includes(conversation?.copilot?.escalationRisk?.level)
 );
 
+const getHotelAiReplyAllowed = ({ pilotAiSafety, hotel }) => {
+  if (pilotAiSafety?.globalStatus?.allowed === false) {
+    return false;
+  }
+
+  if (pilotAiSafety?.hotelStatus?.configured) {
+    return pilotAiSafety.hotelStatus.enabled === true;
+  }
+
+  return hotel?.ai_auto_reply_enabled === true;
+};
+
+const getConversationControlBadge = ({ conversation, hotelAiReplyAllowed }) => {
+  if (isHumanTakeoverActive(conversation)) {
+    return { label: 'Control humano', tone: 'orange', icon: PauseCircle };
+  }
+
+  if (!hotelAiReplyAllowed) {
+    return { label: 'Respuestas off', tone: 'slate', icon: Bot };
+  }
+
+  return { label: 'IA activa', tone: 'emerald', icon: Bot };
+};
+
 const getConversationPriorityScore = (conversation, readState) => {
   const unreadCount = getUnreadCount(conversation, readState);
   const recentTime = new Date(conversation.last_message_at || conversation.created_at || 0).getTime();
@@ -519,6 +543,7 @@ export const InboxClient = ({ conversations }) => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentHotel, setCurrentHotel] = useState(null);
+  const [pilotAiSafety, setPilotAiSafety] = useState(null);
   const [staffLanguage, setStaffLanguage] = useState(normalizeTranslationLanguage(language || 'es'));
   const [translationOverrides, setTranslationOverrides] = useState({});
   const [translatingMessages, setTranslatingMessages] = useState({});
@@ -526,6 +551,8 @@ export const InboxClient = ({ conversations }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(Boolean(requestedConversationId));
+  const [draftsByConversation, setDraftsByConversation] = useState({});
+  const locallyClosedConversationIdsRef = useRef(new Set());
   const itemsRef = useRef(sortedConversations);
   const selectedIdRef = useRef(selectedId);
   const messagesScrollRef = useRef(null);
@@ -550,6 +577,9 @@ export const InboxClient = ({ conversations }) => {
   const selectedDisplayName = selectedConversation ? getConversationGuestLabel(selectedConversation) : 'Huésped';
   const selectedRoomNumber = getConversationRoomNumber(selectedConversation);
   const selectedPhoneNumber = getConversationPhoneNumber(selectedConversation);
+  const draftKey = selectedConversation?.id && currentHotel?.id
+    ? `${currentHotel.id}:${selectedConversation.id}`
+    : null;
   const selectedSecondaryLine = [
     selectedRoomNumber ? `Habitación ${selectedRoomNumber}` : null,
     selectedPhoneNumber
@@ -606,6 +636,10 @@ export const InboxClient = ({ conversations }) => {
   }, [staffLanguage]);
 
   useEffect(() => {
+    setMessage(draftKey ? draftsByConversation[draftKey] || '' : '');
+  }, [draftKey, draftsByConversation]);
+
+  useEffect(() => {
     if (!currentHotel?.id) {
       setReadState({});
       setReadStateLoaded(false);
@@ -617,7 +651,11 @@ export const InboxClient = ({ conversations }) => {
   }, [currentHotel?.id]);
 
   useEffect(() => {
-    if (requestedConversationId && items.some((conversation) => conversation.id === requestedConversationId)) {
+    if (
+      requestedConversationId
+      && !locallyClosedConversationIdsRef.current.has(requestedConversationId)
+      && items.some((conversation) => conversation.id === requestedConversationId)
+    ) {
       setSelectedId(requestedConversationId);
       setMobileChatOpen(true);
     }
@@ -683,12 +721,16 @@ export const InboxClient = ({ conversations }) => {
         setReadState({});
         setReadStateLoaded(false);
         setMessage('');
+        setDraftsByConversation({});
+        locallyClosedConversationIdsRef.current.clear();
+        setPilotAiSafety(null);
         setCopilotOpen(false);
         setMobileChatOpen(false);
         setSearchQuery('');
       }
 
       setCurrentHotel(body.hotel || null);
+      setPilotAiSafety(body.pilotAiSafety || null);
       setStaffLanguage(normalizeTranslationLanguage(
         readStoredTranslationLanguage(nextHotelId)
         || staffLanguageRef.current
@@ -700,6 +742,10 @@ export const InboxClient = ({ conversations }) => {
       setSelectedId((current) => {
         const currentSelection = selectedIdRef.current || current;
 
+        if (currentSelection && locallyClosedConversationIdsRef.current.has(currentSelection)) {
+          return null;
+        }
+
         if (preserveSelection && currentSelection && nextItems.some((conversation) => conversation.id === currentSelection)) {
           return currentSelection;
         }
@@ -708,7 +754,11 @@ export const InboxClient = ({ conversations }) => {
           return current;
         }
 
-        return requestedConversationId || null;
+        if (requestedConversationId && !locallyClosedConversationIdsRef.current.has(requestedConversationId)) {
+          return requestedConversationId;
+        }
+
+        return null;
       });
 
       return nextItems;
@@ -742,6 +792,9 @@ export const InboxClient = ({ conversations }) => {
       setItems([]);
       setSelectedId(null);
       setMessage('');
+      setDraftsByConversation({});
+      locallyClosedConversationIdsRef.current.clear();
+      setPilotAiSafety(null);
       setReadState({});
       setReadStateLoaded(false);
       setCopilotOpen(false);
@@ -1023,10 +1076,11 @@ export const InboxClient = ({ conversations }) => {
   const sendMessage = async (event) => {
     event.preventDefault();
 
-    if (!selectedConversation || !message.trim()) {
+    if (sending || !selectedConversation || !message.trim()) {
       return;
     }
 
+    const messageToSend = message.trim();
     setSending(true);
 
     try {
@@ -1038,7 +1092,7 @@ export const InboxClient = ({ conversations }) => {
         },
         body: JSON.stringify({
           conversationId: selectedConversation.id,
-          message: message.trim(),
+          message: messageToSend,
           staffLanguage
         })
       });
@@ -1055,7 +1109,7 @@ export const InboxClient = ({ conversations }) => {
         message: body.message
       }));
       markConversationAsRead(selectedConversation.id);
-      setMessage('');
+      clearComposerDraft();
       scrollMessagesToBottom('smooth');
     } catch (error) {
       console.error('Staff message send failed', error);
@@ -1290,6 +1344,33 @@ export const InboxClient = ({ conversations }) => {
     }));
   };
 
+  const updateComposerDraft = useCallback((nextValue) => {
+    setMessage(nextValue);
+
+    if (!draftKey) {
+      return;
+    }
+
+    setDraftsByConversation((current) => ({
+      ...current,
+      [draftKey]: nextValue
+    }));
+  }, [draftKey]);
+
+  const clearComposerDraft = useCallback(() => {
+    setMessage('');
+
+    if (!draftKey) {
+      return;
+    }
+
+    setDraftsByConversation((current) => {
+      const next = { ...current };
+      delete next[draftKey];
+      return next;
+    });
+  }, [draftKey]);
+
   const handleComposerKeyDown = (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -1298,6 +1379,10 @@ export const InboxClient = ({ conversations }) => {
   };
 
   const closeActiveConversation = useCallback(() => {
+    if (selectedIdRef.current) {
+      locallyClosedConversationIdsRef.current.add(selectedIdRef.current);
+    }
+
     setSelectedId(null);
     setMobileChatOpen(false);
     setCopilotOpen(false);
@@ -1356,13 +1441,17 @@ export const InboxClient = ({ conversations }) => {
     || null;
   const replyWillTranslate = Boolean(selectedGuestLanguage && selectedGuestLanguage !== staffLanguage);
   const humanTakeoverTotal = items.filter((conversation) => isHumanTakeoverActive(conversation)).length;
+  const hotelAiReplyAllowed = getHotelAiReplyAllowed({ pilotAiSafety, hotel: currentHotel });
+  const selectedControlBadge = selectedConversation
+    ? getConversationControlBadge({ conversation: selectedConversation, hotelAiReplyAllowed })
+    : null;
   const filterItems = [
     { key: 'all', label: 'Todas', count: items.length },
     { key: 'unread', label: 'Sin leer', count: items.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
     { key: 'human', label: 'Control humano', count: humanTakeoverTotal },
     { key: 'urgent', label: 'Urgentes', count: items.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
     { key: 'vip', label: 'VIP', count: items.filter((conversation) => isVipConversation(conversation)).length },
-    { key: 'ai', label: 'IA activa', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
+    { key: 'ai', label: hotelAiReplyAllowed ? 'IA activa' : 'IA sin control humano', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
   return (
     <section className="h-full min-h-0 w-full">
@@ -1503,27 +1592,32 @@ export const InboxClient = ({ conversations }) => {
             const hasOffer = (conversation.offers || []).length > 0;
             const hasExperienceBooking = (conversation.experienceBookings || []).length > 0;
             const aiState = conversation.aiState;
-            const humanTakeoverActive = isHumanTakeoverActive(conversation);
             const displayName = getConversationGuestLabel(conversation);
             const roomNumber = getConversationRoomNumber(conversation);
             const languageBadge = getConversationLanguage(conversation);
             const sentiment = conversation.copilot?.sentiment?.label || aiState?.sentiment || 'neutral';
             const priority = conversation.copilot?.priority?.level || (needsAttention ? 'high' : 'normal');
             const vip = isVipConversation(conversation);
+            const controlBadge = getConversationControlBadge({
+              conversation,
+              hotelAiReplyAllowed
+            });
             const badgeItems = [
-              humanTakeoverActive ? { label: 'Control humano', tone: 'orange', icon: PauseCircle } : { label: 'IA activa', tone: 'emerald', icon: Bot },
+              controlBadge,
               needsAttention ? { label: 'Atención humana', tone: 'red', icon: AlertTriangle } : null,
+              isNew ? { label: t('inbox.newConversation'), tone: 'sky' } : null,
               vip ? { label: 'VIP', tone: 'violet' } : null,
-              languageBadge ? { label: String(languageBadge).toUpperCase(), tone: 'sky' } : null,
               hasExperienceBooking ? { label: 'Experiencia', tone: 'amber' } : null,
-              hasOffer || hasUpsell ? { label: 'Revenue', tone: 'emerald' } : null
-            ].filter(Boolean).slice(0, 5);
+              hasOffer || hasUpsell ? { label: 'Revenue', tone: 'emerald' } : null,
+              languageBadge ? { label: String(languageBadge).toUpperCase(), tone: 'sky' } : null
+            ].filter(Boolean).slice(0, needsAttention ? 5 : 4);
 
             return (
               <button
                 key={conversation.id}
                 type="button"
                 onClick={() => {
+                  locallyClosedConversationIdsRef.current.delete(conversation.id);
                   setSelectedId(conversation.id);
                   markConversationAsRead(conversation.id);
                   setMobileChatOpen(true);
@@ -1603,9 +1697,6 @@ export const InboxClient = ({ conversations }) => {
                           </span>
                         );
                       })}
-                      {isNew ? (
-                        <span className={ui.badge(isLight, 'sky', true)}>{t('inbox.newConversation')}</span>
-                      ) : null}
                       {sentiment && sentiment !== 'neutral' ? (
                         <span className={ui.badge(isLight, sentiment === 'angry' || sentiment === 'frustrated' ? 'red' : 'slate', true)}>
                           {formatSignalLabel(sentiment, sentimentLabels)}
@@ -1705,6 +1796,10 @@ export const InboxClient = ({ conversations }) => {
                   ? isLight
                     ? 'border-orange-200 bg-orange-50 text-orange-800'
                     : 'border-orange-300/20 bg-orange-400/10 text-orange-100'
+                  : selectedControlBadge?.tone === 'slate'
+                    ? isLight
+                      ? 'border-slate-200 bg-slate-50 text-slate-700'
+                      : 'border-white/10 bg-white/[0.045] text-slate-300'
                   : isLight
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                     : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
@@ -1715,7 +1810,7 @@ export const InboxClient = ({ conversations }) => {
                 ) : (
                   <Bot className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                {selectedHumanTakeoverActive ? 'Control humano activo' : 'IA activa'}
+                {selectedHumanTakeoverActive ? 'Control humano activo' : selectedControlBadge?.label || 'IA'}
               </span>
               <button
                 type="button"
@@ -2010,7 +2105,7 @@ export const InboxClient = ({ conversations }) => {
                     return;
                   }
 
-                  setMessage(reply.text);
+                  updateComposerDraft(reply.text);
                 }}
                 className={cn(
                   'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:-translate-y-0.5',
@@ -2033,7 +2128,7 @@ export const InboxClient = ({ conversations }) => {
           >
             <textarea
               value={message}
-              onChange={(event) => setMessage(event.target.value)}
+              onChange={(event) => updateComposerDraft(event.target.value)}
               onKeyDown={handleComposerKeyDown}
               placeholder={t('inbox.replyPlaceholder')}
               rows={1}
