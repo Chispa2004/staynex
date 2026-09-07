@@ -234,7 +234,7 @@ export const ExecutiveDashboardClient = () => {
     inbox: canAccess(role, 'inbox')
   }), [role]);
 
-  const operationalWorkspace = data?.operationalWorkspace || {};
+  const operationalWorkspace = data?.conversationDashboard || {};
   const serviceStrip = useMemo(() => buildServiceStrip(data), [data]);
 
   return (
@@ -263,12 +263,13 @@ export const ExecutiveDashboardClient = () => {
         permissions={permissions}
       />
 
+      <p className={styles.scope}>{tx(operationalWorkspace.scope || 'Los estados incluyen todos los registros del hotel. La tarjeta IA excluye simulados y origen no confirmado.')}</p>
       <div className={styles.columns}>
         <div className={styles.leftColumn}>
-          <WorkQueuePanel items={operationalWorkspace.needsAttention || []} loading={loading} timezone={timezone} permissions={permissions} />
+          <WorkQueuePanel items={operationalWorkspace.review || []} coverage={operationalWorkspace.coverage} loading={loading} timezone={timezone} permissions={permissions} />
           <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
         </div>
-        <HotelMovementPanel movement={operationalWorkspace.movement || {}} counters={operationalWorkspace.counters || {}} loading={loading} permissions={permissions} />
+        <AiActivityPanel items={operationalWorkspace.activity || []} coverage={operationalWorkspace.coverage} loading={loading} timezone={timezone} permissions={permissions} />
       </div>
     </section>
   );
@@ -335,9 +336,9 @@ const buildServiceStrip = (data = {}) => {
   const hotelStatus = data?.pilotAiSafety?.hotelStatus || {};
   const globalStatus = data?.pilotAiSafety?.globalStatus || {};
   const whatsappConfigured = Boolean(data?.onboardingHealth?.whatsappConfigured || hotel.whatsapp_number);
-  const demoWorkspace = isCheckinDemoWorkspace(hotel);
+
   const pmsConfigured = Boolean(pms.providerName);
-  const pmsTone = pms.connected ? (pms.errors ? 'amber' : 'emerald') : pmsConfigured ? 'amber' : 'slate';
+  const pmsTone = pms.errors ? 'red' : pmsConfigured ? 'amber' : 'slate';
   const whatsappTone = whatsappConfigured ? 'amber' : 'slate';
   const syncTone = pms.lastSyncAt ? (pms.errors ? 'amber' : 'emerald') : 'slate';
 
@@ -345,10 +346,8 @@ const buildServiceStrip = (data = {}) => {
     {
       id: 'pms',
       label: 'PMS',
-      value: pms.connected ? pmsProvider : pmsConfigured ? `${pmsProvider} pendiente` : 'Sin configurar',
-      detail: pms.connected
-        ? pms.errors ? 'Conectado con incidencias' : 'Conectado/verificado'
-        : demoWorkspace ? 'Sin conexión real' : 'Pendiente de verificar',
+      value: pms.available === false ? 'No disponible' : pmsConfigured ? pmsProvider : 'Sin configurar',
+      detail: pms.available === false ? 'Fuente no disponible' : pms.errors ? 'Incidencia de sincronización' : pms.connected ? 'Configurado · sin verificar' : pmsConfigured ? 'Desactivado' : 'Pendiente de configurar',
       tone: pmsTone,
       icon: DatabaseZap
     },
@@ -356,7 +355,7 @@ const buildServiceStrip = (data = {}) => {
       id: 'whatsapp',
       label: 'WhatsApp',
       value: whatsappConfigured ? 'Configurado' : 'Sin configurar',
-      detail: demoWorkspace ? 'Sin envíos reales' : 'Conexión sin verificar',
+      detail: 'Conexión sin verificar',
       tone: whatsappTone,
       icon: Inbox
     },
@@ -375,8 +374,8 @@ const buildServiceStrip = (data = {}) => {
     {
       id: 'last_sync',
       label: 'Última sincronización',
-      value: pms.lastSyncAt ? formatDateTime(pms.lastSyncAt, hotel.timezone) : 'No sincronizado',
-      detail: pms.lastSyncAt ? 'Dato PMS anterior' : 'Pendiente de PMS',
+      value: pms.available === false ? 'No disponible' : pms.lastSyncAt ? formatDateTime(pms.lastSyncAt, hotel.timezone) : 'No sincronizado',
+      detail: pms.available === false ? 'Fuente no disponible' : pms.lastSyncAt ? 'Dato PMS anterior' : 'Pendiente de PMS',
       tone: syncTone,
       icon: RefreshCw
     }
@@ -433,40 +432,11 @@ const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => 
   const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const counters = workspace?.counters || {};
-  const movementAvailable = workspace?.movement?.available !== false;
   const cards = [
-    {
-      label: 'Llegadas hoy',
-      value: counters.arrivalsToday,
-      detail: movementAvailable ? 'Reservas de hoy' : 'No disponible',
-      href: permissions.reception || permissions.pms ? '/dashboard/reservations' : null,
-      icon: CalendarCheck,
-      tone: 'emerald'
-    },
-    {
-      label: 'Salidas hoy',
-      value: counters.departuresToday,
-      detail: movementAvailable ? 'Reservas de hoy' : 'No disponible',
-      href: permissions.reception || permissions.pms ? '/dashboard/reservations' : null,
-      icon: CalendarDays,
-      tone: 'sky'
-    },
-    {
-      label: 'Conversaciones activas',
-      value: counters.activeConversations ?? data?.summary?.activeConversations,
-      detail: 'En Inbox',
-      href: permissions.inbox ? '/dashboard/inbox' : null,
-      icon: Inbox,
-      tone: 'violet'
-    },
-    {
-      label: 'Tickets abiertos',
-      value: counters.openTickets ?? data?.kpis?.openTickets,
-      detail: 'Abiertos/en curso',
-      href: permissions.tickets ? '/dashboard/tickets' : null,
-      icon: TicketCheck,
-      tone: Number((counters.openTickets ?? data?.kpis?.openTickets) || 0) > 0 ? 'amber' : 'emerald'
-    }
+    { label: 'Conversaciones activas', metric: counters.activeConversations, href: permissions.inbox ? '/dashboard/inbox' : null, icon: Inbox, tone: 'emerald' },
+    { label: 'En control humano', metric: counters.humanControl, href: permissions.inbox ? '/dashboard/inbox' : null, icon: PauseCircle, tone: 'amber' },
+    { label: 'Consultas con respuesta IA registrada — hoy', metric: counters.registeredResponsesToday, icon: Bot, tone: 'violet' },
+    { label: 'Tickets abiertos vinculados', metric: counters.linkedOpenTickets, href: permissions.tickets ? '/dashboard/tickets' : null, icon: TicketCheck, tone: 'sky' }
   ];
 
   return (
@@ -477,8 +447,8 @@ const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => 
           <span className={cn(styles.kpiIcon, iconToneClass(isLight, card.tone))}><Icon className="h-6 w-6" aria-hidden="true" /></span>
           <div className="min-w-0">
             <p className={styles.kpiLabel}>{tx(card.label)}</p>
-            <p className={styles.kpiValue}>{loading ? '…' : formatKnownNumber(card.value)}</p>
-            <p className={styles.kpiDetail}>{tx(card.detail)}</p>
+            <p className={styles.kpiValue}>{loading ? '…' : formatKnownNumber(card.metric?.value)}</p>
+            <p className={styles.kpiDetail}>{tx(card.metric?.detail || 'No disponible')}</p>
           </div>
           {card.href ? <ChevronRight className={styles.arrow} aria-hidden="true" /> : null}
         </>;
@@ -495,20 +465,22 @@ const QueueRequest = ({ title = '' }) => {
   return <details className={styles.request}><summary>{title.slice(0, 100)}…</summary><p>{title}</p></details>;
 };
 
-const WorkQueuePanel = ({ items = [], loading, timezone, permissions }) => {
+const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions }) => {
   const { tx, language } = useDashboardLanguage();
   const [expanded, setExpanded] = useState(false);
   const visibleItems = expanded ? items : items.slice(0, 5);
   const attentionTime = (value) => {
     if (!value || !Number.isFinite(new Date(value).getTime())) return '—';
-    return new Intl.DateTimeFormat(language, { timeZone: timezone, hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+    try {
+      return new Intl.DateTimeFormat(language, { timeZone: timezone, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+    } catch { return '—'; }
   };
   return (
-    <section className={styles.panel} aria-label={tx('Pendiente de atender')}>
+    <section className={styles.panel} aria-label={tx('Conversaciones para revisar')}>
       <div className={styles.panelHeader}>
         <div>
-          <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Pendiente de atender')}</h2>
-          <p className={styles.subtitle}>{loading ? tx('Cargando solicitudes…') : items.length + ' ' + tx('asuntos en este resumen')}{items.length === 8 ? ' · ' + tx('Máximo 8') : ''}</p>
+          <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Conversaciones para revisar')}</h2>
+          <p className={styles.subtitle}>{tx('Motivos registrados y control humano')}</p>
         </div>
         <div className={styles.queueActions}>
           {permissions.inbox ? <Link className={styles.link} href="/dashboard/inbox">{tx('Ver Inbox')}</Link> : null}
@@ -518,73 +490,52 @@ const WorkQueuePanel = ({ items = [], loading, timezone, permissions }) => {
         </button> : null}
         </div>
       </div>
+      {coverage !== 'complete' && !loading ? <p className={styles.coverage}>{tx('Cobertura incompleta · muestra disponible')}</p> : null}
       {loading ? <div className={styles.empty}><SkeletonList /></div> : items.length ? <>
         <div className={styles.queueBody}>
           <table className={styles.table}>
-            <thead><tr>{['Huésped / Solicitud', 'Hab.', 'Área', 'Estado', 'Hora', 'Acción'].map((label) => <th key={label} scope="col">{tx(label)}</th>)}</tr></thead>
+            <thead><tr>{['Huésped / Mensaje', 'Hab.', 'Motivo', 'Estado', 'Última actividad', 'Acción'].map((label) => <th key={label} scope="col">{tx(label)}</th>)}</tr></thead>
             <tbody>{visibleItems.map((item) => <tr key={item.id}>
               <td><div className={styles.guestCell}>
                 <span className={styles.avatar} aria-hidden="true">{initialsFor(item.guest) || '?'}</span>
                 <div><p className={styles.guestName}>{item.guest || tx('Huésped sin identificar')}
                   {['urgent', 'high'].includes(item.priority) ? <span className={styles.critical}><AlertTriangle className="h-3 w-3" aria-hidden="true" />{tx(formatStatusLabel(item.priority))}</span> : null}
-                </p><QueueRequest title={item.title} /></div>
+                </p><QueueRequest title={item.title} /><span className={styles.time}>{tx(originLabels[item.origin] || originLabels.unknown)}</span>{item.linkedTickets ? <p className={styles.time}>{tx('Tickets vinculados')}: {item.linkedTickets}</p> : null}</div>
               </div></td>
               <td data-label={tx('Habitación')}>{item.room || '—'}</td>
-              <td data-label={tx('Área')}><span className={styles.badge}>{tx(item.area)}</span></td>
-              <td data-label={tx('Estado')}><span className={styles.badge} data-tone={item.status === 'open' ? 'amber' : item.status === 'in_progress' ? 'sky' : ui.statusTone(item.status)}>{tx(formatStatusLabel(item.status))}</span></td>
-              <td data-label={tx('Hora')}><time className={styles.time} dateTime={item.createdAt || undefined}>{attentionTime(item.createdAt)}</time></td>
-              <td><Link href={item.href} className={styles.link} aria-label={tx(item.actionLabel) + ': ' + (item.guest || '') + ' — ' + item.title}>{tx('Abrir')}</Link></td>
+              <td data-label={tx('Motivo')}>{(item.reasons || []).map(reason => <span key={reason} className={styles.badge}>{tx(reason)}</span>)}</td>
+              <td data-label={tx('Estado')}><span className={styles.badge} data-tone={item.status === 'open' ? 'amber' : item.status === 'in_progress' ? 'sky' : ui.statusTone(item.status)}>{tx(item.status?.includes(' ') ? item.status : formatStatusLabel(item.status))}</span></td>
+              <td data-label={tx('Última actividad')}><time className={styles.time} dateTime={item.createdAt || undefined}>{attentionTime(item.createdAt)}</time></td>
+              <td>{permissions.inbox ? <Link href={item.href} className={styles.link} aria-label={tx(item.actionLabel) + ': ' + (item.guest || '') + ' — ' + item.title}>{tx('Abrir')}</Link> : null}</td>
             </tr>)}</tbody>
           </table>
         </div>
-      </> : <div className={styles.empty}><EmptyState icon={CheckCircle2} title="Sin pendientes operativos ahora" description="No hay tickets abiertos ni conversaciones en control humano o escalación." /></div>}
+      </> : <div className={styles.empty}><EmptyState icon={CheckCircle2} title={coverage === 'complete' ? 'Sin señales de revisión registradas' : 'Revisión no disponible'} description="La ausencia de señales no acredita resolución." /></div>}
     </section>
   );
 };
 
-// Reservation dates are calendar dates, not UTC timestamps: preserve their day.
-const movementDate = (value, language) => {
-  if (!value) return '—';
-  const date = new Date(String(value).slice(0, 10) + 'T12:00:00Z');
-  return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date) : '—';
-};
-
-const HotelMovementPanel = ({ movement = {}, counters = {}, loading, permissions }) => {
-  const { tx, language } = useDashboardLanguage();
-  const [activeTab, setActiveTab] = useState('arrivals');
-  const tabs = [
-    { key: 'arrivals', label: 'Llegadas', items: movement.arrivals || [], count: counters.arrivalsToday },
-    { key: 'departures', label: 'Salidas', items: movement.departures || [], count: counters.departuresToday }
-  ];
-  const active = tabs.find((tab) => tab.key === activeTab) || tabs[0];
-  const canOpenReservations = permissions.reception || permissions.pms;
-  return (
-    <section className={cn(styles.panel, styles.movement)} aria-label={tx('Movimiento del hotel')}>
-      <div className={styles.panelHeader}>
-        <div><h2 className={styles.panelTitle}><BedDouble aria-hidden="true" />{tx('Movimiento del hotel')}</h2><p className={styles.subtitle}>{tx('Llegadas y salidas de hoy.')}</p></div>
-        {canOpenReservations ? <Link href="/dashboard/reservations" className={styles.link}>{tx('Ver reservas')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
-      </div>
-      <div className={styles.movementBody}>
-        <div className={styles.tabs} role="tablist" aria-label={tx('Movimiento del hotel')}>
-          {tabs.map((tab) => <button key={tab.key} id={'movement-tab-' + tab.key} role="tab" aria-selected={activeTab === tab.key} aria-controls="movement-list" type="button" onClick={() => setActiveTab(tab.key)}>
-            {tx(tab.label)} ({loading || movement.available === false ? '—' : tab.count ?? tab.items.length})
-          </button>)}
-        </div>
-        <div id="movement-list" role="tabpanel" aria-labelledby={'movement-tab-' + active.key}>
-          {loading ? <div className={styles.empty}><SkeletonList /></div> : movement.available === false ? <div className={styles.empty}><EmptyState icon={AlertTriangle} title="Reservas no disponibles" description="No se pudo comprobar el movimiento de hoy." /></div> : active.items.length ? active.items.map((item) => <div className={styles.movementRow} key={active.key + ':' + item.id}>
-            <time className={styles.time} dateTime={item.date || movement.todayDate}>{movementDate(item.date || movement.todayDate, language)}</time>
-            <div><p className={styles.guestName}>{item.guest || tx('Huésped sin identificar')}</p><p className={styles.subtitle}>{tx(formatStatusLabel(item.status))}</p></div>
-            <span className={cn(styles.badge, styles.room)} aria-label={tx('Habitación') + ': ' + (item.room || '—')}>{item.room || '—'}</span>
-            {canOpenReservations ? <Link className={styles.link} href={item.href} aria-label={tx('Ver reserva') + ': ' + (item.guest || '')}><ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
-          </div>) : <div className={styles.empty}><EmptyState icon={CalendarDays} title={'Sin ' + active.label.toLowerCase() + ' válidas hoy'} description="Las canceladas y no-show no se muestran como movimiento operativo." /></div>}
-        </div>
-      </div>
-      {canOpenReservations ? <div className={styles.movementFooter}>
-        {(active.count || 0) > active.items.length ? <span className={styles.time}>{active.items.length} / {active.count} {tx('en este resumen')}</span> : null}
-        <Link className={styles.link} href="/dashboard/reservations">{tx('Ver todas las llegadas y salidas')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>
-      </div> : null}
-    </section>
-  );
+const originLabels = { traced: 'Entrada trazable', simulated: 'SIMULADO', unknown: 'Origen no confirmado' };
+const AiActivityPanel = ({ items = [], coverage, loading, timezone, permissions }) => {
+  const { tx } = useDashboardLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const visibleItems = expanded ? items : items.slice(0, 5);
+  return <section className={cn(styles.panel, styles.movement)} aria-label={tx('Actividad reciente de la IA')}>
+    <div className={styles.panelHeader}><div><h2 className={styles.panelTitle}><Bot aria-hidden="true" />{tx('Actividad reciente de la IA')}</h2><p className={styles.subtitle}>{tx('Registros acreditados · no confirma envíos')}</p></div></div>
+    {loading ? <div className={styles.empty}><SkeletonList /></div> : <div className={styles.movementBody}>
+      {coverage !== 'complete' ? <p className={styles.coverage}>{tx('Cobertura incompleta · muestra disponible')}</p> : null}
+      {['traced', 'simulated', 'unknown'].map(origin => {
+        const group = visibleItems.filter(item => item.origin === origin);
+        return group.length ? <div key={origin}><h3 className={styles.activityGroup}>{tx(originLabels[origin])}</h3>{group.map(item => <div className={styles.activityRow} key={item.id}>
+          <div><p className={styles.guestName}>{tx(item.type)}</p><p className={styles.subtitle}>{item.guest || tx('Huésped sin identificar')} · {tx(item.status)}</p><time className={styles.time} dateTime={item.createdAt}>{formatDateTime(item.createdAt, timezone)}</time></div>
+          {(item.href.startsWith('/dashboard/tickets/') ? permissions.tickets : permissions.inbox) ? <Link className={styles.link} href={item.href} aria-label={tx('Abrir') + ': ' + tx(item.type)}><ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
+        </div>)}</div> : null;
+      })}
+      {!items.some(item => item.origin === 'traced') ? <p className={styles.coverage}>{tx('Sin actividad real trazable en esta muestra')}</p> : null}
+      {!items.length ? <EmptyState icon={Bot} title="Sin actividad acreditada disponible" description="No se generan ejemplos al faltar datos." /> : null}
+    </div>}
+    {items.length > 5 ? <div className={styles.movementFooter}><button type="button" className={styles.link} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>{tx(expanded ? 'Ver menos' : 'Ver todos')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></button></div> : null}
+  </section>;
 };
 
 const ServiceStatusStrip = ({ services = [], loading, permissions }) => {
@@ -603,7 +554,7 @@ const ServiceStatusStrip = ({ services = [], loading, permissions }) => {
             <span className={cn(styles.serviceIcon, iconToneClass(theme === 'light', service.tone))}><Icon className="h-5 w-5" aria-hidden="true" /></span>
             <div className="min-w-0"><p className={styles.serviceLabel}>{tx(service.label)}</p>
               <p className={styles.serviceValue}><span className={styles.statusDot} data-tone={service.tone} aria-hidden="true" />{tx(service.value)}</p>
-              {!['auto_replies', 'last_sync'].includes(service.id) ? <p className={styles.serviceDetail}>{tx(service.detail)}</p> : null}
+              {service.detail ? <p className={styles.serviceDetail}>{tx(service.detail)}</p> : null}
             </div>
           </div>;
         })}

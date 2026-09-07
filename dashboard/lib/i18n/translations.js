@@ -2560,6 +2560,270 @@ for (const [language, values] of Object.entries(accountPhrases)) {
   Object.assign(phraseTranslations[language], Object.fromEntries(accountPhrases.es.map((key, index) => [key, values[index]])));
 }
 
+const conversationDashboardPhrases = [
+  [
+    "En control humano",
+    "Under human control",
+    "Sous contrôle humain",
+    "Unter menschlicher Kontrolle"
+  ],
+  [
+    "Consultas con respuesta IA registrada — hoy",
+    "Queries with recorded AI response — today",
+    "Demandes avec réponse IA enregistrée — aujourd’hui",
+    "Anfragen mit erfasster KI-Antwort — heute"
+  ],
+  [
+    "Tickets abiertos vinculados",
+    "Linked open tickets",
+    "Tickets ouverts liés",
+    "Verknüpfte offene Tickets"
+  ],
+  [
+    "Estado activo · hotel",
+    "Active status · hotel",
+    "État actif · hôtel",
+    "Aktiver Status · Hotel"
+  ],
+  [
+    "Control actual · hotel",
+    "Current control · hotel",
+    "Contrôle actuel · hôtel",
+    "Aktuelle Kontrolle · Hotel"
+  ],
+  [
+    "Hoy · entradas trazables",
+    "Today · traceable inputs",
+    "Aujourd’hui · entrées traçables",
+    "Heute · nachvollziehbare Eingänge"
+  ],
+  [
+    "Abiertos/en curso · vinculados",
+    "Open/in progress · linked",
+    "Ouverts/en cours · liés",
+    "Offen/in Bearbeitung · verknüpft"
+  ],
+  [
+    "Fuente no disponible",
+    "Source unavailable",
+    "Source indisponible",
+    "Quelle nicht verfügbar"
+  ],
+  [
+    "Cobertura incompleta",
+    "Incomplete coverage",
+    "Couverture incomplète",
+    "Unvollständige Abdeckung"
+  ],
+  [
+    "Zona horaria no disponible",
+    "Timezone unavailable",
+    "Fuseau horaire indisponible",
+    "Zeitzone nicht verfügbar"
+  ],
+  [
+    "Vínculo o fecha insuficiente",
+    "Insufficient link or date",
+    "Lien ou date insuffisant",
+    "Unzureichende Verknüpfung oder Zeitangabe"
+  ],
+  [
+    "Conversaciones para revisar",
+    "Conversations to review",
+    "Conversations à examiner",
+    "Zu prüfende Gespräche"
+  ],
+  [
+    "Motivos registrados y control humano",
+    "Recorded reasons and human control",
+    "Motifs enregistrés et contrôle humain",
+    "Erfasste Gründe und menschliche Kontrolle"
+  ],
+  [
+    "Huésped / Mensaje",
+    "Guest / Message",
+    "Client / Message",
+    "Gast / Nachricht"
+  ],
+  [
+    "Motivo",
+    "Reason",
+    "Motif",
+    "Grund"
+  ],
+  [
+    "Última actividad",
+    "Last activity",
+    "Dernière activité",
+    "Letzte Aktivität"
+  ],
+  [
+    "Control humano actual",
+    "Current human control",
+    "Contrôle humain actuel",
+    "Aktuelle menschliche Kontrolle"
+  ],
+  [
+    "Derivación a recepción",
+    "Referral to reception",
+    "Transfert à la réception",
+    "Weiterleitung an die Rezeption"
+  ],
+  [
+    "Derivación a dirección",
+    "Referral to management",
+    "Transfert à la direction",
+    "Weiterleitung an die Leitung"
+  ],
+  [
+    "Derivación registrada",
+    "Recorded referral",
+    "Transfert enregistré",
+    "Erfasste Weiterleitung"
+  ],
+  [
+    "Vigencia por confirmar",
+    "Current relevance unconfirmed",
+    "Validité à confirmer",
+    "Aktualität zu bestätigen"
+  ],
+  [
+    "Mensaje no disponible",
+    "Message unavailable",
+    "Message indisponible",
+    "Nachricht nicht verfügbar"
+  ],
+  [
+    "Tickets vinculados",
+    "Linked tickets",
+    "Tickets liés",
+    "Verknüpfte Tickets"
+  ],
+  [
+    "Actividad reciente de la IA",
+    "Recent AI activity",
+    "Activité récente de l’IA",
+    "Letzte KI-Aktivität"
+  ],
+  [
+    "Registros acreditados · no confirma envíos",
+    "Evidenced records · sending unconfirmed",
+    "Éléments attestés · envoi non confirmé",
+    "Belegte Einträge · Versand unbestätigt"
+  ],
+  [
+    "Respuesta registrada",
+    "Recorded response",
+    "Réponse enregistrée",
+    "Erfasste Antwort"
+  ],
+  [
+    "Ticket creado por IA",
+    "Ticket created by AI",
+    "Ticket créé par IA",
+    "Von KI erstelltes Ticket"
+  ],
+  [
+    "Propuesta registrada",
+    "Recorded proposal",
+    "Proposition enregistrée",
+    "Erfasster Vorschlag"
+  ],
+  [
+    "Registrado",
+    "Recorded",
+    "Enregistré",
+    "Erfasst"
+  ],
+  [
+    "Entrada trazable",
+    "Traceable input",
+    "Entrée traçable",
+    "Nachvollziehbarer Eingang"
+  ],
+  [
+    "SIMULADO",
+    "SIMULATED",
+    "SIMULÉ",
+    "SIMULIERT"
+  ],
+  [
+    "Origen no confirmado",
+    "Unconfirmed origin",
+    "Origine non confirmée",
+    "Unbestätigte Herkunft"
+  ],
+  [
+    "Cobertura incompleta · muestra disponible",
+    "Incomplete coverage · available sample",
+    "Couverture incomplète · échantillon disponible",
+    "Unvollständige Abdeckung · verfügbare Auswahl"
+  ],
+  [
+    "Sin actividad real trazable en esta muestra",
+    "No traceable real activity in this sample",
+    "Aucune activité réelle traçable dans cet échantillon",
+    "Keine nachvollziehbare reale Aktivität in dieser Auswahl"
+  ],
+  [
+    "Sin actividad acreditada disponible",
+    "No evidenced activity available",
+    "Aucune activité attestée disponible",
+    "Keine belegte Aktivität verfügbar"
+  ],
+  [
+    "No se generan ejemplos al faltar datos.",
+    "Missing data does not generate examples.",
+    "Aucun exemple généré en l’absence de données.",
+    "Fehlende Daten erzeugen keine Beispiele."
+  ],
+  [
+    "Sin señales de revisión registradas",
+    "No recorded review signals",
+    "Aucun signal de révision enregistré",
+    "Keine Prüfsignale erfasst"
+  ],
+  [
+    "Revisión no disponible",
+    "Review unavailable",
+    "Révision indisponible",
+    "Prüfung nicht verfügbar"
+  ],
+  [
+    "La ausencia de señales no acredita resolución.",
+    "Absence of signals does not establish resolution.",
+    "L’absence de signaux ne prouve pas la résolution.",
+    "Fehlende Signale belegen keine Lösung."
+  ],
+  [
+    "Los estados incluyen todos los registros del hotel. La tarjeta IA excluye simulados y origen no confirmado.",
+    "Statuses include all hotel records. The AI card excludes simulated and unconfirmed origins.",
+    "Les états incluent tous les enregistrements de l’hôtel. La carte IA exclut les simulations et origines non confirmées.",
+    "Statuswerte umfassen alle Hoteleinträge. Die KI-Karte schließt simulierte und unbestätigte Herkunft aus."
+  ],
+  [
+    "Configurado · sin verificar",
+    "Configured · unverified",
+    "Configuré · non vérifié",
+    "Konfiguriert · ungeprüft"
+  ],
+  [
+    "Incidencia de sincronización",
+    "Synchronization issue",
+    "Incident de synchronisation",
+    "Synchronisationsproblem"
+  ],
+  [
+    "Desactivado",
+    "Disabled",
+    "Désactivé",
+    "Deaktiviert"
+  ]
+];
+for (const phrase of conversationDashboardPhrases) {
+  ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; });
+}
+
 const phrasePatterns = {
   es: [
     [/^(\d+) active conversations$/, '$1 conversaciones activas'],

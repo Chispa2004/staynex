@@ -456,17 +456,18 @@ const systemHealthSource = readFileSync(new URL('../dashboard/lib/system-health.
 assert.match(systemHealthSource, /demo scenario tickets are open/, 'Hotel Health should label demo tickets as demo scenario data');
 
 const executiveDashboardSource = readFileSync(new URL('../dashboard/app/api/executive-dashboard/route.js', import.meta.url), 'utf8');
-assert.match(executiveDashboardSource, /guestSatisfactionSource/, 'Executive KPI should expose whether satisfaction is demo-estimated');
+assert.doesNotMatch(executiveDashboardSource, /guestSatisfactionSource/, 'Removed satisfaction estimate must not remain in the homepage DTO');
 assert.match(executiveDashboardSource, /getPilotAiSafetyReadiness/, 'Executive dashboard API should reuse canonical Pilot Health AI safety readiness');
 assert.match(executiveDashboardSource, /pilotAiSafety/, 'Executive dashboard API should serialize canonical AI safety state');
-assert.match(executiveDashboardSource, /buildHotelOperationsWorkspace/, 'Executive dashboard API should serialize the hotel operations workspace DTO');
+assert.match(executiveDashboardSource, /buildConversationDashboard/, 'Executive dashboard API should serialize the evidenced conversation DTO');
 assert.match(executiveDashboardSource, /activeConversationsCount/, 'Executive dashboard should count active conversations without renaming them as pending');
-assert.match(executiveDashboardSource, /safeRowsResult\(withHotel\([\s\S]*from\('reservations'\)/, 'Executive dashboard should distinguish unavailable reservation movement from zero movement');
+assert.doesNotMatch(executiveDashboardSource, /from\('reservations'\)/, 'Homepage no longer queries PMS movement; reservation product remains separate');
 
 const executiveDashboardClientSource = readFileSync(new URL('../dashboard/components/ExecutiveDashboardClient.js', import.meta.url), 'utf8');
 assert.match(executiveDashboardClientSource, /OperationalIndicatorGrid/, 'Dashboard should render the compact operational indicator row');
-assert.match(executiveDashboardClientSource, /Pendiente de atender/, 'Dashboard should expose the operational attention queue');
-assert.match(executiveDashboardClientSource, /Movimiento del hotel/, 'Dashboard should expose arrivals and departures today');
+assert.match(executiveDashboardClientSource, /Conversaciones para revisar/, 'Dashboard should expose the conversation review queue');
+assert.match(executiveDashboardClientSource, /Actividad reciente de la IA/, 'Dashboard should expose evidenced AI activity');
+assert.doesNotMatch(executiveDashboardClientSource, /HotelMovementPanel|Movimiento del hotel/, 'PMS movement must stay outside the dashboard homepage');
 assert.match(executiveDashboardClientSource, /Conversaciones activas/, 'Dashboard should not invent a pending conversation counter');
 assert.match(executiveDashboardClientSource, /Respuestas IA activas/, 'Dashboard should show AI active only from canonical safety state');
 assert.match(executiveDashboardClientSource, /Respuestas IA desactivadas/, 'Dashboard should show hotel AI switch OFF honestly');
@@ -774,3 +775,5 @@ assert.equal(packageJson.scripts['demo:reset-checkin-demo'], 'node scripts/reset
 assert.equal(packageJson.scripts['demo:preflight-checkin-demo'], 'node scripts/preflight-checkin-demo.js', 'package script should register the read-only preflight');
 
 console.log('Checkin demo preparation tests passed');
+
+await import('./test-conversation-dashboard.js');

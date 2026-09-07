@@ -73,7 +73,7 @@
 .link:hover { text-decoration: underline; }
 .queueBody { padding: 0 16px 8px; }
 .table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; font-size: 13px; }
-.table th { font-size: 12px; font-weight: 550; color: var(--ops-muted); padding: 10px 7px; background: var(--ops-soft); border-bottom: 1px solid var(--ops-border); }
+.table th { font-size: 12px; font-weight: 550; color: var(--ops-muted); padding: 10px 7px; background: var(--ops-soft); border-bottom: 1px solid var(--ops-border); overflow-wrap: anywhere; }
 .table th:first-child { width: 40%; border-radius: 7px 0 0 7px; }
 .table th:nth-child(2) { width: 9%; }
 .table th:nth-child(3) { width: 17%; }
@@ -117,6 +117,10 @@
 .statusDot[data-tone='slate'] { background: #7c8ba4; }
 .serviceDetail { font-size: 12px; color: var(--ops-muted); margin-top: 4px; line-height: 1.35; }
 .empty { padding: 20px; }
+.scope { font-size: 12px; color: var(--ops-muted); margin-top: -8px; line-height: 1.4; }
+.coverage { font-size: 12px; color: var(--ops-muted); padding: 8px 15px; line-height: 1.4; }
+.activityGroup { padding: 8px 10px; border: 1px solid var(--ops-border); background: var(--ops-soft); border-radius: 7px; font-size: 12px; font-weight: 600; }
+.activityRow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--ops-border); }
 @media (max-width: 1450px) {
   .topbar { gap: 10px; }
   .toolbar { gap: 7px; }
@@ -128,9 +132,10 @@
   .queueBody { padding: 0 10px 6px; }
   .avatar { display: none; }
   .table th, .table td { padding-left: 5px; padding-right: 5px; }
-  .table th:first-child { width: 38%; }
+  .table th:first-child { width: 34%; }
   .table th:nth-child(3) { width: 18%; }
   .table th:nth-child(4) { width: 19%; }
+  .table th:nth-child(5) { width: 12%; }
   .table th:last-child { width: 8%; }
   .badge { padding: 4px 6px; }
   .service { gap: 6px; padding: 9px 6px; }
