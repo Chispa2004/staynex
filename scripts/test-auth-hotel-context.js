@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   canAccess,
@@ -630,5 +630,24 @@ assert.equal(appShellSource.includes("body.role || 'owner'"), false, 'AppShell m
 assert.equal(appShellSource.includes("body.permissions || ['all']"), false, 'AppShell must not recover missing API permissions as all');
 assert.equal(loginClientSource.includes("getDefaultRouteForRole('owner')"), false, 'Login fallback must not route through owner defaults');
 assert.equal(canAccess('blocked', 'inbox'), false, 'blocked context must not inherit receptionist Inbox access');
+
+for (const runtimeFile of [
+  'dashboard/app/layout.js',
+  'dashboard/lib/supabase-browser.js',
+  'dashboard/next.config.mjs',
+  'dashboard/scripts/clean-next-cache.js'
+]) {
+  assert.doesNotMatch(
+    readFileSync(join(root, runtimeFile), 'utf8'),
+    /STAYNEX_LOCAL_REVIEW|LocalReviewNetworkBoundary|local-review-fixtures|createLocalReviewSupabase|__NEXT_PROCESSED_ENV/,
+    `${runtimeFile} must not include the temporary visual-review bypass`
+  );
+}
+for (const fixtureFile of [
+  'dashboard/components/LocalReviewNetworkBoundary.js',
+  'dashboard/lib/local-review-fixtures.js'
+]) {
+  assert.equal(existsSync(join(root, fixtureFile)), false, 'Visual-review fixtures must stay outside application runtime');
+}
 
 console.log('Auth hotel context checks passed');

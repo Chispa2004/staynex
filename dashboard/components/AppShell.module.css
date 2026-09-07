@@ -1,0 +1,29 @@
+.shell:global(.theme-light) {
+  --staynex-canvas-light-start: #eef4fa;
+  --staynex-canvas-light-end: #eef4fa;
+}
+.shell .sidebar { box-shadow: none !important; }
+.brand { min-height: 78px; padding-left: 24px; }
+.navigation { padding: 14px 12px; flex-basis: 0; min-height: 120px; }
+.navigation > section { margin-top: 10px; }
+.navigation > section:first-child { margin-top: 0; }
+.navigation > section > button { font-size: 12px; text-transform: none; letter-spacing: 0; background: transparent; }
+.navigation a { min-height: 46px; padding: 8px 12px; gap: 12px; }
+.navigation a > span:nth-last-child(n+2):has(> svg) { border: 0; background: transparent; }
+.navigation a svg { width: 20px; height: 20px; }
+.shell:global(.theme-light) .navigation a:has(> span.absolute) { color: #007b55; background: #e7f7f1; box-shadow: none; }
+.account { margin-top: auto; flex-shrink: 0; padding: 12px 18px 18px; }
+.account > button { box-shadow: none; }
+.account > button > span:first-child { border: 0; background: transparent; }
+.account > div > button { padding: 10px; gap: 10px; border-radius: 9px; }
+.account > div > button > div:first-child { width: 38px; height: 38px; }
+.account > div > button p:first-child { font-size: 13px; }
+.platformLink { display: flex; gap: 14px; align-items: center; border: 1px solid #dde6f0; border-radius: 8px; min-height: 46px; padding: 10px 16px; margin-bottom: 10px; font-size: 13px; color: #465a77; }
+.urgent { display: flex; gap: 8px; align-items: center; color: #bc1835; padding-bottom: 10px; font-size: 12px; }
+.dashboardContent { padding: 24px; width: 100%; }
+@media (min-width: 1024px) {
+  .sidebar { width: 260px; }
+}
+@media (max-width: 767px) {
+  .dashboardContent { padding: 16px; }
+}

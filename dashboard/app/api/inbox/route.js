@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { getInboxConversations } from '@/lib/inbox';
 import { canAccess } from '@/lib/permissions';
+import { getPilotAiSafetyReadiness } from '../../../../shared/pilot/ai-safety.js';
 
 export async function GET(request) {
   try {
@@ -19,6 +20,7 @@ export async function GET(request) {
       conversations,
       hotel,
       hotelId: hotel?.id || null,
+      pilotAiSafety: getPilotAiSafetyReadiness({ hotel, env: process.env }),
       staffLanguage: hotelUser?.preferred_translation_language || hotel?.default_language || 'es',
       fallback
     });

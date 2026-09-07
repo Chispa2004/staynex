@@ -16,6 +16,9 @@ import {
   Inbox,
   Languages,
   Map,
+  MapPin,
+  BedDouble,
+  ChevronRight,
   PauseCircle,
   QrCode,
   RefreshCw,
@@ -26,6 +29,11 @@ import {
   Wrench,
   Zap
 } from 'lucide-react';
+import styles from './HotelOperations.module.css';
+import { LanguageSelector } from './LanguageSelector';
+import { ThemeToggle } from './ThemeToggle';
+import { useSessionDisplayName } from '@/lib/use-session-display-name';
+import { getHotelGreeting } from '@/lib/user-presentation';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { canAccess } from '@/lib/permissions';
@@ -50,7 +58,7 @@ const formatRoleLabel = (role) => ({
   receptionist: 'Recepción',
   manager: 'Dirección',
   owner: 'Propiedad',
-  admin: 'Admin'
+  admin: 'Administrador'
 }[role] || formatProfileLabel(role));
 const formatSentimentLabel = (value) => ({
   'Needs attention': 'Necesita atención',
@@ -115,6 +123,19 @@ const toneForSeverity = (severity) => {
   if (severity === 'warning') return 'amber';
   if (severity === 'positive') return 'emerald';
   return 'slate';
+};
+
+const iconToneClass = (isLight, tone = 'slate') => {
+  const tones = {
+    amber: isLight ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
+    emerald: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+    red: isLight ? 'border-red-200 bg-red-50 text-red-700' : 'border-red-300/20 bg-red-500/10 text-red-100',
+    sky: isLight ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-sky-300/20 bg-sky-300/10 text-sky-100',
+    violet: isLight ? 'border-violet-200 bg-violet-50 text-violet-700' : 'border-violet-300/20 bg-violet-400/10 text-violet-100',
+    slate: isLight ? 'border-slate-200 bg-slate-50 text-slate-600' : 'border-white/10 bg-white/[0.045] text-slate-300'
+  };
+
+  return tones[tone] || tones.slate;
 };
 
 export const ExecutiveDashboardClient = () => {
@@ -213,44 +234,20 @@ export const ExecutiveDashboardClient = () => {
     inbox: canAccess(role, 'inbox')
   }), [role]);
 
-  const attentionItems = useMemo(() => buildAttentionItems(data, permissions), [data, permissions]);
+  const operationalWorkspace = data?.operationalWorkspace || {};
+  const serviceStrip = useMemo(() => buildServiceStrip(data), [data]);
 
   return (
-    <section className="space-y-5">
-      <header className={cn(
-        'premium-fade-in overflow-hidden rounded-2xl border p-5 shadow-2xl sm:p-6',
-        isLight
-          ? 'border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.15),transparent_34%),#ffffff] shadow-slate-200/80'
-          : 'border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_36%),#0b1019] shadow-black/25'
-      )}
-      >
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <ExecutiveBadge tone="sky">{tx('Hotel Operations Command Center')}</ExecutiveBadge>
-              <ExecutiveBadge tone="slate">{formatDateTime(null, timezone)}</ExecutiveBadge>
-              <ExecutiveBadge tone={role === 'receptionist' ? 'emerald' : 'violet'}>
-                {formatRoleLabel(role)}
-              </ExecutiveBadge>
-            </div>
-            <h1 className={cn('text-3xl font-semibold tracking-tight sm:text-5xl', ui.text.title(isLight))}>
-              {tx(greetingForHour(timezone))}, {hotelName}
-            </h1>
-            <p className={cn('mt-4 max-w-3xl', ui.text.body(isLight))}>
-              {tx('Un centro de control para ver lo urgente, entender la operación del hotel y abrir rápidamente las herramientas que necesita el equipo.')}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => loadDashboard()}
-            disabled={refreshing}
-            className={ui.button(isLight, 'secondary')}
-          >
-            <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-            {tx('Refresh')}
-          </button>
-        </div>
-      </header>
+    <section className={styles.dashboard} data-theme={theme}>
+      <OperationalHeader
+        hotel={hotel}
+        hotelName={hotelName}
+        timezone={timezone}
+        role={role}
+        loading={loading}
+        refreshing={refreshing}
+        onRefresh={() => loadDashboard()}
+      />
 
       {error ? (
         <ExecutiveCard className="border-red-300/25 p-4">
@@ -259,33 +256,358 @@ export const ExecutiveDashboardClient = () => {
         </ExecutiveCard>
       ) : null}
 
-      <OverviewPanel data={data} loading={loading} permissions={permissions} />
+      <OperationalIndicatorGrid
+        data={data}
+        loading={loading}
+        workspace={operationalWorkspace}
+        permissions={permissions}
+      />
 
-      <NeedsAttentionPanel items={attentionItems} loading={loading} />
-
-      <HotelIntelligencePanel data={data} loading={loading} />
-
-      <div className="grid gap-5 xl:grid-cols-3">
-        <GuestCommunicationPanel data={data} loading={loading} />
-        <TicketsOperationsPanel data={data} loading={loading} />
-        <PmsSnapshotPanel data={data} loading={loading} permissions={permissions} role={role} />
+      <div className={styles.columns}>
+        <div className={styles.leftColumn}>
+          <WorkQueuePanel items={operationalWorkspace.needsAttention || []} loading={loading} timezone={timezone} permissions={permissions} />
+          <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
+        </div>
+        <HotelMovementPanel movement={operationalWorkspace.movement || {}} counters={operationalWorkspace.counters || {}} loading={loading} permissions={permissions} />
       </div>
+    </section>
+  );
+};
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <GuestIntelligencePanel data={data} loading={loading} role={role} />
-        <AIOperationsPanel data={data} loading={loading} />
-      </div>
+const formatKnownNumber = (value) => (
+  value === null || value === undefined ? '—' : formatNumber(value)
+);
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        {permissions.revenue || permissions.experienceBookings ? (
-          <RevenueExperiencesPanel data={data} loading={loading} permissions={permissions} />
-        ) : null}
-        <HotelKnowledgePanel data={data} loading={loading} permissions={permissions} compact={!(permissions.revenue || permissions.experienceBookings)} />
-      </div>
+const formatHotelDate = (timezone, language = 'es') => {
+  try {
+    return new Intl.DateTimeFormat(language, {
+      timeZone: timezone || 'Europe/Madrid',
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    }).format(new Date());
+  } catch {
+    return new Intl.DateTimeFormat(language, {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    }).format(new Date());
+  }
+};
 
-      <div>
-        <QuickActionsPanel role={role} permissions={permissions} data={data} />
+const formatStatusLabel = (status) => ({
+  active: 'Activo',
+  ai_active: 'IA activa',
+  ai_paused: 'IA pausada',
+  cancelled: 'Cancelada',
+  canceled: 'Cancelada',
+  checked_in: 'Check-in hecho',
+  checked_out: 'Check-out hecho',
+  closed: 'Cerrado',
+  completed: 'Completado',
+  confirmed: 'Confirmada',
+  escalation_lock: 'Bloqueo por escalación',
+  high: 'Alta',
+  human_takeover: 'Control humano',
+  in_house: 'En estancia',
+  in_progress: 'En curso',
+  manager_required: 'Requiere dirección',
+  no_show: 'No-show',
+  open: 'Abierto',
+  pending: 'Pendiente',
+  reception_required: 'Requiere recepción',
+  scheduled: 'Programada',
+  urgent: 'Urgente'
+}[String(status || '').toLowerCase()] || formatProfileLabel(status || 'Sin estado'));
+
+const isCheckinDemoWorkspace = (hotel = {}) => (
+  hotel.slug === 'hotel-demo-checkin'
+  || String(hotel.name || '').toLowerCase() === 'hotel demo checkin'
+);
+
+const buildServiceStrip = (data = {}) => {
+  const hotel = data?.hotel || {};
+  const pms = data?.pmsSnapshot || {};
+  const pmsProvider = formatProviderLabel(pms.providerName);
+  const aiStatus = getAiAutoReplyDisplay(data);
+  const hotelStatus = data?.pilotAiSafety?.hotelStatus || {};
+  const globalStatus = data?.pilotAiSafety?.globalStatus || {};
+  const whatsappConfigured = Boolean(data?.onboardingHealth?.whatsappConfigured || hotel.whatsapp_number);
+  const demoWorkspace = isCheckinDemoWorkspace(hotel);
+  const pmsConfigured = Boolean(pms.providerName);
+  const pmsTone = pms.connected ? (pms.errors ? 'amber' : 'emerald') : pmsConfigured ? 'amber' : 'slate';
+  const whatsappTone = whatsappConfigured ? 'amber' : 'slate';
+  const syncTone = pms.lastSyncAt ? (pms.errors ? 'amber' : 'emerald') : 'slate';
+
+  return [
+    {
+      id: 'pms',
+      label: 'PMS',
+      value: pms.connected ? pmsProvider : pmsConfigured ? `${pmsProvider} pendiente` : 'Sin configurar',
+      detail: pms.connected
+        ? pms.errors ? 'Conectado con incidencias' : 'Conectado/verificado'
+        : demoWorkspace ? 'Sin conexión real' : 'Pendiente de verificar',
+      tone: pmsTone,
+      icon: DatabaseZap
+    },
+    {
+      id: 'whatsapp',
+      label: 'WhatsApp',
+      value: whatsappConfigured ? 'Configurado' : 'Sin configurar',
+      detail: demoWorkspace ? 'Sin envíos reales' : 'Conexión sin verificar',
+      tone: whatsappTone,
+      icon: Inbox
+    },
+    {
+      id: 'auto_replies',
+      label: 'Respuestas automáticas',
+      value: aiStatus.value,
+      detail: globalStatus.allowed === false
+        ? 'Bloqueo global activo'
+        : hotelStatus.configured && hotelStatus.enabled
+          ? 'Interruptor del hotel activo'
+          : hotelStatus.configured ? 'Desactivadas intencionadamente' : 'Pendiente de configurar',
+      tone: aiStatus.tone,
+      icon: Bot
+    },
+    {
+      id: 'last_sync',
+      label: 'Última sincronización',
+      value: pms.lastSyncAt ? formatDateTime(pms.lastSyncAt, hotel.timezone) : 'No sincronizado',
+      detail: pms.lastSyncAt ? 'Dato PMS anterior' : 'Pendiente de PMS',
+      tone: syncTone,
+      icon: RefreshCw
+    }
+  ];
+};
+
+const initialsFor = (name) => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+
+const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshing, onRefresh }) => {
+  const { tx, language } = useDashboardLanguage();
+  const displayName = useSessionDisplayName();
+  let country = hotel.country || '';
+  try {
+    if (hotel.country_code) country = new Intl.DisplayNames([language], { type: 'region' }).of(hotel.country_code);
+  } catch { /* Keep the supplied country if the region code is unavailable. */ }
+  const location = [hotel.city, country].filter(Boolean).join(', ');
+  return (
+    <>
+      <header className={styles.topbar}>
+        <div>
+          <p className={styles.greeting}>{displayName ? `${tx(getHotelGreeting(timezone))}, ${displayName}` : tx('Bienvenido')}</p>
+          <p className={styles.subtitle}>{tx('Aquí tienes el resumen operativo de tu hotel.')}</p>
+        </div>
+        <div className={styles.toolbar}>
+          <time>{formatHotelDate(timezone, language)}</time>
+          {isCheckinDemoWorkspace(hotel) ? <span className={styles.demo}>{tx('Modo demo')}</span> : null}
+          <button type="button" onClick={onRefresh} disabled={refreshing} className={styles.refresh}>
+            <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />{tx('Actualizar')}
+          </button>
+          <div className={styles.controls}><ThemeToggle /><LanguageSelector /></div>
+          {!loading ? <div className={styles.userAccount}>
+            <span className={styles.userAvatar} aria-hidden="true">{initialsFor(displayName || tx('Usuario'))}</span>
+            <div><p>{displayName || tx('Usuario')}</p><span>{tx(formatRoleLabel(role))}</span></div>
+          </div> : null}
+        </div>
+      </header>
+      <div className={styles.identity}>
+        <span className={styles.hotelInitials} aria-hidden="true">{initialsFor(hotelName)}</span>
+        <div>
+          <h1>{loading ? tx('Cargando hotel') : hotelName}</h1>
+          <p className={styles.location}>
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            {location ? <span>{location} ·</span> : null}
+            <span>{tx('Zona horaria')}: {timezone}</span>
+          </p>
+        </div>
       </div>
+    </>
+  );
+};
+
+const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  const isLight = theme === 'light';
+  const counters = workspace?.counters || {};
+  const movementAvailable = workspace?.movement?.available !== false;
+  const cards = [
+    {
+      label: 'Llegadas hoy',
+      value: counters.arrivalsToday,
+      detail: movementAvailable ? 'Reservas de hoy' : 'No disponible',
+      href: permissions.reception || permissions.pms ? '/dashboard/reservations' : null,
+      icon: CalendarCheck,
+      tone: 'emerald'
+    },
+    {
+      label: 'Salidas hoy',
+      value: counters.departuresToday,
+      detail: movementAvailable ? 'Reservas de hoy' : 'No disponible',
+      href: permissions.reception || permissions.pms ? '/dashboard/reservations' : null,
+      icon: CalendarDays,
+      tone: 'sky'
+    },
+    {
+      label: 'Conversaciones activas',
+      value: counters.activeConversations ?? data?.summary?.activeConversations,
+      detail: 'En Inbox',
+      href: permissions.inbox ? '/dashboard/inbox' : null,
+      icon: Inbox,
+      tone: 'violet'
+    },
+    {
+      label: 'Tickets abiertos',
+      value: counters.openTickets ?? data?.kpis?.openTickets,
+      detail: 'Abiertos/en curso',
+      href: permissions.tickets ? '/dashboard/tickets' : null,
+      icon: TicketCheck,
+      tone: Number((counters.openTickets ?? data?.kpis?.openTickets) || 0) > 0 ? 'amber' : 'emerald'
+    }
+  ];
+
+  return (
+    <div className={styles.kpis}>
+      {cards.map((card) => {
+        const Icon = card.icon;
+        const content = <>
+          <span className={cn(styles.kpiIcon, iconToneClass(isLight, card.tone))}><Icon className="h-6 w-6" aria-hidden="true" /></span>
+          <div className="min-w-0">
+            <p className={styles.kpiLabel}>{tx(card.label)}</p>
+            <p className={styles.kpiValue}>{loading ? '…' : formatKnownNumber(card.value)}</p>
+            <p className={styles.kpiDetail}>{tx(card.detail)}</p>
+          </div>
+          {card.href ? <ChevronRight className={styles.arrow} aria-hidden="true" /> : null}
+        </>;
+        return card.href
+          ? <Link key={card.label} href={card.href} className={styles.kpi}>{content}</Link>
+          : <div key={card.label} className={styles.kpi}>{content}</div>;
+      })}
+    </div>
+  );
+};
+
+const QueueRequest = ({ title = '' }) => {
+  if (title.length <= 105) return <span className={styles.request}>{title}</span>;
+  return <details className={styles.request}><summary>{title.slice(0, 100)}…</summary><p>{title}</p></details>;
+};
+
+const WorkQueuePanel = ({ items = [], loading, timezone, permissions }) => {
+  const { tx, language } = useDashboardLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const visibleItems = expanded ? items : items.slice(0, 5);
+  const attentionTime = (value) => {
+    if (!value || !Number.isFinite(new Date(value).getTime())) return '—';
+    return new Intl.DateTimeFormat(language, { timeZone: timezone, hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+  };
+  return (
+    <section className={styles.panel} aria-label={tx('Pendiente de atender')}>
+      <div className={styles.panelHeader}>
+        <div>
+          <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Pendiente de atender')}</h2>
+          <p className={styles.subtitle}>{loading ? tx('Cargando solicitudes…') : items.length + ' ' + tx('asuntos en este resumen')}{items.length === 8 ? ' · ' + tx('Máximo 8') : ''}</p>
+        </div>
+        <div className={styles.queueActions}>
+          {permissions.inbox ? <Link className={styles.link} href="/dashboard/inbox">{tx('Ver Inbox')}</Link> : null}
+          {permissions.tickets ? <Link className={styles.link} href="/dashboard/tickets">{tx('Ver tickets')}</Link> : null}
+        {items.length > 5 ? <button className={styles.link} onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
+          {tx(expanded ? 'Ver menos' : 'Ver todos')}<ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </button> : null}
+        </div>
+      </div>
+      {loading ? <div className={styles.empty}><SkeletonList /></div> : items.length ? <>
+        <div className={styles.queueBody}>
+          <table className={styles.table}>
+            <thead><tr>{['Huésped / Solicitud', 'Hab.', 'Área', 'Estado', 'Hora', 'Acción'].map((label) => <th key={label} scope="col">{tx(label)}</th>)}</tr></thead>
+            <tbody>{visibleItems.map((item) => <tr key={item.id}>
+              <td><div className={styles.guestCell}>
+                <span className={styles.avatar} aria-hidden="true">{initialsFor(item.guest) || '?'}</span>
+                <div><p className={styles.guestName}>{item.guest || tx('Huésped sin identificar')}
+                  {['urgent', 'high'].includes(item.priority) ? <span className={styles.critical}><AlertTriangle className="h-3 w-3" aria-hidden="true" />{tx(formatStatusLabel(item.priority))}</span> : null}
+                </p><QueueRequest title={item.title} /></div>
+              </div></td>
+              <td data-label={tx('Habitación')}>{item.room || '—'}</td>
+              <td data-label={tx('Área')}><span className={styles.badge}>{tx(item.area)}</span></td>
+              <td data-label={tx('Estado')}><span className={styles.badge} data-tone={item.status === 'open' ? 'amber' : item.status === 'in_progress' ? 'sky' : ui.statusTone(item.status)}>{tx(formatStatusLabel(item.status))}</span></td>
+              <td data-label={tx('Hora')}><time className={styles.time} dateTime={item.createdAt || undefined}>{attentionTime(item.createdAt)}</time></td>
+              <td><Link href={item.href} className={styles.link} aria-label={tx(item.actionLabel) + ': ' + (item.guest || '') + ' — ' + item.title}>{tx('Abrir')}</Link></td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </> : <div className={styles.empty}><EmptyState icon={CheckCircle2} title="Sin pendientes operativos ahora" description="No hay tickets abiertos ni conversaciones en control humano o escalación." /></div>}
+    </section>
+  );
+};
+
+// Reservation dates are calendar dates, not UTC timestamps: preserve their day.
+const movementDate = (value, language) => {
+  if (!value) return '—';
+  const date = new Date(String(value).slice(0, 10) + 'T12:00:00Z');
+  return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date) : '—';
+};
+
+const HotelMovementPanel = ({ movement = {}, counters = {}, loading, permissions }) => {
+  const { tx, language } = useDashboardLanguage();
+  const [activeTab, setActiveTab] = useState('arrivals');
+  const tabs = [
+    { key: 'arrivals', label: 'Llegadas', items: movement.arrivals || [], count: counters.arrivalsToday },
+    { key: 'departures', label: 'Salidas', items: movement.departures || [], count: counters.departuresToday }
+  ];
+  const active = tabs.find((tab) => tab.key === activeTab) || tabs[0];
+  const canOpenReservations = permissions.reception || permissions.pms;
+  return (
+    <section className={cn(styles.panel, styles.movement)} aria-label={tx('Movimiento del hotel')}>
+      <div className={styles.panelHeader}>
+        <div><h2 className={styles.panelTitle}><BedDouble aria-hidden="true" />{tx('Movimiento del hotel')}</h2><p className={styles.subtitle}>{tx('Llegadas y salidas de hoy.')}</p></div>
+        {canOpenReservations ? <Link href="/dashboard/reservations" className={styles.link}>{tx('Ver reservas')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
+      </div>
+      <div className={styles.movementBody}>
+        <div className={styles.tabs} role="tablist" aria-label={tx('Movimiento del hotel')}>
+          {tabs.map((tab) => <button key={tab.key} id={'movement-tab-' + tab.key} role="tab" aria-selected={activeTab === tab.key} aria-controls="movement-list" type="button" onClick={() => setActiveTab(tab.key)}>
+            {tx(tab.label)} ({loading || movement.available === false ? '—' : tab.count ?? tab.items.length})
+          </button>)}
+        </div>
+        <div id="movement-list" role="tabpanel" aria-labelledby={'movement-tab-' + active.key}>
+          {loading ? <div className={styles.empty}><SkeletonList /></div> : movement.available === false ? <div className={styles.empty}><EmptyState icon={AlertTriangle} title="Reservas no disponibles" description="No se pudo comprobar el movimiento de hoy." /></div> : active.items.length ? active.items.map((item) => <div className={styles.movementRow} key={active.key + ':' + item.id}>
+            <time className={styles.time} dateTime={item.date || movement.todayDate}>{movementDate(item.date || movement.todayDate, language)}</time>
+            <div><p className={styles.guestName}>{item.guest || tx('Huésped sin identificar')}</p><p className={styles.subtitle}>{tx(formatStatusLabel(item.status))}</p></div>
+            <span className={cn(styles.badge, styles.room)} aria-label={tx('Habitación') + ': ' + (item.room || '—')}>{item.room || '—'}</span>
+            {canOpenReservations ? <Link className={styles.link} href={item.href} aria-label={tx('Ver reserva') + ': ' + (item.guest || '')}><ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
+          </div>) : <div className={styles.empty}><EmptyState icon={CalendarDays} title={'Sin ' + active.label.toLowerCase() + ' válidas hoy'} description="Las canceladas y no-show no se muestran como movimiento operativo." /></div>}
+        </div>
+      </div>
+      {canOpenReservations ? <div className={styles.movementFooter}>
+        {(active.count || 0) > active.items.length ? <span className={styles.time}>{active.items.length} / {active.count} {tx('en este resumen')}</span> : null}
+        <Link className={styles.link} href="/dashboard/reservations">{tx('Ver todas las llegadas y salidas')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>
+      </div> : null}
+    </section>
+  );
+};
+
+const ServiceStatusStrip = ({ services = [], loading, permissions }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  return (
+    <section className={styles.panel}>
+      <div className={cn(styles.panelHeader, styles.serviceHeader)}>
+        <div><h2 className={styles.panelTitle}><ShieldCheck aria-hidden="true" />{tx('Estado de conexión y servicios')}</h2></div>
+        {permissions.health ? <Link href="/dashboard/health" className={styles.link}>{tx('Ver salud')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
+      </div>
+      {loading ? <div className={styles.empty}><SkeletonGrid /></div> : <div className={styles.services}>
+        {services.map((service) => {
+          const Icon = service.icon;
+          return <div key={service.id} className={styles.service}>
+            <span className={cn(styles.serviceIcon, iconToneClass(theme === 'light', service.tone))}><Icon className="h-5 w-5" aria-hidden="true" /></span>
+            <div className="min-w-0"><p className={styles.serviceLabel}>{tx(service.label)}</p>
+              <p className={styles.serviceValue}><span className={styles.statusDot} data-tone={service.tone} aria-hidden="true" />{tx(service.value)}</p>
+              {!['auto_replies', 'last_sync'].includes(service.id) ? <p className={styles.serviceDetail}>{tx(service.detail)}</p> : null}
+            </div>
+          </div>;
+        })}
+      </div>}
     </section>
   );
 };

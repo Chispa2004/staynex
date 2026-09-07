@@ -2550,6 +2550,16 @@ phraseTranslations.de = {
   'Global user operations': 'Globale User-Operationen'
 };
 
+const accountPhrases = {
+  es: ['Buenos días', 'Bienvenido', 'Usuario', 'Administrador', 'Aquí tienes el resumen operativo de tu hotel.'],
+  en: ['Good morning', 'Welcome', 'User', 'Administrator', 'Here is the operational summary of your hotel.'],
+  fr: ['Bonjour', 'Bienvenue', 'Utilisateur', 'Administrateur', 'Voici le résumé opérationnel de votre hôtel.'],
+  de: ['Guten Morgen', 'Willkommen', 'Benutzer', 'Administrator', 'Hier ist die operative Übersicht Ihres Hotels.']
+};
+for (const [language, values] of Object.entries(accountPhrases)) {
+  Object.assign(phraseTranslations[language], Object.fromEntries(accountPhrases.es.map((key, index) => [key, values[index]])));
+}
+
 const phrasePatterns = {
   es: [
     [/^(\d+) active conversations$/, '$1 conversaciones activas'],

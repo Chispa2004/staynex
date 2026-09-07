@@ -187,11 +187,16 @@ button:disabled {
   color: #0f172a !important;
 }
 
-.theme-light [class*="text-slate-400"],
-.theme-light [class*="text-slate-500"],
-.theme-light [class*="text-slate-600"] {
-  color: #64748b !important;
-}
+.theme-light [class~="text-slate-400"],
+.theme-light [class~="text-gray-400"] { color: #596b83 !important; }
+.theme-light [class~="text-slate-500"],
+.theme-light [class~="text-gray-500"] { color: #4d607a !important; }
+.theme-light [class~="text-slate-600"],
+.theme-light [class~="text-gray-600"] { color: #3e506a !important; }
+
+/* Keep secondary copy readable on dark surfaces too. Status colors are unchanged. */
+.theme-dark [class~="text-slate-500"],
+.theme-dark [class~="text-gray-500"] { color: #96a6be; }
 
 .theme-light [class*="text-emerald-100"],
 .theme-light [class*="text-emerald-200"],

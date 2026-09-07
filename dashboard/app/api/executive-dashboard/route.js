@@ -7,6 +7,10 @@ import {
 } from '../../../../shared/pms/safe-connection.js';
 import { isGuestMemoryEnabled } from '../../../../shared/guest-memory/feature-flag.js';
 import { getPilotAiSafetyReadiness } from '../../../../shared/pilot/ai-safety.js';
+import {
+  buildHotelOperationsWorkspace,
+  isReservationExcludedFromHotelMovement
+} from '@/lib/hotel-operations-workspace';
 
 const PMS_EXECUTIVE_SELECT = pmsConnectionSelectForSurface('tenant_settings');
 const CHECKIN_DEMO_SLUG = 'hotel-demo-checkin';
@@ -47,6 +51,20 @@ const safeRows = async (query, fallback = []) => {
   }
 
   return data || fallback;
+};
+
+const safeRowsResult = async (query, fallback = []) => {
+  const { data, error } = await query;
+
+  if (error) {
+    if (!isMissingOptionalTable(error)) {
+      console.warn('Executive dashboard rows unavailable', error.message);
+    }
+
+    return { rows: fallback, available: false };
+  }
+
+  return { rows: data || fallback, available: true };
 };
 
 const withHotel = (query, hotelId) => (
@@ -365,6 +383,7 @@ export async function GET(request) {
 
     const [
       conversationsToday,
+      activeConversationsCount,
       openTickets,
       urgentTickets,
       aiResponses,
@@ -380,7 +399,7 @@ export async function GET(request) {
       recentConversationStates,
       recentGuestMemory,
       recentGuestProfiles,
-      reservationsToday,
+      reservationsTodayResult,
       activeGuestsRows,
       rawPmsConnections,
       onboardingRows,
@@ -398,6 +417,10 @@ export async function GET(request) {
         supabase.from('conversations').select('id', { count: 'exact', head: true }),
         hotelId
       ).gte('created_at', today)),
+      safeCount(withHotel(
+        supabase.from('conversations').select('id', { count: 'exact', head: true }),
+        hotelId
+      ).eq('status', 'active')),
       safeCount(withHotel(
         supabase.from('tickets').select('id', { count: 'exact', head: true }),
         hotelId
@@ -419,7 +442,7 @@ export async function GET(request) {
         hotelId
       ).eq('status', 'scheduled')),
       safeRows(withHotel(
-        supabase.from('tickets').select('id, hotel_id, guest_id, room_number, category, priority, status, title, created_at'),
+        supabase.from('tickets').select('id, hotel_id, guest_id, conversation_id, room_number, category, priority, status, title, created_at'),
         hotelId
       ).order('created_at', { ascending: false }).limit(50)),
       safeRows(withHotel(
@@ -458,8 +481,8 @@ export async function GET(request) {
         supabase.from('guest_ai_profiles').select('id, guest_id, guest_score, revenue_generated, operational_risk_score, metadata, updated_at'),
         hotelId
       ).order('guest_score', { ascending: false }).limit(10)),
-      safeRows(withHotel(
-        supabase.from('reservations').select('id, arrival_date, departure_date, status'),
+      safeRowsResult(withHotel(
+        supabase.from('reservations').select('id, hotel_id, guest_id, guest_name, room_number, arrival_date, departure_date, status, pms_reservation_id'),
         hotelId
       ).or(`arrival_date.eq.${todayDate},departure_date.eq.${todayDate}`).limit(50)),
       safeRows(withHotel(
@@ -516,6 +539,8 @@ export async function GET(request) {
       ).order('created_at', { ascending: false }).limit(200))
     ]);
 
+    const reservationsToday = reservationsTodayResult.rows;
+    const reservationsTodayAvailable = reservationsTodayResult.available;
     const pmsConnections = serializePmsConnectionsSafe(rawPmsConnections, { surface: 'tenant_settings' });
     const activeGuests = new Set(activeGuestsRows.map((row) => row.guest_id).filter(Boolean)).size;
     const upsellTypeCounts = countBy(recentUpsells, 'upsell_type');
@@ -551,8 +576,13 @@ export async function GET(request) {
     const guestSatisfactionSource = satisfactionValues.length
       ? 'ai_logs'
       : isCheckinDemoHotel(hotel) ? 'demo_estimate' : 'operational_estimate';
-    const arrivalsToday = reservationsToday.filter((item) => item.arrival_date === todayDate).length;
-    const departuresToday = reservationsToday.filter((item) => item.departure_date === todayDate).length;
+    const movementReservationsToday = reservationsToday.filter((item) => !isReservationExcludedFromHotelMovement(item));
+    const arrivalsToday = reservationsTodayAvailable
+      ? movementReservationsToday.filter((item) => item.arrival_date === todayDate).length
+      : null;
+    const departuresToday = reservationsTodayAvailable
+      ? movementReservationsToday.filter((item) => item.departure_date === todayDate).length
+      : null;
     const signalGuestIds = [...new Set([
       ...recentGuestProfiles.map((item) => item.guest_id),
       ...recentGuestMemory.map((item) => item.guest_id),
@@ -560,13 +590,14 @@ export async function GET(request) {
       ...recentConversions.map((item) => item.guest_id),
       ...recentOffers.map((item) => item.guest_id),
       ...allTickets.map((item) => item.guest_id),
-      ...recentConversations.map((item) => item.guest_id)
+      ...recentConversations.map((item) => item.guest_id),
+      ...reservationsToday.map((item) => item.guest_id)
     ].filter(Boolean))].slice(0, 50);
     const signalGuests = signalGuestIds.length
       ? await safeRows(
         supabase
           .from('guests')
-          .select('id, phone_number, current_room, preferred_language')
+          .select('id, name, full_name, phone_number, current_room, preferred_language')
           .eq('hotel_id', hotelId)
           .in('id', signalGuestIds),
         'guests'
@@ -671,10 +702,14 @@ export async function GET(request) {
     const departureCompleteStatuses = new Set(['checked_out', 'completed', 'cancelled', 'no_show', 'departed']);
     const normalizeStatus = (status) => String(status || '').toLowerCase();
     const pendingCheckins = reservationsToday.filter((item) => (
-      item.arrival_date === todayDate && !arrivalCompleteStatuses.has(normalizeStatus(item.status))
+      item.arrival_date === todayDate
+      && !isReservationExcludedFromHotelMovement(item)
+      && !arrivalCompleteStatuses.has(normalizeStatus(item.status))
     )).length;
     const pendingCheckouts = reservationsToday.filter((item) => (
-      item.departure_date === todayDate && !departureCompleteStatuses.has(normalizeStatus(item.status))
+      item.departure_date === todayDate
+      && !isReservationExcludedFromHotelMovement(item)
+      && !departureCompleteStatuses.has(normalizeStatus(item.status))
     )).length;
     const roomsWithIssues = operationalContext.roomsDirty + operationalContext.roomsMaintenance;
     const guestAlertCount = activeEscalations.length + repeatedFrustrations.length + urgentTickets;
@@ -750,6 +785,17 @@ export async function GET(request) {
       lastUpdatedAt: operationalContext.lastUpdatedAt,
       dataState: operationalContext.health
     };
+    const operationalWorkspace = buildHotelOperationsWorkspace({
+      reservationsToday,
+      reservationsAvailable: reservationsTodayAvailable,
+      tickets: allTickets,
+      conversations: recentConversations,
+      conversationStates: recentConversationStates,
+      guests: signalGuests,
+      todayDate,
+      activeConversationsCount,
+      openTicketsCount: openTickets
+    });
     const pmsSnapshot = {
       connected: pmsConnections.some((item) => item.enabled),
       providerName: primaryPmsConnection?.provider || null,
@@ -803,7 +849,7 @@ export async function GET(request) {
         urgentTickets
       },
       summary: {
-        activeConversations: recentConversations.filter((item) => item.status === 'active').length,
+        activeConversations: activeConversationsCount,
         upsellsDetected: recentUpsells.length,
         urgentTickets,
         experienceRequests: experienceBookingRequests.length,
@@ -829,6 +875,7 @@ export async function GET(request) {
         }
       },
       operationalContext,
+      operationalWorkspace,
       hotelIntelligence,
       pmsSnapshot,
       guestIntelligence,

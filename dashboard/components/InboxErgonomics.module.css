@@ -1,0 +1,6 @@
+.chatHeader { display: grid; gap: 10px; }
+.identityRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.identity { display: flex; flex: 1 1 190px; align-items: center; gap: 10px; min-width: 0; }
+.identity p { overflow-wrap: anywhere; }
+.effectiveState { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.secondaryControls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
