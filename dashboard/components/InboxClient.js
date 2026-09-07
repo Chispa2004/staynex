@@ -11,6 +11,8 @@ import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import ergonomics from './InboxErgonomics.module.css';
+import { shouldCompactOriginalMessage } from '@/lib/inbox-message-presentation';
 import { cn, ui } from '@/lib/ui/styles';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 
@@ -1478,16 +1480,12 @@ export const InboxClient = ({ conversations }) => {
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Inbox</p>
-              <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
-                {items.length} conversaciones
-                {unreadTotal > 0 ? ` / ${unreadTotal} sin leer` : ''}
-                {humanTakeoverTotal > 0 ? ` / ${humanTakeoverTotal} en control humano` : ''}
-              </p>
+
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span
                 className={[
-                  'hidden rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] sm:inline-flex',
+                  'inline-flex rounded-full border px-2 py-1 text-xs font-medium',
                   realtimeStatus === 'connected'
                     ? isLight
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
@@ -1515,6 +1513,11 @@ export const InboxClient = ({ conversations }) => {
               </button>
             </div>
           </div>
+              <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
+                {items.length} conversaciones
+                {unreadTotal > 0 ? ` · ${unreadTotal} mensajes sin leer` : ''}
+                {humanTakeoverTotal > 0 ? ` · ${humanTakeoverTotal} en control humano` : ''}
+              </p>
           <div className={cn(
             'mt-4 flex items-center gap-2 rounded-xl border px-3 py-2',
             isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-black/15 text-slate-200'
@@ -1534,7 +1537,7 @@ export const InboxClient = ({ conversations }) => {
         </div>
 
         <div className={[
-          'executive-scroll flex shrink-0 gap-2 overflow-x-auto border-b p-3 sm:px-6',
+          'flex shrink-0 flex-wrap gap-2 border-b p-3 sm:px-4',
           isLight ? 'border-slate-200 bg-white/80' : 'border-white/10 bg-black/10'
         ].join(' ')}
         >
@@ -1546,6 +1549,8 @@ export const InboxClient = ({ conversations }) => {
                 key={filter.key}
                 type="button"
                 onClick={() => setActiveFilter(filter.key)}
+                aria-label={`${filter.label}: ${filter.count} conversaciones`}
+                aria-pressed={active}
                 className={[
                   'inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition',
                   isLight
@@ -1726,8 +1731,9 @@ export const InboxClient = ({ conversations }) => {
               isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.035]'
         ].join(' ')}
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-2">
+          <div className={ergonomics.chatHeader}>
+            <div className={ergonomics.identityRow}>
+            <div className={ergonomics.identity}>
               <button
                 type="button"
                 onClick={closeActiveConversation}
@@ -1742,39 +1748,15 @@ export const InboxClient = ({ conversations }) => {
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               </button>
               <div className="min-w-0">
-                <p className={isLight ? 'truncate text-sm font-semibold text-slate-900' : 'truncate text-sm font-semibold text-white'}>
+                <p className={isLight ? 'break-words text-sm font-semibold text-slate-900' : 'break-words text-sm font-semibold text-white'}>
                   {selectedDisplayName}
                 </p>
-                <p className={isLight ? 'truncate text-xs text-slate-600' : 'truncate text-xs text-slate-500'}>
+                <p className={isLight ? 'break-words text-sm text-slate-600' : 'break-words text-sm text-slate-500'}>
                   {selectedSecondaryLine}
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className={cn(
-                'inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
-                isLight
-                  ? 'border-slate-200 bg-white text-slate-700'
-                  : 'border-white/10 bg-white/[0.04] text-slate-200'
-              )}
-              >
-                <span>{t('inbox.readIn')}</span>
-                <select
-                  value={staffLanguage}
-                  onChange={handleTranslationLanguageChange}
-                  className={cn(
-                    'rounded-md border px-2 py-1 text-xs font-bold outline-none',
-                    isLight
-                      ? 'border-slate-200 bg-slate-50 text-slate-900'
-                      : 'border-white/10 bg-[#101724] text-white'
-                  )}
-                  aria-label={t('inbox.readIn')}
-                >
-                  {TRANSLATION_LANGUAGES.map((item) => (
-                    <option key={item.code} value={item.code}>{item.label}</option>
-                  ))}
-                </select>
-              </label>
+            <div className={ergonomics.effectiveState}>
               <span className={[
                 'w-fit rounded-full border px-3 py-1 text-xs font-semibold capitalize',
                 selectedHumanEscalation.needsHuman
@@ -1812,6 +1794,33 @@ export const InboxClient = ({ conversations }) => {
                 )}
                 {selectedHumanTakeoverActive ? 'Control humano activo' : selectedControlBadge?.label || 'IA'}
               </span>
+            </div>
+            </div>
+            <div className={ergonomics.secondaryControls}>
+              <label className={cn(
+                'inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
+                isLight
+                  ? 'border-slate-200 bg-white text-slate-700'
+                  : 'border-white/10 bg-white/[0.04] text-slate-200'
+              )}
+              >
+                <span>{t('inbox.readIn')}</span>
+                <select
+                  value={staffLanguage}
+                  onChange={handleTranslationLanguageChange}
+                  className={cn(
+                    'rounded-md border px-2 py-1 text-xs font-bold outline-none',
+                    isLight
+                      ? 'border-slate-200 bg-slate-50 text-slate-900'
+                      : 'border-white/10 bg-[#101724] text-white'
+                  )}
+                  aria-label={t('inbox.readIn')}
+                >
+                  {TRANSLATION_LANGUAGES.map((item) => (
+                    <option key={item.code} value={item.code}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 onClick={() => updateHumanTakeover(selectedHumanTakeoverActive ? 'resume' : 'takeover')}
@@ -1933,7 +1942,12 @@ export const InboxClient = ({ conversations }) => {
             const translationVisible = hasTranslation && !hiddenTranslations[item.id];
             const languageBadge = item.original_language || messageTranslation.sourceLanguage || null;
             const translationLabel = isStaff ? t('inbox.guestTranslation') : t('inbox.staffTranslation');
-            const alreadyInStaffLanguage = !hasTranslation && languageBadge && languageBadge === staffLanguage;
+            const compactOriginal = shouldCompactOriginalMessage({
+              sourceLanguage: item.original_language,
+              readingLanguage: staffLanguage,
+              hasTranslation,
+              isTranslating
+            });
             const isAi = item.sender_type === 'ai';
             const SenderIcon = isAi ? Bot : isStaff ? UserRound : MessageSquareText;
             const senderAvatarClass = isLight
@@ -2002,9 +2016,9 @@ export const InboxClient = ({ conversations }) => {
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <p className={isLight ? 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500' : 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-55'}>
+                      {!compactOriginal ? <p className={isLight ? 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500' : 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-55'}>
                         {t('inbox.original')}
-                      </p>
+                      </p> : null}
                       <p className="whitespace-pre-wrap text-sm leading-6">{item.content}</p>
                     </div>
 
@@ -2049,10 +2063,6 @@ export const InboxClient = ({ conversations }) => {
                       <p className={isLight ? 'border-t border-slate-200 pt-3 text-xs font-semibold text-slate-500' : 'border-t border-white/10 pt-3 text-xs font-semibold text-slate-500'}>
                         {t('inbox.translating')}
                       </p>
-                    ) : alreadyInStaffLanguage ? (
-                      <p className={isLight ? 'border-t border-slate-200 pt-3 text-xs font-semibold text-slate-500' : 'border-t border-white/10 pt-3 text-xs font-semibold text-slate-500'}>
-                        {t('inbox.alreadyInYourLanguage')}
-                      </p>
                     ) : null}
                   </div>
                 </article>
@@ -2094,7 +2104,7 @@ export const InboxClient = ({ conversations }) => {
               {t('inbox.replyWillBeSentIn', { language: String(selectedGuestLanguage).toUpperCase() })}
             </p>
           ) : null}
-          <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+          <div className="mb-2 flex flex-wrap gap-2 pb-1" data-inbox-actions="quick-replies">
             {quickReplyTemplates.map((reply) => (
               <button
                 key={reply.label}

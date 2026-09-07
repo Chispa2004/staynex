@@ -427,4 +427,25 @@ assert.match(globalStylesSource, /--staynex-sidebar-light/, 'Sidebar should have
 assert.match(uiStylesSource, /border-slate-200\/90 bg-white text-slate-950/, 'Shared card surfaces should keep white panels over the canvas');
 assert.doesNotMatch(inboxComponentSource, /Luc(?:i|\\u00ed)a Mart(?:i|\\u00ed)n/, 'Inbox UI must not hardcode the demo guest name');
 
-console.log('Inbox human takeover checks passed');
+const { shouldCompactOriginalMessage } = await import('../dashboard/lib/inbox-message-presentation.js');
+for (const sourceLanguage of ['es', 'ES', 'es-ES']) {
+  assert.equal(shouldCompactOriginalMessage({ sourceLanguage, readingLanguage: 'es' }), true, 'Known matching language should render without translation chrome');
+}
+for (const sourceLanguage of [null, undefined, '', 'und', 'unknown', 'auto', 'not a language', 'en']) {
+  assert.equal(shouldCompactOriginalMessage({ sourceLanguage, readingLanguage: 'es' }), false, 'Unknown or different source language must not be treated as a match');
+}
+assert.equal(shouldCompactOriginalMessage({ sourceLanguage: 'es', readingLanguage: null }), false, 'Missing reading language must not default to Spanish');
+assert.equal(shouldCompactOriginalMessage({ sourceLanguage: 'es', readingLanguage: 'es', hasTranslation: true }), false, 'An actual translation must keep its original/translation controls, even for matching language metadata');
+assert.equal(shouldCompactOriginalMessage({ sourceLanguage: 'es', readingLanguage: 'es', isTranslating: true }), false, 'An in-flight translation must keep its progress state');
+assert.equal(shouldCompactOriginalMessage({ sourceLanguage: 'en', readingLanguage: 'es', hasTranslation: true }), false, 'A different-language translation must remain visible');
+assert.match(inboxComponentSource, /sourceLanguage: item\.original_language,[\s\S]*?readingLanguage: staffLanguage/, 'Compact rendering must use explicit message language rather than heuristic fallback');
+assert.match(inboxComponentSource, /!compactOriginal \? <p[\s\S]*?t\('inbox\.original'\)/, 'Only known same-language messages should omit the original label');
+assert.doesNotMatch(inboxComponentSource, /t\('inbox\.alreadyInYourLanguage'\)/, 'Same-language messages should not render an empty translation notice');
+assert.match(inboxComponentSource, /hasTranslation \? \([\s\S]*?onClick=\{\(\) => toggleTranslation\(item\.id\)\}/, 'Real translations should retain their existing visibility control');
+const chatHeaderSource = inboxComponentSource.slice(inboxComponentSource.indexOf('<header className={['), inboxComponentSource.indexOf('</header>'));
+assert.doesNotMatch(chatHeaderSource, /truncate/, 'Chat header identity must not be ellipsized');
+assert.match(chatHeaderSource, /ergonomics\.identityRow[\s\S]*?selectedSecondaryLine[\s\S]*?ergonomics\.effectiveState[\s\S]*?ergonomics\.secondaryControls/, 'Identity and effective status must precede secondary controls');
+assert.match(inboxComponentSource, /mensajes sin leer/, 'Unread total must name its message unit');
+assert.match(inboxComponentSource, /aria-label=\{`\$\{filter\.label\}: \$\{filter\.count\} conversaciones`\}/, 'Filter counts must name their conversation unit');
+assert.doesNotMatch(inboxComponentSource, /overflow-x-auto/, 'Filters and quick actions must wrap instead of requiring horizontal scrolling');
+console.log('Inbox human takeover and focused ergonomics checks passed');
