@@ -180,7 +180,7 @@ export const HotelWorkspaceSwitcher = ({
             {availableHotels.map((assignment) => {
               const hotel = assignment.hotel;
               const active = hotel?.id === currentHotel?.id;
-              const role = assignment.role || assignment.hotelUser?.role || 'receptionist';
+              const role = assignment.role || assignment.hotelUser?.role || 'blocked';
 
               return (
                 <button

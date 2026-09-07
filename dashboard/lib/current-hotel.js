@@ -161,18 +161,46 @@ const buildWorkspaceSelectionRequiredContext = async ({
   canCreateWorkspaces: tenantAccess.canCreateWorkspaces,
   availableHotels: (await getAllHotelWorkspaces(supabase)).map((workspaceHotel) => {
     const assignment = assignments.find((item) => item.hotel_id === workspaceHotel.id);
-    return {
-      hotel: workspaceHotel,
-      hotelUser: assignment ? normalizeHotelUser(assignment) : null,
-      role: assignment?.role || 'owner',
-      isDefault: Boolean(assignment?.is_default)
-    };
+      return {
+        hotel: workspaceHotel,
+        hotelUser: assignment ? normalizeHotelUser(assignment) : null,
+        role: assignment?.role || 'blocked',
+        isDefault: Boolean(assignment?.is_default)
+      };
   }),
   fallback: false,
   accessDenied: true,
   accessDeniedReason: 'workspace_required',
   user: { id: userId, email }
 });
+
+const buildAccessDeniedContext = ({
+  supabase,
+  reason = 'unauthorized',
+  userId = null,
+  email = null,
+  tenantAccess = null
+} = {}) => {
+  const platformRole = tenantAccess?.platformRole || 'none';
+
+  return {
+    supabase,
+    hotel: null,
+    hotelUser: null,
+    role: 'blocked',
+    permissions: [],
+    platformRole,
+    platformPermissions: tenantAccess?.platformPermissions || getPermissionsForPlatformRole(platformRole),
+    multiPropertyAccess: Boolean(tenantAccess?.multiPropertyAccess),
+    canSwitchWorkspaces: Boolean(tenantAccess?.canSwitchWorkspaces),
+    canCreateWorkspaces: Boolean(tenantAccess?.canCreateWorkspaces),
+    availableHotels: [],
+    fallback: false,
+    accessDenied: true,
+    accessDeniedReason: reason,
+    user: userId || email ? { id: userId, email } : null
+  };
+};
 
 const getLegacyAssignmentForUser = async ({ supabase, userId }) => {
   if (!userId) {
@@ -241,7 +269,18 @@ export const getCurrentHotelForRequest = async (request) => {
       email = normalizeAuthEmail(authUser?.email);
     } else {
       console.warn('Current hotel auth lookup failed', error.message);
+      return buildAccessDeniedContext({
+        supabase,
+        reason: 'invalid_session'
+      });
     }
+  }
+
+  if (!userId) {
+    return buildAccessDeniedContext({
+      supabase,
+      reason: token ? 'invalid_session' : 'missing_session'
+    });
   }
 
   if (userId) {
@@ -249,7 +288,9 @@ export const getCurrentHotelForRequest = async (request) => {
       await resolvePendingInvitationsForUser({ supabase, user: authUser });
     } catch (error) {
       if (!isMissingHotelIdentitySchema(error)) {
-        throw error;
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Pending invitation resolution skipped', error.message);
+        }
       }
     }
 
@@ -313,6 +354,16 @@ export const getCurrentHotelForRequest = async (request) => {
 
       if (hotel) {
         const selectedAssignmentForHotel = assignments.find((assignment) => assignment.hotel_id === hotel.id) || selectedAssignment;
+        if (!selectedAssignmentForHotel) {
+          return buildAccessDeniedContext({
+            supabase,
+            reason: 'hotel_assignment_missing',
+            userId,
+            email,
+            tenantAccess
+          });
+        }
+
         if (selectedAssignment.user_id === null) {
           await supabase
             .from('hotel_users')
@@ -329,7 +380,7 @@ export const getCurrentHotelForRequest = async (request) => {
           hotel_id: hotel.id,
           user_id: selectedAssignmentForHotel?.user_id || userId,
           email: selectedAssignmentForHotel?.email || email,
-          role: selectedAssignmentForHotel?.role || 'owner',
+          role: selectedAssignmentForHotel?.role || 'blocked',
           status: selectedAssignmentForHotel?.status || 'active',
           platform_role: tenantAccess.platformRole,
           multi_property_access: tenantAccess.multiPropertyAccess
@@ -342,7 +393,7 @@ export const getCurrentHotelForRequest = async (request) => {
                 return {
                   hotel: workspaceHotel,
                   hotelUser: assignment ? normalizeHotelUser(assignment) : null,
-                  role: assignment?.role || 'owner',
+                  role: assignment?.role || 'blocked',
                   isDefault: Boolean(assignment?.is_default)
                 };
               })
@@ -378,6 +429,14 @@ export const getCurrentHotelForRequest = async (request) => {
           user: { id: userId, email }
         };
       }
+
+      return buildAccessDeniedContext({
+        supabase,
+        reason: requestedHotelId ? 'hotel_not_authorized' : 'hotel_not_found',
+        userId,
+        email,
+        tenantAccess
+      });
     }
 
     if (Array.isArray(assignments) && assignments.length === 0) {
@@ -436,7 +495,7 @@ export const getCurrentHotelForRequest = async (request) => {
 
       if (legacyAccess?.hotel_id) {
         const hotel = await getHotelById(supabase, legacyAccess.hotel_id);
-        const role = legacyAccess.role || 'admin';
+        const role = legacyAccess.role || 'blocked';
 
         if (hotel) {
           return {
@@ -463,25 +522,20 @@ export const getCurrentHotelForRequest = async (request) => {
           };
         }
       }
+
+      return buildAccessDeniedContext({
+        supabase,
+        reason: 'legacy_assignment_missing',
+        userId,
+        email
+      });
     }
   }
 
-  const fallbackHotel = await getDefaultHotel(supabase);
-  const role = 'owner';
-
-  return {
+  return buildAccessDeniedContext({
     supabase,
-    hotel: fallbackHotel,
-    hotelUser: null,
-    role,
-    permissions: getPermissionsForRole(role),
-    platformRole: 'none',
-    platformPermissions: [],
-    multiPropertyAccess: false,
-    canSwitchWorkspaces: false,
-    canCreateWorkspaces: false,
-    availableHotels: fallbackHotel ? [{ hotel: fallbackHotel, role, isDefault: true }] : [],
-    fallback: true,
-    user: userId || email ? { id: userId, email } : null
-  };
+    reason: 'authorization_context_unresolved',
+    userId,
+    email
+  });
 };

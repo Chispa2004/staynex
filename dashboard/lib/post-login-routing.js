@@ -78,7 +78,7 @@ export const resolvePostLoginDestination = ({
   const selectedAssignment = requestedAssignment
     || activeAssignments.find((assignment) => Boolean(assignment.is_default))
     || activeAssignments[0];
-  const role = selectedAssignment?.role || 'owner';
+  const role = selectedAssignment?.role || 'blocked';
   const defaultRoute = appendHotelIdToRoute(
     getFirstAllowedRoute(role),
     selectedAssignment?.hotel_id

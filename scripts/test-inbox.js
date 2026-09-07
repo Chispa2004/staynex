@@ -261,6 +261,86 @@ const baseTables = {
       departure_date: '2026-09-04',
       status: 'checked_in'
     }
+  ],
+  ai_upsells: [
+    {
+      id: 'upsell-same-tenant',
+      hotel_id: hotelA,
+      conversation_id: 'conversation-lucia',
+      upsell_type: 'late_checkout',
+      title: 'Late checkout',
+      confidence: 0.91,
+      status: 'suggested',
+      created_at: '2026-09-01T10:04:00.000Z'
+    },
+    {
+      id: 'upsell-other-tenant',
+      hotel_id: hotelB,
+      conversation_id: 'conversation-lucia',
+      upsell_type: 'spa',
+      title: 'Other tenant upsell',
+      confidence: 0.99,
+      status: 'suggested',
+      created_at: '2026-09-01T10:05:00.000Z'
+    }
+  ],
+  ai_offers: [
+    {
+      id: 'offer-same-tenant',
+      hotel_id: hotelA,
+      conversation_id: 'conversation-lucia',
+      offer_type: 'late_checkout',
+      suggested_price: 45,
+      currency: 'EUR',
+      status: 'suggested',
+      confidence: 0.9,
+      ai_reason: 'Same tenant offer',
+      created_at: '2026-09-01T10:06:00.000Z'
+    },
+    {
+      id: 'offer-other-tenant',
+      hotel_id: hotelB,
+      conversation_id: 'conversation-lucia',
+      offer_type: 'transfer',
+      suggested_price: 90,
+      currency: 'EUR',
+      status: 'suggested',
+      confidence: 0.9,
+      ai_reason: 'Other tenant offer',
+      created_at: '2026-09-01T10:07:00.000Z'
+    }
+  ],
+  experience_booking_requests: [
+    {
+      id: 'booking-same-tenant',
+      hotel_id: hotelA,
+      conversation_id: 'conversation-lucia',
+      experience_title: 'Rooftop dinner',
+      partner_name: 'Same tenant partner',
+      status: 'pending',
+      estimated_revenue: 120,
+      commission_estimate: 18,
+      requested_date: '2026-09-02',
+      requested_time: '20:00',
+      created_at: '2026-09-01T10:08:00.000Z',
+      updated_at: '2026-09-01T10:08:00.000Z',
+      metadata: {}
+    },
+    {
+      id: 'booking-other-tenant',
+      hotel_id: hotelB,
+      conversation_id: 'conversation-lucia',
+      experience_title: 'Other tenant dinner',
+      partner_name: 'Other tenant partner',
+      status: 'pending',
+      estimated_revenue: 200,
+      commission_estimate: 30,
+      requested_date: '2026-09-02',
+      requested_time: '20:00',
+      created_at: '2026-09-01T10:09:00.000Z',
+      updated_at: '2026-09-01T10:09:00.000Z',
+      metadata: {}
+    }
   ]
 };
 
@@ -276,6 +356,9 @@ assert.equal(inboxConversations[0].roomNumber, '208', 'Inbox payload should expo
 assert.equal(inboxConversations[0].guest.current_room, '208', 'Lucia fixture should resolve room 208 from reservation data');
 assert.equal(inboxConversations[0].guest.phone_number, '+15005550001', 'Phone should remain available as secondary identity');
 assert.notEqual(inboxConversations[0].guest.name, 'Wrong Tenant', 'Inbox must never resolve identity from another tenant');
+assert.deepEqual(inboxConversations[0].upsells.map((upsell) => upsell.id), ['upsell-same-tenant'], 'Inbox upsells must stay scoped to the active hotel');
+assert.deepEqual(inboxConversations[0].offers.map((offer) => offer.id), ['offer-same-tenant'], 'Inbox offers must stay scoped to the active hotel');
+assert.deepEqual(inboxConversations[0].experienceBookings.map((booking) => booking.id), ['booking-same-tenant'], 'Inbox bookings must stay scoped to the active hotel');
 
 const phoneFallbackConversations = await getInboxConversations({
   supabase: createFakeSupabase({
@@ -311,6 +394,9 @@ const globalStylesSource = readFileSync(new URL('../dashboard/app/globals.css', 
 const uiStylesSource = readFileSync(new URL('../dashboard/lib/ui/styles.js', import.meta.url), 'utf8');
 assert.match(inboxSource, /getReservationIdentityLookups/, 'Inbox should use reservation identity lookups');
 assert.match(inboxSource, /\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('guest_phone', phoneValues\)/, 'Reservation phone fallback must stay scoped to the active hotel');
+assert.match(inboxSource, /from\('ai_upsells'\)[\s\S]*?\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('conversation_id', conversationIds\)/, 'Inbox upsells must filter by hotel before conversation ids');
+assert.match(inboxSource, /from\('ai_offers'\)[\s\S]*?\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('conversation_id', conversationIds\)/, 'Inbox offers must filter by hotel before conversation ids');
+assert.match(inboxSource, /from\('experience_booking_requests'\)[\s\S]*?\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('conversation_id', conversationIds\)/, 'Inbox bookings must filter by hotel before conversation ids');
 assert.match(inboxSource, /phoneKeys\.has\(normalizePhone\(reservation\.guest_phone\)\)/, 'Reservation phone fallback should normalize candidate phones inside the same hotel');
 assert.match(inboxSource, /guestName,/, 'Inbox serializer should expose the canonical rendered guestName');
 assert.match(inboxSource, /guest\?\.name \|\| guest\?\.full_name \|\| reservation\?\.guest_name/, 'Guest and reservation names should outrank phone fallback');

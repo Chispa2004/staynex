@@ -189,9 +189,12 @@ const routeRules = [
   { pattern: /^\/settings(?:\/.*)?$/, permission: 'settings' }
 ];
 
-export const getPermissionsForRole = (role = 'receptionist') => {
-  const normalizedRole = ROLES.includes(role) ? role : 'receptionist';
-  return rolePermissions[normalizedRole] || rolePermissions.receptionist;
+export const getPermissionsForRole = (role = null) => {
+  if (!ROLES.includes(role)) {
+    return [];
+  }
+
+  return rolePermissions[role] || [];
 };
 
 export const canAccess = (role, permission) => {

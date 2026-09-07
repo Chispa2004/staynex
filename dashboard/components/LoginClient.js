@@ -25,7 +25,7 @@ export const LoginClient = () => {
     const token = session?.access_token;
 
     if (!token) {
-      router.replace(getDefaultRouteForRole('owner'));
+      router.replace('/login');
       return;
     }
 
@@ -39,7 +39,7 @@ export const LoginClient = () => {
         }
       });
       const body = await response.json();
-      const role = body.role || 'owner';
+      const role = body.role || 'blocked';
 
       if (response.ok && body.resolvedCount > 0 && typeof window !== 'undefined') {
         window.sessionStorage.setItem('staynex_invitation_welcome', JSON.stringify({
@@ -59,11 +59,11 @@ export const LoginClient = () => {
         });
       }
 
-      router.replace(response.ok ? (body.defaultRoute || getDefaultRouteForRole(role)) : getDefaultRouteForRole(role));
+      router.replace(response.ok ? (body.defaultRoute || getDefaultRouteForRole(role)) : '/dashboard');
       router.refresh();
     } catch (caughtError) {
       console.error('Invitation resolution failed after login', caughtError);
-      router.replace(getDefaultRouteForRole('owner'));
+      router.replace('/dashboard');
       router.refresh();
     }
   };

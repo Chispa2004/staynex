@@ -7,9 +7,15 @@ const jsonOptions = {
   headers: { 'Cache-Control': 'no-store' }
 };
 
-const jsonError = (message, status = 500) => NextResponse.json({
+const SESSION_ACCESS_DENIED_REASONS = new Set(['missing_session', 'invalid_session']);
+
+const getAccessDeniedStatus = (reason) => (
+  SESSION_ACCESS_DENIED_REASONS.has(reason) ? 401 : 200
+);
+
+const jsonError = (message, status = 503, reason = 'workspace_context_unavailable') => NextResponse.json({
   hotel: null,
-  role: 'admin',
+  role: 'blocked',
   permissions: [],
   availableHotels: [],
   platformRole: 'none',
@@ -18,7 +24,11 @@ const jsonError = (message, status = 500) => NextResponse.json({
   multiPropertyAccess: false,
   canSwitchWorkspaces: false,
   canCreateWorkspaces: false,
-  error: message
+  fallback: false,
+  accessDenied: false,
+  accessDeniedReason: reason,
+  error: message,
+  retryable: status >= 500
 }, { status, ...jsonOptions });
 
 export async function GET(request) {
@@ -56,10 +66,13 @@ export async function GET(request) {
       user,
       accessDenied: Boolean(accessDenied),
       accessDeniedReason: accessDeniedReason || null
-    }, jsonOptions);
+    }, {
+      status: accessDenied ? getAccessDeniedStatus(accessDeniedReason) : 200,
+      ...jsonOptions
+    });
   } catch (error) {
     console.error('Current hotel API failed', error);
-    return jsonError(error.message || 'Current hotel lookup failed');
+    return jsonError('Workspace context temporarily unavailable');
   }
 }
 
@@ -76,7 +89,11 @@ export async function POST(request) {
     const allowed = context.availableHotels.some((item) => item.hotel?.id === hotelId);
 
     if (!hotelId || !allowed) {
-      return jsonError('You do not have access to this hotel', 403);
+      return jsonError(
+        'You do not have access to this hotel',
+        context.accessDenied && SESSION_ACCESS_DENIED_REASONS.has(context.accessDeniedReason) ? 401 : 403,
+        context.accessDeniedReason || 'hotel_not_authorized'
+      );
     }
 
     const response = NextResponse.json({
@@ -121,6 +138,6 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error('Current hotel switch failed', error);
-    return jsonError(error.message || 'Could not switch hotel');
+    return jsonError('Workspace context temporarily unavailable');
   }
 }

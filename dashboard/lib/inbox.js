@@ -131,15 +131,16 @@ const getLatestAiLogsByConversation = async ({ supabase, conversationIds, hotelI
   }
 };
 
-const getActiveUpsellsByConversation = async ({ supabase, conversationIds }) => {
-  if (!conversationIds.length) {
+const getActiveUpsellsByConversation = async ({ supabase, conversationIds, hotelId }) => {
+  if (!conversationIds.length || !hotelId) {
     return new Map();
   }
 
   try {
     const { data, error } = await supabase
       .from('ai_upsells')
-      .select('id, conversation_id, upsell_type, title, confidence, status, created_at')
+      .select('id, hotel_id, conversation_id, upsell_type, title, confidence, status, created_at')
+      .eq('hotel_id', hotelId)
       .in('conversation_id', conversationIds)
       .in('status', ['suggested', 'shown'])
       .order('created_at', { ascending: false })
@@ -161,15 +162,16 @@ const getActiveUpsellsByConversation = async ({ supabase, conversationIds }) => 
   }
 };
 
-const getActiveOffersByConversation = async ({ supabase, conversationIds }) => {
-  if (!conversationIds.length) {
+const getActiveOffersByConversation = async ({ supabase, conversationIds, hotelId }) => {
+  if (!conversationIds.length || !hotelId) {
     return new Map();
   }
 
   try {
     const { data, error } = await supabase
       .from('ai_offers')
-      .select('id, conversation_id, offer_type, suggested_price, currency, status, confidence, ai_reason, created_at')
+      .select('id, hotel_id, conversation_id, offer_type, suggested_price, currency, status, confidence, ai_reason, created_at')
+      .eq('hotel_id', hotelId)
       .in('conversation_id', conversationIds)
       .in('status', ['suggested', 'sent'])
       .order('created_at', { ascending: false })
@@ -191,15 +193,16 @@ const getActiveOffersByConversation = async ({ supabase, conversationIds }) => {
   }
 };
 
-const getExperienceBookingsByConversation = async ({ supabase, conversationIds }) => {
-  if (!conversationIds.length) {
+const getExperienceBookingsByConversation = async ({ supabase, conversationIds, hotelId }) => {
+  if (!conversationIds.length || !hotelId) {
     return new Map();
   }
 
   try {
     const { data, error } = await supabase
       .from('experience_booking_requests')
-      .select('id, conversation_id, experience_title, partner_name, status, estimated_revenue, commission_estimate, requested_date, requested_time, created_at, updated_at, metadata')
+      .select('id, hotel_id, conversation_id, experience_title, partner_name, status, estimated_revenue, commission_estimate, requested_date, requested_time, created_at, updated_at, metadata')
+      .eq('hotel_id', hotelId)
       .in('conversation_id', conversationIds)
       .in('status', ['pending', 'reviewing', 'confirmed'])
       .order('created_at', { ascending: false })
@@ -601,9 +604,9 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     getGuestsForInbox({ supabase, guestIds, hotelId: resolvedHotelId }),
     getMessagesForConversations({ supabase, conversationIds, hotelId: resolvedHotelId }),
     getLatestAiLogsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
-    getActiveUpsellsByConversation({ supabase, conversationIds }),
-    getActiveOffersByConversation({ supabase, conversationIds }),
-    getExperienceBookingsByConversation({ supabase, conversationIds }),
+    getActiveUpsellsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
+    getActiveOffersByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
+    getExperienceBookingsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
     getAiStateByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
     guestMemoryEnabled
       ? getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId })

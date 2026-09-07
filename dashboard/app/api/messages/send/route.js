@@ -12,7 +12,12 @@ const getBackendUrl = () => (
 
 export async function POST(request) {
   try {
-    const { supabase, hotel, hotelUser, role, platformRole } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, hotelUser, role, platformRole, fallback, accessDenied, accessDeniedReason } = await getCurrentHotelForRequest(request);
+
+    if (accessDenied || fallback || !hotel?.id) {
+      const status = ['missing_session', 'invalid_session'].includes(accessDeniedReason) ? 401 : 403;
+      return NextResponse.json({ error: 'Access denied' }, { status });
+    }
 
     if (!canAccess(role, 'inbox')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });

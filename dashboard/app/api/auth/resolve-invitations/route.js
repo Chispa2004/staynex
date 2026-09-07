@@ -53,7 +53,7 @@ export async function POST(request) {
     const selected = loginDestination.selectedHotelId
       ? assignments.find((assignment) => assignment.hotel_id === loginDestination.selectedHotelId)
       : assignments.find((assignment) => assignment.is_default) || assignments[0] || null;
-    const role = selected?.role || 'owner';
+    const role = selected?.role || 'blocked';
 
     return NextResponse.json({
       ok: true,

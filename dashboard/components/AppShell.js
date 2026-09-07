@@ -142,6 +142,7 @@ const TENANT_CHANGED_EVENT = 'staynex:tenant-changed';
 const INTERNAL_PLATFORM_ROLES = ['platform_admin', 'super_admin', 'internal_only'];
 const scopedKey = (key, hotelId) => `${key}:${hotelId || 'none'}`;
 const WORKSPACE_RESOLUTION_TIMEOUT_MS = 7000;
+const SESSION_DENIED_REASONS = new Set(['missing_session', 'invalid_session']);
 const PRIMARY_DASHBOARD_PREFETCH_ROUTES = new Set([
   '/dashboard',
   '/dashboard/inbox',
@@ -150,6 +151,18 @@ const PRIMARY_DASHBOARD_PREFETCH_ROUTES = new Set([
   '/dashboard/automations',
   '/dashboard/health'
 ]);
+
+const getWorkspaceResolutionErrorCopy = (reason) => {
+  if (reason === 'workspace_context_unavailable') {
+    return 'No se pudo consultar el contexto del workspace. Reintenta en unos segundos.';
+  }
+
+  if (reason === 'timeout') {
+    return 'La preparación del workspace tardó demasiado. Reintenta la carga.';
+  }
+
+  return 'No se pudo preparar el hotel activo. Reintenta la carga o vuelve a iniciar sesión.';
+};
 
 const AppShellContent = ({ children }) => {
   const pathname = usePathname();
@@ -163,8 +176,8 @@ const AppShellContent = ({ children }) => {
   const [sessionAccessToken, setSessionAccessToken] = useState(null);
   const [currentHotel, setCurrentHotel] = useState(null);
   const [hotelContext, setHotelContext] = useState({
-    role: 'owner',
-    permissions: ['all'],
+    role: 'blocked',
+    permissions: [],
     platformRole: 'none',
     platformPermissions: [],
     guestMemoryEnabled: false,
@@ -173,7 +186,7 @@ const AppShellContent = ({ children }) => {
     canCreateWorkspaces: false,
     availableHotels: [],
     hotelUser: null,
-    fallback: true,
+    fallback: false,
     accessDenied: false,
     accessDeniedReason: null
   });
@@ -192,7 +205,7 @@ const AppShellContent = ({ children }) => {
   const isLight = theme === 'light';
   const isLoginPage = pathname === '/login';
   const isOnboardingPage = pathname === '/dashboard/onboarding';
-  const activeRole = hotelContext.role || 'owner';
+  const activeRole = hotelContext.role || 'blocked';
   const pilotNavigationGroups = useMemo(
     () => filterPilotNavigation(navigationGroups, {
       guestMemoryEnabled: hotelContext.guestMemoryEnabled
@@ -305,7 +318,7 @@ const AppShellContent = ({ children }) => {
 
       console.warn('workspace timeout', { phase: 'workspace' });
       controller.abort();
-      setWorkspaceError('Workspace resolution timed out. Please retry.');
+      setWorkspaceError(getWorkspaceResolutionErrorCopy('timeout'));
       setHotelContextLoaded(true);
     }, WORKSPACE_RESOLUTION_TIMEOUT_MS);
 
@@ -326,6 +339,17 @@ const AppShellContent = ({ children }) => {
         const body = await response.json();
         window.clearTimeout(timeoutId);
 
+        if (active && (response.status === 401 || SESSION_DENIED_REASONS.has(body.accessDeniedReason))) {
+          setIsAuthenticated(false);
+          setSessionAccessToken(null);
+          setCurrentHotel(null);
+          clearWorkspaceSelection();
+          setWorkspaceError(null);
+          setHotelContextLoaded(false);
+          router.replace('/login');
+          return;
+        }
+
         if (active && response.ok) {
           setCurrentHotel(body.hotel || null);
           if (body.hotel?.id) {
@@ -339,8 +363,8 @@ const AppShellContent = ({ children }) => {
             });
           }
           setHotelContext({
-            role: body.role || 'owner',
-            permissions: body.permissions || ['all'],
+            role: body.role || 'blocked',
+            permissions: Array.isArray(body.permissions) ? body.permissions : [],
             platformRole: body.platformRole || 'none',
             platformPermissions: body.platformPermissions || [],
             guestMemoryEnabled: body.guestMemoryEnabled === true,
@@ -362,7 +386,23 @@ const AppShellContent = ({ children }) => {
           }
           setHotelContextLoaded(true);
         } else if (active) {
-          setWorkspaceError(body.error || 'Could not resolve workspace.');
+          setCurrentHotel(null);
+          setHotelContext({
+            role: 'blocked',
+            permissions: [],
+            platformRole: body.platformRole || 'none',
+            platformPermissions: body.platformPermissions || [],
+            guestMemoryEnabled: false,
+            multiPropertyAccess: false,
+            canSwitchWorkspaces: false,
+            canCreateWorkspaces: false,
+            availableHotels: [],
+            hotelUser: null,
+            fallback: false,
+            accessDenied: Boolean(body.accessDenied),
+            accessDeniedReason: body.accessDeniedReason || 'workspace_context_unavailable'
+          });
+          setWorkspaceError(getWorkspaceResolutionErrorCopy(body.accessDeniedReason || 'workspace_context_unavailable'));
           setHotelContextLoaded(true);
         }
       } catch (error) {
@@ -371,8 +411,8 @@ const AppShellContent = ({ children }) => {
         }
         if (active) {
           setWorkspaceError(error.name === 'AbortError'
-            ? 'Workspace resolution timed out. Please retry.'
-            : error.message || 'Could not resolve workspace.');
+            ? getWorkspaceResolutionErrorCopy('timeout')
+            : getWorkspaceResolutionErrorCopy('workspace_context_unavailable'));
           setHotelContextLoaded(true);
         }
       } finally {
@@ -387,7 +427,7 @@ const AppShellContent = ({ children }) => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [authLoading, isAuthenticated, isLoginPage, sessionAccessToken, workspaceRetryNonce]);
+  }, [authLoading, isAuthenticated, isLoginPage, router, sessionAccessToken, workspaceRetryNonce]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isLoginPage) {
@@ -608,8 +648,8 @@ const AppShellContent = ({ children }) => {
       setCurrentHotel(body.hotel || null);
       setOnboardingChecked(false);
       setHotelContext({
-        role: body.role || 'owner',
-        permissions: body.permissions || ['all'],
+        role: body.role || 'blocked',
+        permissions: Array.isArray(body.permissions) ? body.permissions : [],
         platformRole: body.platformRole || 'none',
         platformPermissions: body.platformPermissions || [],
         guestMemoryEnabled: body.guestMemoryEnabled === true,
@@ -623,7 +663,7 @@ const AppShellContent = ({ children }) => {
         accessDeniedReason: body.accessDeniedReason || null
       });
       setHotelContextLoaded(true);
-      router.replace(getFirstAllowedRoute(body.role || 'owner'));
+      router.replace(getFirstAllowedRoute(body.role || 'blocked'));
     } catch (error) {
       console.error('Hotel switch failed', error);
       setHotelContextLoaded(true);
@@ -822,7 +862,7 @@ const AppShellContent = ({ children }) => {
           </div>
           <h1 className="mt-5 text-2xl font-semibold">{tx('Workspace could not load')}</h1>
           <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
-            No se pudo preparar el hotel activo. Reintenta la carga o vuelve a iniciar sesión.
+            {workspaceError || getWorkspaceResolutionErrorCopy()}
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             <button

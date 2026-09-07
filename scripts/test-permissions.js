@@ -66,6 +66,10 @@ assert.equal(canAccess('receptionist', 'experience_bookings_manage'), false, 'Re
 assert.equal(canAccess('receptionist', 'pms_connections'), false, 'Receptionist cannot access PMS setup');
 assert.equal(canAccess('receptionist', 'automations'), false, 'Receptionist cannot access advanced Automations');
 assert.equal(canAccess('receptionist', 'simulation'), false, 'Receptionist cannot access Simulation Mode');
+assert.deepEqual(getPermissionsForRole('blocked'), [], 'Blocked role must not inherit hotel permissions');
+assert.deepEqual(getPermissionsForRole(null), [], 'Missing role must not inherit hotel permissions');
+assert.equal(canAccess('blocked', 'inbox'), false, 'Blocked role cannot access Inbox');
+assert.equal(canAccess(null, 'inbox'), false, 'Missing role cannot access Inbox');
 assert.equal(canAccessPlatform('none', 'platform_console'), false, 'Hotel user cannot access platform console');
 assert.equal(canAccessPlatform('none', 'ai_quality'), false, 'Hotel user cannot access AI Quality');
 assert.equal(canAccessPlatform('none', 'platform_monitoring'), false, 'Hotel user cannot access Platform Monitoring');
@@ -186,7 +190,8 @@ assert.equal(existsSync(join(root, 'dashboard/app/dashboard/loading.js')), false
 assert.match(appShellSource, /PRIMARY_DASHBOARD_PREFETCH_ROUTES = new Set\(\[[\s\S]*?'\/dashboard\/inbox'[\s\S]*?'\/dashboard\/reservations'[\s\S]*?'\/dashboard\/tickets'[\s\S]*?'\/dashboard\/automations'[\s\S]*?'\/dashboard\/health'/, 'Primary dashboard routes should be declared for prefetching');
 assert.match(appShellSource, /router\.prefetch\(href\)/, 'AppShell should prefetch primary dashboard destinations');
 assert.match(appShellSource, /prefetch=\{PRIMARY_DASHBOARD_PREFETCH_ROUTES\.has\(item\.href\) \? true : undefined\}/, 'Primary sidebar navigation should retain Next.js prefetching');
-assert.match(appShellSource, /\}, \[authLoading, isAuthenticated, isLoginPage, sessionAccessToken, workspaceRetryNonce\]\);/, 'Workspace resolution should not rerun on ordinary pathname changes');
+assert.match(appShellSource, /\}, \[authLoading, isAuthenticated, isLoginPage, router, sessionAccessToken, workspaceRetryNonce\]\);/, 'Workspace resolution should not rerun on ordinary pathname changes');
+assert.doesNotMatch(appShellSource, /\}, \[[^\]]*pathname[^\]]*workspaceRetryNonce[^\]]*\]\);/, 'Workspace resolution dependencies should not include pathname');
 assert.match(appShellSource, /if \(onboardingChecked\) \{[\s\S]*?return undefined;[\s\S]*?\}/, 'Onboarding state should stay checked during ordinary route changes');
 assert.doesNotMatch(appShellSource, /window\.location|location\.href|router\.refresh\(\)/, 'AppShell internal navigation should avoid full reloads and forced refreshes');
 assert.ok(appShellSource.includes("router.replace('/platform/hotels')"), 'Workspace-required errors should guide platform admins back to Platform Hotels');

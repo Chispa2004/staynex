@@ -84,6 +84,14 @@ const singleReceptionist = resolvePostLoginDestination({
 assert.equal(singleReceptionist.defaultRoute, '/dashboard/inbox?hotelId=hotel-reception-a');
 assert.equal(singleReceptionist.selectedHotelId, 'hotel-reception-a');
 
+const assignmentWithoutRole = resolvePostLoginDestination({
+  assignments: [
+    hotelAssignment({ hotelId: 'hotel-no-role', role: null, isDefault: true })
+  ]
+});
+assert.equal(assignmentWithoutRole.defaultRoute, '/dashboard?hotelId=hotel-no-role');
+assert.equal(assignmentWithoutRole.selectedHotelId, 'hotel-no-role');
+
 const multiHotelWithValidStoredHotel = resolvePostLoginDestination({
   requestedHotelId: 'hotel-b',
   assignments: [
@@ -112,6 +120,7 @@ assert.equal(noHotelAssignment.accessDeniedReason, 'no_active_assignment');
 const loginRouteSource = readFileSync(join(root, 'dashboard/app/api/auth/resolve-invitations/route.js'), 'utf8');
 assert.ok(loginRouteSource.includes('resolvePostLoginDestination'), 'Login resolver should use centralized post-login routing');
 assert.ok(loginRouteSource.includes("headers.get('x-staynex-hotel-id')"), 'Login resolver should accept an explicit active workspace from the client');
+assert.ok(loginRouteSource.includes("selected?.role || 'blocked'"), 'Login resolver must not invent an owner role when assignments lack a role');
 
 const loginClientSource = readFileSync(join(root, 'dashboard/components/LoginClient.js'), 'utf8');
 assert.ok(loginClientSource.includes('getActiveWorkspace'), 'Login client should pass the active workspace when it exists');
@@ -127,5 +136,6 @@ assert.equal(appShellSource.includes('Back to Platform Hotels'), false, 'Old int
 const currentHotelSource = readFileSync(join(root, 'dashboard/lib/current-hotel.js'), 'utf8');
 assert.ok(currentHotelSource.includes('buildWorkspaceSelectionRequiredContext'), 'Current hotel resolver should centralize workspace-required handling');
 assert.ok(currentHotelSource.includes('if (!requestedHotel && isHotelWorkspacePath(requestedWorkspacePath))'), 'Invalid platform workspace hotelIds should not fall back to another hotel');
+assert.equal(currentHotelSource.includes("|| 'owner'"), false, 'Current hotel resolver must not invent owner roles for missing assignment roles');
 
 console.log('Post-login workspace routing tests passed');

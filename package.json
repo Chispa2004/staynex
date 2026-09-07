@@ -33,6 +33,7 @@
     "test:google-sheets": "node scripts/test-google-sheets.js",
     "test:guest-intelligence": "node scripts/test-guest-intelligence.js",
     "test:platform-management": "node scripts/test-platform-management-academy-pms.js",
+    "test:auth-hotel-context": "node scripts/test-auth-hotel-context.js",
     "test:permissions": "node scripts/test-permissions.js",
     "test:pilot-onboarding": "node scripts/test-pilot-onboarding.js",
     "test:pilot-human-safety": "node scripts/test-pilot-human-safety.js",
