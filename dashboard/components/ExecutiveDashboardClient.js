@@ -117,6 +117,19 @@ const toneForSeverity = (severity) => {
   return 'slate';
 };
 
+const iconToneClass = (isLight, tone = 'slate') => {
+  const tones = {
+    amber: isLight ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-amber-300/20 bg-amber-400/10 text-amber-100',
+    emerald: isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100',
+    red: isLight ? 'border-red-200 bg-red-50 text-red-700' : 'border-red-300/20 bg-red-500/10 text-red-100',
+    sky: isLight ? 'border-sky-200 bg-sky-50 text-sky-700' : 'border-sky-300/20 bg-sky-300/10 text-sky-100',
+    violet: isLight ? 'border-violet-200 bg-violet-50 text-violet-700' : 'border-violet-300/20 bg-violet-400/10 text-violet-100',
+    slate: isLight ? 'border-slate-200 bg-slate-50 text-slate-600' : 'border-white/10 bg-white/[0.045] text-slate-300'
+  };
+
+  return tones[tone] || tones.slate;
+};
+
 export const ExecutiveDashboardClient = () => {
   const { theme } = useDashboardTheme();
   const { tx } = useDashboardLanguage();
@@ -213,44 +226,20 @@ export const ExecutiveDashboardClient = () => {
     inbox: canAccess(role, 'inbox')
   }), [role]);
 
-  const attentionItems = useMemo(() => buildAttentionItems(data, permissions), [data, permissions]);
+  const operationalWorkspace = data?.operationalWorkspace || {};
+  const serviceStrip = useMemo(() => buildServiceStrip(data), [data]);
 
   return (
-    <section className="space-y-5">
-      <header className={cn(
-        'premium-fade-in overflow-hidden rounded-2xl border p-5 shadow-2xl sm:p-6',
-        isLight
-          ? 'border-slate-200 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.15),transparent_34%),#ffffff] shadow-slate-200/80'
-          : 'border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_36%),#0b1019] shadow-black/25'
-      )}
-      >
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <ExecutiveBadge tone="sky">{tx('Hotel Operations Command Center')}</ExecutiveBadge>
-              <ExecutiveBadge tone="slate">{formatDateTime(null, timezone)}</ExecutiveBadge>
-              <ExecutiveBadge tone={role === 'receptionist' ? 'emerald' : 'violet'}>
-                {formatRoleLabel(role)}
-              </ExecutiveBadge>
-            </div>
-            <h1 className={cn('text-3xl font-semibold tracking-tight sm:text-5xl', ui.text.title(isLight))}>
-              {tx(greetingForHour(timezone))}, {hotelName}
-            </h1>
-            <p className={cn('mt-4 max-w-3xl', ui.text.body(isLight))}>
-              {tx('Un centro de control para ver lo urgente, entender la operación del hotel y abrir rápidamente las herramientas que necesita el equipo.')}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => loadDashboard()}
-            disabled={refreshing}
-            className={ui.button(isLight, 'secondary')}
-          >
-            <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-            {tx('Refresh')}
-          </button>
-        </div>
-      </header>
+    <section className="space-y-4">
+      <OperationalHeader
+        hotel={hotel}
+        hotelName={hotelName}
+        timezone={timezone}
+        role={role}
+        loading={loading}
+        refreshing={refreshing}
+        onRefresh={() => loadDashboard()}
+      />
 
       {error ? (
         <ExecutiveCard className="border-red-300/25 p-4">
@@ -259,34 +248,517 @@ export const ExecutiveDashboardClient = () => {
         </ExecutiveCard>
       ) : null}
 
-      <OverviewPanel data={data} loading={loading} permissions={permissions} />
+      <OperationalIndicatorGrid
+        data={data}
+        loading={loading}
+        workspace={operationalWorkspace}
+        permissions={permissions}
+      />
 
-      <NeedsAttentionPanel items={attentionItems} loading={loading} />
-
-      <HotelIntelligencePanel data={data} loading={loading} />
-
-      <div className="grid gap-5 xl:grid-cols-3">
-        <GuestCommunicationPanel data={data} loading={loading} />
-        <TicketsOperationsPanel data={data} loading={loading} />
-        <PmsSnapshotPanel data={data} loading={loading} permissions={permissions} role={role} />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,0.95fr)]">
+        <WorkQueuePanel
+          items={operationalWorkspace.needsAttention || []}
+          loading={loading}
+        />
+        <HotelMovementPanel
+          movement={operationalWorkspace.movement || {}}
+          loading={loading}
+          permissions={permissions}
+        />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <GuestIntelligencePanel data={data} loading={loading} role={role} />
-        <AIOperationsPanel data={data} loading={loading} />
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        {permissions.revenue || permissions.experienceBookings ? (
-          <RevenueExperiencesPanel data={data} loading={loading} permissions={permissions} />
-        ) : null}
-        <HotelKnowledgePanel data={data} loading={loading} permissions={permissions} compact={!(permissions.revenue || permissions.experienceBookings)} />
-      </div>
-
-      <div>
-        <QuickActionsPanel role={role} permissions={permissions} data={data} />
-      </div>
+      <ServiceStatusStrip
+        services={serviceStrip}
+        loading={loading}
+        permissions={permissions}
+      />
     </section>
+  );
+};
+
+const formatKnownNumber = (value) => (
+  value === null || value === undefined ? '—' : formatNumber(value)
+);
+
+const formatHotelDate = (timezone) => {
+  try {
+    return new Intl.DateTimeFormat('es-ES', {
+      timeZone: timezone || 'Europe/Madrid',
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    }).format(new Date());
+  } catch {
+    return new Intl.DateTimeFormat('es-ES', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    }).format(new Date());
+  }
+};
+
+const formatStatusLabel = (status) => ({
+  active: 'Activo',
+  ai_active: 'IA activa',
+  ai_paused: 'IA pausada',
+  cancelled: 'Cancelada',
+  canceled: 'Cancelada',
+  checked_in: 'Check-in hecho',
+  checked_out: 'Check-out hecho',
+  closed: 'Cerrado',
+  completed: 'Completado',
+  confirmed: 'Confirmada',
+  escalation_lock: 'Bloqueo por escalación',
+  high: 'Alta',
+  human_takeover: 'Control humano',
+  in_house: 'En estancia',
+  in_progress: 'En curso',
+  manager_required: 'Requiere dirección',
+  no_show: 'No-show',
+  open: 'Abierto',
+  pending: 'Pendiente',
+  reception_required: 'Requiere recepción',
+  scheduled: 'Programada',
+  urgent: 'Urgente'
+}[String(status || '').toLowerCase()] || formatProfileLabel(status || 'Sin estado'));
+
+const isCheckinDemoWorkspace = (hotel = {}) => (
+  hotel.slug === 'hotel-demo-checkin'
+  || String(hotel.name || '').toLowerCase() === 'hotel demo checkin'
+);
+
+const buildServiceStrip = (data = {}) => {
+  const hotel = data?.hotel || {};
+  const pms = data?.pmsSnapshot || {};
+  const pmsProvider = formatProviderLabel(pms.providerName);
+  const aiStatus = getAiAutoReplyDisplay(data);
+  const hotelStatus = data?.pilotAiSafety?.hotelStatus || {};
+  const globalStatus = data?.pilotAiSafety?.globalStatus || {};
+  const whatsappConfigured = Boolean(data?.onboardingHealth?.whatsappConfigured || hotel.whatsapp_number);
+  const demoWorkspace = isCheckinDemoWorkspace(hotel);
+  const pmsConfigured = Boolean(pms.providerName);
+  const pmsTone = pms.connected ? (pms.errors ? 'amber' : 'emerald') : pmsConfigured ? 'amber' : 'slate';
+  const whatsappTone = whatsappConfigured ? 'amber' : 'slate';
+  const syncTone = pms.lastSyncAt ? (pms.errors ? 'amber' : 'emerald') : 'slate';
+
+  return [
+    {
+      id: 'pms',
+      label: 'PMS',
+      value: pms.connected ? pmsProvider : pmsConfigured ? `${pmsProvider} pendiente` : 'Sin configurar',
+      detail: pms.connected
+        ? pms.errors ? 'Conectado con incidencias' : 'Conectado/verificado'
+        : demoWorkspace ? 'Demo/mock, sin tráfico real' : 'Pendiente de verificar',
+      tone: pmsTone,
+      icon: DatabaseZap
+    },
+    {
+      id: 'whatsapp',
+      label: 'WhatsApp',
+      value: whatsappConfigured ? 'Configurado' : 'Sin configurar',
+      detail: demoWorkspace ? 'Envíos reales desactivados' : 'No certificado como live desde aquí',
+      tone: whatsappTone,
+      icon: Inbox
+    },
+    {
+      id: 'auto_replies',
+      label: 'Respuestas automáticas',
+      value: aiStatus.value,
+      detail: globalStatus.allowed === false
+        ? 'Bloqueo global activo'
+        : hotelStatus.configured && hotelStatus.enabled
+          ? 'Interruptor del hotel activo'
+          : hotelStatus.configured ? 'Desactivadas intencionadamente' : 'Pendiente de configurar',
+      tone: aiStatus.tone,
+      icon: Bot
+    },
+    {
+      id: 'last_sync',
+      label: 'Última sincronización',
+      value: pms.lastSyncAt ? formatDateTime(pms.lastSyncAt, hotel.timezone) : 'No sincronizado',
+      detail: pms.lastSyncAt ? 'Dato PMS anterior' : 'Pendiente de PMS',
+      tone: syncTone,
+      icon: RefreshCw
+    }
+  ];
+};
+
+const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshing, onRefresh }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  const isLight = theme === 'light';
+  const demoWorkspace = isCheckinDemoWorkspace(hotel);
+
+  return (
+    <ExecutiveCard className="p-4 sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <ExecutiveBadge tone="emerald">{tx('Hotel seleccionado')}</ExecutiveBadge>
+            <ExecutiveBadge tone="sky">{tx('Operación de hoy')}</ExecutiveBadge>
+            {demoWorkspace ? <ExecutiveBadge tone="amber">{tx('Modo demo')}</ExecutiveBadge> : null}
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <h1 className={cn('truncate text-2xl font-semibold sm:text-3xl', ui.text.title(isLight))}>
+                {loading ? tx('Cargando hotel') : hotelName}
+              </h1>
+              <p className={cn('mt-1 text-sm', isLight ? 'text-slate-600' : 'text-slate-400')}>
+                {formatHotelDate(timezone)} · Zona horaria: {timezone}
+              </p>
+            </div>
+            <ExecutiveBadge tone={role === 'receptionist' ? 'emerald' : 'violet'}>
+              {formatRoleLabel(role)}
+            </ExecutiveBadge>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          className={ui.button(isLight, 'secondary')}
+        >
+          <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
+          {tx('Actualizar')}
+        </button>
+      </div>
+    </ExecutiveCard>
+  );
+};
+
+const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  const isLight = theme === 'light';
+  const counters = workspace?.counters || {};
+  const movementAvailable = workspace?.movement?.available !== false;
+  const cards = [
+    {
+      label: 'Llegadas hoy',
+      value: counters.arrivalsToday,
+      detail: movementAvailable ? 'Reservas de hoy' : 'No disponible',
+      href: permissions.reception || permissions.pms ? '/dashboard/reservations' : null,
+      icon: CalendarCheck,
+      tone: 'emerald'
+    },
+    {
+      label: 'Salidas hoy',
+      value: counters.departuresToday,
+      detail: movementAvailable ? 'Reservas de hoy' : 'No disponible',
+      href: permissions.reception || permissions.pms ? '/dashboard/reservations' : null,
+      icon: CalendarDays,
+      tone: 'sky'
+    },
+    {
+      label: 'Conversaciones activas',
+      value: counters.activeConversations ?? data?.summary?.activeConversations,
+      detail: 'Estado active',
+      href: permissions.inbox ? '/dashboard/inbox' : null,
+      icon: Inbox,
+      tone: 'violet'
+    },
+    {
+      label: 'Tickets abiertos',
+      value: counters.openTickets ?? data?.kpis?.openTickets,
+      detail: 'Abiertos/en curso',
+      href: permissions.tickets ? '/dashboard/tickets' : null,
+      icon: TicketCheck,
+      tone: Number((counters.openTickets ?? data?.kpis?.openTickets) || 0) > 0 ? 'amber' : 'emerald'
+    }
+  ];
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card) => {
+        const Icon = card.icon;
+        const content = (
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className={ui.text.eyebrow(isLight)}>{tx(card.label)}</p>
+                <p className={cn('mt-2 text-3xl font-semibold tabular-nums', ui.text.title(isLight))}>
+                  {loading ? '...' : formatKnownNumber(card.value)}
+                </p>
+                <p className={cn('mt-1 text-xs font-medium', isLight ? 'text-slate-500' : 'text-slate-500')}>
+                  {tx(card.detail)}
+                </p>
+              </div>
+              <span className={cn(
+                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border',
+                iconToneClass(isLight, card.tone)
+              )}>
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+            </div>
+            {card.href ? (
+              <div className="mt-3 flex items-center justify-end text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+                {tx('Abrir')}
+                <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
+              </div>
+            ) : null}
+          </>
+        );
+
+        if (card.href) {
+          return (
+            <Link
+              key={card.label}
+              href={card.href}
+              className={cn(ui.card(isLight, { compact: true, interactive: true }), 'block min-h-[126px]')}
+            >
+              {content}
+            </Link>
+          );
+        }
+
+        return (
+          <div key={card.label} className={cn(ui.card(isLight, { compact: true }), 'min-h-[126px]')}>
+            {content}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const WorkQueuePanel = ({ items = [], loading }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  const isLight = theme === 'light';
+
+  return (
+    <ExecutiveCard className="overflow-hidden p-0">
+      <div className={cn('flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-5', isLight ? 'border-slate-200' : 'border-white/10')}>
+        <div className="min-w-0">
+          <p className={ui.text.eyebrow(isLight)}>{tx('Empieza aquí')}</p>
+          <h2 className={cn('mt-1 text-lg font-semibold', ui.text.title(isLight))}>{tx('Pendiente de atender')}</h2>
+        </div>
+        <Link href="/dashboard/tickets" className={ui.button(isLight, 'small')}>
+          {tx('Ver todos')}
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
+      </div>
+      {loading ? (
+        <div className="p-4 sm:p-5">
+          <SkeletonList />
+        </div>
+      ) : items.length ? (
+        <div className="p-3 sm:p-4">
+          <div className={cn(
+            'hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_120px_130px_112px] gap-3 rounded-lg border px-3 py-2 text-xs font-semibold md:grid',
+            isLight ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-white/10 bg-white/[0.025] text-slate-500'
+          )}>
+            <span>{tx('Solicitud')}</span>
+            <span>{tx('Huésped / Habitación')}</span>
+            <span>{tx('Área')}</span>
+            <span>{tx('Estado')}</span>
+            <span className="text-right">{tx('Acción')}</span>
+          </div>
+          <div className="mt-2 space-y-2">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className={cn(
+                  'grid gap-3 rounded-lg border px-3 py-3 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_120px_130px_112px] md:items-center',
+                  isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.025]'
+                )}
+              >
+                <div className="min-w-0">
+                  <p className={cn('truncate text-sm font-semibold', ui.text.title(isLight))}>{item.title}</p>
+                  {item.priority ? (
+                    <p className={cn('mt-1 text-xs', isLight ? 'text-slate-500' : 'text-slate-500')}>
+                      {formatStatusLabel(item.priority)}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="min-w-0 text-sm">
+                  <p className={cn('truncate font-medium', isLight ? 'text-slate-700' : 'text-slate-300')}>
+                    {item.guest || 'Huésped sin identificar'}
+                  </p>
+                  <p className={cn('mt-0.5 truncate text-xs', isLight ? 'text-slate-500' : 'text-slate-500')}>
+                    {item.room ? `Habitación ${item.room}` : 'Sin habitación'}
+                  </p>
+                </div>
+                <div>
+                  <ExecutiveBadge tone="slate">{item.area}</ExecutiveBadge>
+                </div>
+                <div>
+                  <ExecutiveBadge tone={ui.statusTone(item.status)}>{formatStatusLabel(item.status)}</ExecutiveBadge>
+                </div>
+                <div className="flex justify-start md:justify-end">
+                  <Link href={item.href} className={ui.button(isLight, 'small')}>
+                    {tx(item.actionLabel)}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 sm:p-5">
+          <EmptyState
+            icon={CheckCircle2}
+            title="Sin pendientes operativos ahora"
+            description="No hay tickets abiertos ni conversaciones en control humano o escalación."
+          />
+        </div>
+      )}
+    </ExecutiveCard>
+  );
+};
+
+const HotelMovementPanel = ({ movement = {}, loading, permissions }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  const isLight = theme === 'light';
+  const [activeTab, setActiveTab] = useState('arrivals');
+  const tabs = [
+    { key: 'arrivals', label: 'Llegadas', items: movement.arrivals || [] },
+    { key: 'departures', label: 'Salidas', items: movement.departures || [] }
+  ];
+  const active = tabs.find((tab) => tab.key === activeTab) || tabs[0];
+  const canOpenReservations = permissions.reception || permissions.pms;
+
+  return (
+    <ExecutiveCard className="overflow-hidden p-0">
+      <div className={cn('flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-5', isLight ? 'border-slate-200' : 'border-white/10')}>
+        <div className="min-w-0">
+          <p className={ui.text.eyebrow(isLight)}>{tx('Reservas de hoy')}</p>
+          <h2 className={cn('mt-1 text-lg font-semibold', ui.text.title(isLight))}>{tx('Movimiento del hotel')}</h2>
+        </div>
+        {canOpenReservations ? (
+          <Link href="/dashboard/reservations" className={ui.button(isLight, 'small')}>
+            {tx('Ver reservas')}
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
+      <div className="p-3 sm:p-4">
+        <div className={cn('grid grid-cols-2 rounded-lg border p-1', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
+          {tabs.map((tab) => {
+            const selected = activeTab === tab.key;
+
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  'rounded-md px-3 py-2 text-sm font-semibold',
+                  selected
+                    ? isLight ? 'bg-white text-emerald-800 shadow-sm' : 'bg-white/[0.08] text-emerald-100'
+                    : isLight ? 'text-slate-600 hover:bg-white/70' : 'text-slate-400 hover:bg-white/[0.04]'
+                )}
+              >
+                {tx(tab.label)} ({movement.available === false ? '—' : tab.items.length})
+              </button>
+            );
+          })}
+        </div>
+
+        {loading ? (
+          <div className="mt-4">
+            <SkeletonList />
+          </div>
+        ) : movement.available === false ? (
+          <div className="mt-4">
+            <EmptyState
+              icon={AlertTriangle}
+              title="Reservas no disponibles"
+              description="No se pudo comprobar el movimiento de hoy."
+            />
+          </div>
+        ) : active.items.length ? (
+          <div className="mt-4 space-y-2">
+            {active.items.map((item) => (
+              <div
+                key={`${active.key}:${item.id}`}
+                className={cn('rounded-lg border px-3 py-3', isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.025]')}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className={cn('truncate text-sm font-semibold', ui.text.title(isLight))}>
+                      {item.guest || 'Huésped sin identificar'}
+                    </p>
+                    <p className={cn('mt-0.5 text-xs', isLight ? 'text-slate-500' : 'text-slate-500')}>
+                      {item.room ? `Habitación ${item.room}` : 'Sin habitación asignada'}
+                    </p>
+                  </div>
+                  <ExecutiveBadge tone={ui.statusTone(item.status)}>{formatStatusLabel(item.status)}</ExecutiveBadge>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className={cn('text-xs font-medium', isLight ? 'text-slate-500' : 'text-slate-500')}>
+                    {item.date || movement.todayDate || 'Sin fecha'}
+                  </span>
+                  {canOpenReservations ? (
+                    <Link href={item.href} className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-300">
+                      {tx('Ver reserva')}
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4">
+            <EmptyState
+              icon={CalendarDays}
+              title={`Sin ${active.label.toLowerCase()} válidas hoy`}
+              description="Las canceladas y no-show no se muestran como movimiento operativo."
+            />
+          </div>
+        )}
+      </div>
+    </ExecutiveCard>
+  );
+};
+
+const ServiceStatusStrip = ({ services = [], loading, permissions }) => {
+  const { theme } = useDashboardTheme();
+  const { tx } = useDashboardLanguage();
+  const isLight = theme === 'light';
+
+  return (
+    <ExecutiveCard className="p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className={ui.text.eyebrow(isLight)}>{tx('Conexiones')}</p>
+          <h2 className={cn('mt-1 text-base font-semibold', ui.text.title(isLight))}>{tx('Estado de conexión y servicios')}</h2>
+        </div>
+        {permissions.health ? (
+          <Link href="/dashboard/health" className={ui.button(isLight, 'small')}>
+            {tx('Ver salud')}
+            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
+      {loading ? (
+        <SkeletonGrid />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {services.map((service) => {
+            const Icon = service.icon;
+
+            return (
+              <div key={service.id} className={cn('rounded-lg border px-3 py-3', isLight ? 'border-slate-200 bg-slate-50/80' : 'border-white/10 bg-white/[0.025]')}>
+                <div className="flex items-start gap-3">
+                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border', iconToneClass(isLight, service.tone))}>
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className={cn('truncate text-sm font-semibold', ui.text.title(isLight))}>{tx(service.label)}</p>
+                    <p className={cn('mt-1 truncate text-sm', isLight ? 'text-slate-600' : 'text-slate-400')}>{tx(service.value)}</p>
+                    <p className={cn('mt-1 text-xs', isLight ? 'text-slate-500' : 'text-slate-500')}>{tx(service.detail)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </ExecutiveCard>
   );
 };
 

@@ -32,6 +32,10 @@ const {
 } = await import(`../src/services/demo-data.service.js?checkinDemo=${Date.now()}`);
 const { buildTicketCopilot } = await import(`../dashboard/lib/ai-copilot.js?checkinDemo=${Date.now()}`);
 const {
+  buildHotelOperationsWorkspace,
+  isReservationExcludedFromHotelMovement
+} = await import(`../dashboard/lib/hotel-operations-workspace.js?checkinDemo=${Date.now()}`);
+const {
   EXECUTION_MODES,
   OPERATIONAL_STATUSES
 } = await import('../shared/automations/catalog.js');
@@ -312,6 +316,105 @@ assert.equal(
   'Maintenance',
   'AC maintenance should keep routing to maintenance'
 );
+const operationsWorkspace = buildHotelOperationsWorkspace({
+  todayDate: '2026-09-01',
+  activeConversationsCount: 2,
+  openTicketsCount: 1,
+  guests: [
+    { id: 'guest-lucia', name: 'Lucía Martín', current_room: '208' },
+    { id: 'guest-david', name: 'David Pérez', current_room: '304' }
+  ],
+  reservationsToday: [
+    {
+      id: 'reservation-lucia',
+      guest_id: 'guest-lucia',
+      guest_name: 'Lucía Martín',
+      room_number: '208',
+      arrival_date: '2026-09-01',
+      departure_date: '2026-09-04',
+      status: 'confirmed',
+      pms_reservation_id: 'CHECKIN-DEMO-LUCIA'
+    },
+    {
+      id: 'reservation-cancelled',
+      guest_name: 'Cancelled Guest',
+      room_number: '209',
+      arrival_date: '2026-09-01',
+      departure_date: '2026-09-04',
+      status: 'cancelled'
+    },
+    {
+      id: 'reservation-david',
+      guest_id: 'guest-david',
+      guest_name: 'David Pérez',
+      room_number: '304',
+      arrival_date: '2026-08-29',
+      departure_date: '2026-09-01',
+      status: 'checked_in'
+    },
+    {
+      id: 'reservation-no-show',
+      guest_name: 'No Show Guest',
+      arrival_date: '2026-09-01',
+      departure_date: '2026-09-01',
+      status: 'no_show'
+    }
+  ],
+  tickets: [
+    {
+      id: 'ticket-main',
+      guest_id: 'guest-lucia',
+      room_number: '208',
+      category: 'housekeeping',
+      priority: 'normal',
+      status: 'open',
+      title: 'Toallas adicionales',
+      created_at: '2026-09-01T09:30:00.000Z'
+    },
+    {
+      id: 'ticket-closed',
+      guest_id: 'guest-lucia',
+      category: 'maintenance',
+      priority: 'urgent',
+      status: 'completed',
+      title: 'Already done',
+      created_at: '2026-09-01T09:00:00.000Z'
+    }
+  ],
+  conversations: [
+    {
+      id: 'conversation-david',
+      guest_id: 'guest-david',
+      status: 'active',
+      last_message_at: '2026-09-01T09:45:00.000Z'
+    }
+  ],
+  conversationStates: [
+    {
+      conversation_id: 'conversation-david',
+      current_intent: 'complaint_noise',
+      escalation_level: 'reception_required',
+      state_metadata: { conversation_ai_mode: 'human_takeover' },
+      updated_at: '2026-09-01T09:45:00.000Z'
+    }
+  ]
+});
+assert.equal(isReservationExcludedFromHotelMovement({ status: 'cancelled' }), true, 'cancelled reservations should not count as valid hotel movement');
+assert.equal(isReservationExcludedFromHotelMovement({ status: 'no_show' }), true, 'no-show reservations should not count as valid hotel movement');
+assert.equal(operationsWorkspace.counters.arrivalsToday, 1, 'dashboard arrivals should count valid reservations only');
+assert.equal(operationsWorkspace.counters.departuresToday, 1, 'dashboard departures should count valid reservations only');
+assert.equal(operationsWorkspace.counters.activeConversations, 2, 'dashboard conversation indicator should keep the active conversation definition');
+assert.equal(operationsWorkspace.counters.openTickets, 1, 'dashboard ticket indicator should keep open/in-progress semantics');
+assert.equal(operationsWorkspace.movement.arrivals.length, 1, 'dashboard movement should not list cancelled arrivals');
+assert.equal(operationsWorkspace.movement.departures.length, 1, 'dashboard movement should not list no-show departures');
+assert.ok(operationsWorkspace.needsAttention.some((item) => item.title === 'Toallas adicionales' && item.area === 'Pisos'), 'dashboard attention queue should keep ticket department labels');
+assert.ok(operationsWorkspace.needsAttention.some((item) => item.type === 'conversation' && item.status === 'human_takeover'), 'dashboard attention queue should include human takeover conversations');
+const unavailableOperationsWorkspace = buildHotelOperationsWorkspace({
+  reservationsAvailable: false,
+  todayDate: '2026-09-01'
+});
+assert.equal(unavailableOperationsWorkspace.counters.arrivalsToday, null, 'unavailable reservation data should not become zero arrivals');
+assert.equal(unavailableOperationsWorkspace.movement.available, false, 'dashboard movement should expose unavailable reservation data');
 
 const complaintConversation = plan.conversations.find((conversation) => conversation.key === 'complaint-david');
 assert.equal(complaintConversation.ai_state.escalation_level, 'reception_required', 'fallback conversation should require reception');
@@ -356,8 +459,15 @@ const executiveDashboardSource = readFileSync(new URL('../dashboard/app/api/exec
 assert.match(executiveDashboardSource, /guestSatisfactionSource/, 'Executive KPI should expose whether satisfaction is demo-estimated');
 assert.match(executiveDashboardSource, /getPilotAiSafetyReadiness/, 'Executive dashboard API should reuse canonical Pilot Health AI safety readiness');
 assert.match(executiveDashboardSource, /pilotAiSafety/, 'Executive dashboard API should serialize canonical AI safety state');
+assert.match(executiveDashboardSource, /buildHotelOperationsWorkspace/, 'Executive dashboard API should serialize the hotel operations workspace DTO');
+assert.match(executiveDashboardSource, /activeConversationsCount/, 'Executive dashboard should count active conversations without renaming them as pending');
+assert.match(executiveDashboardSource, /safeRowsResult\(withHotel\([\s\S]*from\('reservations'\)/, 'Executive dashboard should distinguish unavailable reservation movement from zero movement');
 
 const executiveDashboardClientSource = readFileSync(new URL('../dashboard/components/ExecutiveDashboardClient.js', import.meta.url), 'utf8');
+assert.match(executiveDashboardClientSource, /OperationalIndicatorGrid/, 'Dashboard should render the compact operational indicator row');
+assert.match(executiveDashboardClientSource, /Pendiente de atender/, 'Dashboard should expose the operational attention queue');
+assert.match(executiveDashboardClientSource, /Movimiento del hotel/, 'Dashboard should expose arrivals and departures today');
+assert.match(executiveDashboardClientSource, /Conversaciones activas/, 'Dashboard should not invent a pending conversation counter');
 assert.match(executiveDashboardClientSource, /Respuestas IA activas/, 'Dashboard should show AI active only from canonical safety state');
 assert.match(executiveDashboardClientSource, /Respuestas IA desactivadas/, 'Dashboard should show hotel AI switch OFF honestly');
 assert.match(executiveDashboardClientSource, /Bloqueo global activo/, 'Dashboard should show global AI block state');
