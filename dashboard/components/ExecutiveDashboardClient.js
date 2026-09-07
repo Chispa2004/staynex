@@ -16,6 +16,9 @@ import {
   Inbox,
   Languages,
   Map,
+  MapPin,
+  BedDouble,
+  ChevronRight,
   PauseCircle,
   QrCode,
   RefreshCw,
@@ -26,6 +29,9 @@ import {
   Wrench,
   Zap
 } from 'lucide-react';
+import styles from './HotelOperations.module.css';
+import { LanguageSelector } from './LanguageSelector';
+import { ThemeToggle } from './ThemeToggle';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { canAccess } from '@/lib/permissions';
@@ -230,7 +236,7 @@ export const ExecutiveDashboardClient = () => {
   const serviceStrip = useMemo(() => buildServiceStrip(data), [data]);
 
   return (
-    <section className="space-y-4">
+    <section className={styles.dashboard} data-theme={theme}>
       <OperationalHeader
         hotel={hotel}
         hotelName={hotelName}
@@ -255,23 +261,13 @@ export const ExecutiveDashboardClient = () => {
         permissions={permissions}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,0.95fr)]">
-        <WorkQueuePanel
-          items={operationalWorkspace.needsAttention || []}
-          loading={loading}
-        />
-        <HotelMovementPanel
-          movement={operationalWorkspace.movement || {}}
-          loading={loading}
-          permissions={permissions}
-        />
+      <div className={styles.columns}>
+        <div className={styles.leftColumn}>
+          <WorkQueuePanel items={operationalWorkspace.needsAttention || []} loading={loading} timezone={timezone} permissions={permissions} />
+          <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
+        </div>
+        <HotelMovementPanel movement={operationalWorkspace.movement || {}} counters={operationalWorkspace.counters || {}} loading={loading} permissions={permissions} />
       </div>
-
-      <ServiceStatusStrip
-        services={serviceStrip}
-        loading={loading}
-        permissions={permissions}
-      />
     </section>
   );
 };
@@ -280,9 +276,9 @@ const formatKnownNumber = (value) => (
   value === null || value === undefined ? '—' : formatNumber(value)
 );
 
-const formatHotelDate = (timezone) => {
+const formatHotelDate = (timezone, language = 'es') => {
   try {
-    return new Intl.DateTimeFormat('es-ES', {
+    return new Intl.DateTimeFormat(language, {
       timeZone: timezone || 'Europe/Madrid',
       weekday: 'long',
       day: '2-digit',
@@ -290,7 +286,7 @@ const formatHotelDate = (timezone) => {
       year: 'numeric'
     }).format(new Date());
   } catch {
-    return new Intl.DateTimeFormat('es-ES', {
+    return new Intl.DateTimeFormat(language, {
       weekday: 'long',
       day: '2-digit',
       month: 'long',
@@ -350,7 +346,7 @@ const buildServiceStrip = (data = {}) => {
       value: pms.connected ? pmsProvider : pmsConfigured ? `${pmsProvider} pendiente` : 'Sin configurar',
       detail: pms.connected
         ? pms.errors ? 'Conectado con incidencias' : 'Conectado/verificado'
-        : demoWorkspace ? 'Demo/mock, sin tráfico real' : 'Pendiente de verificar',
+        : demoWorkspace ? 'Sin conexión real' : 'Pendiente de verificar',
       tone: pmsTone,
       icon: DatabaseZap
     },
@@ -358,7 +354,7 @@ const buildServiceStrip = (data = {}) => {
       id: 'whatsapp',
       label: 'WhatsApp',
       value: whatsappConfigured ? 'Configurado' : 'Sin configurar',
-      detail: demoWorkspace ? 'Envíos reales desactivados' : 'No certificado como live desde aquí',
+      detail: demoWorkspace ? 'Sin envíos reales' : 'Conexión sin verificar',
       tone: whatsappTone,
       icon: Inbox
     },
@@ -385,46 +381,44 @@ const buildServiceStrip = (data = {}) => {
   ];
 };
 
-const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshing, onRefresh }) => {
-  const { theme } = useDashboardTheme();
-  const { tx } = useDashboardLanguage();
-  const isLight = theme === 'light';
-  const demoWorkspace = isCheckinDemoWorkspace(hotel);
+const initialsFor = (name) => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 
+const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshing, onRefresh }) => {
+  const { tx, language } = useDashboardLanguage();
+  let country = hotel.country || '';
+  try {
+    if (hotel.country_code) country = new Intl.DisplayNames([language], { type: 'region' }).of(hotel.country_code);
+  } catch { /* Keep the supplied country if the region code is unavailable. */ }
+  const location = [hotel.city, country].filter(Boolean).join(', ');
   return (
-    <ExecutiveCard className="p-4 sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <ExecutiveBadge tone="emerald">{tx('Hotel seleccionado')}</ExecutiveBadge>
-            <ExecutiveBadge tone="sky">{tx('Operación de hoy')}</ExecutiveBadge>
-            {demoWorkspace ? <ExecutiveBadge tone="amber">{tx('Modo demo')}</ExecutiveBadge> : null}
-          </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0">
-              <h1 className={cn('truncate text-2xl font-semibold sm:text-3xl', ui.text.title(isLight))}>
-                {loading ? tx('Cargando hotel') : hotelName}
-              </h1>
-              <p className={cn('mt-1 text-sm', isLight ? 'text-slate-600' : 'text-slate-400')}>
-                {formatHotelDate(timezone)} · Zona horaria: {timezone}
-              </p>
-            </div>
-            <ExecutiveBadge tone={role === 'receptionist' ? 'emerald' : 'violet'}>
-              {formatRoleLabel(role)}
-            </ExecutiveBadge>
-          </div>
+    <>
+      <header className={styles.topbar}>
+        <div>
+          <p className={styles.greeting}>{tx('Resumen operativo')}</p>
+          <p className={styles.subtitle}>{tx('Aquí tienes el resumen de tu hotel.')}</p>
         </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={refreshing}
-          className={ui.button(isLight, 'secondary')}
-        >
-          <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-          {tx('Actualizar')}
-        </button>
+        <div className={styles.toolbar}>
+          <time>{formatHotelDate(timezone, language)}</time>
+          {isCheckinDemoWorkspace(hotel) ? <span className={styles.demo}>{tx('Modo demo')}</span> : null}
+          <button type="button" onClick={onRefresh} disabled={refreshing} className={styles.refresh}>
+            <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />{tx('Actualizar')}
+          </button>
+          <div className={styles.controls}><ThemeToggle /><LanguageSelector /></div>
+          {!loading ? <span className={styles.role}>{formatRoleLabel(role)}</span> : null}
+        </div>
+      </header>
+      <div className={styles.identity}>
+        <span className={styles.hotelInitials} aria-hidden="true">{initialsFor(hotelName)}</span>
+        <div>
+          <h1>{loading ? tx('Cargando hotel') : hotelName}</h1>
+          <p className={styles.location}>
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            {location ? <span>{location} ·</span> : null}
+            <span>{tx('Zona horaria')}: {timezone}</span>
+          </p>
+        </div>
       </div>
-    </ExecutiveCard>
+    </>
   );
 };
 
@@ -454,7 +448,7 @@ const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => 
     {
       label: 'Conversaciones activas',
       value: counters.activeConversations ?? data?.summary?.activeConversations,
-      detail: 'Estado active',
+      detail: 'En Inbox',
       href: permissions.inbox ? '/dashboard/inbox' : null,
       icon: Inbox,
       tone: 'violet'
@@ -470,295 +464,145 @@ const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => 
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className={styles.kpis}>
       {cards.map((card) => {
         const Icon = card.icon;
-        const content = (
-          <>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className={ui.text.eyebrow(isLight)}>{tx(card.label)}</p>
-                <p className={cn('mt-2 text-3xl font-semibold tabular-nums', ui.text.title(isLight))}>
-                  {loading ? '...' : formatKnownNumber(card.value)}
-                </p>
-                <p className={cn('mt-1 text-xs font-medium', isLight ? 'text-slate-500' : 'text-slate-500')}>
-                  {tx(card.detail)}
-                </p>
-              </div>
-              <span className={cn(
-                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border',
-                iconToneClass(isLight, card.tone)
-              )}>
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </span>
-            </div>
-            {card.href ? (
-              <div className="mt-3 flex items-center justify-end text-xs font-semibold text-emerald-600 dark:text-emerald-300">
-                {tx('Abrir')}
-                <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
-              </div>
-            ) : null}
-          </>
-        );
-
-        if (card.href) {
-          return (
-            <Link
-              key={card.label}
-              href={card.href}
-              className={cn(ui.card(isLight, { compact: true, interactive: true }), 'block min-h-[126px]')}
-            >
-              {content}
-            </Link>
-          );
-        }
-
-        return (
-          <div key={card.label} className={cn(ui.card(isLight, { compact: true }), 'min-h-[126px]')}>
-            {content}
+        const content = <>
+          <span className={cn(styles.kpiIcon, iconToneClass(isLight, card.tone))}><Icon className="h-6 w-6" aria-hidden="true" /></span>
+          <div className="min-w-0">
+            <p className={styles.kpiLabel}>{tx(card.label)}</p>
+            <p className={styles.kpiValue}>{loading ? '…' : formatKnownNumber(card.value)}</p>
+            <p className={styles.kpiDetail}>{tx(card.detail)}</p>
           </div>
-        );
+          {card.href ? <ChevronRight className={styles.arrow} aria-hidden="true" /> : null}
+        </>;
+        return card.href
+          ? <Link key={card.label} href={card.href} className={styles.kpi}>{content}</Link>
+          : <div key={card.label} className={styles.kpi}>{content}</div>;
       })}
     </div>
   );
 };
 
-const WorkQueuePanel = ({ items = [], loading }) => {
-  const { theme } = useDashboardTheme();
-  const { tx } = useDashboardLanguage();
-  const isLight = theme === 'light';
+const QueueRequest = ({ title = '' }) => {
+  if (title.length <= 105) return <span className={styles.request}>{title}</span>;
+  return <details className={styles.request}><summary>{title.slice(0, 100)}…</summary><p>{title}</p></details>;
+};
 
+const WorkQueuePanel = ({ items = [], loading, timezone, permissions }) => {
+  const { tx, language } = useDashboardLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const visibleItems = expanded ? items : items.slice(0, 5);
+  const attentionTime = (value) => {
+    if (!value || !Number.isFinite(new Date(value).getTime())) return '—';
+    return new Intl.DateTimeFormat(language, { timeZone: timezone, hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+  };
   return (
-    <ExecutiveCard className="overflow-hidden p-0">
-      <div className={cn('flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-5', isLight ? 'border-slate-200' : 'border-white/10')}>
-        <div className="min-w-0">
-          <p className={ui.text.eyebrow(isLight)}>{tx('Empieza aquí')}</p>
-          <h2 className={cn('mt-1 text-lg font-semibold', ui.text.title(isLight))}>{tx('Pendiente de atender')}</h2>
+    <section className={styles.panel} aria-label={tx('Pendiente de atender')}>
+      <div className={styles.panelHeader}>
+        <div>
+          <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Pendiente de atender')}</h2>
+          <p className={styles.subtitle}>{loading ? tx('Cargando solicitudes…') : items.length + ' ' + tx('asuntos en este resumen')}{items.length === 8 ? ' · ' + tx('Máximo 8') : ''}</p>
         </div>
-        <Link href="/dashboard/tickets" className={ui.button(isLight, 'small')}>
-          {tx('Ver todos')}
-          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </Link>
+        <div className={styles.queueActions}>
+          {permissions.inbox ? <Link className={styles.link} href="/dashboard/inbox">{tx('Ver Inbox')}</Link> : null}
+          {permissions.tickets ? <Link className={styles.link} href="/dashboard/tickets">{tx('Ver tickets')}</Link> : null}
+        {items.length > 5 ? <button className={styles.link} onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
+          {tx(expanded ? 'Ver menos' : 'Ver todos')}<ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </button> : null}
+        </div>
       </div>
-      {loading ? (
-        <div className="p-4 sm:p-5">
-          <SkeletonList />
+      {loading ? <div className={styles.empty}><SkeletonList /></div> : items.length ? <>
+        <div className={styles.queueBody}>
+          <table className={styles.table}>
+            <thead><tr>{['Huésped / Solicitud', 'Hab.', 'Área', 'Estado', 'Hora', 'Acción'].map((label) => <th key={label} scope="col">{tx(label)}</th>)}</tr></thead>
+            <tbody>{visibleItems.map((item) => <tr key={item.id}>
+              <td><div className={styles.guestCell}>
+                <span className={styles.avatar} aria-hidden="true">{initialsFor(item.guest) || '?'}</span>
+                <div><p className={styles.guestName}>{item.guest || tx('Huésped sin identificar')}
+                  {['urgent', 'high'].includes(item.priority) ? <span className={styles.critical}><AlertTriangle className="h-3 w-3" aria-hidden="true" />{tx(formatStatusLabel(item.priority))}</span> : null}
+                </p><QueueRequest title={item.title} /></div>
+              </div></td>
+              <td data-label={tx('Habitación')}>{item.room || '—'}</td>
+              <td data-label={tx('Área')}><span className={styles.badge}>{tx(item.area)}</span></td>
+              <td data-label={tx('Estado')}><span className={styles.badge} data-tone={item.status === 'open' ? 'amber' : item.status === 'in_progress' ? 'sky' : ui.statusTone(item.status)}>{tx(formatStatusLabel(item.status))}</span></td>
+              <td data-label={tx('Hora')}><time className={styles.time} dateTime={item.createdAt || undefined}>{attentionTime(item.createdAt)}</time></td>
+              <td><Link href={item.href} className={styles.link} aria-label={tx(item.actionLabel) + ': ' + (item.guest || '') + ' — ' + item.title}>{tx('Abrir')}</Link></td>
+            </tr>)}</tbody>
+          </table>
         </div>
-      ) : items.length ? (
-        <div className="p-3 sm:p-4">
-          <div className={cn(
-            'hidden grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_120px_130px_112px] gap-3 rounded-lg border px-3 py-2 text-xs font-semibold md:grid',
-            isLight ? 'border-slate-200 bg-slate-50 text-slate-500' : 'border-white/10 bg-white/[0.025] text-slate-500'
-          )}>
-            <span>{tx('Solicitud')}</span>
-            <span>{tx('Huésped / Habitación')}</span>
-            <span>{tx('Área')}</span>
-            <span>{tx('Estado')}</span>
-            <span className="text-right">{tx('Acción')}</span>
-          </div>
-          <div className="mt-2 space-y-2">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className={cn(
-                  'grid gap-3 rounded-lg border px-3 py-3 md:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_120px_130px_112px] md:items-center',
-                  isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.025]'
-                )}
-              >
-                <div className="min-w-0">
-                  <p className={cn('truncate text-sm font-semibold', ui.text.title(isLight))}>{item.title}</p>
-                  {item.priority ? (
-                    <p className={cn('mt-1 text-xs', isLight ? 'text-slate-500' : 'text-slate-500')}>
-                      {formatStatusLabel(item.priority)}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="min-w-0 text-sm">
-                  <p className={cn('truncate font-medium', isLight ? 'text-slate-700' : 'text-slate-300')}>
-                    {item.guest || 'Huésped sin identificar'}
-                  </p>
-                  <p className={cn('mt-0.5 truncate text-xs', isLight ? 'text-slate-500' : 'text-slate-500')}>
-                    {item.room ? `Habitación ${item.room}` : 'Sin habitación'}
-                  </p>
-                </div>
-                <div>
-                  <ExecutiveBadge tone="slate">{item.area}</ExecutiveBadge>
-                </div>
-                <div>
-                  <ExecutiveBadge tone={ui.statusTone(item.status)}>{formatStatusLabel(item.status)}</ExecutiveBadge>
-                </div>
-                <div className="flex justify-start md:justify-end">
-                  <Link href={item.href} className={ui.button(isLight, 'small')}>
-                    {tx(item.actionLabel)}
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="p-4 sm:p-5">
-          <EmptyState
-            icon={CheckCircle2}
-            title="Sin pendientes operativos ahora"
-            description="No hay tickets abiertos ni conversaciones en control humano o escalación."
-          />
-        </div>
-      )}
-    </ExecutiveCard>
+      </> : <div className={styles.empty}><EmptyState icon={CheckCircle2} title="Sin pendientes operativos ahora" description="No hay tickets abiertos ni conversaciones en control humano o escalación." /></div>}
+    </section>
   );
 };
 
-const HotelMovementPanel = ({ movement = {}, loading, permissions }) => {
-  const { theme } = useDashboardTheme();
-  const { tx } = useDashboardLanguage();
-  const isLight = theme === 'light';
+// Reservation dates are calendar dates, not UTC timestamps: preserve their day.
+const movementDate = (value, language) => {
+  if (!value) return '—';
+  const date = new Date(String(value).slice(0, 10) + 'T12:00:00Z');
+  return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(date) : '—';
+};
+
+const HotelMovementPanel = ({ movement = {}, counters = {}, loading, permissions }) => {
+  const { tx, language } = useDashboardLanguage();
   const [activeTab, setActiveTab] = useState('arrivals');
   const tabs = [
-    { key: 'arrivals', label: 'Llegadas', items: movement.arrivals || [] },
-    { key: 'departures', label: 'Salidas', items: movement.departures || [] }
+    { key: 'arrivals', label: 'Llegadas', items: movement.arrivals || [], count: counters.arrivalsToday },
+    { key: 'departures', label: 'Salidas', items: movement.departures || [], count: counters.departuresToday }
   ];
   const active = tabs.find((tab) => tab.key === activeTab) || tabs[0];
   const canOpenReservations = permissions.reception || permissions.pms;
-
   return (
-    <ExecutiveCard className="overflow-hidden p-0">
-      <div className={cn('flex items-center justify-between gap-3 border-b px-4 py-4 sm:px-5', isLight ? 'border-slate-200' : 'border-white/10')}>
-        <div className="min-w-0">
-          <p className={ui.text.eyebrow(isLight)}>{tx('Reservas de hoy')}</p>
-          <h2 className={cn('mt-1 text-lg font-semibold', ui.text.title(isLight))}>{tx('Movimiento del hotel')}</h2>
-        </div>
-        {canOpenReservations ? (
-          <Link href="/dashboard/reservations" className={ui.button(isLight, 'small')}>
-            {tx('Ver reservas')}
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-        ) : null}
+    <section className={cn(styles.panel, styles.movement)} aria-label={tx('Movimiento del hotel')}>
+      <div className={styles.panelHeader}>
+        <div><h2 className={styles.panelTitle}><BedDouble aria-hidden="true" />{tx('Movimiento del hotel')}</h2><p className={styles.subtitle}>{tx('Llegadas y salidas de hoy.')}</p></div>
+        {canOpenReservations ? <Link href="/dashboard/reservations" className={styles.link}>{tx('Ver reservas')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
       </div>
-      <div className="p-3 sm:p-4">
-        <div className={cn('grid grid-cols-2 rounded-lg border p-1', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
-          {tabs.map((tab) => {
-            const selected = activeTab === tab.key;
-
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  'rounded-md px-3 py-2 text-sm font-semibold',
-                  selected
-                    ? isLight ? 'bg-white text-emerald-800 shadow-sm' : 'bg-white/[0.08] text-emerald-100'
-                    : isLight ? 'text-slate-600 hover:bg-white/70' : 'text-slate-400 hover:bg-white/[0.04]'
-                )}
-              >
-                {tx(tab.label)} ({movement.available === false ? '—' : tab.items.length})
-              </button>
-            );
-          })}
+      <div className={styles.movementBody}>
+        <div className={styles.tabs} role="tablist" aria-label={tx('Movimiento del hotel')}>
+          {tabs.map((tab) => <button key={tab.key} id={'movement-tab-' + tab.key} role="tab" aria-selected={activeTab === tab.key} aria-controls="movement-list" type="button" onClick={() => setActiveTab(tab.key)}>
+            {tx(tab.label)} ({loading || movement.available === false ? '—' : tab.count ?? tab.items.length})
+          </button>)}
         </div>
-
-        {loading ? (
-          <div className="mt-4">
-            <SkeletonList />
-          </div>
-        ) : movement.available === false ? (
-          <div className="mt-4">
-            <EmptyState
-              icon={AlertTriangle}
-              title="Reservas no disponibles"
-              description="No se pudo comprobar el movimiento de hoy."
-            />
-          </div>
-        ) : active.items.length ? (
-          <div className="mt-4 space-y-2">
-            {active.items.map((item) => (
-              <div
-                key={`${active.key}:${item.id}`}
-                className={cn('rounded-lg border px-3 py-3', isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.025]')}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className={cn('truncate text-sm font-semibold', ui.text.title(isLight))}>
-                      {item.guest || 'Huésped sin identificar'}
-                    </p>
-                    <p className={cn('mt-0.5 text-xs', isLight ? 'text-slate-500' : 'text-slate-500')}>
-                      {item.room ? `Habitación ${item.room}` : 'Sin habitación asignada'}
-                    </p>
-                  </div>
-                  <ExecutiveBadge tone={ui.statusTone(item.status)}>{formatStatusLabel(item.status)}</ExecutiveBadge>
-                </div>
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <span className={cn('text-xs font-medium', isLight ? 'text-slate-500' : 'text-slate-500')}>
-                    {item.date || movement.todayDate || 'Sin fecha'}
-                  </span>
-                  {canOpenReservations ? (
-                    <Link href={item.href} className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-300">
-                      {tx('Ver reserva')}
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4">
-            <EmptyState
-              icon={CalendarDays}
-              title={`Sin ${active.label.toLowerCase()} válidas hoy`}
-              description="Las canceladas y no-show no se muestran como movimiento operativo."
-            />
-          </div>
-        )}
+        <div id="movement-list" role="tabpanel" aria-labelledby={'movement-tab-' + active.key}>
+          {loading ? <div className={styles.empty}><SkeletonList /></div> : movement.available === false ? <div className={styles.empty}><EmptyState icon={AlertTriangle} title="Reservas no disponibles" description="No se pudo comprobar el movimiento de hoy." /></div> : active.items.length ? active.items.map((item) => <div className={styles.movementRow} key={active.key + ':' + item.id}>
+            <time className={styles.time} dateTime={item.date || movement.todayDate}>{movementDate(item.date || movement.todayDate, language)}</time>
+            <div><p className={styles.guestName}>{item.guest || tx('Huésped sin identificar')}</p><p className={styles.subtitle}>{tx(formatStatusLabel(item.status))}</p></div>
+            <span className={cn(styles.badge, styles.room)} aria-label={tx('Habitación') + ': ' + (item.room || '—')}>{item.room || '—'}</span>
+            {canOpenReservations ? <Link className={styles.link} href={item.href} aria-label={tx('Ver reserva') + ': ' + (item.guest || '')}><ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
+          </div>) : <div className={styles.empty}><EmptyState icon={CalendarDays} title={'Sin ' + active.label.toLowerCase() + ' válidas hoy'} description="Las canceladas y no-show no se muestran como movimiento operativo." /></div>}
+        </div>
       </div>
-    </ExecutiveCard>
+      {canOpenReservations ? <div className={styles.movementFooter}>
+        {(active.count || 0) > active.items.length ? <span className={styles.time}>{active.items.length} / {active.count} {tx('en este resumen')}</span> : null}
+        <Link className={styles.link} href="/dashboard/reservations">{tx('Ver todas las llegadas y salidas')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link>
+      </div> : null}
+    </section>
   );
 };
 
 const ServiceStatusStrip = ({ services = [], loading, permissions }) => {
   const { theme } = useDashboardTheme();
   const { tx } = useDashboardLanguage();
-  const isLight = theme === 'light';
-
   return (
-    <ExecutiveCard className="p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className={ui.text.eyebrow(isLight)}>{tx('Conexiones')}</p>
-          <h2 className={cn('mt-1 text-base font-semibold', ui.text.title(isLight))}>{tx('Estado de conexión y servicios')}</h2>
-        </div>
-        {permissions.health ? (
-          <Link href="/dashboard/health" className={ui.button(isLight, 'small')}>
-            {tx('Ver salud')}
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-        ) : null}
+    <section className={styles.panel}>
+      <div className={cn(styles.panelHeader, styles.serviceHeader)}>
+        <div><h2 className={styles.panelTitle}><ShieldCheck aria-hidden="true" />{tx('Estado de conexión y servicios')}</h2></div>
+        {permissions.health ? <Link href="/dashboard/health" className={styles.link}>{tx('Ver salud')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
       </div>
-      {loading ? (
-        <SkeletonGrid />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {services.map((service) => {
-            const Icon = service.icon;
-
-            return (
-              <div key={service.id} className={cn('rounded-lg border px-3 py-3', isLight ? 'border-slate-200 bg-slate-50/80' : 'border-white/10 bg-white/[0.025]')}>
-                <div className="flex items-start gap-3">
-                  <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border', iconToneClass(isLight, service.tone))}>
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className={cn('truncate text-sm font-semibold', ui.text.title(isLight))}>{tx(service.label)}</p>
-                    <p className={cn('mt-1 truncate text-sm', isLight ? 'text-slate-600' : 'text-slate-400')}>{tx(service.value)}</p>
-                    <p className={cn('mt-1 text-xs', isLight ? 'text-slate-500' : 'text-slate-500')}>{tx(service.detail)}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </ExecutiveCard>
+      {loading ? <div className={styles.empty}><SkeletonGrid /></div> : <div className={styles.services}>
+        {services.map((service) => {
+          const Icon = service.icon;
+          return <div key={service.id} className={styles.service}>
+            <span className={cn(styles.serviceIcon, iconToneClass(theme === 'light', service.tone))}><Icon className="h-5 w-5" aria-hidden="true" /></span>
+            <div className="min-w-0"><p className={styles.serviceLabel}>{tx(service.label)}</p>
+              <p className={styles.serviceValue}><span className={styles.statusDot} data-tone={service.tone} aria-hidden="true" />{tx(service.value)}</p>
+              {!['auto_replies', 'last_sync'].includes(service.id) ? <p className={styles.serviceDetail}>{tx(service.detail)}</p> : null}
+            </div>
+          </div>;
+        })}
+      </div>}
+    </section>
   );
 };
 

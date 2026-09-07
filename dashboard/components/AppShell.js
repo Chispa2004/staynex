@@ -35,10 +35,11 @@ import {
   Wrench,
   X
 } from 'lucide-react';
+import shellStyles from './AppShell.module.css';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
 import { HotelWorkspaceSwitcher } from './HotelWorkspaceSwitcher';
-import { PoweredByStaynex, STAYNEX_BLUE, StaynexLogo, StaynexWordmark } from './StaynexBrand';
+import { STAYNEX_BLUE, StaynexLogo, StaynexWordmark } from './StaynexBrand';
 import { DashboardLanguageProvider, useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { DashboardThemeProvider, useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
@@ -950,6 +951,7 @@ const AppShellContent = ({ children }) => {
   const sidebarHotelName = currentHotel?.name || 'Staynex';
   const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
   const isInboxRoute = pathname === '/dashboard/inbox';
+  const isOperationsDashboard = pathname === '/dashboard';
   const workspaceBrandColor = isPlatformContext ? STAYNEX_BLUE : currentHotel?.brand_color || '#34d399';
   const workspaceSecondaryColor = isPlatformContext ? '#084EC7' : currentHotel?.secondary_color || '#0f766e';
   const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext;
@@ -987,7 +989,7 @@ const AppShellContent = ({ children }) => {
 
   return (
     <div
-      className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}
+      className={`${shellStyles.shell} ${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}
       style={{
         '--workspace-brand': workspaceBrandColor,
         '--workspace-secondary': workspaceSecondaryColor
@@ -1052,6 +1054,7 @@ const AppShellContent = ({ children }) => {
         ) : null}
 
         <aside className={[
+          shellStyles.sidebar,
           'fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] shrink-0 flex-col overflow-y-auto border-r shadow-2xl backdrop-blur-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-full lg:w-72 lg:translate-x-0',
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           isLight
@@ -1073,6 +1076,7 @@ const AppShellContent = ({ children }) => {
           </div>
 
           <div className={cn(
+            shellStyles.brand,
             'hidden items-center border-b px-4 py-4 lg:flex',
             isLight ? 'border-slate-200' : 'border-white/10'
           )}>
@@ -1105,69 +1109,6 @@ const AppShellContent = ({ children }) => {
             </div>
           ) : (
             <>
-              {showBackToPlatform ? (
-                <div className="px-4 pb-4 pt-4">
-                  <div className={[
-                    'rounded-xl border p-3',
-                    isLight
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-900 shadow-sm shadow-emerald-100/70'
-                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 shadow-lg shadow-emerald-950/10'
-                  ].join(' ')}
-                  >
-                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] opacity-80">{tx('Hotel workspace view')}</p>
-                    <p className="mt-1 truncate text-sm font-semibold">{tx('Viewing {hotel}', { hotel: sidebarHotelName })}</p>
-                    <Link
-                      href="/platform/hotels"
-                      className={[
-                        'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition',
-                        isLight
-                          ? 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-100'
-                          : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 hover:bg-emerald-300/15'
-                      ].join(' ')}
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-                      {tx('Back to Platform')}
-                    </Link>
-                  </div>
-                </div>
-              ) : null}
-
-              <HotelWorkspaceSwitcher
-                currentHotel={currentHotel}
-                availableHotels={availableHotels}
-                activeRole={activeRole}
-                switching={switchingHotel}
-                canSwitchWorkspaces={hotelContext.canSwitchWorkspaces}
-                canCreateWorkspaces={hotelContext.canCreateWorkspaces}
-                onSwitch={handleHotelSwitch}
-                accessToken={sessionAccessToken}
-                onWorkspaceCreated={handleHotelSwitch}
-              />
-
-              <div className="px-4 pb-5 pt-1">
-                <PoweredByStaynex className={isLight ? 'text-slate-500' : 'text-slate-400'} />
-              </div>
-
-              {urgentCount > 0 ? (
-                <div className="px-4 pb-5 pt-1">
-                  <div className={[
-                    'flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-xs font-semibold uppercase shadow-lg',
-                    isLight
-                      ? 'border-red-200 bg-red-50 text-red-800 shadow-red-100/70'
-                      : 'border-red-400/25 bg-red-500/[0.08] text-red-100 shadow-red-500/10'
-                  ].join(' ')}
-                  >
-                    <span className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 animate-pulse" aria-hidden="true" />
-                      {t('app.urgent')}
-                    </span>
-                    <span className={isLight ? 'rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-black text-white' : 'rounded-full bg-red-400 px-2 py-0.5 text-[11px] font-black text-red-950'}>
-                      {urgentCount}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-
               {!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding') ? (
                 <div className="px-4 pb-5">
                   <Link
@@ -1182,7 +1123,7 @@ const AppShellContent = ({ children }) => {
             </>
           )}
 
-          <nav className="flex-1 space-y-4 overflow-y-auto px-4 pb-4">
+          <nav className={cn(shellStyles.navigation, "flex-1 space-y-4 overflow-y-auto px-4 pb-4")}>
             {isPlatformContext ? (
               <section className="space-y-1.5">
                 {platformNavigationItems.map((item) => {
@@ -1231,7 +1172,7 @@ const AppShellContent = ({ children }) => {
               const activeGroup = groupHasActiveRoute(group);
 
               return (
-                <section key={group.id} className="space-y-1.5">
+                <section key={group.id} className="space-y-1.5" data-group={group.id}>
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.id)}
@@ -1321,7 +1262,27 @@ const AppShellContent = ({ children }) => {
             }) : null}
           </nav>
 
-          <div className="mt-auto px-4 pb-5 pt-3">
+          <div className={shellStyles.account}>
+            <div className="mb-3 flex items-center gap-2 lg:hidden"><ThemeToggle /><LanguageSelector /></div>
+            {!isPlatformContext ? <>
+              <HotelWorkspaceSwitcher
+                compact
+                currentHotel={currentHotel}
+                availableHotels={availableHotels}
+                activeRole={activeRole}
+                switching={switchingHotel}
+                canSwitchWorkspaces={hotelContext.canSwitchWorkspaces}
+                canCreateWorkspaces={hotelContext.canCreateWorkspaces}
+                onSwitch={handleHotelSwitch}
+                accessToken={sessionAccessToken}
+                onWorkspaceCreated={handleHotelSwitch}
+              />
+              {showBackToPlatform ? <>
+                <p className="mb-2 text-xs text-slate-500">{tx('Hotel workspace view')}</p>
+                <Link href="/platform/hotels" className={shellStyles.platformLink}><ArrowLeft className="h-4 w-4" aria-hidden="true" />{tx('Back to Platform')}</Link>
+              </> : null}
+              {urgentCount > 0 && !canAccess(activeRole, 'tickets') ? <div className={shellStyles.urgent}><AlertTriangle className="h-4 w-4" aria-hidden="true" />{t('app.urgent')}: {urgentCount}</div> : null}
+            </> : null}
             <button
               type="button"
               onClick={handleLogout}
@@ -1346,17 +1307,17 @@ const AppShellContent = ({ children }) => {
           isInboxRoute ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
         )}>
           <div className={cn(
-            isInboxRoute
+            isOperationsDashboard ? shellStyles.dashboardContent : isInboxRoute
               ? 'flex min-h-0 flex-1 flex-col w-full px-0 pb-0 pt-0 sm:px-2 sm:pb-2 sm:pt-2 lg:px-4 lg:pb-4 lg:pt-4'
               : 'mx-auto w-full max-w-7xl px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 lg:px-10 lg:pb-8 lg:pt-8'
           )}>
-            {!isInboxRoute ? (
+            {!isInboxRoute && !isOperationsDashboard ? (
               <div className="mb-6 hidden justify-end gap-2 lg:flex">
                 <ThemeToggle />
                 <LanguageSelector />
               </div>
             ) : null}
-            {showBackToPlatform ? (
+            {showBackToPlatform && !isOperationsDashboard ? (
               <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>

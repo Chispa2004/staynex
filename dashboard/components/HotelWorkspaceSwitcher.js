@@ -39,6 +39,7 @@ const WorkspaceLogo = ({ hotel, size = 'md' }) => {
 };
 
 export const HotelWorkspaceSwitcher = ({
+  compact = false,
   currentHotel,
   availableHotels = [],
   activeRole,
@@ -129,7 +130,7 @@ export const HotelWorkspaceSwitcher = ({
   };
 
   return (
-    <div ref={containerRef} className="relative px-4 pb-4 pt-5">
+    <div ref={containerRef} className={compact ? "relative pb-3" : "relative px-4 pb-4 pt-5"}>
       <button
         type="button"
         onClick={() => canOpenMenu && setOpen((current) => !current)}
@@ -152,9 +153,9 @@ export const HotelWorkspaceSwitcher = ({
           <p className={isLight ? 'mt-0.5 truncate text-xs text-slate-500' : 'mt-0.5 truncate text-xs text-slate-400'}>
             {currentHotel?.brand_name || currentHotel?.workspace_slug || currentHotel?.slug || 'Hotel operations'}
           </p>
-          <p className={isLight ? 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700' : 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-300'}>
+          {!compact ? <p className={isLight ? 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700' : 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-300'}>
             {ROLE_LABELS[activeRole] || activeRole}
-          </p>
+          </p> : null}
         </div>
         {switching ? (
           <Loader2 className="h-4 w-4 shrink-0 animate-spin opacity-70" aria-hidden="true" />
@@ -166,7 +167,7 @@ export const HotelWorkspaceSwitcher = ({
       {open ? (
         <div
           className={[
-            'absolute left-4 right-4 top-full z-50 mt-2 overflow-hidden rounded-xl border shadow-2xl',
+            compact ? 'absolute left-0 right-0 bottom-full z-50 mb-2 overflow-hidden rounded-xl border shadow-2xl' : 'absolute left-4 right-4 top-full z-50 mt-2 overflow-hidden rounded-xl border shadow-2xl',
             isLight
               ? 'border-slate-200 bg-white text-slate-950 shadow-slate-200/80'
               : 'border-white/10 bg-[#0b1019] text-white shadow-black/40'
