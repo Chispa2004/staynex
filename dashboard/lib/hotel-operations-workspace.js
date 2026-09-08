@@ -1,3 +1,4 @@
+import { attentionDashboardUnavailable } from '../../shared/message-attention/contract.js';
 import { getConversationAiModeForGate, isHumanControlledConversationForGate } from '../../shared/pilot/ai-safety.js';
 
 const HOTEL_MOVEMENT_EXCLUDED_STATUSES = new Set([
@@ -313,7 +314,7 @@ const reviewReason = state => ({
   urgent: 'Derivación registrada'
 }[state?.escalation_level] || 'Derivación registrada');
 
-export const buildConversationDashboard = ({ hotelId, timezone, now = new Date().toISOString(), sources = {}, activeCount = null } = {}) => {
+export const buildConversationDashboard = ({ hotelId, timezone, now = new Date().toISOString(), sources = {}, activeCount = null, attentionSnapshot = null } = {}) => {
   const rows = key => (sources[key]?.rows || []).filter(row => hotelId && row.hotel_id === hotelId && row.id);
   const complete = (...keys) => keys.every(key => sources[key]?.complete === true
     && rows(key).length === sources[key].rows.length);
@@ -414,7 +415,9 @@ export const buildConversationDashboard = ({ hotelId, timezone, now = new Date()
       status: 'Registrado', href: `/dashboard/inbox?conversationId=${encodeURIComponent(conversation.id)}` });
   }
   const coverage = complete('logs', 'messages', 'claims', 'conversations', 'states', 'tickets', 'guests', 'offers');
+  const messageWorkspace = attentionSnapshot || attentionDashboardUnavailable();
   return {
+    messageWorkspace,
     counters: {
       activeConversations: metric(Number.isInteger(activeCount) ? activeCount : null, Number.isInteger(activeCount) ? 'Estado activo · hotel' : 'Fuente no disponible'),
       humanControl: metric(complete('states', 'conversations') ? currentHuman.length : null, complete('states', 'conversations') ? 'Control actual · hotel' : unavailable('states', 'conversations')),

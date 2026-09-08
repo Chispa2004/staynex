@@ -23,6 +23,8 @@
 .dashboardContent { padding: 24px; width: 100%; }
 @media (min-width: 1024px) {
   .sidebar { width: 260px; }
+  .sidebar[data-desktop-collapsed='true'] { display: none; }
+  .shell [data-desktop-restore='true'] { flex-direction: column; }
 }
 @media (max-width: 767px) {
   .dashboardContent { padding: 16px; }

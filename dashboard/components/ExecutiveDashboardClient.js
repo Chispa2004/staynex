@@ -17,6 +17,7 @@ import {
   Languages,
   Map,
   MapPin,
+  Menu,
   BedDouble,
   ChevronRight,
   PauseCircle,
@@ -30,6 +31,7 @@ import {
   Zap
 } from 'lucide-react';
 import styles from './HotelOperations.module.css';
+import { useShellNavigation } from '@/lib/shell-navigation';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
 import { useSessionDisplayName } from '@/lib/use-session-display-name';
@@ -146,6 +148,9 @@ export const ExecutiveDashboardClient = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [attentionOrigin, setAttentionOrigin] = useState('traced');
+  const [urgentOnly, setUrgentOnly] = useState(false);
+  const [attentionCursor, setAttentionCursor] = useState(null);
   const dashboardRequestInFlightRef = useRef(false);
   const dashboardRequestIdRef = useRef(0);
   const activeHotelIdRef = useRef(null);
@@ -164,7 +169,9 @@ export const ExecutiveDashboardClient = () => {
     }
 
     try {
-      const response = await fetch('/api/executive-dashboard', {
+      const attentionParams = new URLSearchParams({attentionOrigin,attentionUrgent:String(urgentOnly)});
+      if (attentionCursor) { attentionParams.set('attentionBefore',attentionCursor.at); attentionParams.set('attentionId',attentionCursor.id); }
+      const response = await fetch('/api/executive-dashboard?' + attentionParams, {
         headers: await getAuthHeaders(),
         cache: 'no-store'
       });
@@ -201,7 +208,7 @@ export const ExecutiveDashboardClient = () => {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [attentionOrigin, urgentOnly, attentionCursor]);
 
   useEffect(() => {
     getActiveTenantId();
@@ -259,14 +266,20 @@ export const ExecutiveDashboardClient = () => {
       <OperationalIndicatorGrid
         data={data}
         loading={loading}
-        workspace={operationalWorkspace}
+        workspace={operationalWorkspace.messageWorkspace || {}}
         permissions={permissions}
+        urgentOnly={urgentOnly}
+        onUrgent={() => { setLoading(true); setAttentionCursor(null); setUrgentOnly(value => !value); }}
       />
 
-      <p className={styles.scope}>{tx(operationalWorkspace.scope || 'Los estados incluyen todos los registros del hotel. La tarjeta IA excluye simulados y origen no confirmado.')}</p>
+      <p className={styles.scope}><label>{tx('Origen de los indicadores')}: <select value={attentionOrigin} onChange={event => { setLoading(true); setAttentionCursor(null); setAttentionOrigin(event.target.value); }} className="rounded border bg-transparent px-2 py-1">
+        <option value="traced">{tx('Entradas trazables')}</option><option value="simulated">{tx('SIMULADO')}</option><option value="unknown">{tx('Origen no confirmado')}</option>
+      </select></label> · {tx(operationalWorkspace.messageWorkspace?.scope || 'Seguimiento no disponible. No se asumen estados ni totales.')}</p>
       <div className={styles.columns}>
         <div className={styles.leftColumn}>
-          <WorkQueuePanel items={operationalWorkspace.review || []} coverage={operationalWorkspace.coverage} loading={loading} timezone={timezone} permissions={permissions} />
+          <WorkQueuePanel items={operationalWorkspace.messageWorkspace?.pending || []} coverage={operationalWorkspace.messageWorkspace?.coverage} loading={loading} timezone={timezone} permissions={permissions}
+            urgentOnly={urgentOnly} nextCursor={operationalWorkspace.messageWorkspace?.nextCursor} hasCursor={Boolean(attentionCursor)}
+            onPage={cursor => {setLoading(true);setAttentionCursor(cursor);}} />
           <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
         </div>
         <AiActivityPanel items={operationalWorkspace.activity || []} coverage={operationalWorkspace.coverage} loading={loading} timezone={timezone} permissions={permissions} />
@@ -387,6 +400,7 @@ const initialsFor = (name) => String(name || '').split(/\s+/).filter(Boolean).sl
 const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshing, onRefresh }) => {
   const { tx, language } = useDashboardLanguage();
   const displayName = useSessionDisplayName();
+  const navigation = useShellNavigation();
   let country = hotel.country || '';
   try {
     if (hotel.country_code) country = new Intl.DisplayNames([language], { type: 'region' }).of(hotel.country_code);
@@ -396,7 +410,7 @@ const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshi
     <>
       <header className={styles.topbar}>
         <div>
-          <p className={styles.greeting}>{displayName ? `${tx(getHotelGreeting(timezone))}, ${displayName}` : tx('Bienvenido')}</p>
+          <div className={styles.greetingRow}><button type="button" className={styles.navigationToggle} onClick={navigation?.toggleNavigation} disabled={!navigation} aria-label={tx(navigation?.open ? 'Ocultar menú lateral' : 'Mostrar menú lateral')} aria-expanded={navigation?.open ?? false} aria-controls="staynex-sidebar"><Menu className="h-5 w-5" aria-hidden="true" /></button><p className={styles.greeting}>{displayName ? `${tx(getHotelGreeting(timezone))}, ${displayName}` : tx('Bienvenido')}</p></div>
           <p className={styles.subtitle}>{tx('Aquí tienes el resumen operativo de tu hotel.')}</p>
         </div>
         <div className={styles.toolbar}>
@@ -427,16 +441,16 @@ const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshi
   );
 };
 
-const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => {
+const OperationalIndicatorGrid = ({ data, loading, workspace, permissions, onUrgent, urgentOnly }) => {
   const { theme } = useDashboardTheme();
   const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const counters = workspace?.counters || {};
   const cards = [
-    { label: 'Conversaciones activas', metric: counters.activeConversations, href: permissions.inbox ? '/dashboard/inbox' : null, icon: Inbox, tone: 'emerald' },
-    { label: 'En control humano', metric: counters.humanControl, href: permissions.inbox ? '/dashboard/inbox' : null, icon: PauseCircle, tone: 'amber' },
-    { label: 'Consultas con respuesta IA registrada — hoy', metric: counters.registeredResponsesToday, icon: Bot, tone: 'violet' },
-    { label: 'Tickets abiertos vinculados', metric: counters.linkedOpenTickets, href: permissions.tickets ? '/dashboard/tickets' : null, icon: TicketCheck, tone: 'sky' }
+    { label: 'Mensajes recibidos', metric: counters.received, href: permissions.inbox ? '/dashboard/inbox' : null, icon: Inbox, tone: 'sky' },
+    { label: 'Mensajes resueltos', metric: counters.resolved, href: permissions.inbox ? '/dashboard/inbox' : null, icon: CheckCircle2, tone: 'emerald' },
+    { label: 'Mensajes pendientes', metric: counters.pending, href: permissions.inbox ? '/dashboard/inbox' : null, icon: Clock3, tone: 'amber' },
+    { label: 'Mensajes urgentes', metric: counters.urgent, onClick: onUrgent, icon: AlertTriangle, tone: 'red' }
   ];
 
   return (
@@ -452,9 +466,10 @@ const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => 
           </div>
           {card.href ? <ChevronRight className={styles.arrow} aria-hidden="true" /> : null}
         </>;
+        if (card.onClick) return <button type="button" key={card.label} onClick={card.onClick} aria-pressed={urgentOnly} aria-controls="attention-pending-list" className={cn(styles.kpi, styles.urgentKpi, 'text-left')}>{content}</button>;
         return card.href
-          ? <Link key={card.label} href={card.href} className={styles.kpi}>{content}</Link>
-          : <div key={card.label} className={styles.kpi}>{content}</div>;
+          ? <Link key={card.label} href={card.href} className={cn(styles.kpi, card.tone === 'red' && styles.urgentKpi)}>{content}</Link>
+          : <div key={card.label} className={cn(styles.kpi, card.tone === 'red' && styles.urgentKpi)}>{content}</div>;
       })}
     </div>
   );
@@ -465,7 +480,7 @@ const QueueRequest = ({ title = '' }) => {
   return <details className={styles.request}><summary>{title.slice(0, 100)}…</summary><p>{title}</p></details>;
 };
 
-const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions }) => {
+const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, urgentOnly, nextCursor, hasCursor, onPage }) => {
   const { tx, language } = useDashboardLanguage();
   const [expanded, setExpanded] = useState(false);
   const visibleItems = expanded ? items : items.slice(0, 5);
@@ -476,25 +491,27 @@ const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions }
     } catch { return '—'; }
   };
   return (
-    <section className={styles.panel} aria-label={tx('Conversaciones para revisar')}>
+    <section id="attention-pending-list" className={styles.panel} aria-label={tx('Mensajes pendientes')}>
       <div className={styles.panelHeader}>
         <div>
-          <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Conversaciones para revisar')}</h2>
-          <p className={styles.subtitle}>{tx('Motivos registrados y control humano')}</p>
+          <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Mensajes pendientes')}</h2>
+          <p className={styles.subtitle}>{tx(urgentOnly ? 'Solo urgentes' : 'Con seguimiento de atención')}</p>
         </div>
         <div className={styles.queueActions}>
+          {hasCursor ? <button className={styles.link} onClick={() => onPage(null)}>{tx('Primera página')}</button> : null}
+          {nextCursor ? <button className={styles.link} onClick={() => onPage(nextCursor)}>{tx('Siguiente página')}</button> : null}
           {permissions.inbox ? <Link className={styles.link} href="/dashboard/inbox">{tx('Ver Inbox')}</Link> : null}
           {permissions.tickets ? <Link className={styles.link} href="/dashboard/tickets">{tx('Ver tickets')}</Link> : null}
         {items.length > 5 ? <button className={styles.link} onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
-          {tx(expanded ? 'Ver menos' : 'Ver todos')}<ChevronRight className="h-4 w-4" aria-hidden="true" />
+          {tx(expanded ? 'Ver menos' : 'Ampliar muestra')}<ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button> : null}
         </div>
       </div>
       {coverage !== 'complete' && !loading ? <p className={styles.coverage}>{tx('Cobertura incompleta · muestra disponible')}</p> : null}
       {loading ? <div className={styles.empty}><SkeletonList /></div> : items.length ? <>
         <div className={styles.queueBody}>
-          <table className={styles.table}>
-            <thead><tr>{['Huésped / Mensaje', 'Hab.', 'Motivo', 'Estado', 'Última actividad', 'Acción'].map((label) => <th key={label} scope="col">{tx(label)}</th>)}</tr></thead>
+          <table className={cn(styles.table, styles.pendingTable)}>
+            <thead><tr>{['Huésped / Mensaje', 'Hab.', 'Estado', 'Recibido', 'Acción'].map((label) => <th key={label} scope="col">{tx(label)}</th>)}</tr></thead>
             <tbody>{visibleItems.map((item) => <tr key={item.id}>
               <td><div className={styles.guestCell}>
                 <span className={styles.avatar} aria-hidden="true">{initialsFor(item.guest) || '?'}</span>
@@ -503,14 +520,13 @@ const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions }
                 </p><QueueRequest title={item.title} /><span className={styles.time}>{tx(originLabels[item.origin] || originLabels.unknown)}</span>{item.linkedTickets ? <p className={styles.time}>{tx('Tickets vinculados')}: {item.linkedTickets}</p> : null}</div>
               </div></td>
               <td data-label={tx('Habitación')}>{item.room || '—'}</td>
-              <td data-label={tx('Motivo')}>{(item.reasons || []).map(reason => <span key={reason} className={styles.badge}>{tx(reason)}</span>)}</td>
               <td data-label={tx('Estado')}><span className={styles.badge} data-tone={item.status === 'open' ? 'amber' : item.status === 'in_progress' ? 'sky' : ui.statusTone(item.status)}>{tx(item.status?.includes(' ') ? item.status : formatStatusLabel(item.status))}</span></td>
-              <td data-label={tx('Última actividad')}><time className={styles.time} dateTime={item.createdAt || undefined}>{attentionTime(item.createdAt)}</time></td>
+              <td data-label={tx('Recibido')}><time className={styles.time} dateTime={item.createdAt || undefined}>{attentionTime(item.createdAt)}</time></td>
               <td>{permissions.inbox ? <Link href={item.href} className={styles.link} aria-label={tx(item.actionLabel) + ': ' + (item.guest || '') + ' — ' + item.title}>{tx('Abrir')}</Link> : null}</td>
             </tr>)}</tbody>
           </table>
         </div>
-      </> : <div className={styles.empty}><EmptyState icon={CheckCircle2} title={coverage === 'complete' ? 'Sin señales de revisión registradas' : 'Revisión no disponible'} description="La ausencia de señales no acredita resolución." /></div>}
+      </> : <div className={styles.empty}><EmptyState icon={CheckCircle2} title={coverage === 'complete' ? 'Sin mensajes en la muestra' : 'Mensajes no disponibles'} description="No acredita que todos los asuntos estén resueltos." /></div>}
     </section>
   );
 };

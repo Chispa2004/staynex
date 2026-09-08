@@ -15,6 +15,7 @@ import ergonomics from './InboxErgonomics.module.css';
 import { shouldCompactOriginalMessage } from '@/lib/inbox-message-presentation';
 import { cn, ui } from '@/lib/ui/styles';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { MessageAttentionProvider, AttentionToolbar, AttentionMessage } from './MessageAttentionControls';
 
 const formatDate = (value) => {
   if (!value) {
@@ -1456,6 +1457,7 @@ export const InboxClient = ({ conversations }) => {
     { key: 'ai', label: hotelAiReplyAllowed ? 'IA activa' : 'IA sin control humano', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
   return (
+    <MessageAttentionProvider key={`${currentHotel?.id || ''}:${selectedConversation?.id || ''}`} hotelId={currentHotel?.id} conversation={selectedConversation}>
     <section className="h-full min-h-0 w-full">
       <div
         className={[
@@ -1882,6 +1884,7 @@ export const InboxClient = ({ conversations }) => {
           </div>
         </header>
 
+        <AttentionToolbar />
         <div className={[
           'executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4',
           isLight ? 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_32%),#f8fafc]' : 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#080c14]/70'
@@ -2020,6 +2023,7 @@ export const InboxClient = ({ conversations }) => {
                         {t('inbox.original')}
                       </p> : null}
                       <p className="whitespace-pre-wrap text-sm leading-6">{item.content}</p>
+                      <AttentionMessage message={item} />
                     </div>
 
                     {hasTranslation ? (
@@ -2203,5 +2207,6 @@ export const InboxClient = ({ conversations }) => {
       ) : null}
       </div>
     </section>
+    </MessageAttentionProvider>
   );
 };

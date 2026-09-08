@@ -465,10 +465,10 @@ assert.doesNotMatch(executiveDashboardSource, /from\('reservations'\)/, 'Homepag
 
 const executiveDashboardClientSource = readFileSync(new URL('../dashboard/components/ExecutiveDashboardClient.js', import.meta.url), 'utf8');
 assert.match(executiveDashboardClientSource, /OperationalIndicatorGrid/, 'Dashboard should render the compact operational indicator row');
-assert.match(executiveDashboardClientSource, /Conversaciones para revisar/, 'Dashboard should expose the conversation review queue');
+assert.match(executiveDashboardClientSource, /Mensajes pendientes/, 'Dashboard should expose the pending messages queue');
 assert.match(executiveDashboardClientSource, /Actividad reciente de la IA/, 'Dashboard should expose evidenced AI activity');
 assert.doesNotMatch(executiveDashboardClientSource, /HotelMovementPanel|Movimiento del hotel/, 'PMS movement must stay outside the dashboard homepage');
-assert.match(executiveDashboardClientSource, /Conversaciones activas/, 'Dashboard should not invent a pending conversation counter');
+assert.match(executiveDashboardClientSource, /counters.pending/, 'Dashboard should use computed pending message counts');
 assert.match(executiveDashboardClientSource, /Respuestas IA activas/, 'Dashboard should show AI active only from canonical safety state');
 assert.match(executiveDashboardClientSource, /Respuestas IA desactivadas/, 'Dashboard should show hotel AI switch OFF honestly');
 assert.match(executiveDashboardClientSource, /Bloqueo global activo/, 'Dashboard should show global AI block state');
@@ -777,3 +777,5 @@ assert.equal(packageJson.scripts['demo:preflight-checkin-demo'], 'node scripts/p
 console.log('Checkin demo preparation tests passed');
 
 await import('./test-conversation-dashboard.js');
+
+await import('./test-reception-message-dashboard.js');
