@@ -1,5 +1,7 @@
 # Dashboard de Mensajes — Candidato de instalación (2026-09-08)
 
+Informe histórico del paquete previo. El schema ya fue instalado según confirmación del usuario; NO reaplicar la migración. El verificador por huellas fue sustituido por la versión descrita en `message-attention-final.md`; su hash y evidencia actuales prevalecen sobre los de este informe.
+
 Rama `codex/reception-message-dashboard`; base y `origin/main` comprobados tras fetch: `7fb48d7babbb842b867723149d462ac13218f685`. El commit de este documento consolida los cambios esperados de Dashboard, Inbox, contrato, SQL y pruebas. El manifiesto del paquete local registra su SHA una vez creado. Sin rediseño adicional ni cambios del pipeline inbound.
 
 ## Ajustes finales y evidencia PostgreSQL

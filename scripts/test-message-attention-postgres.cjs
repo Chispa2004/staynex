@@ -5,15 +5,15 @@ const {spawn, execFileSync} = require('node:child_process');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
-const evidence = path.join(root, '.npm-cache/message-dashboard-release');
+const evidence = path.join(root, '.npm-cache/message-attention-final');
 fs.mkdirSync(evidence, {recursive:true});
 const docker = 'C:/Users/chimi/AppData/Local/Programs/DockerDesktop/resources/bin/docker.exe';
 const host = ['--host','npipe:////./pipe/dockerDesktopLinuxEngine'];
-const container = 'staynex-message-dashboard-release-20260908';
+const container = 'staynex-attention-final-20260908';
 const database = process.argv[2]==='all' ? 'staynex_attention_disposable_'+Date.now() : 'staynex_attention_disposable';
 const env = Object.fromEntries(Object.entries(process.env).filter(([k])=>/^(PATH|PATHEXT|SYSTEMROOT|WINDIR|TEMP|TMP|COMSPEC|APPDATA|LOCALAPPDATA|USERPROFILE)$/i.test(k)));
 const info = JSON.parse(execFileSync(docker,[...host,'inspect',container],{env,encoding:'utf8'}))[0];
-assert.equal(info.Config.Labels['staynex.disposable'],'message-dashboard-release-20260908');
+assert.equal(info.Config.Labels['staynex.disposable'],'attention-final-20260908');
 assert.equal(info.HostConfig.NetworkMode,'none');
 assert.equal(Object.keys(info.HostConfig.PortBindings || {}).length,0);
 assert.ok(info.Mounts.every(m=>m.Type==='tmpfs'));
@@ -124,6 +124,37 @@ async function run(){
   });
   await test('Reapplication refuses existing objects without modifying data',async()=>{
     for(const f of ['preflight','create']){const r=await sql(fs.readFileSync(path.join(root,`supabase/sql/${f}_message_attention.sql`),'utf8'),{allowError:true,label:'reapply-'+f});assert.equal(r.sqlstate,'P0001');assert.match(r.err,/Attention objects already exist/);}await file('supabase/sql/verify_message_attention.sql');
+  });
+  await test('Read-only verifier accepts formatting changes and rejects structural/contract regressions',async()=>{
+    const verify=fs.readFileSync(path.join(root,'supabase/sql/verify_message_attention.sql'),'utf8');
+    assert.doesNotMatch(verify,/md5\s*\(/i);
+    const definitions=await json("select json_agg(json_build_object('name',proname,'definition',pg_get_functiondef(oid))) from pg_proc where pronamespace='public'::regnamespace and proname like 'staynex_attention_%';");
+    for(const f of definitions)await sql('-- Synthetic formatting-only variation\r\n'+f.definition.replaceAll('\n','\r\n\r\n'),{label:'format-variation'});
+    await file('supabase/sql/verify_message_attention.sql');
+    const cases=[
+      ['alter table message_attention disable row level security;','alter table message_attention enable row level security;','RLS'],
+      ['create policy synthetic_browser_policy on message_attention for select to authenticated using(true);','drop policy synthetic_browser_policy on message_attention;','policy'],
+      ['alter table messages alter column attention_inclusion_version drop default;','alter table messages alter column attention_inclusion_version set default 1;','default'],
+      ['alter index message_attention_received_day rename to synthetic_missing_index;','alter index synthetic_missing_index rename to message_attention_received_day;','index'],
+      ['grant execute on function staynex_attention_effective(smallint,text,bigint) to service_role;','revoke execute on function staynex_attention_effective(smallint,text,bigint) from service_role;','grants'],
+      ['grant execute on function staynex_attention_read_v1(uuid,uuid,uuid[]) to public;','revoke execute on function staynex_attention_read_v1(uuid,uuid,uuid[]) from public;','grants'],
+      ['alter function staynex_attention_dashboard_v1(uuid,text,boolean,timestamptz,uuid) volatile;','alter function staynex_attention_dashboard_v1(uuid,text,boolean,timestamptz,uuid) stable;','contract'],
+      ["alter function staynex_attention_dashboard_v1(uuid,text,boolean,timestamptz,uuid) set statement_timeout='9s';","alter function staynex_attention_dashboard_v1(uuid,text,boolean,timestamptz,uuid) set statement_timeout='8s';",'timeout'],
+      ["create function staynex_attention_eligible(text) returns boolean language sql as $$select true$$;",'drop function staynex_attention_eligible(text);','seven'],
+    ];
+    const transitionDef=definitions.find(x=>x.name==='staynex_attention_transition_v1').definition;
+    const dashboardDef=definitions.find(x=>x.name==='staynex_attention_dashboard_v1').definition;
+    cases.push([transitionDef.replace('m.hotel_id=p_hotel and m.conversation_id=p_conversation','m.hotel_id=m.hotel_id and m.conversation_id=p_conversation'),transitionDef,'lock scope']);
+    cases.push([dashboardDef.replaceAll('c.hotel_id=m.hotel_id','c.hotel_id=c.hotel_id').replace('c.hotel_id=p_hotel','c.hotel_id=c.hotel_id'),dashboardDef,'relation']);
+    const rejected=[];
+    for(const [mutation,restore,reason] of cases){
+      await sql(mutation,{label:'verifier-negative-setup'});
+      try{const r=await sql(verify,{allowError:true,label:'verifier-negative'});assert.equal(r.sqlstate,'P0001',r.err);assert.match(r.err,new RegExp(reason,'i'));rejected.push(reason);}
+      finally{await sql(restore,{label:'verifier-negative-restore'});}
+    }
+    for(const f of definitions)await sql(f.definition);
+    await file('supabase/sql/verify_message_attention.sql');
+    return {formattingAndCRLFAccepted:true,negativeCases:rejected,mutationsOnlyInDisposableDatabase:true};
   });
   await test('History remains untracked',async()=>{assert.equal((await read([history])).items[0].status,'untracked');assert.equal(await json('select count(*) from message_attention;'),0);});
   await test('Default applies to old-dated imports but never to updates of historical messages',async()=>{

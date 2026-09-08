@@ -54,10 +54,12 @@ La tarjeta urgente filtra el propio bloque con el mismo criterio servidor y mues
 
 ## SQL y activación propuesta (no ejecutada fuera del contenedor de pruebas)
 
+Actualización de cierre: el usuario confirma que la migración ya está instalada en Supabase y que sus comprobaciones de contrato dieron TRUE. No volver a ejecutar create ni preflight de instalación en esa instancia. Usar únicamente el nuevo verify de SOLO LECTURA si desea cerrar la comprobación formal. Ver `message-attention-final.md`. Los pasos de instalación siguientes describen exclusivamente instalaciones nuevas.
+
 1. Validado el candidato de cierre en PostgreSQL 17.10 aislado con roles representados y sesiones independientes. Ver message-attention-release.md. La versión anterior nunca se aplicó fuera de bases desechables; no se prepara una actualización de una instalación productiva anterior.
 2. Ejecutar preflight_message_attention.sql (solo lectura). Rechaza versión/dependencias/columnas/permisos incompatibles, falta de identidad/auditoría/índices/FK necesarios y colisiones de objetos nuevos. Devuelve dimensiones estimadas de las tablas para valorar el DDL. La migración repite las guardas críticas.
 3. Aplicar create_message_attention.sql como administrador confiable en una transacción, después de aprobar el schema. Crea columna, tabla, índices y RPCs; no crea trigger. Ese commit activa DEFAULT 1 para nuevas entradas. El código anterior es compatible y no cambia su pipeline.
-4. Ejecutar verify_message_attention.sql: RLS, ACL, FK y huellas de cuerpos de funciones. Las pruebas de transacciones y fallos inducidos se realizan exclusivamente en PostgreSQL desechable, nunca sobre producción.
+4. Ejecutar verify_message_attention.sql: catálogo, firmas, tipos, RLS, ACL, FK, índices y contrato, sin hashes del cuerpo de funciones. Las pruebas de transacciones y fallos inducidos se realizan exclusivamente en PostgreSQL desechable, nunca sobre producción.
 5. Solo después de recibir evidencia manual del schema aplicado y verificado, continuar la publicación autorizada mediante PR y comprobaciones obligatorias. Si el código llega antes que el schema, muestra no disponible y no ofrece acciones.
 6. No incluir el montaje .npm-cache ni sus fixtures o bypasses en artefactos publicables.
 
