@@ -4,6 +4,7 @@ import { canAccess } from '@/lib/permissions';
 import { pmsConnectionSelectForSurface, serializePmsConnectionsSafe } from '../../../../shared/pms/safe-connection.js';
 import { getPilotAiSafetyReadiness } from '../../../../shared/pilot/ai-safety.js';
 import { buildConversationDashboard, loadConversationDashboardSources } from '@/lib/hotel-operations-workspace';
+import { loadAttentionDashboard } from '@/lib/message-attention';
 
 const readActiveCount = async (supabase, hotelId) => {
   try {
@@ -34,10 +35,14 @@ export async function GET(request) {
     }
     const hotelId = hotel?.id || null;
     if (!hotelId) return NextResponse.json({ error: 'Hotel context required' }, { status: 403 });
-    const [sources, activeConversationsCount, pmsSnapshot] = await Promise.all([
+    const params = new URL(request.url).searchParams;
+    const origin = params.get('attentionOrigin') || 'traced';
+    const cursor = params.get('attentionBefore') && params.get('attentionId') ? {at:params.get('attentionBefore'),id:params.get('attentionId')} : null;
+    const [sources, activeConversationsCount, pmsSnapshot, attentionSnapshot] = await Promise.all([
       loadConversationDashboardSources(supabase, hotelId),
       readActiveCount(supabase, hotelId),
-      readPmsSummary(supabase, hotelId)
+      readPmsSummary(supabase, hotelId),
+      loadAttentionDashboard({supabase,hotelId,origin,urgentOnly:params.get('attentionUrgent') === 'true',cursor})
     ]);
     // Serialize only the presentation DTO, never AI log bodies or provider errors.
     return NextResponse.json({
@@ -45,7 +50,7 @@ export async function GET(request) {
       role, permissions, fallback,
       pilotAiSafety: getPilotAiSafetyReadiness({ hotel, env: process.env }),
       refreshedAt: new Date().toISOString(),
-      conversationDashboard: buildConversationDashboard({ hotelId, timezone: hotel.timezone, sources, activeCount: activeConversationsCount }),
+      conversationDashboard: buildConversationDashboard({ hotelId, timezone: hotel.timezone, sources, activeCount: activeConversationsCount, attentionSnapshot }),
       pmsSnapshot,
       onboardingHealth: { whatsappConfigured: Boolean(hotel.whatsapp_number) }
     });

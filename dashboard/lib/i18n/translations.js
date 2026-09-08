@@ -2824,6 +2824,128 @@ for (const phrase of conversationDashboardPhrases) {
   ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; });
 }
 
+const receptionMessagePhrases = [
+["Sin resolución verificable","No verifiable resolution","Aucune résolution vérifiable","Keine überprüfbare Erledigung"],
+["Actuales · total por confirmar","Current · total unconfirmed","Actuels · total à confirmer","Aktuell · Gesamtzahl unbestätigt"],
+["Con alerta vigente · abre Inbox completo","Current alert · opens full Inbox","Alerte actuelle · ouvre toute la boîte","Aktuelle Warnung · öffnet gesamte Inbox"],
+["Respuesta registrada; atención por confirmar","Reply recorded; attention unconfirmed","Réponse enregistrée ; prise en charge à confirmer","Antwort erfasst; Bearbeitung unbestätigt"],
+["Respuesta por confirmar","Reply unconfirmed","Réponse à confirmer","Antwort unbestätigt"],
+["Muestra por revisar · atención sin confirmar","Review sample · attention unconfirmed","Échantillon à vérifier · prise en charge non confirmée","Stichprobe prüfen · Bearbeitung unbestätigt"],
+["Ampliar muestra","Expand sample","Agrandir l’échantillon","Stichprobe erweitern"],
+["Sin mensajes en la muestra","No messages in this sample","Aucun message dans cet échantillon","Keine Nachrichten in der Stichprobe"],
+["No acredita que todos los asuntos estén resueltos.","This does not confirm all issues are resolved.","Cela ne confirme pas la résolution de tous les problèmes.","Dies bestätigt nicht die Erledigung aller Anliegen."],
+["Sin cierres verificables por mensaje. Muestra de hasta 8 mensajes por revisar, incluidos anteriores. Una respuesta no confirma resolución.","No verifiable closure per message. Sample of up to 8 messages to review, including older ones. A reply does not confirm resolution.","Aucune clôture vérifiable par message. Échantillon de 8 messages maximum à vérifier, anciens inclus. Une réponse ne confirme pas la résolution.","Keine überprüfbare Erledigung je Nachricht. Stichprobe von bis zu 8 Nachrichten, auch älteren. Eine Antwort bestätigt keine Erledigung."],
+  [
+    "Mensajes recibidos",
+    "Received messages",
+    "Messages reçus",
+    "Empfangene Nachrichten"
+  ],
+  [
+    "Mensajes resueltos",
+    "Resolved messages",
+    "Messages résolus",
+    "Erledigte Nachrichten"
+  ],
+  [
+    "Mensajes pendientes",
+    "Pending messages",
+    "Messages en attente",
+    "Ausstehende Nachrichten"
+  ],
+  [
+    "Mensajes urgentes",
+    "Urgent messages",
+    "Messages urgents",
+    "Dringende Nachrichten"
+  ],
+  [
+    "Recibidos hoy",
+    "Received today",
+    "Reçus aujourd’hui",
+    "Heute empfangen"
+  ],
+  [
+    "De hoy · con respuesta registrada",
+    "Received today · reply recorded",
+    "Reçus aujourd’hui · réponse enregistrée",
+    "Heute empfangen · Antwort erfasst"
+  ],
+  [
+    "Sin respuesta registrada · aprox.",
+    "No recorded reply · estimate",
+    "Sans réponse enregistrée · estimation",
+    "Keine erfasste Antwort · Näherung"
+  ],
+  [
+    "Pendientes con señal de urgencia",
+    "Pending with urgency signal",
+    "En attente avec signal d’urgence",
+    "Ausstehend mit Dringlichkeitssignal"
+  ],
+  [
+    "Fuente o cobertura insuficiente",
+    "Insufficient source or coverage",
+    "Source ou couverture insuffisante",
+    "Unzureichende Quelle oder Abdeckung"
+  ],
+  [
+    "Sin respuesta registrada",
+    "No recorded reply",
+    "Sans réponse enregistrée",
+    "Keine erfasste Antwort"
+  ],
+  [
+    "Mensajes sin respuesta posterior registrada",
+    "Messages without a later recorded reply",
+    "Messages sans réponse ultérieure enregistrée",
+    "Nachrichten ohne spätere erfasste Antwort"
+  ],
+  [
+    "Sin mensajes pendientes registrados",
+    "No recorded pending messages",
+    "Aucun message en attente enregistré",
+    "Keine ausstehenden Nachrichten erfasst"
+  ],
+  [
+    "Mensajes no disponibles",
+    "Messages unavailable",
+    "Messages indisponibles",
+    "Nachrichten nicht verfügbar"
+  ],
+  [
+    "Se consideran las respuestas registradas en la conversación.",
+    "Based on replies recorded in the conversation.",
+    "Selon les réponses enregistrées dans la conversation.",
+    "Basierend auf erfassten Antworten im Gespräch."
+  ],
+  [
+    "Recibido",
+    "Received",
+    "Reçu",
+    "Empfangen"
+  ],
+  [
+    "Ocultar menú lateral",
+    "Hide sidebar",
+    "Masquer le menu latéral",
+    "Seitenmenü ausblenden"
+  ],
+  [
+    "Mostrar menú lateral",
+    "Show sidebar",
+    "Afficher le menu latéral",
+    "Seitenmenü anzeigen"
+  ],
+  [
+    "Resueltos: respuesta posterior registrada, no solución ni entrega confirmada. Pendientes y urgentes incluyen días anteriores.",
+    "Resolved means a later recorded reply, not confirmed resolution or delivery. Pending and urgent include previous days.",
+    "Résolus signifie une réponse ultérieure enregistrée, sans résolution ni livraison confirmée. Les messages en attente et urgents incluent les jours précédents.",
+    "Erledigt bedeutet eine spätere erfasste Antwort, keine bestätigte Lösung oder Zustellung. Ausstehende und dringende Nachrichten umfassen frühere Tage."
+  ]
+];
+for (const phrase of receptionMessagePhrases) { ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; }); }
+
 const phrasePatterns = {
   es: [
     [/^(\d+) active conversations$/, '$1 conversaciones activas'],

@@ -36,6 +36,7 @@ import {
   X
 } from 'lucide-react';
 import shellStyles from './AppShell.module.css';
+import { ShellNavigationContext } from '@/lib/shell-navigation';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
 import { HotelWorkspaceSwitcher } from './HotelWorkspaceSwitcher';
@@ -201,6 +202,24 @@ const AppShellContent = ({ children }) => {
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
+  const [desktopNavigation, setDesktopNavigation] = useState(true);
+  useEffect(() => {
+    try { setDesktopSidebarCollapsed(window.sessionStorage.getItem('staynex.sidebar.collapsed') === 'true'); } catch { /* Storage may be disabled. */ }
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setDesktopNavigation(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  const changeDesktopSidebar = (collapsed) => {
+    setDesktopSidebarCollapsed(collapsed);
+    try { window.sessionStorage.setItem('staynex.sidebar.collapsed', String(collapsed)); } catch { /* Keep in-memory state. */ }
+  };
+  const toggleNavigation = () => {
+    if (desktopNavigation) changeDesktopSidebar(!desktopSidebarCollapsed);
+    else setMobileSidebarOpen(open => !open);
+  };
   const { t, tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -988,6 +1007,7 @@ const AppShellContent = ({ children }) => {
   }
 
   return (
+    <ShellNavigationContext.Provider value={{ open: desktopNavigation ? !desktopSidebarCollapsed : mobileSidebarOpen, toggleNavigation }}>
     <div
       className={`${shellStyles.shell} ${theme === 'light' ? 'theme-light' : 'theme-dark'} h-dvh overflow-hidden bg-midnight text-slate-100`}
       style={{
@@ -995,10 +1015,11 @@ const AppShellContent = ({ children }) => {
         '--workspace-secondary': workspaceSecondaryColor
       }}
     >
-      <div className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
+      <div data-desktop-restore={desktopSidebarCollapsed && !isOperationsDashboard} className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
         <header
           className={[
-            'sticky top-0 z-30 flex shrink-0 items-center justify-between gap-3 border-b px-3 py-3 backdrop-blur-xl lg:hidden',
+            'sticky top-0 z-30 flex shrink-0 items-center justify-between gap-3 border-b px-3 py-3 backdrop-blur-xl',
+            desktopSidebarCollapsed && !isOperationsDashboard ? 'lg:flex' : 'lg:hidden',
             isLight
               ? 'border-slate-200 bg-white/95 text-slate-950 shadow-sm shadow-slate-200/70'
               : 'border-white/10 bg-[#070b12]/95 text-white shadow-lg shadow-black/20'
@@ -1007,7 +1028,7 @@ const AppShellContent = ({ children }) => {
         >
           <button
             type="button"
-            onClick={() => setMobileSidebarOpen(true)}
+            onClick={() => desktopNavigation ? changeDesktopSidebar(false) : setMobileSidebarOpen(true)}
             className={isLight ? 'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm' : 'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.045] text-slate-100 shadow-lg shadow-black/20'}
             aria-label={tx('Open navigation')}
           >
@@ -1053,7 +1074,7 @@ const AppShellContent = ({ children }) => {
           />
         ) : null}
 
-        <aside className={[
+        <aside id="staynex-sidebar" data-desktop-collapsed={desktopSidebarCollapsed} inert={desktopNavigation ? desktopSidebarCollapsed : !mobileSidebarOpen} className={[
           shellStyles.sidebar,
           'fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] shrink-0 flex-col overflow-y-auto border-r shadow-2xl backdrop-blur-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-full lg:w-72 lg:translate-x-0',
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
@@ -1385,6 +1406,7 @@ const AppShellContent = ({ children }) => {
         </main>
       </div>
     </div>
+    </ShellNavigationContext.Provider>
   );
 };
 
