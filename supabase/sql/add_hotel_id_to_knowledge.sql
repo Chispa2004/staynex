@@ -1,5 +1,5 @@
 -- Hotel-scoped Knowledge Base.
--- Run after create_hotels_and_hotel_users.sql so the demo hotel slug exists.
+-- Run after create_hotels_and_hotel_users.sql. Preserve ownerless legacy records.
 
 alter table public.hotel_knowledge
 add column if not exists hotel_id uuid references public.hotels(id) on delete cascade;
@@ -16,15 +16,7 @@ add column if not exists is_active boolean default true;
 alter table public.hotel_knowledge
 add column if not exists updated_at timestamptz default now();
 
-update public.hotel_knowledge
-set hotel_id = (
-  select id
-  from public.hotels
-  where slug = 'staynex-demo'
-  order by created_at asc
-  limit 1
-)
-where hotel_id is null;
+-- Preserve unowned legacy rows for explicit review. Never assign an arbitrary demo hotel.
 
 update public.hotel_knowledge
 set

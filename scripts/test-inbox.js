@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { sanitizeInboxMessageTranslations } from '../dashboard/lib/inbox-message-presentation.js';
 import {
   CONVERSATION_AI_MODES,
   getConversationAiMode,
@@ -12,19 +13,22 @@ const loadInboxModuleForTest = () => {
     .replace("import { getSupabaseAdmin } from './supabase';\n", '')
     .replace("import { buildConversationCopilot } from './ai-copilot';\n", '')
     .replace("import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';\n", '')
+    .replace("import { sanitizeInboxMessageTranslations } from './inbox-message-presentation.js';\n", '')
     .replace('export const getInboxConversations', 'const getInboxConversations');
 
   return new Function(
     'getSupabaseAdmin',
     'buildConversationCopilot',
     'isGuestMemoryEnabled',
+    'sanitizeInboxMessageTranslations',
     `${source}\nreturn { getInboxConversations };`
   )(
     () => {
       throw new Error('Unexpected default Supabase admin access in inbox test');
     },
     () => null,
-    () => false
+    () => false,
+    sanitizeInboxMessageTranslations
   );
 };
 

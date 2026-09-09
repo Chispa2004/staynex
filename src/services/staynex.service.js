@@ -364,6 +364,7 @@ export const prepareInboundGuestMessageForProcessing = async ({
   });
   const staffTranslation = aiAutoResponseGate.allowed
     ? await translateForStaff({
+      hotelId: activeHotel.id,
       text: message,
       guestLanguage,
       staffLanguage: staffTranslationLanguage

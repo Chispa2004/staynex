@@ -19,14 +19,21 @@ const isMissingTranslationFields = (error) => (
   || error?.details?.includes('metadata')
 );
 
-const getMessageForTranslation = async ({ messageId }) => {
+const getMessageForTranslation = async ({ messageId, hotelId }) => {
   const supabase = getSupabase();
+  // Authorize identity and conversation before selecting message content or cache.
+  const { data: identity, error: identityError } = await supabase.from('messages')
+    .select('id, conversation_id').eq('id', messageId).eq('hotel_id', hotelId).maybeSingle();
+  if (identityError) throw identityError;
+  if (!identity || await getConversationHotelId(identity.conversation_id, hotelId) !== hotelId) return null;
   const baseSelect = 'id, conversation_id, sender_type, content, created_at';
   const extendedSelect = `${baseSelect}, original_language, translated_language, translated_text, translation_provider, translation_confidence, metadata`;
   let { data, error } = await supabase
     .from('messages')
     .select(extendedSelect)
     .eq('id', messageId)
+    .eq('hotel_id', hotelId)
+    .eq('conversation_id', identity.conversation_id)
     .maybeSingle();
 
   if (error && isMissingTranslationFields(error)) {
@@ -34,6 +41,8 @@ const getMessageForTranslation = async ({ messageId }) => {
       .from('messages')
       .select(baseSelect)
       .eq('id', messageId)
+      .eq('hotel_id', hotelId)
+      .eq('conversation_id', identity.conversation_id)
       .maybeSingle();
 
     data = fallback.data;
@@ -47,12 +56,13 @@ const getMessageForTranslation = async ({ messageId }) => {
   return data;
 };
 
-const getConversationHotelId = async (conversationId) => {
+const getConversationHotelId = async (conversationId, hotelId) => {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('conversations')
     .select('hotel_id')
     .eq('id', conversationId)
+    .eq('hotel_id', hotelId)
     .maybeSingle();
 
   if (error) {
@@ -62,7 +72,7 @@ const getConversationHotelId = async (conversationId) => {
   return data?.hotel_id || null;
 };
 
-const updateMessageTranslationCache = async ({ message, translation }) => {
+const updateMessageTranslationCache = async ({ message, hotelId, translation }) => {
   const supabase = getSupabase();
   const targetLanguage = translation.targetLanguage;
   const metadata = {
@@ -72,6 +82,8 @@ const updateMessageTranslationCache = async ({ message, translation }) => {
         ? message.metadata.translations
         : {}),
       [targetLanguage]: {
+        cache_scope: 'hotel-v1',
+        hotel_id: hotelId,
         translated_text: translation.translatedText,
         source_language: translation.sourceLanguage,
         target_language: targetLanguage,
@@ -92,7 +104,9 @@ const updateMessageTranslationCache = async ({ message, translation }) => {
       translation_provider: translation.provider,
       translation_confidence: translation.confidence
     })
-    .eq('id', message.id);
+    .eq('id', message.id)
+    .eq('hotel_id', hotelId)
+    .eq('conversation_id', message.conversation_id);
 
   if (error && isMissingTranslationFields(error)) {
     return null;
@@ -137,35 +151,39 @@ export const handleTranslateMessage = async (req, res, next) => {
       hotelId,
       messageId
     } = req.body;
+    // This internal endpoint receives the server-authorized hotel from /api/translate.
+    if (typeof hotelId !== 'string' || !hotelId.trim()) {
+      return res.status(400).json({ error: 'Authorized hotel context required' });
+    }
     const normalizedTarget = normalizeLanguage(targetLanguage || 'es');
     let message = null;
     let sourceText = String(text || '').trim();
 
     if (messageId) {
-      message = await getMessageForTranslation({ messageId });
+      message = await getMessageForTranslation({ messageId, hotelId });
 
       if (!message) {
         return res.status(404).json({ error: 'Message not found' });
       }
 
-      const conversationHotelId = await getConversationHotelId(message.conversation_id);
-
-      if (hotelId && conversationHotelId !== hotelId) {
-        return res.status(404).json({ error: 'Message not found in active workspace' });
-      }
-
-      sourceText = sourceText || message.content;
+      sourceText = message.content;
       const cached = message.metadata?.translations?.[normalizedTarget];
 
-      if (cached?.translated_text) {
+      // Older cache entries may have come from the formerly shared translator
+      // cache. Recompute on demand instead of trusting unverifiable provenance.
+      if (cached?.translated_text && cached.cache_scope === 'hotel-v1' && cached.hotel_id === hotelId
+        && cached.target_language === normalizedTarget) {
         logger.info('message_translation_cache_hit', {
-          hotelId: conversationHotelId,
+          hotelId,
           messageId,
           targetLanguage: normalizedTarget,
           provider: cached.provider || null
         });
 
         return res.status(200).json({
+          cache_scope: 'hotel-v1',
+          hotelId,
+          messageId,
           translatedText: cached.translated_text,
           sourceLanguage: cached.source_language || message.original_language || sourceLanguage || null,
           targetLanguage: normalizedTarget,
@@ -185,6 +203,7 @@ export const handleTranslateMessage = async (req, res, next) => {
     });
 
     const translation = await translateText({
+      hotelId,
       text: sourceText,
       sourceLanguage: normalizedSource,
       targetLanguage: normalizedTarget,
@@ -196,6 +215,7 @@ export const handleTranslateMessage = async (req, res, next) => {
     if (message && translation.translatedText) {
       metadata = await updateMessageTranslationCache({
         message,
+        hotelId,
         translation
       });
     }
@@ -210,6 +230,9 @@ export const handleTranslateMessage = async (req, res, next) => {
     });
 
     return res.status(200).json({
+      cache_scope: 'hotel-v1',
+      hotelId,
+      messageId: messageId || null,
       translatedText: translation.translatedText,
       sourceLanguage: translation.sourceLanguage,
       targetLanguage: translation.targetLanguage,

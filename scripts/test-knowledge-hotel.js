@@ -97,15 +97,15 @@ try {
     throw new Error('OpenAI context source for Hotel A did not include the correct KB');
   }
 
-  if (!fallbackResult?.fallback) {
-    throw new Error('Demo fallback was not used for a hotel without matching KB');
+  if (fallbackResult !== null) {
+    throw new Error('Another hotel knowledge leaked into a hotel without matching KB');
   }
 
   console.log(JSON.stringify({
     ok: true,
     hotelA: answerA.reply,
     hotelB: answerB.reply,
-    fallbackHotelId: fallbackResult.entry.hotel_id
+    fallbackHotelId: null
   }, null, 2));
 } catch (error) {
   if (isMissingMigration(error)) {

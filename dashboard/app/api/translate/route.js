@@ -37,6 +37,7 @@ export async function POST(request) {
         .from('messages')
         .select('id, conversation_id')
         .eq('id', messageId)
+        .eq('hotel_id', hotel.id)
         .maybeSingle();
 
       if (messageError) {

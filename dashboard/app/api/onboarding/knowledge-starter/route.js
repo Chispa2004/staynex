@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { canAccess } from '@/lib/permissions';
+import { isAdminKnowledgeRole, isProtectedKnowledgeEntry } from '@/lib/knowledge';
 
 const starterEntries = [
   { key: 'desayuno', title: 'Breakfast', category: 'food', value: 'Breakfast is served from 07:30 to 10:30.' },
@@ -14,7 +16,10 @@ const starterEntries = [
 
 export async function POST(request) {
   try {
-    const { supabase, hotel } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+    if (!hotel?.id || !canAccess(role, 'knowledge_base_manage')) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
     const records = starterEntries.map((entry) => ({
       ...entry,
       hotel_id: hotel.id,
@@ -24,12 +29,18 @@ export async function POST(request) {
 
     const { data: existing, error: existingError } = await supabase
       .from('hotel_knowledge')
-      .select('id, key')
+      .select('*')
       .eq('hotel_id', hotel.id)
       .in('key', records.map((entry) => entry.key));
 
     if (existingError) {
       throw existingError;
+    }
+
+    // Check the entire batch before writes: starter must preserve the same
+    // protected-entry restrictions as the Knowledge editor.
+    if (!isAdminKnowledgeRole(role) && (existing || []).some(isProtectedKnowledgeEntry)) {
+      return NextResponse.json({ error: 'This knowledge entry is admin-only' }, { status: 403 });
     }
 
     const existingByKey = new Map((existing || []).map((entry) => [entry.key, entry]));
@@ -38,7 +49,7 @@ export async function POST(request) {
     for (const record of records) {
       const existingEntry = existingByKey.get(record.key);
       const query = existingEntry
-        ? supabase.from('hotel_knowledge').update(record).eq('id', existingEntry.id).select('*').single()
+        ? supabase.from('hotel_knowledge').update(record).eq('id', existingEntry.id).eq('hotel_id', hotel.id).select('*').single()
         : supabase.from('hotel_knowledge').insert(record).select('*').single();
       const { data, error } = await query;
 

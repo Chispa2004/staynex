@@ -767,7 +767,7 @@ const upsertKnowledgeBase = async (hotelId) => {
     };
     const existingId = existingByKey.get(key);
     const query = existingId
-      ? client.from('hotel_knowledge').update(record).eq('id', existingId)
+      ? client.from('hotel_knowledge').update(record).eq('id', existingId).eq('hotel_id', hotelId)
       : client.from('hotel_knowledge').insert(record);
     const { error } = await query;
 
@@ -2345,7 +2345,7 @@ const upsertCheckinDemoKnowledge = async ({ supabase, plan }) => {
     const { metadata: _metadata, ...record } = entry;
     const existingId = existingByKey.get(entry.key);
     const query = existingId
-      ? supabase.from('hotel_knowledge').update(record).eq('id', existingId)
+      ? supabase.from('hotel_knowledge').update(record).eq('id', existingId).eq('hotel_id', plan.hotel.id)
       : supabase.from('hotel_knowledge').insert(record);
     const { error } = await query;
 

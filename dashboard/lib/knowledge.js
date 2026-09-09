@@ -45,6 +45,7 @@ const normalizeScope = (value = '') => String(value)
 export const isAdminKnowledgeRole = (role) => KNOWLEDGE_ADMIN_ROLES.includes(role);
 
 export const isProtectedKnowledgeEntry = (entry = {}) => {
+  entry = entry || {};
   const values = [
     entry.category,
     entry.key,

@@ -142,6 +142,7 @@ export const getOrCreateLocalTestHotel = async () => {
 };
 
 export const getHotelKnowledge = async (hotelId) => {
+  if (!hotelId) return [];
   const client = getSupabase();
 
   const { data, error } = await client

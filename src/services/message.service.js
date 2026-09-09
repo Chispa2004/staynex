@@ -48,6 +48,7 @@ export const sendStaffMessage = async ({
   const guestLanguage = conversation.guest?.preferred_language || 'es';
   const detectedStaffLanguage = detectLanguage(message, staffLanguage || 'es');
   const guestTranslation = await translateForGuest({
+    hotelId: conversation.hotel_id,
     text: message.trim(),
     staffLanguage: detectedStaffLanguage,
     guestLanguage

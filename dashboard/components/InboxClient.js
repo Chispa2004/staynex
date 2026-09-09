@@ -12,7 +12,7 @@ import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import ergonomics from './InboxErgonomics.module.css';
-import { shouldCompactOriginalMessage } from '@/lib/inbox-message-presentation';
+import { shouldCompactOriginalMessage, getVerifiedMessageTranslation } from '@/lib/inbox-message-presentation';
 import { cn, ui } from '@/lib/ui/styles';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { MessageAttentionProvider, AttentionToolbar, AttentionMessage } from './MessageAttentionControls';
@@ -210,22 +210,6 @@ const persistTranslationLanguage = (language, hotelId) => {
   }
 
   window.localStorage.setItem(scopedKey(INBOX_TRANSLATION_LANGUAGE_KEY, hotelId), normalizeTranslationLanguage(language));
-};
-
-const getMessageTranslationFromMetadata = (message, targetLanguage) => {
-  const normalizedTarget = normalizeTranslationLanguage(targetLanguage);
-  const cached = message?.metadata?.translations?.[normalizedTarget];
-
-  if (!cached?.translated_text) {
-    return null;
-  }
-
-  return {
-    translation: cached.translated_text,
-    sourceLanguage: cached.source_language || message.original_language || null,
-    targetLanguage: cached.target_language || normalizedTarget,
-    provider: cached.provider || 'cache'
-  };
 };
 
 const dispatchUnreadTotal = (total, hotelId) => {
@@ -1195,7 +1179,7 @@ export const InboxClient = ({ conversations }) => {
       targetLanguage: normalizedTarget
     }).sourceLanguage;
 
-    if (sourceLanguage && sourceLanguage === normalizedTarget) {
+    if (shouldCompactOriginalMessage({ sourceLanguage: item.original_language, readingLanguage: normalizedTarget })) {
       return null;
     }
 
@@ -1228,6 +1212,10 @@ export const InboxClient = ({ conversations }) => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not translate message');
+      }
+      if (body.cache_scope !== 'hotel-v1' || body.hotelId !== currentHotel?.id
+        || body.messageId !== item.id || body.targetLanguage !== normalizedTarget) {
+        throw new Error('Translation provenance could not be verified');
       }
 
       const nextTranslation = {
@@ -1280,35 +1268,10 @@ export const InboxClient = ({ conversations }) => {
         return next;
       });
     }
-  }, [translatingMessages, translationOverrides]);
+  }, [translatingMessages, translationOverrides, currentHotel?.id]);
 
-  useEffect(() => {
-    if (!selectedConversation?.messages?.length || !staffLanguage) {
-      return;
-    }
-
-    selectedConversation.messages
-      .filter((item) => ['guest', 'ai'].includes(item.sender_type))
-      .slice(-20)
-      .forEach((item) => {
-        const sourceLanguage = item.original_language || translateMessageForStaff({
-          message: item.content,
-          targetLanguage: staffLanguage
-        }).sourceLanguage;
-        const key = `${item.id}:${staffLanguage}`;
-        const cached = getMessageTranslationFromMetadata(item, staffLanguage);
-
-        if (
-          sourceLanguage
-          && sourceLanguage !== staffLanguage
-          && !cached
-          && !translationOverrides[key]
-          && !translatingMessages[key]
-        ) {
-          requestMessageTranslation(item, staffLanguage);
-        }
-      });
-  }, [requestMessageTranslation, selectedConversation?.id, selectedConversation?.messages, staffLanguage, translatingMessages, translationOverrides]);
+  // Translation is requested by the message action, never by opening a chat
+  // or changing reading language. Historical entries must not trigger a backfill.
 
   const handleTranslationLanguageChange = async (event) => {
     const nextLanguage = normalizeTranslationLanguage(event.target.value);
@@ -1924,22 +1887,9 @@ export const InboxClient = ({ conversations }) => {
           {(selectedConversation?.messages || []).map((item) => {
             const isStaff = item.sender_type === 'staff';
             const translationKey = `${item.id}:${staffLanguage}`;
-            const fallbackTranslation = item.sender_type === 'guest'
-              ? translateMessageForStaff({
-                message: item.content,
-                targetLanguage: staffLanguage || language
-              })
-              : { translation: null, sourceLanguage: item.original_language || null, targetLanguage: item.translated_language || null };
-            const metadataTranslation = getMessageTranslationFromMetadata(item, staffLanguage);
-            const directTranslation = item.translated_text && item.translated_language === staffLanguage
-              ? {
-                translation: item.translated_text,
-                sourceLanguage: item.original_language || fallbackTranslation.sourceLanguage,
-                targetLanguage: item.translated_language || fallbackTranslation.targetLanguage,
-                provider: item.translation_provider
-              }
-              : null;
-            const messageTranslation = translationOverrides[translationKey] || metadataTranslation || directTranslation || fallbackTranslation;
+            const metadataTranslation = getVerifiedMessageTranslation(item, staffLanguage, currentHotel?.id);
+            const messageTranslation = translationOverrides[translationKey] || metadataTranslation
+              || { translation: null, sourceLanguage: item.original_language || null, targetLanguage: staffLanguage };
             const hasTranslation = Boolean(messageTranslation.translation);
             const isTranslating = Boolean(translatingMessages[translationKey]);
             const translationVisible = hasTranslation && !hiddenTranslations[item.id];
@@ -2067,6 +2017,15 @@ export const InboxClient = ({ conversations }) => {
                       <p className={isLight ? 'border-t border-slate-200 pt-3 text-xs font-semibold text-slate-500' : 'border-t border-white/10 pt-3 text-xs font-semibold text-slate-500'}>
                         {t('inbox.translating')}
                       </p>
+                    ) : !compactOriginal && item.content?.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => requestMessageTranslation(item, staffLanguage)}
+                        className={isLight ? 'inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100' : 'inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs hover:bg-white/10'}
+                      >
+                        <Languages className="h-3 w-3" aria-hidden="true" />
+                        {t('inbox.showTranslation')}
+                      </button>
                     ) : null}
                   </div>
                 </article>

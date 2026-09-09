@@ -13,6 +13,7 @@
     "check:all": "npm run check:syntax && npm run dashboard:build",
     "test:message": "node scripts/test-message.js",
     "test:message-attention": "node scripts/test-message-attention.js",
+    "test:translation-knowledge-isolation": "node scripts/test-translation-knowledge-isolation.js",
     "test:mock-ai": "node scripts/test-mock-ai.js",
     "test:knowledge": "node scripts/test-knowledge.js",
     "test:knowledge-hotel": "node scripts/test-knowledge-hotel.js",
