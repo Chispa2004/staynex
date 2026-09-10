@@ -5,6 +5,7 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
+    "test:manual-send": "node scripts/test-manual-send.js",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "check": "node --check src/server.js",

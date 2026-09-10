@@ -190,8 +190,8 @@ assertIncludes(supabaseService, 'Conversation tenant could not be resolved', 'Mi
 assertIncludes(supabaseService, 'Conversation not found in active workspace', 'Mismatched hotel must fail closed');
 assertIncludes(supabaseService, 'hotel_id: conversationHotelId', 'Message inserts must use derived conversation hotel_id');
 assertIncludes(supabaseService, 'client = getSupabase()', 'createMessage should support injectable client while defaulting to production Supabase');
-assertIncludes(messageService, 'hotelId is required', 'Manual staff send should require hotelId');
-assertIncludes(messageService, 'hotelId,', 'Manual staff send should pass hotelId into createMessage');
+assertIncludes(messageService, "typeof hotelId !== 'string' || !hotelId.trim()", 'Manual staff send should require hotelId');
+assertIncludes(messageService, 'hotel_id: hotelId', 'Manual staff send should persist the authorized hotelId');
 assert.ok(countMatches(staynexService, /createMessage\(\{\s*conversationId: conversation\.id,\s*hotelId: activeHotel\.id/gs) >= 3, 'Inbound, system AI event and AI reply should pass activeHotel.id');
 assertIncludes(demoDataService, 'hotel_id: hotelId', 'Demo message inserts should include hotel_id');
 assertIncludes(onboardingDemoRoute, 'hotel_id: hotelId', 'Onboarding demo message inserts should include hotel_id');
@@ -223,7 +223,7 @@ assertIncludes(docs, 'Phase B - Contract', 'Docs should describe Stage B rollout
 assertIncludes(docs, 'Real DB RLS behavior must be verified after Stage B', 'Docs should not overstate static SQL tests');
 assertIncludes(packageJson, '"test:messages-tenant-isolation": "node scripts/test-messages-tenant-isolation.js"', 'Package script should expose P0-1 test');
 assertIncludes(inboxLib, 'return conversations.map((conversation) =>', 'Inbox should still assemble own conversations');
-assertIncludes(messageService, 'sendWhatsAppMessage', 'Manual staff send should still send WhatsApp logically');
+assertIncludes(messageService, 'sendManualWhatsAppMessage', 'Manual staff send should use the dedicated provider adapter without retries');
 assertIncludes(staynexService, 'sendReply', 'Inbound Twilio path should still support replies');
 
 // Functional createMessage tests using product code with a fake Supabase client.

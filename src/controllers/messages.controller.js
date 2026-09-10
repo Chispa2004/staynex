@@ -3,6 +3,7 @@ import { getSupabase } from '../services/supabase.service.js';
 import { detectLanguage, translateText } from '../services/translation.service.js';
 import { normalizeLanguage } from '../services/language.service.js';
 import { logger } from '../utils/logger.js';
+import { manualDelivery, manualDeliveryText } from '../../shared/manual-send/contract.js';
 
 const isMissingTranslationFields = (error) => (
   error?.message?.includes('original_language')
@@ -121,24 +122,14 @@ const updateMessageTranslationCache = async ({ message, hotelId, translation }) 
 
 export const handleSendMessage = async (req, res, next) => {
   try {
-    const { conversationId, message, hotelId, staffLanguage } = req.body;
-
-    const result = await sendStaffMessage({
-      conversationId,
-      message,
-      hotelId,
-      staffLanguage
-    });
+    const result = await sendStaffMessage(req.body);
 
     return res.status(200).json(result);
   } catch (error) {
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({
-        error: error.message
-      });
-    }
-
-    return next(error);
+    const delivery = error.manualSendSafe
+      ? manualDelivery('failed', error.code, error.retryable)
+      : manualDelivery('unknown', 'response_unknown');
+    return res.status(error.manualSendSafe ? error.statusCode : 500).json({ delivery, error: manualDeliveryText(delivery) });
   }
 };
 
