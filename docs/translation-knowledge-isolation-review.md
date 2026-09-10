@@ -1,5 +1,7 @@
 # Revisión acotada: traducción y hotel_knowledge (2026-09-08)
 
+Seguimiento actualizado de permisos PostgreSQL 17 y despliegue: [preparación de despliegue](inbox-privileges-deployment.md). Inventario remoto aportado compatible; los tres helpers desplegados coinciden con los probados localmente. Las correcciones y el tratamiento histórico se conservan. Aplicación de SQL y verificación funcional desplegada pendientes.
+
 Rama: `codex/reception-message-dashboard`. HEAD inicial y final: `be806cb9934ccf1ac27963eecc3630c46e4d39d1`. Árbol inicialmente limpio. Leídos README y docs/09-testing.md; no se encontraron AGENTS.md en el repositorio ni sus directorios ascendentes. No se hizo commit, push, despliegue, acceso Supabase remoto ni cambios en .env. El trabajo previo se conserva.
 
 ## Veredicto y alcance de la evidencia

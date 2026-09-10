@@ -29,7 +29,7 @@ select r.rolname,r.rolsuper,r.rolbypassrls,r.rolinherit,
   p.privilege,has_table_privilege(r.oid,c.oid,p.privilege) as allowed
 from pg_roles r cross join pg_class c
 left join pg_roles s on s.rolname='service_role'
-cross join (values('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) p(privilege)
+cross join (values('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER'),('MAINTAIN')) p(privilege)
 where r.rolname in ('anon','authenticated','service_role') and c.oid=to_regclass('public.hotel_knowledge')
 order by r.rolname,p.privilege;
 

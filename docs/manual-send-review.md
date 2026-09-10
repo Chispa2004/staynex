@@ -1,5 +1,7 @@
 # Envío manual de Inbox: validación y resultado verificable
 
+Seguimiento actualizado de esquema y privilegios: [preparación de despliegue](inbox-privileges-deployment.md). Inventario remoto aportado contrastado: catálogo compatible con metadata/UUID y lectura ampliada. Pendientes despliegue/aplicación de SQL y verificación funcional; no se dan por ejecutados.
+
 Revisión local del 10 de septiembre de 2026. Rama `codex/reception-message-dashboard`, base `43763d836f45c3163bf48596f7dd81ea2c7d4e06`. Árbol inicialmente limpio. Alcance limitado al envío manual; sin cambios remotos ni automatizaciones activadas.
 
 ## Hallazgos y correcciones
