@@ -1,12 +1,10 @@
 // Dedicated local PostgreSQL only. No Supabase endpoint, inherited credentials or provider calls.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
-const root=path.resolve(__dirname,'..'),evidence=path.join(root,'.npm-cache/translation-knowledge-followup');
-const docker='C:/Users/chimi/AppData/Local/Programs/DockerDesktop/resources/bin/docker.exe';
-const host=['--host','npipe:////./pipe/dockerDesktopLinuxEngine'],container='staynex-translation-knowledge-20260909';
-const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>/^(PATH|PATHEXT|SYSTEMROOT|WINDIR|TEMP|TMP|COMSPEC|APPDATA|LOCALAPPDATA|USERPROFILE)$/i.test(k)));
-const inspect=JSON.parse(execFileSync(docker,[...host,'inspect',container],{env,encoding:'utf8'}))[0];
-assert.equal(inspect.Config.Labels['staynex.disposable'],'translation-knowledge-20260909');assert.equal(inspect.HostConfig.NetworkMode,'none');
-assert.equal(Object.keys(inspect.HostConfig.PortBindings??{}).length,0);assert.equal(inspect.HostConfig.Tmpfs['/var/lib/postgresql/data'],'rw');
+const root=path.resolve(__dirname,'..'),evidence=path.join(root,'.npm-cache/ci/postgres');
+const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>/^(PATH|PATHEXT|SYSTEMROOT|WINDIR|TEMP|TMP|COMSPEC|APPDATA|LOCALAPPDATA|USERPROFILE|HOME)$/i.test(k)));
+const pg=require('./ci/disposable-postgres.cjs').createDisposablePostgres({env});
+const {docker,host,container,inspect}=pg;
+try {
 fs.mkdirSync(evidence,{recursive:true});const results=[];let seq=0;
 const sql=(db,query,expectedError)=>{
   let output='',code=0;try{output=execFileSync(docker,[...host,'exec','-i',container,'psql','-X','-qAt','-U','postgres','-d',db,'-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose'],{input:query,env,encoding:'utf8',stdio:['pipe','pipe','pipe'],timeout:30000});}
@@ -87,3 +85,5 @@ check('Legacy nullable installation preserves ownerless row even with demo hotel
   assert.equal(sql(legacy,'select count(*) from hotel_knowledge where hotel_id is null;'),'1');
 });
 fs.writeFileSync(path.join(evidence,'postgres-resource.json'),JSON.stringify({container,id:inspect.Id,databases:[canonical,legacy],image:inspect.Image,endpoint:host[1],network:'none',tmpfs:true},null,2));
+
+} finally { pg.cleanup(); console.log('Disposable PostgreSQL container removed'); }
