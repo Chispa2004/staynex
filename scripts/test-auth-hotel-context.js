@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { validateManualSend, manualDelivery, manualDeliveryText, normalizeManualDelivery } from '../shared/manual-send/contract.js';
 import {
   canAccess,
   canAccessPlatform,
@@ -452,14 +453,14 @@ const loadMessagesSendRoute = ({ getCurrentHotelForRequest }) => {
     'getCurrentHotelForRequest',
     'getInternalApiHeaders',
     'canAccess',
-    'sanitizePilotOperationalMessage',
+    'validateManualSend', 'manualDelivery', 'manualDeliveryText', 'normalizeManualDelivery',
     `${source}\nreturn { POST };`
   )(
     NextResponse,
     getCurrentHotelForRequest,
     () => ({ Authorization: 'Bearer internal-test-token' }),
     canAccess,
-    (value, fallback) => value || fallback
+    validateManualSend, manualDelivery, manualDeliveryText, normalizeManualDelivery
   );
 };
 

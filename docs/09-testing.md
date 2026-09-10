@@ -2,6 +2,12 @@
 
 Audit date: 2026-07-15
 
+## CI mínimo actualizado (2026-09-10)
+
+El workflow `Staynex CI` ejecuta `npm run ci:critical`, `npm run ci:dashboard` y `npm run ci:postgres` en jobs independientes. Node está fijado en `.node-version`; ambos proyectos se instalan con sus lockfiles mediante `npm ci`. Véase [CI mínimo real](ci-minimum.md) para cobertura, entorno sintético, PostgreSQL desechable, resultados locales y pendientes de GitHub.
+
+`check:syntax` ahora descubre y comprueba individualmente los archivos JS/CJS/MJS de los directorios descritos en ese documento. El JSX corresponde al build; la sintaxis por sí sola no valida funcionamiento o seguridad. `check:all` conserva su alcance histórico de sintaxis + build y no sustituye los tres controles de CI.
+
 ## Script Inventory
 
 Scripts are defined in root `package.json` and dashboard `package.json`.

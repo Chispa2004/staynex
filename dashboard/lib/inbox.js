@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from './supabase';
 import { buildConversationCopilot } from './ai-copilot';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
+import { sanitizeInboxMessageTranslations } from './inbox-message-presentation.js';
 
 const INBOX_CONVERSATION_LIMIT = 100;
 const INBOX_MESSAGE_LIMIT = 3000;
@@ -66,7 +67,7 @@ const getMessagesForConversations = async ({ supabase, conversationIds, hotelId 
     throw error;
   }
 
-  return data || [];
+  return (data || []).map((message) => sanitizeInboxMessageTranslations(message, hotelId));
 };
 
 const getGuestsForInbox = async ({ supabase, guestIds, hotelId }) => {

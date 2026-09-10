@@ -2,7 +2,6 @@ import { validateAiResponse } from '../schemas/ai-response.schema.js';
 import { getSupabase } from './supabase.service.js';
 import { normalizeLanguage } from './language.service.js';
 import { logger } from '../utils/logger.js';
-import { getDefaultHotel } from './hotel.service.js';
 
 const KNOWLEDGE_DEMO_ENTRIES = [
   { key: 'desayuno', value: 'El desayuno es de 07:30 a 10:30.' },
@@ -124,6 +123,12 @@ const normalizeKnowledgeEntry = (entry) => ({
   is_active: entry.is_active ?? true
 });
 
+const requireKnowledgeHotel = (hotelId) => {
+  if (typeof hotelId !== 'string' || !hotelId.trim()) {
+    throw Object.assign(new Error('Hotel context required for knowledge writes'), { status: 400 });
+  }
+};
+
 export const getKnowledgeForHotel = async (hotelId, { activeOnly = true } = {}) => {
   if (!hotelId) {
     return [];
@@ -170,7 +175,7 @@ const matchesEntry = (entry, normalizedMessage) => {
   return candidates.some((candidate) => normalizedMessage.includes(normalize(candidate)));
 };
 
-export const searchKnowledge = async (message, hotelId, { allowDemoFallback = true } = {}) => {
+export const searchKnowledge = async (message, hotelId) => {
   const normalizedMessage = normalize(message);
   const matchedRule = KNOWLEDGE_MATCHERS.find((rule) => (
     rule.words.some((word) => normalizedMessage.includes(normalize(word)))
@@ -193,33 +198,7 @@ export const searchKnowledge = async (message, hotelId, { allowDemoFallback = tr
     };
   }
 
-  if (!allowDemoFallback) {
-    return null;
-  }
-
-  const demoHotel = await getDefaultHotel();
-
-  if (!demoHotel?.id || demoHotel.id === hotelId) {
-    return null;
-  }
-
-  const demoResult = await searchKnowledge(message, demoHotel.id, {
-    allowDemoFallback: false
-  });
-
-  if (demoResult) {
-    logger.warn('Knowledge answer using demo hotel fallback', {
-      hotelId,
-      demoHotelId: demoHotel.id,
-      key: demoResult.entry.key
-    });
-
-    return {
-      ...demoResult,
-      fallback: true
-    };
-  }
-
+  // No shared/global contract exists here: another hotel's entries are never a fallback.
   return null;
 };
 
@@ -315,6 +294,7 @@ export const createKnowledgeEntry = async ({
   value,
   isActive = true
 }) => {
+  requireKnowledgeHotel(hotelId);
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('hotel_knowledge')
@@ -344,6 +324,7 @@ export const updateKnowledgeEntry = async (id, hotelId, {
   value,
   isActive
 }) => {
+  requireKnowledgeHotel(hotelId);
   const supabase = getSupabase();
   const updates = {
     updated_at: new Date().toISOString()
@@ -371,6 +352,7 @@ export const updateKnowledgeEntry = async (id, hotelId, {
 };
 
 export const deleteKnowledgeEntry = async (id, hotelId) => {
+  requireKnowledgeHotel(hotelId);
   const supabase = getSupabase();
   const { error } = await supabase
     .from('hotel_knowledge')

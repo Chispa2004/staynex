@@ -12,10 +12,12 @@ import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import ergonomics from './InboxErgonomics.module.css';
-import { shouldCompactOriginalMessage } from '@/lib/inbox-message-presentation';
+import { shouldCompactOriginalMessage, getVerifiedMessageTranslation } from '@/lib/inbox-message-presentation';
 import { cn, ui } from '@/lib/ui/styles';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { MessageAttentionProvider, AttentionToolbar, AttentionMessage } from './MessageAttentionControls';
+import { MANUAL_MESSAGE_MAX_LENGTH, manualDeliveryText, normalizeManualDelivery } from '../../shared/manual-send/contract.js';
+import { readManualRecovery, blocksSameManualSend, runManualAttempt, getManualSessionStorage, getManualMessageDelivery } from '@/lib/manual-send-client';
 
 const formatDate = (value) => {
   if (!value) {
@@ -210,22 +212,6 @@ const persistTranslationLanguage = (language, hotelId) => {
   }
 
   window.localStorage.setItem(scopedKey(INBOX_TRANSLATION_LANGUAGE_KEY, hotelId), normalizeTranslationLanguage(language));
-};
-
-const getMessageTranslationFromMetadata = (message, targetLanguage) => {
-  const normalizedTarget = normalizeTranslationLanguage(targetLanguage);
-  const cached = message?.metadata?.translations?.[normalizedTarget];
-
-  if (!cached?.translated_text) {
-    return null;
-  }
-
-  return {
-    translation: cached.translated_text,
-    sourceLanguage: cached.source_language || message.original_language || null,
-    targetLanguage: cached.target_language || normalizedTarget,
-    provider: cached.provider || 'cache'
-  };
 };
 
 const dispatchUnreadTotal = (total, hotelId) => {
@@ -539,6 +525,12 @@ export const InboxClient = ({ conversations }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(sortedConversations.length === 0);
   const [sending, setSending] = useState(false);
+  const [pendingSendKey, setPendingSendKey] = useState(null);
+  const [draftOwnerId, setDraftOwnerId] = useState(null);
+  const [manualRecoveries, setManualRecoveries] = useState({});
+  const [manualReceipts, setManualReceipts] = useState({});
+  const [manualHistoryReview, setManualHistoryReview] = useState(null);
+  const manualSendLock = useRef(new Set());
   const [takeoverUpdating, setTakeoverUpdating] = useState(false);
   const [hiddenTranslations, setHiddenTranslations] = useState({});
   const [readState, setReadState] = useState({});
@@ -583,6 +575,46 @@ export const InboxClient = ({ conversations }) => {
   const draftKey = selectedConversation?.id && currentHotel?.id
     ? `${currentHotel.id}:${selectedConversation.id}`
     : null;
+  const recoveryKey = draftOwnerId && draftKey ? `staynex_manual_send:${draftOwnerId}:${draftKey}` : null;
+  const selectedRecovery = recoveryKey ? manualRecoveries[recoveryKey] : null;
+  const sendingSelectedConversation = sending && pendingSendKey === recoveryKey;
+  const manualSendBlocked = blocksSameManualSend(selectedRecovery, message);
+  const historyReviewStatus = manualHistoryReview?.key === recoveryKey
+    && manualHistoryReview?.attemptId === selectedRecovery?.attemptId ? manualHistoryReview.status : null;
+
+  useEffect(() => {
+    if (!recoveryKey) return;
+    const receipts = {};
+    for (const row of selectedConversation?.messages || []) {
+      const key = `${recoveryKey}:${row.id}`;
+      const receipt = readManualRecovery(getManualSessionStorage(), key);
+      if (receipt) receipts[key] = receipt;
+    }
+    if (Object.keys(receipts).length) setManualReceipts(current => ({ ...current, ...receipts }));
+  }, [recoveryKey, selectedConversation?.messages]);
+
+  useEffect(() => {
+    if (!recoveryKey) return;
+    const receipt = readManualRecovery(getManualSessionStorage(), recoveryKey);
+    if (!receipt) return;
+    setManualRecoveries(current => ({ ...current, [recoveryKey]: receipt }));
+    if (['unknown', 'failed'].includes(receipt.delivery.status)) {
+      setDraftsByConversation(current => current[draftKey] !== undefined ? current : { ...current, [draftKey]: receipt.text });
+    }
+  }, [recoveryKey, draftKey]);
+
+  useEffect(() => {
+    if (!selectedRecovery || selectedRecovery.delivery.status !== 'unknown') return;
+    const row = selectedConversation?.messages?.find(item => item.id === selectedRecovery.attemptId);
+    const delivery = normalizeManualDelivery(row?.metadata?.manual_send);
+    if (delivery.status === 'unknown') return;
+    const receipt = { ...selectedRecovery, delivery };
+    setManualRecoveries(current => ({ ...current, [recoveryKey]: receipt }));
+    try { getManualSessionStorage().setItem(recoveryKey, JSON.stringify(receipt)); } catch { /* Preserve the in-memory result. */ }
+    if (['accepted', 'delivered'].includes(delivery.status)) {
+      setDraftsByConversation(current => current[draftKey]?.trim() === receipt.text ? { ...current, [draftKey]: '' } : current);
+    }
+  }, [selectedConversation?.messages, selectedRecovery, recoveryKey, draftKey]);
   const selectedSecondaryLine = [
     selectedRoomNumber ? `Habitación ${selectedRoomNumber}` : null,
     selectedPhoneNumber
@@ -733,6 +765,7 @@ export const InboxClient = ({ conversations }) => {
       }
 
       setCurrentHotel(body.hotel || null);
+      setDraftOwnerId(body.actorId || null);
       setPilotAiSafety(body.pilotAiSafety || null);
       setStaffLanguage(normalizeTranslationLanguage(
         readStoredTranslationLanguage(nextHotelId)
@@ -866,7 +899,7 @@ export const InboxClient = ({ conversations }) => {
     debugInbox('Inbox refreshed silently', { reason });
 
     if (!selectedBeforeReload) {
-      return;
+      return nextItems;
     }
 
     const messagesAfter = getConversationMessageCount(nextItems, selectedBeforeReload);
@@ -879,7 +912,20 @@ export const InboxClient = ({ conversations }) => {
     if (wasNearBottom && hasNewActiveMessages) {
       scrollMessagesToBottom('smooth');
     }
+    return nextItems;
   }, [isMessagesPanelNearBottom, loadInbox, markConversationAsRead, scrollMessagesToBottom]);
+
+  const reviewManualHistory = async () => {
+    if (!selectedRecovery || historyReviewStatus === 'loading') return;
+    const review = { key: recoveryKey, attemptId: selectedRecovery.attemptId };
+    setManualHistoryReview({ ...review, status: 'loading' });
+    try {
+      const items = await refreshInboxSilently({ reason: 'manual_send_review' });
+      setManualHistoryReview({ ...review, status: items ? 'updated' : 'error' });
+    } catch {
+      setManualHistoryReview({ ...review, status: 'error' });
+    }
+  };
 
   const scheduleRealtimeReload = useCallback((reason) => {
     if (realtimeReloadTimerRef.current) {
@@ -1078,46 +1124,47 @@ export const InboxClient = ({ conversations }) => {
 
   const sendMessage = async (event) => {
     event.preventDefault();
-
-    if (sending || !selectedConversation || !message.trim()) {
+    if (manualSendLock.current.size || sending || !selectedConversation || !message.trim() || !recoveryKey
+      || message.trim().length > MANUAL_MESSAGE_MAX_LENGTH
+      || blocksSameManualSend(selectedRecovery || readManualRecovery(getManualSessionStorage(), recoveryKey), message)) {
       return;
     }
-
     const messageToSend = message.trim();
-    setSending(true);
-
+    const conversationId = selectedConversation.id;
+    const hotelId = currentHotel.id;
+    const attemptId = crypto.randomUUID();
+    const capturedDraftKey = draftKey;
     try {
-      const response = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: {
-          ...(await getAuthHeaders()),
-          'Content-Type': 'application/json'
+      await runManualAttempt({
+        lock: manualSendLock.current, key: recoveryKey, text: messageToSend, attemptId,
+        persist: receipt => getManualSessionStorage().setItem(recoveryKey, JSON.stringify(receipt)),
+        onPending: () => { setPendingSendKey(recoveryKey); setSending(true); },
+        request: async () => {
+          const response = await fetch('/api/messages/send', {
+            method: 'POST', signal: AbortSignal.timeout(30000),
+            headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversationId, message: messageToSend, staffLanguage, attemptId })
+          });
+          return response.json();
         },
-        body: JSON.stringify({
-          conversationId: selectedConversation.id,
-          message: messageToSend,
-          staffLanguage
-        })
+        onResult: (receipt, row) => {
+          setManualRecoveries(current => ({ ...current, [recoveryKey]: receipt }));
+          const receiptKey = `${recoveryKey}:${attemptId}`;
+          setManualReceipts(current => ({ ...current, [receiptKey]: receipt }));
+          try { getManualSessionStorage().setItem(receiptKey, JSON.stringify(receipt)); } catch { /* Preserve the in-memory receipt. */ }
+          if (row?.hotel_id === hotelId && row.conversation_id === conversationId && row.id === attemptId) {
+            setItems(current => updateConversationWithMessage({ conversations: current, conversationId, message: row }));
+          }
+          if (['accepted', 'delivered'].includes(receipt.delivery.status)) {
+            setDraftsByConversation(current => current[capturedDraftKey]?.trim() === messageToSend ? { ...current, [capturedDraftKey]: '' } : current);
+            if (selectedIdRef.current === conversationId) markConversationAsRead(conversationId);
+          }
+          if (selectedIdRef.current === conversationId) scrollMessagesToBottom('smooth');
+        }
       });
-
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not send message');
-      }
-
-      setItems((current) => updateConversationWithMessage({
-        conversations: current,
-        conversationId: selectedConversation.id,
-        message: body.message
-      }));
-      markConversationAsRead(selectedConversation.id);
-      clearComposerDraft();
-      scrollMessagesToBottom('smooth');
-    } catch (error) {
-      console.error('Staff message send failed', error);
     } finally {
       setSending(false);
+      setPendingSendKey(null);
     }
   };
 
@@ -1195,7 +1242,7 @@ export const InboxClient = ({ conversations }) => {
       targetLanguage: normalizedTarget
     }).sourceLanguage;
 
-    if (sourceLanguage && sourceLanguage === normalizedTarget) {
+    if (shouldCompactOriginalMessage({ sourceLanguage: item.original_language, readingLanguage: normalizedTarget })) {
       return null;
     }
 
@@ -1228,6 +1275,10 @@ export const InboxClient = ({ conversations }) => {
 
       if (!response.ok) {
         throw new Error(body.error || 'Could not translate message');
+      }
+      if (body.cache_scope !== 'hotel-v1' || body.hotelId !== currentHotel?.id
+        || body.messageId !== item.id || body.targetLanguage !== normalizedTarget) {
+        throw new Error('Translation provenance could not be verified');
       }
 
       const nextTranslation = {
@@ -1280,35 +1331,10 @@ export const InboxClient = ({ conversations }) => {
         return next;
       });
     }
-  }, [translatingMessages, translationOverrides]);
+  }, [translatingMessages, translationOverrides, currentHotel?.id]);
 
-  useEffect(() => {
-    if (!selectedConversation?.messages?.length || !staffLanguage) {
-      return;
-    }
-
-    selectedConversation.messages
-      .filter((item) => ['guest', 'ai'].includes(item.sender_type))
-      .slice(-20)
-      .forEach((item) => {
-        const sourceLanguage = item.original_language || translateMessageForStaff({
-          message: item.content,
-          targetLanguage: staffLanguage
-        }).sourceLanguage;
-        const key = `${item.id}:${staffLanguage}`;
-        const cached = getMessageTranslationFromMetadata(item, staffLanguage);
-
-        if (
-          sourceLanguage
-          && sourceLanguage !== staffLanguage
-          && !cached
-          && !translationOverrides[key]
-          && !translatingMessages[key]
-        ) {
-          requestMessageTranslation(item, staffLanguage);
-        }
-      });
-  }, [requestMessageTranslation, selectedConversation?.id, selectedConversation?.messages, staffLanguage, translatingMessages, translationOverrides]);
+  // Translation is requested by the message action, never by opening a chat
+  // or changing reading language. Historical entries must not trigger a backfill.
 
   const handleTranslationLanguageChange = async (event) => {
     const nextLanguage = normalizeTranslationLanguage(event.target.value);
@@ -1349,6 +1375,12 @@ export const InboxClient = ({ conversations }) => {
 
   const updateComposerDraft = useCallback((nextValue) => {
     setMessage(nextValue);
+    // A new edit after a confirmed acceptance starts a new composition. Keeping
+    // the receipt until this gesture also closes the fast double-click window.
+    if (recoveryKey && ['accepted', 'delivered'].includes(selectedRecovery?.delivery.status)) {
+      setManualRecoveries(current => { const next = { ...current }; delete next[recoveryKey]; return next; });
+      try { getManualSessionStorage().removeItem(recoveryKey); } catch { /* Existing receipt remains conservative. */ }
+    }
 
     if (!draftKey) {
       return;
@@ -1358,7 +1390,7 @@ export const InboxClient = ({ conversations }) => {
       ...current,
       [draftKey]: nextValue
     }));
-  }, [draftKey]);
+  }, [draftKey, recoveryKey, selectedRecovery?.delivery.status]);
 
   const clearComposerDraft = useCallback(() => {
     setMessage('');
@@ -1923,23 +1955,11 @@ export const InboxClient = ({ conversations }) => {
           ) : null}
           {(selectedConversation?.messages || []).map((item) => {
             const isStaff = item.sender_type === 'staff';
+            const messageDelivery = getManualMessageDelivery(item, manualReceipts[`${recoveryKey}:${item.id}`] || selectedRecovery);
             const translationKey = `${item.id}:${staffLanguage}`;
-            const fallbackTranslation = item.sender_type === 'guest'
-              ? translateMessageForStaff({
-                message: item.content,
-                targetLanguage: staffLanguage || language
-              })
-              : { translation: null, sourceLanguage: item.original_language || null, targetLanguage: item.translated_language || null };
-            const metadataTranslation = getMessageTranslationFromMetadata(item, staffLanguage);
-            const directTranslation = item.translated_text && item.translated_language === staffLanguage
-              ? {
-                translation: item.translated_text,
-                sourceLanguage: item.original_language || fallbackTranslation.sourceLanguage,
-                targetLanguage: item.translated_language || fallbackTranslation.targetLanguage,
-                provider: item.translation_provider
-              }
-              : null;
-            const messageTranslation = translationOverrides[translationKey] || metadataTranslation || directTranslation || fallbackTranslation;
+            const metadataTranslation = getVerifiedMessageTranslation(item, staffLanguage, currentHotel?.id);
+            const messageTranslation = translationOverrides[translationKey] || metadataTranslation
+              || { translation: null, sourceLanguage: item.original_language || null, targetLanguage: staffLanguage };
             const hasTranslation = Boolean(messageTranslation.translation);
             const isTranslating = Boolean(translatingMessages[translationKey]);
             const translationVisible = hasTranslation && !hiddenTranslations[item.id];
@@ -2014,10 +2034,24 @@ export const InboxClient = ({ conversations }) => {
                     </p>
                     <p className={isLight ? 'inline-flex items-center gap-1 text-xs text-slate-500' : 'inline-flex items-center gap-1 text-xs opacity-60'}>
                       {formatTime(item.created_at)}
-                      {isStaff ? <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> : null}
+                      {isStaff && messageDelivery?.status === 'delivered' ? <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> : null}
                     </p>
                   </div>
                   <div className="space-y-3">
+                    {isStaff ? (
+                      <div className="text-xs" role="status">
+                        {messageDelivery ? manualDeliveryText(messageDelivery) : 'Estado de envío no disponible para este mensaje histórico.'}
+                        {['unknown', 'failed'].includes(messageDelivery?.status) ? (
+                          <button type="button" className="ml-2 underline" disabled={sending} onClick={() => {
+                            if (!recoveryKey) return;
+                            const receipt = { text: item.content, attemptId: item.id, delivery: messageDelivery };
+                            updateComposerDraft(item.content);
+                            setManualRecoveries(current => ({ ...current, [recoveryKey]: receipt }));
+                            try { getManualSessionStorage().setItem(recoveryKey, JSON.stringify(receipt)); } catch { /* No send is dispatched here. */ }
+                          }}>Recuperar texto</button>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <div>
                       {!compactOriginal ? <p className={isLight ? 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500' : 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-55'}>
                         {t('inbox.original')}
@@ -2067,6 +2101,15 @@ export const InboxClient = ({ conversations }) => {
                       <p className={isLight ? 'border-t border-slate-200 pt-3 text-xs font-semibold text-slate-500' : 'border-t border-white/10 pt-3 text-xs font-semibold text-slate-500'}>
                         {t('inbox.translating')}
                       </p>
+                    ) : !compactOriginal && item.content?.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => requestMessageTranslation(item, staffLanguage)}
+                        className={isLight ? 'inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100' : 'inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs hover:bg-white/10'}
+                      >
+                        <Languages className="h-3 w-3" aria-hidden="true" />
+                        {t('inbox.showTranslation')}
+                      </button>
                     ) : null}
                   </div>
                 </article>
@@ -2078,7 +2121,7 @@ export const InboxClient = ({ conversations }) => {
               </div>
             );
           })}
-          {sending ? (
+          {sendingSelectedConversation ? (
             <div className="flex items-center gap-2">
               <span className={cn('hidden h-9 w-9 items-center justify-center rounded-full border sm:inline-flex', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
                 <Bot className="h-4 w-4 animate-pulse" aria-hidden="true" />
@@ -2102,6 +2145,17 @@ export const InboxClient = ({ conversations }) => {
           ].join(' ')}
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
         >
+          {sendingSelectedConversation ? <p role="status" className="mb-2 text-sm">En proceso. Esperando respuesta del proveedor…</p> : sending ? <p role="status" className="mb-2 text-sm">Hay un envío en proceso en otra conversación. Puedes preparar este borrador mientras termina.</p> : selectedRecovery ? (
+            <div role="status" aria-live="polite" className="mb-2 rounded-lg border p-2 text-sm">
+              {manualDeliveryText(selectedRecovery.delivery)}
+              {selectedRecovery.delivery.status === 'unknown' ? (
+                <>
+                  <button type="button" className="ml-2 underline" disabled={historyReviewStatus === 'loading'} onClick={reviewManualHistory}>Actualizar historial</button>
+                  <p className="mt-1 text-xs">{historyReviewStatus === 'loading' ? 'Actualizando el historial de Staynex…' : historyReviewStatus === 'updated' ? 'Historial actualizado; el resultado sigue sin confirmar. WhatsApp no se ha consultado.' : historyReviewStatus === 'error' ? 'No se pudo actualizar el historial. El resultado sigue sin confirmar.' : 'Solo actualiza el historial de Staynex; no consulta WhatsApp.'}</p>
+                </>
+              ) : null}
+            </div>
+          ) : null}
           {replyWillTranslate ? (
             <p className={isLight ? 'mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600' : 'mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-400'}>
               <Languages className="h-3.5 w-3.5" aria-hidden="true" />
@@ -2141,6 +2195,7 @@ export const InboxClient = ({ conversations }) => {
           ].join(' ')}
           >
             <textarea
+              maxLength={MANUAL_MESSAGE_MAX_LENGTH}
               value={message}
               onChange={(event) => updateComposerDraft(event.target.value)}
               onKeyDown={handleComposerKeyDown}
@@ -2155,15 +2210,15 @@ export const InboxClient = ({ conversations }) => {
             />
             <button
               type="submit"
-              disabled={sending || !message.trim()}
+              disabled={sending || !message.trim() || !recoveryKey || manualSendBlocked || message.trim().length > MANUAL_MESSAGE_MAX_LENGTH}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
               <Send className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">{sending ? 'Enviando...' : t('buttons.send')}</span>
+              <span className="hidden sm:inline">{sendingSelectedConversation ? 'Enviando...' : sending ? 'Esperando otro envío' : selectedRecovery?.delivery.retryable && selectedRecovery.text === message.trim() ? 'Reintentar' : t('buttons.send')}</span>
             </button>
           </div>
           <div className={cn('mt-2 flex flex-wrap items-center gap-2 px-1 text-[11px] font-semibold', isLight ? 'text-slate-500' : 'text-slate-500')}>
-            <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" aria-hidden="true" /> Confirmación de envío activa</span>
+            <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" aria-hidden="true" /> Aceptación del proveedor y entrega son estados distintos</span>
             <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> Respuestas asistidas por IA</span>
           </div>
         </form>

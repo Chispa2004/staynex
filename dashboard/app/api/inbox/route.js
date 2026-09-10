@@ -6,7 +6,7 @@ import { getPilotAiSafetyReadiness } from '../../../../shared/pilot/ai-safety.js
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, hotelUser, fallback, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, hotelUser, fallback, role, user } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'inbox')) {
       return NextResponse.json({ conversations: [], hotel, error: 'Access denied' }, { status: 403 });
@@ -20,6 +20,7 @@ export async function GET(request) {
       conversations,
       hotel,
       hotelId: hotel?.id || null,
+      actorId: user?.id || null,
       pilotAiSafety: getPilotAiSafetyReadiness({ hotel, env: process.env }),
       staffLanguage: hotelUser?.preferred_translation_language || hotel?.default_language || 'es',
       fallback

@@ -5,14 +5,6 @@ import { logger } from '../utils/logger.js';
 const DEFAULT_TRANSLATION_MODEL = 'gpt-4.1-mini';
 const translationCache = new Map();
 
-const normalizeText = (value = '') => String(value)
-  .trim()
-  .toLowerCase()
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-  .replace(/\s+/g, ' ');
-
 const getOpenAiClient = () => {
   if (!process.env.OPENAI_API_KEY) {
     return null;
@@ -24,11 +16,17 @@ const getOpenAiClient = () => {
   });
 };
 
-const getCacheKey = ({ text, sourceLanguage, targetLanguage }) => [
-  normalizeLanguage(sourceLanguage || detectGuestLanguage(text)),
-  normalizeLanguage(targetLanguage),
-  normalizeText(text)
-].join(':');
+// Only trusted callers with hotel context may reuse translations. Preserve exact
+// content: punctuation/case can change names, room numbers and booking codes.
+const getCacheKey = ({ hotelId, text, sourceLanguage, targetLanguage, purpose }) => (
+  typeof hotelId === 'string' && hotelId.trim() ? JSON.stringify([
+    hotelId,
+    normalizeLanguage(sourceLanguage || detectGuestLanguage(text)),
+    normalizeLanguage(targetLanguage),
+    purpose,
+    text
+  ]) : null
+);
 
 const mockTranslations = [
   {
@@ -91,6 +89,7 @@ export const detectLanguage = (text, fallbackLanguage = 'es') => (
 );
 
 export const translateText = async ({
+  hotelId = null,
   text,
   sourceLanguage = null,
   targetLanguage = 'es',
@@ -124,12 +123,14 @@ export const translateText = async ({
   }
 
   const cacheKey = getCacheKey({
+    hotelId,
+    purpose,
     text: content,
     sourceLanguage: normalizedSource,
     targetLanguage: normalizedTarget
   });
 
-  if (translationCache.has(cacheKey)) {
+  if (cacheKey && translationCache.has(cacheKey)) {
     return {
       ...translationCache.get(cacheKey),
       cached: true
@@ -152,7 +153,7 @@ export const translateText = async ({
       confidence: 0.7
     };
 
-    translationCache.set(cacheKey, result);
+    if (cacheKey) translationCache.set(cacheKey, result);
     return result;
   }
 
@@ -187,7 +188,7 @@ export const translateText = async ({
       confidence: translatedText ? 0.92 : 0
     };
 
-    translationCache.set(cacheKey, result);
+    if (cacheKey) translationCache.set(cacheKey, result);
     return result;
   } catch (error) {
     logger.warn('translation_openai_failed', {
@@ -210,16 +211,18 @@ export const translateText = async ({
       confidence: 0.55
     };
 
-    translationCache.set(cacheKey, result);
+    if (cacheKey) translationCache.set(cacheKey, result);
     return result;
   }
 };
 
 export const translateForStaff = async ({
+  hotelId = null,
   text,
   guestLanguage,
   staffLanguage = 'es'
 } = {}) => translateText({
+  hotelId,
   text,
   sourceLanguage: guestLanguage,
   targetLanguage: staffLanguage,
@@ -227,10 +230,12 @@ export const translateForStaff = async ({
 });
 
 export const translateForGuest = async ({
+  hotelId = null,
   text,
   staffLanguage = 'es',
   guestLanguage = 'es'
 } = {}) => translateText({
+  hotelId,
   text,
   sourceLanguage: staffLanguage,
   targetLanguage: guestLanguage,
