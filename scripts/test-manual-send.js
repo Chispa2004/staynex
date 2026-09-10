@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createManualMessageSender } from '../src/services/message.service.js';
 import * as contract from '../shared/manual-send/contract.js';
 import { canAccess } from '../dashboard/lib/permissions.js';
-import { runManualAttempt, readManualRecovery, blocksSameManualSend } from '../dashboard/lib/manual-send-client.js';
+import { runManualAttempt, readManualRecovery, blocksSameManualSend, getManualMessageDelivery } from '../dashboard/lib/manual-send-client.js';
 import { sanitizeInboxMessageTranslations } from '../dashboard/lib/inbox-message-presentation.js';
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222',ID='33333333-3333-4333-8333-333333333333';
 const sid='SM'+'a'.repeat(32),accepted={sid,status:'queued'};
@@ -145,19 +145,47 @@ await test('Actual composer clears only the submitted draft after acceptance, pr
   const start=source.indexOf('const sendMessage = async (event) => {');
   const body=source.slice(source.indexOf('{',start)+1,source.indexOf('\n  const updateHumanTakeover',start)).replace(/\n  };\s*$/,'');
   for(const status of ['accepted','unknown','failed'])for(const edited of [false,true]){
-    const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)},key='synthetic:A:ca';let drafts={'A:ca':input.message},receipt,calls=0;
+    const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)},key='synthetic:A:ca';let drafts={'A:ca':input.message},receipt,calls=0;const pendingKeys=[];
     const bindings={manualSendLock:{current:new Set()},sending:false,selectedConversation:{id:'ca'},message:input.message,recoveryKey:key,MANUAL_MESSAGE_MAX_LENGTH:1600,
       blocksSameManualSend,readManualRecovery,getManualSessionStorage:()=>storage,selectedRecovery:null,currentHotel:{id:A},crypto:{randomUUID:()=>ID},draftKey:'A:ca',runManualAttempt,
-      setSending(){},getAuthHeaders:async()=>({authorization:'Bearer synthetic'}),staffLanguage:'es',
+      setSending(){},setPendingSendKey:key=>pendingKeys.push(key),setManualReceipts(){},getAuthHeaders:async()=>({authorization:'Bearer synthetic'}),staffLanguage:'es',
       fetch:async()=>{calls++;if(edited)drafts['A:ca']='New draft while waiting';return {json:async()=>({delivery:contract.manualDelivery(status,'synthetic',status==='failed')})};},
       setManualRecoveries:fn=>{receipt=fn({})[key];},setItems(){},updateConversationWithMessage(){},setDraftsByConversation:fn=>{drafts=fn(drafts);},
       selectedIdRef:{current:'ca'},markConversationAsRead(){},scrollMessagesToBottom(){}
     };
     await new Function(...Object.keys(bindings),'return async event=>{'+body+'}')(...Object.values(bindings))({preventDefault(){}});
     assert.equal(calls,1);assert.equal(receipt.delivery.status,status);
+    assert.deepEqual(pendingKeys,[key,null]);
+    assert.equal(readManualRecovery(storage,`${key}:${ID}`).delivery.status,status);
     assert.equal(drafts['A:ca'],edited?'New draft while waiting':status==='accepted'?'':input.message);
   }
-  assert.match(source,/item\.metadata\?\.manual_send\?\.status === 'delivered'/);
-  assert.ok(source.includes('Recuperar texto'));assert.ok(source.includes('Revisar estado'));
+  assert.match(source,/messageDelivery\?\.status === 'delivered'/);
+  assert.match(source,/sendingSelectedConversation = sending && pendingSendKey === recoveryKey/);
+  assert.ok(source.includes('Recuperar texto'));assert.ok(source.includes('Actualizar historial'));
+});
+await test('Session confirmation survives an uncertain DB refresh only for the same message; historical and other attempts stay unchanged',async()=>{
+  const row={id:ID,content:input.message,metadata:{manual_send:contract.manualDelivery('unknown','dispatch_unconfirmed')}};
+  const receipt={attemptId:ID,text:input.message,delivery:contract.manualDelivery('accepted','provider_accepted',false,{persisted:false})};
+  assert.equal(getManualMessageDelivery(row,receipt).status,'accepted');
+  assert.equal(getManualMessageDelivery(row,receipt).persisted,false);
+  assert.equal(getManualMessageDelivery(row,{...receipt,attemptId:A}).status,'unknown');
+  assert.equal(getManualMessageDelivery(row,{...receipt,text:'Other text'}).status,'unknown');
+  assert.equal(getManualMessageDelivery({...row,metadata:{}},receipt),null);
+  assert.equal(getManualMessageDelivery({...row,metadata:{manual_send:contract.manualDelivery('delivered','provider_confirmed')}},receipt).status,'delivered');
+  assert.equal(row.metadata.manual_send.status,'unknown');
+});
+await test('Actual history review reads the existing Inbox loader, reports unchanged/error and scopes feedback to the initiating attempt',async()=>{
+  const source=readFileSync(new URL('../dashboard/components/InboxClient.js',import.meta.url),'utf8');
+  const start=source.indexOf('const reviewManualHistory = async () => {');
+  const body=source.slice(source.indexOf('{',start)+1,source.indexOf('\n  const scheduleRealtimeReload',start)).replace(/\n  };\s*$/,'');
+  for(const response of [[],null,'throw']){
+    let reads=0;const states=[];
+    const bindings={selectedRecovery:{attemptId:ID},historyReviewStatus:null,recoveryKey:'actor:A:ca',setManualHistoryReview:s=>states.push(s),
+      refreshInboxSilently:async({reason})=>{assert.equal(reason,'manual_send_review');reads++;if(response==='throw')throw Error('synthetic');return response;}};
+    await new Function(...Object.keys(bindings),'return async()=>{'+body+'}')(...Object.values(bindings))();
+    assert.equal(reads,1);assert.deepEqual(states.map(s=>s.status),['loading',Array.isArray(response)?'updated':'error']);
+    assert.ok(states.every(s=>s.key==='actor:A:ca'&&s.attemptId===ID));
+  }
+  assert.ok(source.includes('WhatsApp no se ha consultado.'));
 });
 console.log(JSON.stringify(results,null,2));if(results.some(x=>x.status==='FAIL'))process.exitCode=1;

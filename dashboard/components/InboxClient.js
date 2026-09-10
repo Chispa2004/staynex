@@ -17,7 +17,7 @@ import { cn, ui } from '@/lib/ui/styles';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { MessageAttentionProvider, AttentionToolbar, AttentionMessage } from './MessageAttentionControls';
 import { MANUAL_MESSAGE_MAX_LENGTH, manualDeliveryText, normalizeManualDelivery } from '../../shared/manual-send/contract.js';
-import { readManualRecovery, blocksSameManualSend, runManualAttempt, getManualSessionStorage } from '@/lib/manual-send-client';
+import { readManualRecovery, blocksSameManualSend, runManualAttempt, getManualSessionStorage, getManualMessageDelivery } from '@/lib/manual-send-client';
 
 const formatDate = (value) => {
   if (!value) {
@@ -525,8 +525,11 @@ export const InboxClient = ({ conversations }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(sortedConversations.length === 0);
   const [sending, setSending] = useState(false);
+  const [pendingSendKey, setPendingSendKey] = useState(null);
   const [draftOwnerId, setDraftOwnerId] = useState(null);
   const [manualRecoveries, setManualRecoveries] = useState({});
+  const [manualReceipts, setManualReceipts] = useState({});
+  const [manualHistoryReview, setManualHistoryReview] = useState(null);
   const manualSendLock = useRef(new Set());
   const [takeoverUpdating, setTakeoverUpdating] = useState(false);
   const [hiddenTranslations, setHiddenTranslations] = useState({});
@@ -574,7 +577,21 @@ export const InboxClient = ({ conversations }) => {
     : null;
   const recoveryKey = draftOwnerId && draftKey ? `staynex_manual_send:${draftOwnerId}:${draftKey}` : null;
   const selectedRecovery = recoveryKey ? manualRecoveries[recoveryKey] : null;
+  const sendingSelectedConversation = sending && pendingSendKey === recoveryKey;
   const manualSendBlocked = blocksSameManualSend(selectedRecovery, message);
+  const historyReviewStatus = manualHistoryReview?.key === recoveryKey
+    && manualHistoryReview?.attemptId === selectedRecovery?.attemptId ? manualHistoryReview.status : null;
+
+  useEffect(() => {
+    if (!recoveryKey) return;
+    const receipts = {};
+    for (const row of selectedConversation?.messages || []) {
+      const key = `${recoveryKey}:${row.id}`;
+      const receipt = readManualRecovery(getManualSessionStorage(), key);
+      if (receipt) receipts[key] = receipt;
+    }
+    if (Object.keys(receipts).length) setManualReceipts(current => ({ ...current, ...receipts }));
+  }, [recoveryKey, selectedConversation?.messages]);
 
   useEffect(() => {
     if (!recoveryKey) return;
@@ -882,7 +899,7 @@ export const InboxClient = ({ conversations }) => {
     debugInbox('Inbox refreshed silently', { reason });
 
     if (!selectedBeforeReload) {
-      return;
+      return nextItems;
     }
 
     const messagesAfter = getConversationMessageCount(nextItems, selectedBeforeReload);
@@ -895,7 +912,20 @@ export const InboxClient = ({ conversations }) => {
     if (wasNearBottom && hasNewActiveMessages) {
       scrollMessagesToBottom('smooth');
     }
+    return nextItems;
   }, [isMessagesPanelNearBottom, loadInbox, markConversationAsRead, scrollMessagesToBottom]);
+
+  const reviewManualHistory = async () => {
+    if (!selectedRecovery || historyReviewStatus === 'loading') return;
+    const review = { key: recoveryKey, attemptId: selectedRecovery.attemptId };
+    setManualHistoryReview({ ...review, status: 'loading' });
+    try {
+      const items = await refreshInboxSilently({ reason: 'manual_send_review' });
+      setManualHistoryReview({ ...review, status: items ? 'updated' : 'error' });
+    } catch {
+      setManualHistoryReview({ ...review, status: 'error' });
+    }
+  };
 
   const scheduleRealtimeReload = useCallback((reason) => {
     if (realtimeReloadTimerRef.current) {
@@ -1108,7 +1138,7 @@ export const InboxClient = ({ conversations }) => {
       await runManualAttempt({
         lock: manualSendLock.current, key: recoveryKey, text: messageToSend, attemptId,
         persist: receipt => getManualSessionStorage().setItem(recoveryKey, JSON.stringify(receipt)),
-        onPending: () => setSending(true),
+        onPending: () => { setPendingSendKey(recoveryKey); setSending(true); },
         request: async () => {
           const response = await fetch('/api/messages/send', {
             method: 'POST', signal: AbortSignal.timeout(30000),
@@ -1119,6 +1149,9 @@ export const InboxClient = ({ conversations }) => {
         },
         onResult: (receipt, row) => {
           setManualRecoveries(current => ({ ...current, [recoveryKey]: receipt }));
+          const receiptKey = `${recoveryKey}:${attemptId}`;
+          setManualReceipts(current => ({ ...current, [receiptKey]: receipt }));
+          try { getManualSessionStorage().setItem(receiptKey, JSON.stringify(receipt)); } catch { /* Preserve the in-memory receipt. */ }
           if (row?.hotel_id === hotelId && row.conversation_id === conversationId && row.id === attemptId) {
             setItems(current => updateConversationWithMessage({ conversations: current, conversationId, message: row }));
           }
@@ -1131,6 +1164,7 @@ export const InboxClient = ({ conversations }) => {
       });
     } finally {
       setSending(false);
+      setPendingSendKey(null);
     }
   };
 
@@ -1921,6 +1955,7 @@ export const InboxClient = ({ conversations }) => {
           ) : null}
           {(selectedConversation?.messages || []).map((item) => {
             const isStaff = item.sender_type === 'staff';
+            const messageDelivery = getManualMessageDelivery(item, manualReceipts[`${recoveryKey}:${item.id}`] || selectedRecovery);
             const translationKey = `${item.id}:${staffLanguage}`;
             const metadataTranslation = getVerifiedMessageTranslation(item, staffLanguage, currentHotel?.id);
             const messageTranslation = translationOverrides[translationKey] || metadataTranslation
@@ -1999,17 +2034,17 @@ export const InboxClient = ({ conversations }) => {
                     </p>
                     <p className={isLight ? 'inline-flex items-center gap-1 text-xs text-slate-500' : 'inline-flex items-center gap-1 text-xs opacity-60'}>
                       {formatTime(item.created_at)}
-                      {isStaff && item.metadata?.manual_send?.status === 'delivered' ? <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> : null}
+                      {isStaff && messageDelivery?.status === 'delivered' ? <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> : null}
                     </p>
                   </div>
                   <div className="space-y-3">
                     {isStaff ? (
                       <div className="text-xs" role="status">
-                        {item.metadata?.manual_send ? manualDeliveryText(item.metadata.manual_send) : 'Estado de envío no disponible para este mensaje histórico.'}
-                        {['unknown', 'failed'].includes(item.metadata?.manual_send?.status) ? (
+                        {messageDelivery ? manualDeliveryText(messageDelivery) : 'Estado de envío no disponible para este mensaje histórico.'}
+                        {['unknown', 'failed'].includes(messageDelivery?.status) ? (
                           <button type="button" className="ml-2 underline" disabled={sending} onClick={() => {
                             if (!recoveryKey) return;
-                            const receipt = { text: item.content, attemptId: item.id, delivery: normalizeManualDelivery(item.metadata.manual_send) };
+                            const receipt = { text: item.content, attemptId: item.id, delivery: messageDelivery };
                             updateComposerDraft(item.content);
                             setManualRecoveries(current => ({ ...current, [recoveryKey]: receipt }));
                             try { getManualSessionStorage().setItem(recoveryKey, JSON.stringify(receipt)); } catch { /* No send is dispatched here. */ }
@@ -2086,7 +2121,7 @@ export const InboxClient = ({ conversations }) => {
               </div>
             );
           })}
-          {sending ? (
+          {sendingSelectedConversation ? (
             <div className="flex items-center gap-2">
               <span className={cn('hidden h-9 w-9 items-center justify-center rounded-full border sm:inline-flex', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
                 <Bot className="h-4 w-4 animate-pulse" aria-hidden="true" />
@@ -2110,11 +2145,14 @@ export const InboxClient = ({ conversations }) => {
           ].join(' ')}
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
         >
-          {sending ? <p role="status" className="mb-2 text-sm">En proceso. Esperando respuesta del proveedor…</p> : selectedRecovery ? (
+          {sendingSelectedConversation ? <p role="status" className="mb-2 text-sm">En proceso. Esperando respuesta del proveedor…</p> : sending ? <p role="status" className="mb-2 text-sm">Hay un envío en proceso en otra conversación. Puedes preparar este borrador mientras termina.</p> : selectedRecovery ? (
             <div role="status" aria-live="polite" className="mb-2 rounded-lg border p-2 text-sm">
               {manualDeliveryText(selectedRecovery.delivery)}
               {selectedRecovery.delivery.status === 'unknown' ? (
-                <button type="button" className="ml-2 underline" onClick={() => refreshInboxSilently({ reason: 'manual_send_review' })}>Revisar estado</button>
+                <>
+                  <button type="button" className="ml-2 underline" disabled={historyReviewStatus === 'loading'} onClick={reviewManualHistory}>Actualizar historial</button>
+                  <p className="mt-1 text-xs">{historyReviewStatus === 'loading' ? 'Actualizando el historial de Staynex…' : historyReviewStatus === 'updated' ? 'Historial actualizado; el resultado sigue sin confirmar. WhatsApp no se ha consultado.' : historyReviewStatus === 'error' ? 'No se pudo actualizar el historial. El resultado sigue sin confirmar.' : 'Solo actualiza el historial de Staynex; no consulta WhatsApp.'}</p>
+                </>
               ) : null}
             </div>
           ) : null}
@@ -2176,7 +2214,7 @@ export const InboxClient = ({ conversations }) => {
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
               <Send className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">{sending ? 'Enviando...' : selectedRecovery?.delivery.retryable && selectedRecovery.text === message.trim() ? 'Reintentar' : t('buttons.send')}</span>
+              <span className="hidden sm:inline">{sendingSelectedConversation ? 'Enviando...' : sending ? 'Esperando otro envío' : selectedRecovery?.delivery.retryable && selectedRecovery.text === message.trim() ? 'Reintentar' : t('buttons.send')}</span>
             </button>
           </div>
           <div className={cn('mt-2 flex flex-wrap items-center gap-2 px-1 text-[11px] font-semibold', isLight ? 'text-slate-500' : 'text-slate-500')}>

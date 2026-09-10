@@ -13,6 +13,19 @@ export const readManualRecovery = (storage, key) => {
 export const blocksSameManualSend = (recovery, text) => Boolean(recovery && recovery.text === text.trim()
   && (recovery.delivery.status !== 'failed' || !recovery.delivery.retryable));
 
+// A stale/uncertain DB row cannot erase a confirmation received for this exact
+// message in this browser session. This is presentation only, never a DB write.
+export const getManualMessageDelivery = (message, recovery) => {
+  if (!message.metadata?.manual_send) return null;
+  const stored = normalizeManualDelivery(message.metadata.manual_send);
+  const local = normalizeManualDelivery(recovery?.delivery);
+  if (stored.status === 'unknown' && recovery?.attemptId === message.id
+    && recovery.text === message.content && ['accepted', 'delivered'].includes(local.status)) {
+    return { ...local, persisted: false };
+  }
+  return stored;
+};
+
 // Synchronous lock precedes every await; persistence precedes dispatch. Restoring
 // recovery data never calls request(), and unknown operations are never retried.
 export const runManualAttempt = async ({ lock, key, text, attemptId, request, persist, onPending, onResult }) => {
