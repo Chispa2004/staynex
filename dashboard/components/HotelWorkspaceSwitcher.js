@@ -40,6 +40,7 @@ const WorkspaceLogo = ({ hotel, size = 'md' }) => {
 
 export const HotelWorkspaceSwitcher = ({
   compact = false,
+  iconOnly = false,
   currentHotel,
   availableHotels = [],
   activeRole,
@@ -130,7 +131,7 @@ export const HotelWorkspaceSwitcher = ({
   };
 
   return (
-    <div ref={containerRef} className={compact ? "relative pb-3" : "relative px-4 pb-4 pt-5"}>
+    <div ref={containerRef} data-icon-only={iconOnly} className={compact ? "relative pb-3" : "relative px-4 pb-4 pt-5"}>
       <button
         type="button"
         onClick={() => canOpenMenu && setOpen((current) => !current)}
@@ -142,6 +143,8 @@ export const HotelWorkspaceSwitcher = ({
             : 'border-white/10 bg-white/[0.035] text-white hover:border-white/15 hover:bg-white/[0.06]',
           canOpenMenu ? 'cursor-pointer' : 'cursor-default'
         ].join(' ')}
+        aria-label={`${currentHotel?.name || 'Hotel activo'} · ${ROLE_LABELS[activeRole] || activeRole}`}
+        title={`${currentHotel?.name || 'Hotel activo'} · ${ROLE_LABELS[activeRole] || activeRole}`}
         aria-haspopup={canOpenMenu ? 'listbox' : undefined}
         aria-expanded={canOpenMenu ? open : undefined}
       >

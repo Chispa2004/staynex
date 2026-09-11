@@ -15,23 +15,22 @@ const DEFAULT_THEME = 'dark';
 
 const normalizeTheme = (theme) => (theme === 'light' ? 'light' : DEFAULT_THEME);
 
-export const DashboardThemeProvider = ({ children }) => {
+export const DashboardThemeProvider = ({ children, forcedTheme = null }) => {
   const [theme, setThemeState] = useState(DEFAULT_THEME);
 
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    setThemeState(normalizeTheme(storedTheme));
+    try { setThemeState(normalizeTheme(window.localStorage.getItem(THEME_STORAGE_KEY))); } catch { /* Storage can be unavailable. */ }
   }, []);
 
   useEffect(() => {
-    document.documentElement.style.colorScheme = theme;
-  }, [theme]);
+    document.documentElement.style.colorScheme = forcedTheme || theme;
+  }, [theme, forcedTheme]);
 
   const value = useMemo(() => {
     const setTheme = (nextTheme) => {
       const safeTheme = normalizeTheme(nextTheme);
       setThemeState(safeTheme);
-      window.localStorage.setItem(THEME_STORAGE_KEY, safeTheme);
+      try { window.localStorage.setItem(THEME_STORAGE_KEY, safeTheme); } catch { /* Keep in memory. */ }
     };
 
     const toggleTheme = () => {
@@ -39,11 +38,11 @@ export const DashboardThemeProvider = ({ children }) => {
     };
 
     return {
-      theme,
+      theme: forcedTheme || theme,
       setTheme,
       toggleTheme
     };
-  }, [theme]);
+  }, [theme, forcedTheme]);
 
   return (
     <DashboardThemeContext.Provider value={value}>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Clock3, Eye, EyeOff, Languages, MessageSquareText, PauseCircle, PlayCircle, RefreshCw, Search, Send, ShieldCheck, Sparkles, UserRound, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Clock3, Eye, EyeOff, Languages, MessageSquareText, PauseCircle, PlayCircle, RefreshCw, Search, Send, ShieldCheck, Sparkles, UserRound, Zap, PanelRight } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -12,6 +12,7 @@ import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import ergonomics from './InboxErgonomics.module.css';
+import { InboxActionMenu, InboxDetailPanel } from './InboxDetailPanel';
 import { shouldCompactOriginalMessage, getVerifiedMessageTranslation } from '@/lib/inbox-message-presentation';
 import { cn, ui } from '@/lib/ui/styles';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
@@ -545,6 +546,7 @@ export const InboxClient = ({ conversations }) => {
   const [realtimeStatus, setRealtimeStatus] = useState('connecting');
   const [refreshing, setRefreshing] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [guestPanelOpen, setGuestPanelOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(Boolean(requestedConversationId));
   const [draftsByConversation, setDraftsByConversation] = useState({});
   const locallyClosedConversationIdsRef = useRef(new Set());
@@ -760,6 +762,7 @@ export const InboxClient = ({ conversations }) => {
         locallyClosedConversationIdsRef.current.clear();
         setPilotAiSafety(null);
         setCopilotOpen(false);
+        setGuestPanelOpen(false);
         setMobileChatOpen(false);
         setSearchQuery('');
       }
@@ -1421,16 +1424,17 @@ export const InboxClient = ({ conversations }) => {
     setSelectedId(null);
     setMobileChatOpen(false);
     setCopilotOpen(false);
+    setGuestPanelOpen(false);
   }, []);
 
   if (items.length === 0) {
     return (
-      <section className="h-full min-h-0 w-full">
+      <section className={ergonomics.inbox}>
         <div className={cn(
           'premium-fade-in flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 lg:rounded-xl lg:border',
           isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-[#0b1019]'
         )}>
-          <div className={cn('shrink-0 border-b px-4 py-4 sm:px-6', isLight ? 'border-slate-200 bg-white' : 'border-white/10')}>
+          <div className={cn(`${ergonomics.listHeader} shrink-0 border-b px-4 py-4 sm:px-6`, isLight ? 'border-slate-200 bg-white' : 'border-white/10')}>
             <p className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Inbox</p>
             <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
               {loading ? 'Cargando conversaciones' : t('inbox.noConversations')}
@@ -1466,11 +1470,6 @@ export const InboxClient = ({ conversations }) => {
     selectedConversation?.aiState?.escalation_level && selectedConversation.aiState.escalation_level !== 'ai_handled'
   ].filter(Boolean).length;
   const chatOpen = Boolean(selectedConversation && mobileChatOpen);
-  const inboxGridColumns = selectedConversation
-    ? copilotOpen
-      ? 'lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)_380px]'
-      : 'lg:grid-cols-[minmax(320px,420px)_minmax(0,1fr)]'
-    : 'grid-cols-1';
   const selectedGuestLanguage = selectedConversation?.guest?.preferred_language
     || [...(selectedConversation?.messages || [])].reverse().find((item) => item.sender_type === 'guest')?.original_language
     || null;
@@ -1490,24 +1489,26 @@ export const InboxClient = ({ conversations }) => {
   ];
   return (
     <MessageAttentionProvider key={`${currentHotel?.id || ''}:${selectedConversation?.id || ''}`} hotelId={currentHotel?.id} conversation={selectedConversation}>
-    <section className="h-full min-h-0 w-full">
+    <section className={ergonomics.inbox}>
       <div
+        data-detail-open={Boolean(selectedConversation && (copilotOpen || guestPanelOpen))}
         className={[
           'premium-fade-in relative grid h-full min-h-0 overflow-hidden rounded-none border-0 shadow-none backdrop-blur lg:rounded-xl lg:border',
-          inboxGridColumns,
+          ergonomics.workspace,
           isLight
             ? 'border-slate-200 bg-white'
             : 'border-white/10 bg-[#0b1019]'
         ].join(' ')}
       >
       <aside className={[
+        ergonomics.list,
         chatOpen ? 'hidden lg:flex' : 'flex',
         'min-h-0 flex-col lg:border-r',
         isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-black/10'
       ].join(' ')}
       >
         <div className={[
-          'shrink-0 border-b px-4 py-4 sm:px-6',
+          `${ergonomics.listHeader} shrink-0 border-b px-4 py-4 sm:px-6`,
           isLight ? 'border-slate-200 bg-white' : 'border-white/10'
         ].join(' ')}
         >
@@ -1553,7 +1554,7 @@ export const InboxClient = ({ conversations }) => {
                 {humanTakeoverTotal > 0 ? ` · ${humanTakeoverTotal} en control humano` : ''}
               </p>
           <div className={cn(
-            'mt-4 flex items-center gap-2 rounded-xl border px-3 py-2',
+            'mt-3 flex items-center gap-2 rounded-lg border px-3 py-2',
             isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-black/15 text-slate-200'
           )}
           >
@@ -1561,7 +1562,8 @@ export const InboxClient = ({ conversations }) => {
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Buscar huésped, habitación, mensaje o idioma"
+              aria-label="Buscar huésped, habitación, mensaje o idioma"
+              placeholder="Buscar huésped, habitación, mensaje…"
               className={cn(
                 'min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400',
                 isLight ? 'text-slate-900' : 'text-white'
@@ -1571,7 +1573,7 @@ export const InboxClient = ({ conversations }) => {
         </div>
 
         <div className={[
-          'flex shrink-0 flex-wrap gap-2 border-b p-3 sm:px-4',
+          `${ergonomics.filters} flex shrink-0 flex-wrap gap-2 border-b p-3 sm:px-4`,
           isLight ? 'border-slate-200 bg-white/80' : 'border-white/10 bg-black/10'
         ].join(' ')}
         >
@@ -1589,7 +1591,7 @@ export const InboxClient = ({ conversations }) => {
                   'inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition',
                   isLight
                     ? active
-                      ? 'border-orange-200 bg-orange-50 text-orange-800'
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                       : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950'
                     : active
                       ? 'border-orange-300/25 bg-orange-400/10 text-orange-100'
@@ -1598,7 +1600,7 @@ export const InboxClient = ({ conversations }) => {
               >
                 {filter.label}
                 {filter.count > 0 ? (
-                  <span className={active ? 'rounded-full bg-orange-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950' : 'rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-700'}>
+                  <span className={active ? 'rounded-full bg-emerald-200 px-1.5 py-0.5 text-[10px] font-black text-slate-950' : 'rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-700'}>
                     {filter.count}
                   </span>
                 ) : null}
@@ -1608,7 +1610,7 @@ export const InboxClient = ({ conversations }) => {
         </div>
 
         <div
-          className="executive-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4"
+          className={`executive-scroll min-h-0 flex-1 overflow-y-auto ${ergonomics.conversationList}`}
           data-inbox-scroll-region="conversation-list"
         >
           {visibleItems.length === 0 ? (
@@ -1626,15 +1628,11 @@ export const InboxClient = ({ conversations }) => {
             const unread = unreadCount > 0;
             const humanEscalation = getHumanEscalation(conversation);
             const needsAttention = humanEscalation.needsHuman || getNeedsAttention(conversation, unreadCount);
-            const isNew = getIsNewConversation(conversation, readState);
             const hasUpsell = (conversation.upsells || []).length > 0;
             const hasOffer = (conversation.offers || []).length > 0;
             const hasExperienceBooking = (conversation.experienceBookings || []).length > 0;
-            const aiState = conversation.aiState;
             const displayName = getConversationGuestLabel(conversation);
             const roomNumber = getConversationRoomNumber(conversation);
-            const languageBadge = getConversationLanguage(conversation);
-            const sentiment = conversation.copilot?.sentiment?.label || aiState?.sentiment || 'neutral';
             const priority = conversation.copilot?.priority?.level || (needsAttention ? 'high' : 'normal');
             const vip = isVipConversation(conversation);
             const controlBadge = getConversationControlBadge({
@@ -1644,16 +1642,15 @@ export const InboxClient = ({ conversations }) => {
             const badgeItems = [
               controlBadge,
               needsAttention ? { label: 'Atención humana', tone: 'red', icon: AlertTriangle } : null,
-              isNew ? { label: t('inbox.newConversation'), tone: 'sky' } : null,
               vip ? { label: 'VIP', tone: 'violet' } : null,
               hasExperienceBooking ? { label: 'Experiencia', tone: 'amber' } : null,
-              hasOffer || hasUpsell ? { label: 'Revenue', tone: 'emerald' } : null,
-              languageBadge ? { label: String(languageBadge).toUpperCase(), tone: 'sky' } : null
+              hasOffer || hasUpsell ? { label: 'Revenue', tone: 'emerald' } : null
             ].filter(Boolean).slice(0, needsAttention ? 5 : 4);
 
             return (
               <button
                 key={conversation.id}
+                aria-current={active ? 'true' : undefined}
                 type="button"
                 onClick={() => {
                   locallyClosedConversationIdsRef.current.delete(conversation.id);
@@ -1662,7 +1659,8 @@ export const InboxClient = ({ conversations }) => {
                   setMobileChatOpen(true);
                 }}
                 className={cn(
-                  'premium-fade-in relative block w-full rounded-lg border px-4 py-3 text-left transition duration-150',
+                  ergonomics.conversationRow,
+                  'relative block w-full border px-4 py-3 text-left transition duration-150',
                   isLight
                     ? active
                       ? 'border-emerald-200 bg-white shadow-sm ring-1 ring-emerald-100'
@@ -1689,7 +1687,7 @@ export const InboxClient = ({ conversations }) => {
                     aria-hidden="true"
                   />
                 ) : null}
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3">
                   <span className={cn(
                     'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-sm font-bold shadow-sm',
                     isLight ? 'border-slate-200 bg-white text-slate-700' : 'border-white/10 bg-white/[0.06] text-slate-200'
@@ -1726,7 +1724,7 @@ export const InboxClient = ({ conversations }) => {
                     <p className={isLight ? `mt-2 line-clamp-2 text-sm ${unread ? 'font-semibold text-slate-800' : 'text-slate-600'}` : `mt-2 line-clamp-2 text-sm ${unread ? 'font-semibold text-slate-200' : 'text-slate-400'}`}>
                       {lastMessage?.content || t('inbox.noMessages')}
                     </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    <div className={ergonomics.listBadges}>
                       {badgeItems.map((badge) => {
                         const Icon = badge.icon;
                         return (
@@ -1736,12 +1734,7 @@ export const InboxClient = ({ conversations }) => {
                           </span>
                         );
                       })}
-                      {sentiment && sentiment !== 'neutral' ? (
-                        <span className={ui.badge(isLight, sentiment === 'angry' || sentiment === 'frustrated' ? 'red' : 'slate', true)}>
-                          {formatSignalLabel(sentiment, sentimentLabels)}
-                        </span>
-                      ) : null}
-                      {priority && priority !== 'normal' ? (
+                      {priority === 'urgent' ? (
                         <span className={ui.badge(isLight, priority === 'urgent' || priority === 'high' ? 'amber' : 'slate', true)}>
                           {formatSignalLabel(priority, priorityLabels)}
                         </span>
@@ -1757,11 +1750,11 @@ export const InboxClient = ({ conversations }) => {
 
       <section className={[
         selectedConversation ? chatOpen ? 'flex' : 'hidden lg:flex' : 'hidden',
-        'h-full min-h-0 flex-col overflow-hidden'
+        `${ergonomics.chat} h-full min-h-0 flex-col overflow-hidden`
       ].join(' ')}
       >
         <header className={[
-              'shrink-0 border-b px-3 py-3 sm:px-5 sm:py-4',
+              `${ergonomics.header} shrink-0 border-b px-3 py-3 sm:px-5 sm:py-4`,
               isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-white/[0.035]'
         ].join(' ')}
         >
@@ -1791,7 +1784,7 @@ export const InboxClient = ({ conversations }) => {
               </div>
             </div>
             <div className={ergonomics.effectiveState}>
-              <span className={[
+              {!selectedHumanTakeoverActive ? <span className={[
                 'w-fit rounded-full border px-3 py-1 text-xs font-semibold capitalize',
                 selectedHumanEscalation.needsHuman
                   ? isLight
@@ -1805,7 +1798,7 @@ export const InboxClient = ({ conversations }) => {
                 {selectedHumanEscalation.needsHuman
                   ? t('inbox.needsHuman')
                   : t(`status.${selectedConversation?.status || 'unknown'}`)}
-              </span>
+              </span> : null}
               <span className={[
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
                 selectedHumanTakeoverActive
@@ -1826,35 +1819,12 @@ export const InboxClient = ({ conversations }) => {
                 ) : (
                   <Bot className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                {selectedHumanTakeoverActive ? 'Control humano activo' : selectedControlBadge?.label || 'IA'}
+                {selectedHumanTakeoverActive ? 'Recepción al mando · IA en pausa' : selectedControlBadge?.label || 'IA'}
               </span>
             </div>
             </div>
             <div className={ergonomics.secondaryControls}>
-              <label className={cn(
-                'inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
-                isLight
-                  ? 'border-slate-200 bg-white text-slate-700'
-                  : 'border-white/10 bg-white/[0.04] text-slate-200'
-              )}
-              >
-                <span>{t('inbox.readIn')}</span>
-                <select
-                  value={staffLanguage}
-                  onChange={handleTranslationLanguageChange}
-                  className={cn(
-                    'rounded-md border px-2 py-1 text-xs font-bold outline-none',
-                    isLight
-                      ? 'border-slate-200 bg-slate-50 text-slate-900'
-                      : 'border-white/10 bg-[#101724] text-white'
-                  )}
-                  aria-label={t('inbox.readIn')}
-                >
-                  {TRANSLATION_LANGUAGES.map((item) => (
-                    <option key={item.code} value={item.code}>{item.label}</option>
-                  ))}
-                </select>
-              </label>
+              <button type="button" title="Ficha del huésped" className={ergonomics.detailToggle} onClick={() => { setGuestPanelOpen(open => !open); setCopilotOpen(false); }} aria-expanded={guestPanelOpen} aria-controls="inbox-detail-panel"><PanelRight size={18} aria-hidden="true" /><span className="sr-only">Ficha del huésped</span></button>
               <button
                 type="button"
                 onClick={() => updateHumanTakeover(selectedHumanTakeoverActive ? 'resume' : 'takeover')}
@@ -1875,29 +1845,7 @@ export const InboxClient = ({ conversations }) => {
                 ) : (
                   <PauseCircle className="h-4 w-4" aria-hidden="true" />
                 )}
-                {selectedHumanTakeoverActive ? 'DEVOLVER A IA' : 'TOMAR CONTROL'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setCopilotOpen((current) => !current)}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition',
-                  copilotOpen
-                    ? isLight
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
-                    : isLight
-                      ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      : 'border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
-                )}
-              >
-                <Bot className="h-4 w-4" aria-hidden="true" />
-                Asistencia IA
-                {copilotSignals > 0 ? (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-300 px-1.5 text-[10px] font-black text-slate-950">
-                    {copilotSignals}
-                  </span>
-                ) : null}
+                {selectedHumanTakeoverActive ? 'Devolver a IA' : 'Tomar control'}
               </button>
               <button
                 type="button"
@@ -1918,41 +1866,12 @@ export const InboxClient = ({ conversations }) => {
 
         <AttentionToolbar />
         <div className={[
-          'executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4',
+          `${ergonomics.history} executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4`,
           isLight ? 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_32%),#f8fafc]' : 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#080c14]/70'
         ].join(' ')}
         ref={messagesScrollRef}
         data-inbox-scroll-region="message-history"
         >
-          {selectedHumanTakeoverActive ? (
-            <div className={cn(
-              'premium-fade-in rounded-xl border px-4 py-3 shadow-sm',
-              isLight
-                ? 'border-orange-200 bg-orange-50 text-orange-900 shadow-orange-100'
-                : 'border-orange-300/20 bg-orange-400/10 text-orange-50 shadow-black/10'
-            )}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="inline-flex items-center gap-2 text-sm font-semibold">
-                    <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                    Control humano activo
-                  </p>
-                  <p className={cn('mt-1 text-xs leading-5', isLight ? 'text-orange-800/80' : 'text-orange-100/75')}>
-                    Recepción gestiona esta conversación. No se enviará ninguna respuesta automática de IA, automatización o acción de proveedor.
-                  </p>
-                </div>
-                <div className={cn('shrink-0 rounded-lg border px-3 py-2 text-xs font-semibold', isLight ? 'border-orange-200 bg-white/80 text-orange-800' : 'border-orange-300/20 bg-black/15 text-orange-100')}>
-                  <div>{selectedTakeoverMetadata?.activated_at ? `Desde ${formatDate(selectedTakeoverMetadata.activated_at)}` : selectedAiMode}</div>
-                  {selectedTakeoverMetadata?.activated_by?.email || selectedTakeoverMetadata?.activated_by?.role ? (
-                    <div className="mt-0.5 opacity-75">
-                      Por {selectedTakeoverMetadata.activated_by.role || selectedTakeoverMetadata.activated_by.user_id}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
           {(selectedConversation?.messages || []).map((item) => {
             const isStaff = item.sender_type === 'staff';
             const messageDelivery = getManualMessageDelivery(item, manualReceipts[`${recoveryKey}:${item.id}`] || selectedRecovery);
@@ -1972,39 +1891,22 @@ export const InboxClient = ({ conversations }) => {
               isTranslating
             });
             const isAi = item.sender_type === 'ai';
-            const SenderIcon = isAi ? Bot : isStaff ? UserRound : MessageSquareText;
-            const senderAvatarClass = isLight
-              ? isAi
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 shadow-emerald-100'
-                : isStaff
-                  ? 'border-sky-200 bg-sky-50 text-sky-700 shadow-sky-100'
-                  : 'border-slate-200 bg-white text-slate-600 shadow-slate-200'
-              : isAi
-                ? 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100 shadow-emerald-950/20'
-                : isStaff
-                  ? 'border-sky-300/20 bg-sky-300/10 text-sky-100 shadow-sky-950/20'
-                  : 'border-white/10 bg-white/[0.055] text-slate-300 shadow-black/20';
 
             return (
               <div
                 key={item.id}
                 className={[
-                  'premium-fade-in flex items-end gap-2',
-                  isStaff ? 'justify-end' : 'justify-start'
+                  `${ergonomics.messageRow} flex items-end gap-2`,
+                  isStaff || isAi ? 'justify-end' : 'justify-start'
                 ].join(' ')}
               >
-                {!isStaff ? (
-                  <span className={cn('mb-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border shadow-lg sm:inline-flex', senderAvatarClass)}>
-                    <SenderIcon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                ) : null}
                 <article className={[
-                  'max-w-[min(90%,760px)] rounded-2xl border px-3 py-3 transition duration-200 sm:max-w-[min(82%,760px)] sm:px-4 sm:py-3.5',
+                  `${ergonomics.bubble} max-w-[min(90%,760px)] rounded-2xl border px-3 py-3 transition duration-200 sm:max-w-[min(82%,760px)] sm:px-4 sm:py-3.5`,
                   isStaff ? 'rounded-br-md' : 'rounded-bl-md',
                   senderStyles[theme][item.sender_type] || senderStyles[theme].guest
                 ].join(' ')}
                 >
-                  <div className="mb-2 flex items-center justify-between gap-4">
+                  <div className={ergonomics.messageMeta}>
                     <p className={[
                       'flex items-center gap-2 text-xs font-semibold',
                       isLight
@@ -2053,10 +1955,10 @@ export const InboxClient = ({ conversations }) => {
                       </div>
                     ) : null}
                     <div>
-                      {!compactOriginal ? <p className={isLight ? 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500' : 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-55'}>
+                      {hasTranslation ? <p className={isLight ? 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500' : 'mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-55'}>
                         {t('inbox.original')}
                       </p> : null}
-                      <p className="whitespace-pre-wrap text-sm leading-6">{item.content}</p>
+                      <p className={ergonomics.messageText}>{item.content}</p>
                       <AttentionMessage message={item} />
                     </div>
 
@@ -2113,11 +2015,6 @@ export const InboxClient = ({ conversations }) => {
                     ) : null}
                   </div>
                 </article>
-                {isStaff ? (
-                  <span className={cn('mb-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border shadow-lg sm:inline-flex', senderAvatarClass)}>
-                    <SenderIcon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                ) : null}
               </div>
             );
           })}
@@ -2140,7 +2037,7 @@ export const InboxClient = ({ conversations }) => {
         <form
           onSubmit={sendMessage}
           className={[
-            'sticky bottom-0 z-10 shrink-0 border-t p-2 sm:p-3',
+            `${ergonomics.composer} sticky bottom-0 z-10 shrink-0 border-t p-2 sm:p-3`,
             isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-[#0b1019]/95'
           ].join(' ')}
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
@@ -2162,14 +2059,15 @@ export const InboxClient = ({ conversations }) => {
               {t('inbox.replyWillBeSentIn', { language: String(selectedGuestLanguage).toUpperCase() })}
             </p>
           ) : null}
-          <div className="mb-2 flex flex-wrap gap-2 pb-1" data-inbox-actions="quick-replies">
+          <div className={ergonomics.quickReplies} data-inbox-actions="quick-replies">
+            <InboxActionMenu label="Respuestas rápidas" icon={<Zap size={15} aria-hidden="true" />}>
             {quickReplyTemplates.map((reply) => (
               <button
                 key={reply.label}
                 type="button"
                 onClick={() => {
                   if (reply.label === 'Traducir') {
-                    setCopilotOpen(true);
+                    setCopilotOpen(true); setGuestPanelOpen(false);
                     return;
                   }
 
@@ -2186,6 +2084,57 @@ export const InboxClient = ({ conversations }) => {
                 {reply.label}
               </button>
             ))}
+            </InboxActionMenu>
+              <button
+                type="button"
+                onClick={() => { setCopilotOpen((current) => !current); setGuestPanelOpen(false); }}
+                aria-expanded={copilotOpen}
+                aria-controls="inbox-detail-panel"
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition',
+                  copilotOpen
+                    ? isLight
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
+                    : isLight
+                      ? 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      : 'border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
+                )}
+              >
+                <Bot className="h-4 w-4" aria-hidden="true" />
+                Asistencia IA
+                {copilotSignals > 0 ? (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-300 px-1.5 text-[10px] font-black text-slate-950">
+                    {copilotSignals}
+                  </span>
+                ) : null}
+              </button>
+
+              <label className={cn(
+                'inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
+                isLight
+                  ? 'border-slate-200 bg-white text-slate-700'
+                  : 'border-white/10 bg-white/[0.04] text-slate-200'
+              )}
+              >
+                <span>{t('inbox.readIn')}</span>
+                <select
+                  value={staffLanguage}
+                  onChange={handleTranslationLanguageChange}
+                  className={cn(
+                    'rounded-md border px-2 py-1 text-xs font-bold outline-none',
+                    isLight
+                      ? 'border-slate-200 bg-slate-50 text-slate-900'
+                      : 'border-white/10 bg-[#101724] text-white'
+                  )}
+                  aria-label={t('inbox.readIn')}
+                >
+                  {TRANSLATION_LANGUAGES.map((item) => (
+                    <option key={item.code} value={item.code}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+
           </div>
           <div className={[
             'flex items-end gap-2 rounded-xl border p-2 shadow-inner',
@@ -2195,12 +2144,13 @@ export const InboxClient = ({ conversations }) => {
           ].join(' ')}
           >
             <textarea
+              aria-label="Respuesta al huésped"
               maxLength={MANUAL_MESSAGE_MAX_LENGTH}
               value={message}
               onChange={(event) => updateComposerDraft(event.target.value)}
               onKeyDown={handleComposerKeyDown}
               placeholder={t('inbox.replyPlaceholder')}
-              rows={1}
+              rows={2}
               className={[
                 'max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-lg border border-transparent bg-transparent px-3 py-2.5 text-sm leading-6 outline-none transition',
                 isLight
@@ -2210,6 +2160,7 @@ export const InboxClient = ({ conversations }) => {
             />
             <button
               type="submit"
+              aria-label={sendingSelectedConversation ? 'Enviando respuesta' : selectedRecovery?.delivery.retryable && selectedRecovery.text === message.trim() ? 'Reintentar envío' : 'Enviar respuesta'}
               disabled={sending || !message.trim() || !recoveryKey || manualSendBlocked || message.trim().length > MANUAL_MESSAGE_MAX_LENGTH}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
@@ -2217,48 +2168,40 @@ export const InboxClient = ({ conversations }) => {
               <span className="hidden sm:inline">{sendingSelectedConversation ? 'Enviando...' : sending ? 'Esperando otro envío' : selectedRecovery?.delivery.retryable && selectedRecovery.text === message.trim() ? 'Reintentar' : t('buttons.send')}</span>
             </button>
           </div>
-          <div className={cn('mt-2 flex flex-wrap items-center gap-2 px-1 text-[11px] font-semibold', isLight ? 'text-slate-500' : 'text-slate-500')}>
-            <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" aria-hidden="true" /> Aceptación del proveedor y entrega son estados distintos</span>
-            <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> Respuestas asistidas por IA</span>
-          </div>
+          <p className={ergonomics.composerHint}>Enter para enviar · Mayús + Enter para nueva línea</p>
         </form>
       </section>
 
-      {copilotOpen ? (
-        <div className={[
-          'hidden h-full min-h-0 overflow-hidden border-l lg:flex lg:flex-col',
-          isLight ? 'border-slate-200' : 'border-white/10'
-        ].join(' ')}
-        >
-          <InboxAiCopilotPanel
-            conversation={selectedConversation}
-            humanEscalation={selectedHumanEscalation}
-            onOfferAction={updateOfferAction}
-            onClose={() => setCopilotOpen(false)}
-          />
-        </div>
-      ) : null}
-
-      {copilotOpen ? (
-        <div className="fixed inset-0 z-50 flex h-dvh justify-end bg-black/45 backdrop-blur-sm lg:hidden">
-          <div className="h-full max-h-dvh min-h-0 w-full max-w-[420px] overflow-hidden shadow-2xl">
-            <InboxAiCopilotPanel
-              conversation={selectedConversation}
-              humanEscalation={selectedHumanEscalation}
-              onOfferAction={updateOfferAction}
-              onClose={() => setCopilotOpen(false)}
-              compact
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setCopilotOpen(false)}
-            className="absolute right-3 top-3 rounded-full bg-black/60 p-2 text-white shadow-lg sm:hidden"
-            aria-label="Cerrar asistencia IA"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
+      {!selectedConversation ? <div className={ergonomics.welcome}>
+        <span className={ergonomics.welcomeIcon}><MessageSquareText size={30} aria-hidden="true" /></span>
+        <h2>Todo empieza con una conversación</h2>
+        <p>Selecciona un huésped para leer sus mensajes y preparar una respuesta.</p>
+        <span>Los mensajes sin leer y las situaciones que requieren atención están en la lista.</span>
+      </div> : null}
+      {selectedConversation && (copilotOpen || guestPanelOpen) ? (
+        <InboxDetailPanel title={guestPanelOpen ? 'Ficha del huésped' : 'Asistencia IA'} onClose={() => { setCopilotOpen(false); setGuestPanelOpen(false); }}>
+          {guestPanelOpen ? <div className={ergonomics.guestInfo}>
+            <span className={ergonomics.guestAvatar}>{getConversationInitials(selectedConversation)}</span>
+            <h3>{selectedDisplayName}</h3>
+            <p>{selectedRoomNumber ? `Habitación ${selectedRoomNumber}` : 'Habitación no disponible'}</p>
+            <dl>
+              <dt>Teléfono</dt><dd>{selectedPhoneNumber || 'No disponible'}</dd>
+              <dt>Idioma del huésped</dt><dd>{selectedGuestLanguage ? String(selectedGuestLanguage).toUpperCase() : 'No disponible'}</dd>
+              <dt>Llegada</dt><dd>{selectedConversation.pmsIntelligenceContext?.reservation?.arrivalDate || 'No disponible'}</dd>
+              <dt>Salida</dt><dd>{selectedConversation.pmsIntelligenceContext?.reservation?.departureDate || 'No disponible'}</dd>
+              <dt>Hotel activo</dt><dd>{currentHotel?.name || 'No disponible'}</dd>
+              <dt>Control de la conversación</dt><dd>{selectedControlBadge?.label || 'No disponible'}</dd>
+              <dt>Estado</dt><dd>{t(`status.${selectedConversation.status || 'unknown'}`)}</dd>
+            </dl>
+            {selectedHumanTakeoverActive ? <div className={ergonomics.controlNote}>
+              <ShieldCheck size={18} aria-hidden="true" /><strong>Recepción tiene el control</strong>
+              <p>No se enviarán respuestas automáticas en esta conversación. Resolver un mensaje no devuelve el control a la IA.</p>
+              {selectedTakeoverMetadata?.activated_at ? <p>Desde {formatDate(selectedTakeoverMetadata.activated_at)}</p> : null}
+              {selectedTakeoverMetadata?.activated_by?.role ? <p>Por {selectedTakeoverMetadata.activated_by.role}</p> : null}
+            </div> : null}
+            <button className={ergonomics.detailToggle} type="button" onClick={() => { setGuestPanelOpen(false); setCopilotOpen(true); }}><Bot size={16} aria-hidden="true" /> Ver asistencia y acciones IA</button>
+          </div> : <InboxAiCopilotPanel conversation={selectedConversation} humanEscalation={selectedHumanEscalation} onOfferAction={updateOfferAction} onClose={() => setCopilotOpen(false)} compact />}
+        </InboxDetailPanel>
       ) : null}
       </div>
     </section>

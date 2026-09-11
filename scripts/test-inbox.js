@@ -406,9 +406,11 @@ assert.match(inboxSource, /phoneKeys\.has\(normalizePhone\(reservation\.guest_ph
 assert.match(inboxSource, /guestName,/, 'Inbox serializer should expose the canonical rendered guestName');
 assert.match(inboxSource, /guest\?\.name \|\| guest\?\.full_name \|\| reservation\?\.guest_name/, 'Guest and reservation names should outrank phone fallback');
 assert.match(inboxComponentSource, /conversation\?\.guestName[\s\S]*?conversation\?\.guest_name[\s\S]*?conversation\?\.guest\?\.name/, 'Inbox UI should render the canonical payload guest name before phone fallback');
-assert.match(inboxComponentSource, /<section className="h-full min-h-0 w-full">/, 'Inbox should use the full available application height');
+const inboxLayoutStyles = readFileSync(new URL('../dashboard/components/InboxErgonomics.module.css', import.meta.url), 'utf8');
+assert.match(inboxComponentSource, /<section className=\{ergonomics.inbox\}>/, 'Inbox should use its scoped height container');
+assert.match(inboxLayoutStyles, /\.inbox \{ height: 100%; min-height: 0; width: 100%;/, 'Inbox should use the full available application height');
 assert.match(inboxComponentSource, /data-inbox-scroll-region="conversation-list"/, 'Inbox should mark the conversation list as an independent scroll region');
-assert.match(inboxComponentSource, /executive-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4/, 'Conversation list should scroll independently inside the full-height left pane');
+assert.match(inboxComponentSource, /executive-scroll min-h-0 flex-1 overflow-y-auto \$\{ergonomics.conversationList\}/, 'Conversation list should scroll independently inside the full-height left pane');
 assert.match(inboxComponentSource, /data-inbox-scroll-region="message-history"/, 'Inbox should mark the message history as an independent scroll region');
 assert.match(inboxComponentSource, /executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto/, 'Message history should scroll independently inside the chat pane');
 assert.match(inboxComponentSource, /const closeActiveConversation = useCallback\(\(\) => \{[\s\S]*setSelectedId\(null\)[\s\S]*setMobileChatOpen\(false\)[\s\S]*setCopilotOpen\(false\)/, 'Back action should locally clear the selected conversation and close chat detail');
@@ -443,7 +445,8 @@ assert.equal(shouldCompactOriginalMessage({ sourceLanguage: 'es', readingLanguag
 assert.equal(shouldCompactOriginalMessage({ sourceLanguage: 'es', readingLanguage: 'es', isTranslating: true }), false, 'An in-flight translation must keep its progress state');
 assert.equal(shouldCompactOriginalMessage({ sourceLanguage: 'en', readingLanguage: 'es', hasTranslation: true }), false, 'A different-language translation must remain visible');
 assert.match(inboxComponentSource, /sourceLanguage: item\.original_language,[\s\S]*?readingLanguage: staffLanguage/, 'Compact rendering must use explicit message language rather than heuristic fallback');
-assert.match(inboxComponentSource, /!compactOriginal \? <p[\s\S]*?t\('inbox\.original'\)/, 'Only known same-language messages should omit the original label');
+assert.match(inboxComponentSource, /hasTranslation \? <p[\s\S]*?t\('inbox\.original'\)/, 'Original/translation labels should distinguish an actual translation');
+assert.match(inboxComponentSource, /!compactOriginal && item.content\?\.trim\(\)/, 'Unknown languages must retain the explicit translation action');
 assert.doesNotMatch(inboxComponentSource, /t\('inbox\.alreadyInYourLanguage'\)/, 'Same-language messages should not render an empty translation notice');
 assert.match(inboxComponentSource, /hasTranslation \? \([\s\S]*?onClick=\{\(\) => toggleTranslation\(item\.id\)\}/, 'Real translations should retain their existing visibility control');
 const chatHeaderSource = inboxComponentSource.slice(inboxComponentSource.indexOf('<header className={['), inboxComponentSource.indexOf('</header>'));
@@ -453,3 +456,35 @@ assert.match(inboxComponentSource, /mensajes sin leer/, 'Unread total must name 
 assert.match(inboxComponentSource, /aria-label=\{`\$\{filter\.label\}: \$\{filter\.count\} conversaciones`\}/, 'Filter counts must name their conversation unit');
 assert.doesNotMatch(inboxComponentSource, /overflow-x-auto/, 'Filters and quick actions must wrap instead of requiring horizontal scrolling');
 console.log('Inbox human takeover and focused ergonomics checks passed');
+
+// Execute the real presentation lifecycle with a synthetic dialog/media boundary.
+// Browser evidence separately verifies native focus containment and Escape.
+const panelSource = readFileSync(new URL('../dashboard/components/InboxDetailPanel.js', import.meta.url), 'utf8');
+const panelComponent = panelSource.slice(panelSource.indexOf('export function InboxDetailPanel'));
+const panelEffect = panelComponent.slice(panelComponent.indexOf('  useEffect(() => {') + '  useEffect(() => {'.length, panelComponent.indexOf('  }, []);'));
+const runPanelEffect = new Function('dialog', 'window', 'document', panelEffect);
+let focused = 0, listener, removed = 0;
+const fakeDialog = { open: false, modal: false, close() { this.open = false; }, show() { this.open = true; this.modal = false; }, showModal() { this.open = true; this.modal = true; } };
+const media = { matches: false, addEventListener(name, fn) { assert.equal(name, 'change'); listener = fn; }, removeEventListener(name, fn) { assert.equal(fn, listener); removed++; } };
+const cleanPanel = runPanelEffect({ current: fakeDialog }, { matchMedia: () => media }, { activeElement: { isConnected: true, focus() { focused++; } } });
+assert.equal(fakeDialog.modal, true, 'Small viewports must use a modal, not squeeze the chat');
+media.matches = true; listener();
+assert.equal(fakeDialog.open, true);
+assert.equal(fakeDialog.modal, false, 'Wide layouts must allow independent list/chat interaction');
+cleanPanel();
+assert.equal(fakeDialog.open, false);
+assert.equal(removed, 1, 'Unmount must remove the responsive listener');
+assert.equal(focused, 1, 'Closing the panel must restore its initiating control');
+const sidebarStart = appShellSource.indexOf('  const changeDesktopSidebar = (collapsed) => {');
+const sidebarEnd = appShellSource.indexOf('  const toggleNavigation', sidebarStart);
+const sidebarBody = appShellSource.slice(sidebarStart, sidebarEnd).replace('const changeDesktopSidebar', 'const changeSidebar');
+let collapsedValue, hintValue;
+const storageValues = new Map();
+const changeSidebar = new Function('setDesktopSidebarCollapsed', 'setNavigationHint', 'window', sidebarBody+';return changeSidebar;')(
+  value => { collapsedValue = value; }, value => { hintValue = value; }, { sessionStorage: { setItem(key, value) { storageValues.set(key, value); } } });
+changeSidebar(true);
+assert.equal(collapsedValue, true); assert.equal(hintValue, null);
+assert.equal(storageValues.get('staynex.sidebar.collapsed'), 'true');
+changeSidebar(false);
+assert.equal(storageValues.get('staynex.sidebar.collapsed'), 'false');
+console.log('Inbox responsive panel lifecycle and shared sidebar preference passed');
