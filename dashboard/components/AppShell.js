@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -14,6 +14,8 @@ import {
   CalendarDays,
   CalendarCheck,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
   ConciergeBell,
   Compass,
   FlaskConical,
@@ -204,6 +206,14 @@ const AppShellContent = ({ children }) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
   const [desktopNavigation, setDesktopNavigation] = useState(true);
+  const [navigationHint, setNavigationHint] = useState(null);
+  const showNavigationHint = event => {
+    if (!desktopSidebarCollapsed || !desktopNavigation) return;
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    setNavigationHint({ text: target.getAttribute('aria-label'), top: Math.min(rect.top, window.innerHeight - 48), left: rect.right + 10 });
+  };
+  const hideNavigationHint = () => setNavigationHint(null);
   useEffect(() => {
     try { setDesktopSidebarCollapsed(window.sessionStorage.getItem('staynex.sidebar.collapsed') === 'true'); } catch { /* Storage may be disabled. */ }
     const media = window.matchMedia('(min-width: 1024px)');
@@ -214,6 +224,7 @@ const AppShellContent = ({ children }) => {
   }, []);
   const changeDesktopSidebar = (collapsed) => {
     setDesktopSidebarCollapsed(collapsed);
+    setNavigationHint(null);
     try { window.sessionStorage.setItem('staynex.sidebar.collapsed', String(collapsed)); } catch { /* Keep in-memory state. */ }
   };
   const toggleNavigation = () => {
@@ -1015,11 +1026,11 @@ const AppShellContent = ({ children }) => {
         '--workspace-secondary': workspaceSecondaryColor
       }}
     >
-      <div data-desktop-restore={desktopSidebarCollapsed && !isOperationsDashboard} className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
+      <div data-desktop-restore={false} className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
         <header
           className={[
             'sticky top-0 z-30 flex shrink-0 items-center justify-between gap-3 border-b px-3 py-3 backdrop-blur-xl',
-            desktopSidebarCollapsed && !isOperationsDashboard ? 'lg:flex' : 'lg:hidden',
+            'lg:hidden',
             isLight
               ? 'border-slate-200 bg-white/95 text-slate-950 shadow-sm shadow-slate-200/70'
               : 'border-white/10 bg-[#070b12]/95 text-white shadow-lg shadow-black/20'
@@ -1074,9 +1085,10 @@ const AppShellContent = ({ children }) => {
           />
         ) : null}
 
-        <aside id="staynex-sidebar" data-desktop-collapsed={desktopSidebarCollapsed} inert={desktopNavigation ? desktopSidebarCollapsed : !mobileSidebarOpen} className={[
+        <aside id="staynex-sidebar" data-desktop-collapsed={desktopSidebarCollapsed} inert={!desktopNavigation && !mobileSidebarOpen} className={[
           shellStyles.sidebar,
-          'fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] shrink-0 flex-col overflow-y-auto border-r shadow-2xl backdrop-blur-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-full lg:w-72 lg:translate-x-0',
+          desktopSidebarCollapsed ? shellStyles.compact : '',
+          'fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] shrink-0 flex-col border-r shadow-2xl backdrop-blur-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-full lg:w-72 lg:translate-x-0',
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           isLight
             ? 'border-slate-200 bg-white/95 shadow-slate-200/80'
@@ -1101,11 +1113,13 @@ const AppShellContent = ({ children }) => {
             'hidden items-center border-b px-4 py-4 lg:flex',
             isLight ? 'border-slate-200' : 'border-white/10'
           )}>
-            <StaynexWordmark
+            <span className={shellStyles.fullBrand}><StaynexWordmark
               logoSize="sm"
               subtitle={isPlatformContext ? tx('Platform operations') : tx('Hotel operations system')}
               className={isLight ? 'text-slate-950' : 'text-white'}
-            />
+            /></span>
+            <span className={shellStyles.compactBrand}><StaynexLogo size="xs" /></span>
+            <button type="button" className={shellStyles.collapseToggle} onClick={toggleNavigation} aria-label={desktopSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'} title={desktopSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'} aria-expanded={!desktopSidebarCollapsed} aria-controls="staynex-sidebar">{desktopSidebarCollapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}</button>
           </div>
 
           {isPlatformContext ? (
@@ -1144,7 +1158,7 @@ const AppShellContent = ({ children }) => {
             </>
           )}
 
-          <nav className={cn(shellStyles.navigation, "flex-1 space-y-4 overflow-y-auto px-4 pb-4")}>
+          <nav aria-label="Navegación principal" onScroll={hideNavigationHint} className={cn(shellStyles.navigation, "flex-1 space-y-4 overflow-y-auto px-4 pb-4")}>
             {isPlatformContext ? (
               <section className="space-y-1.5">
                 {platformNavigationItems.map((item) => {
@@ -1155,6 +1169,8 @@ const AppShellContent = ({ children }) => {
                     <Link
                       key={item.href}
                       href={item.href}
+                      aria-label={tx(item.label)} aria-current={active ? 'page' : undefined}
+                      onMouseEnter={showNavigationHint} onFocus={showNavigationHint} onMouseLeave={hideNavigationHint} onBlur={hideNavigationHint}
                       className={[
                         'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition',
                         active
@@ -1182,7 +1198,7 @@ const AppShellContent = ({ children }) => {
                       >
                         <Icon className="h-4 w-4" aria-hidden="true" />
                       </span>
-                      <span className="min-w-0 flex-1 truncate">{tx(item.label)}</span>
+                      <span className={cn(shellStyles.navLabel, "min-w-0 flex-1 truncate")}>{tx(item.label)}</span>
                     </Link>
                   );
                 })}
@@ -1190,7 +1206,7 @@ const AppShellContent = ({ children }) => {
             ) : null}
             {!isPlatformContext ? allowedNavigationGroups.map((group) => {
               const isPrimaryNavigation = group.id === 'operations';
-              const isOpen = isPrimaryNavigation || openGroups[group.id];
+              const isOpen = isPrimaryNavigation || openGroups[group.id] || (desktopNavigation && desktopSidebarCollapsed);
               const activeGroup = groupHasActiveRoute(group);
 
               return (
@@ -1230,6 +1246,9 @@ const AppShellContent = ({ children }) => {
                           <Link
                             key={item.href}
                             href={item.href}
+                            aria-label={`${t(item.labelKey)}${item.href === '/dashboard/inbox' ? ` · ${inboxUnreadCount} mensajes sin leer · ${inboxHumanCount} en control humano` : item.href === '/dashboard/tickets' ? ` · ${urgentCount} urgentes` : ''}`}
+                            aria-current={active ? 'page' : undefined}
+                            onMouseEnter={showNavigationHint} onFocus={showNavigationHint} onMouseLeave={hideNavigationHint} onBlur={hideNavigationHint}
                             prefetch={PRIMARY_DASHBOARD_PREFETCH_ROUTES.has(item.href) ? true : undefined}
                             className={[
                               'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
@@ -1258,19 +1277,19 @@ const AppShellContent = ({ children }) => {
                             >
                               <Icon className="h-4 w-4" aria-hidden="true" />
                             </span>
-                            <span className="min-w-0 flex-1 truncate">{t(item.labelKey)}</span>
+                            <span className={cn(shellStyles.navLabel, "min-w-0 flex-1 truncate")}>{t(item.labelKey)}</span>
                             {item.href === '/dashboard/tickets' && urgentCount > 0 ? (
-                              <span className={isLight ? 'rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700' : 'rounded-full border border-red-300/20 bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold text-red-100'}>
+                              <span data-nav-counter="urgent" className={isLight ? 'rounded-full border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-700' : 'rounded-full border border-red-300/20 bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold text-red-100'}>
                                 {urgentCount}
                               </span>
                             ) : null}
                             {item.href === '/dashboard/inbox' && inboxUnreadCount > 0 ? (
-                              <span className={isLight ? 'rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-300/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-100'}>
+                              <span data-nav-counter="unread" className={isLight ? 'rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800' : 'rounded-full border border-emerald-300/20 bg-emerald-300/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-100'}>
                                 {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
                               </span>
                             ) : null}
                             {item.href === '/dashboard/inbox' && inboxHumanCount > 0 ? (
-                              <span className={isLight ? 'rounded-full border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-800' : 'rounded-full border border-orange-300/20 bg-orange-400/15 px-1.5 py-0.5 text-[10px] font-bold text-orange-100'}>
+                              <span data-nav-counter="human" className={isLight ? 'rounded-full border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-800' : 'rounded-full border border-orange-300/20 bg-orange-400/15 px-1.5 py-0.5 text-[10px] font-bold text-orange-100'}>
                                 {inboxHumanCount > 99 ? '99+' : inboxHumanCount}
                               </span>
                             ) : null}
@@ -1285,9 +1304,10 @@ const AppShellContent = ({ children }) => {
           </nav>
 
           <div className={shellStyles.account}>
-            <div className="mb-3 flex items-center gap-2 lg:hidden"><ThemeToggle /><LanguageSelector placement="top" /></div>
+            <div className="mb-3 flex items-center gap-2 lg:hidden">{!isInboxRoute ? <ThemeToggle /> : null}<LanguageSelector placement="top" /></div>
             {!isPlatformContext ? <>
               <HotelWorkspaceSwitcher
+                iconOnly={desktopNavigation && desktopSidebarCollapsed}
                 compact
                 currentHotel={currentHotel}
                 availableHotels={availableHotels}
@@ -1300,14 +1320,15 @@ const AppShellContent = ({ children }) => {
                 onWorkspaceCreated={handleHotelSwitch}
               />
               {showBackToPlatform ? <>
-                <p className="mb-2 text-xs text-slate-500">{tx('Hotel workspace view')}</p>
-                <Link href="/platform/hotels" className={shellStyles.platformLink}><ArrowLeft className="h-4 w-4" aria-hidden="true" />{tx('Back to Platform')}</Link>
+                <p className={cn(shellStyles.navLabel, "mb-2 text-xs text-slate-500")}>{tx('Hotel workspace view')}</p>
+                <Link href="/platform/hotels" aria-label={tx('Back to Platform')} onMouseEnter={showNavigationHint} onFocus={showNavigationHint} onMouseLeave={hideNavigationHint} onBlur={hideNavigationHint} className={shellStyles.platformLink}><ArrowLeft className="h-4 w-4" aria-hidden="true" /><span className={shellStyles.navLabel}>{tx('Back to Platform')}</span></Link>
               </> : null}
               {urgentCount > 0 && !canAccess(activeRole, 'tickets') ? <div className={shellStyles.urgent}><AlertTriangle className="h-4 w-4" aria-hidden="true" />{t('app.urgent')}: {urgentCount}</div> : null}
             </> : null}
             <button
               type="button"
               onClick={handleLogout}
+              aria-label={t('buttons.logout')} onMouseEnter={showNavigationHint} onFocus={showNavigationHint} onMouseLeave={hideNavigationHint} onBlur={hideNavigationHint}
               disabled={logoutLoading}
               className={[
                 'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
@@ -1319,7 +1340,7 @@ const AppShellContent = ({ children }) => {
               <span className={isLight ? 'flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500' : 'flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-white/[0.025] text-slate-500'}>
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </span>
-              <span>{logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}</span>
+              <span className={shellStyles.navLabel}>{logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}</span>
             </button>
           </div>
         </aside>
@@ -1330,7 +1351,7 @@ const AppShellContent = ({ children }) => {
         )}>
           <div className={cn(
             isOperationsDashboard ? shellStyles.dashboardContent : isInboxRoute
-              ? 'flex min-h-0 flex-1 flex-col w-full px-0 pb-0 pt-0 sm:px-2 sm:pb-2 sm:pt-2 lg:px-4 lg:pb-4 lg:pt-4'
+              ? 'flex min-h-0 flex-1 flex-col w-full'
               : 'mx-auto w-full max-w-7xl px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 lg:px-10 lg:pb-8 lg:pt-8'
           )}>
             {!isInboxRoute && !isOperationsDashboard ? (
@@ -1339,7 +1360,11 @@ const AppShellContent = ({ children }) => {
                 <LanguageSelector />
               </div>
             ) : null}
-            {showBackToPlatform && !isOperationsDashboard ? (
+            {isInboxRoute ? <div className={shellStyles.inboxContext} data-admin={showBackToPlatform}>
+              <span><Building2 size={14} aria-hidden="true" /> {sidebarHotelName}</span>
+              <span>{ROLE_LABELS[activeRole] || activeRole}{showBackToPlatform ? ' · Administración Staynex' : ''}</span>
+            </div> : null}
+            {showBackToPlatform && !isOperationsDashboard && !isInboxRoute ? (
               <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -1357,7 +1382,7 @@ const AppShellContent = ({ children }) => {
               </div>
             ) : null}
             {supportSession ? (
-              <div className={isLight ? 'mb-6 rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900 shadow-sm shadow-sky-100' : 'mb-6 rounded-xl border border-sky-300/20 bg-sky-300/10 px-5 py-4 text-sm text-sky-100 shadow-lg shadow-sky-950/10'}>
+              <div className={cn(isInboxRoute && shellStyles.compactBanner, isLight ? 'mb-6 rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-900 shadow-sm shadow-sky-100' : 'mb-6 rounded-xl border border-sky-300/20 bg-sky-300/10 px-5 py-4 text-sm text-sky-100 shadow-lg shadow-sky-950/10')}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3">
                     <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
@@ -1406,15 +1431,18 @@ const AppShellContent = ({ children }) => {
         </main>
       </div>
     </div>
+    {navigationHint ? <div role="tooltip" className={shellStyles.navTooltip} style={{ top: navigationHint.top, left: navigationHint.left }}>{navigationHint.text}</div> : null}
     </ShellNavigationContext.Provider>
   );
 };
 
-export const AppShell = ({ children }) => (
-  <DashboardThemeProvider>
+export const AppShell = ({ children }) => {
+  const pathname = usePathname();
+  return (
+  <DashboardThemeProvider forcedTheme={pathname === '/dashboard/inbox' ? 'light' : null}>
     <DashboardLanguageProvider>
       <AppShellContent>{children}</AppShellContent>
     </DashboardLanguageProvider>
   </DashboardThemeProvider>
-);
-
+  );
+};

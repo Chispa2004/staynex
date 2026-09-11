@@ -6,6 +6,8 @@ import { getActiveTenantId, shouldAcceptTenantPayload } from '@/lib/tenant-clien
 import { WORKSPACE_SELECTION_EVENT } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { isAttentionMessage, freezeAttentionOperation, acceptsAttentionResponse } from '../../shared/message-attention/contract.js';
+import { InboxActionMenu } from './InboxDetailPanel';
+import styles from './InboxErgonomics.module.css';
 
 const AttentionContext = createContext(null);
 const labels = {pending:'Pendiente',resolved:'Resuelto',untracked:'Sin seguimiento anterior'};
@@ -119,14 +121,17 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
 export function AttentionToolbar() {
   const value=useContext(AttentionContext);
   if(!value)return null;
-  return <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 text-xs" aria-label="Atención por mensaje">
-    <span>{value.available?'Atención por mensaje':'Seguimiento no disponible'}</span>
+  return <div className={styles.attentionToolbar} aria-label="Atención por mensaje">
+    <InboxActionMenu label={value.selected.length ? `Atención · ${value.selected.length} seleccionados` : 'Atención'} ariaLabel="Controles de atención por mensaje" placement="below">
+    <p>{value.available?'Atención por mensaje':'Seguimiento no disponible'}</p>
     <button type="button" onClick={value.refresh} disabled={value.busy} className="rounded border px-2 py-1">Actualizar atención</button>
     {value.canManage && value.selected.length ? <>
       <span>{value.selected.length} seleccionados</span>
       <button type="button" disabled={value.busy} onClick={()=>value.prepare('resolved')} className="rounded border px-2 py-1">Marcar como resueltos ({value.selected.length})</button>
       <button type="button" disabled={value.busy} onClick={()=>value.prepare('pending')} className="rounded border px-2 py-1">Volver a pendiente ({value.selected.length})</button>
     </>:null}
+    </InboxActionMenu>
+    {!value.available ? <span>Seguimiento no disponible</span>:null}
     <span role="status">{value.notice}</span>
     {value.error ? <span role="alert">{value.error}</span>:null}
   </div>;
@@ -135,14 +140,16 @@ export function AttentionMessage({message}) {
   const value=useContext(AttentionContext);
   if(!value || !isAttentionMessage(message))return null;
   const state=value.rows.get(message.id);
-  return <div className="mt-2 flex flex-wrap items-center gap-2 border-t pt-2 text-xs" data-message-attention={message.id}>
-    {value.canManage && state ? <input type="checkbox" checked={value.selected.includes(message.id)} disabled={value.busy}
-      onChange={()=>value.toggle(message.id)} aria-label={'Seleccionar mensaje: '+(message.content?.slice(0,70)||'Adjunto')} />:null}
+  return <div className={styles.messageAttention} data-message-attention={message.id}>
     <span>{value.available && state?labels[state.status]:'Estado de atención no disponible'}</span>
+    {(value.canManage && state) || state?.changedAt ? <InboxActionMenu inline label={value.selected.includes(message.id)?'Seleccionado · Opciones':'Opciones'} ariaLabel="Opciones de atención de este mensaje">
+    {value.canManage && state ? <label className="flex items-center gap-2"><input type="checkbox" checked={value.selected.includes(message.id)} disabled={value.busy}
+      onChange={()=>value.toggle(message.id)} aria-label={'Seleccionar mensaje: '+(message.content?.slice(0,70)||'Adjunto')} />Seleccionar para acción conjunta</label>:null}
     {value.canManage && state ? <>
       <button type="button" disabled={value.busy} onClick={()=>value.prepare(state.status==='resolved'?'pending':'resolved',[message.id])} className="rounded border px-2 py-1">{state.status==='resolved'?'Volver a pendiente':'Marcar como resuelto'}</button>
       {state.status==='untracked'?<button type="button" disabled={value.busy} onClick={()=>value.prepare('pending',[message.id])} className="rounded border px-2 py-1">Marcar pendiente</button>:null}
     </>:null}
-    {state?.changedAt?<details className="max-w-full"><summary>Quién y cuándo</summary><p className="break-all">{state.actorKind==='inbound'?'Registro de entrada':state.changedBy} · {new Date(state.changedAt).toLocaleString()}</p></details>:null}
+    {state?.changedAt?<div><p className="font-medium">Quién y cuándo</p><p className="break-all">{state.actorKind==='inbound'?'Registro de entrada':state.changedBy} · {new Date(state.changedAt).toLocaleString()}</p></div>:null}
+    </InboxActionMenu>:null}
   </div>;
 }
