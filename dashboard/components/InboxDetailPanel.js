@@ -5,7 +5,7 @@ import { ChevronDown, X } from 'lucide-react';
 import styles from './InboxErgonomics.module.css';
 
 // Native disclosures keep keyboard navigation and do not dispatch any action on opening.
-export function InboxActionMenu({ label, icon, children }) {
+export function InboxActionMenu({ label, icon, children, inline = false, placement = 'above', ariaLabel }) {
   const menu = useRef(null);
   useEffect(() => {
     const dismiss = event => {
@@ -14,13 +14,13 @@ export function InboxActionMenu({ label, icon, children }) {
     document.addEventListener('pointerdown', dismiss);
     return () => document.removeEventListener('pointerdown', dismiss);
   }, []);
-  return <details ref={menu} className={styles.actionMenu} onKeyDown={event => {
+  return <details ref={menu} className={styles.actionMenu} data-inline={inline} data-placement={placement} onKeyDown={event => {
     if (event.key === 'Escape') {
       menu.current.open = false;
       menu.current.querySelector('summary')?.focus();
     }
   }}>
-    <summary>{icon}{label}<ChevronDown size={13} aria-hidden="true" /></summary>
+    <summary aria-label={ariaLabel}>{icon}{label}<ChevronDown size={13} aria-hidden="true" /></summary>
     <div className={styles.actionOptions} onClick={event => {
       if (event.target.closest('button:not(:disabled)')) {
         menu.current.open = false;

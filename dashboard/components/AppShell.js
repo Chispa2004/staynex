@@ -14,6 +14,8 @@ import {
   CalendarDays,
   CalendarCheck,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
   ConciergeBell,
   Compass,
   FlaskConical,
@@ -1117,7 +1119,7 @@ const AppShellContent = ({ children }) => {
               className={isLight ? 'text-slate-950' : 'text-white'}
             /></span>
             <span className={shellStyles.compactBrand}><StaynexLogo size="xs" /></span>
-            <button type="button" className={shellStyles.collapseToggle} onClick={toggleNavigation} aria-label={desktopSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'} aria-expanded={!desktopSidebarCollapsed} aria-controls="staynex-sidebar"><Menu size={18} aria-hidden="true" /></button>
+            <button type="button" className={shellStyles.collapseToggle} onClick={toggleNavigation} aria-label={desktopSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'} title={desktopSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'} aria-expanded={!desktopSidebarCollapsed} aria-controls="staynex-sidebar">{desktopSidebarCollapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}</button>
           </div>
 
           {isPlatformContext ? (
@@ -1444,4 +1446,3 @@ export const AppShell = ({ children }) => {
   </DashboardThemeProvider>
   );
 };
-

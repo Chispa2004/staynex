@@ -1821,6 +1821,7 @@ export const InboxClient = ({ conversations }) => {
                 )}
                 {selectedHumanTakeoverActive ? 'Recepción al mando · IA en pausa' : selectedControlBadge?.label || 'IA'}
               </span>
+              <AttentionToolbar />
             </div>
             </div>
             <div className={ergonomics.secondaryControls}>
@@ -1864,7 +1865,6 @@ export const InboxClient = ({ conversations }) => {
           </div>
         </header>
 
-        <AttentionToolbar />
         <div className={[
           `${ergonomics.history} executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4`,
           isLight ? 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.08),transparent_32%),#f8fafc]' : 'bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.10),transparent_35%),#080c14]/70'

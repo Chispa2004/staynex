@@ -44,6 +44,16 @@
 .actionMenu summary::-webkit-details-marker { display: none; }
 .actionOptions { position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 40; width: 240px; max-height: 45dvh; overflow-y: auto; display: grid; gap: 4px; padding: 8px; border: 1px solid #dce7e0; border-radius: 10px; background: #fff; box-shadow: 0 8px 30px #162e2324; }
 .actionOptions > button { justify-content: flex-start; border: 0; border-radius: 6px; padding: 9px; box-shadow: none; transform: none; }
+.actionMenu[data-placement='below'] > .actionOptions { bottom: auto; top: calc(100% + 6px); width: min(260px, 65vw); }
+.actionMenu[data-inline='true'][open] { flex-basis: 100%; }
+.actionMenu[data-inline='true'] > .actionOptions { position: static; width: 100%; max-height: none; margin-top: 6px; box-shadow: none; }
+.messageAttention { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #e8eeea; font-size: 11px; color: #586f62; }
+.messageAttention summary { border: 0; padding: 3px 0; font-size: 11px; font-weight: 400; }
+.attentionToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11px; }
+.attentionToolbar summary { padding: 3px 6px; border: 0; font-size: 11px; font-weight: 400; }
+.attentionToolbar [role='alert'] { color: #b42318; }
+.attentionToolbar [role='status']:empty { display: none; }
+.attentionToolbar .actionOptions { padding: 10px; font-size: 12px; }
 .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px; text-align: center; background: #f7f9f8; }
 .welcomeIcon { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 22px; background: #e6f3ec; color: #258965; }
 .welcome h2 { font-size: 22px; font-weight: 600; color: #233f32; }

@@ -488,3 +488,49 @@ assert.equal(storageValues.get('staynex.sidebar.collapsed'), 'true');
 changeSidebar(false);
 assert.equal(storageValues.get('staynex.sidebar.collapsed'), 'false');
 console.log('Inbox responsive panel lifecycle and shared sidebar preference passed');
+
+// Exercise the productive attention presentation with an injected context. This
+// checks permissions and operation scope after moving actions into disclosures.
+const { createRequire } = await import('node:module');
+const dashboardRequire = createRequire(new URL('../dashboard/package.json', import.meta.url));
+const attentionReact = dashboardRequire('react');
+const ts = dashboardRequire('typescript');
+const attentionSource = readFileSync(new URL('../dashboard/components/MessageAttentionControls.js', import.meta.url), 'utf8');
+const attentionPresentation = attentionSource.slice(attentionSource.indexOf('export function AttentionToolbar'))
+  .replaceAll('export function', 'function');
+const compiledAttention = ts.transpileModule(attentionPresentation, { compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2020 } }).outputText;
+const { isAttentionMessage: eligibleAttentionMessage } = await import('../shared/message-attention/contract.js');
+let attentionView, prepared = [], toggled = [], refreshed = 0;
+const presentation = new Function('React', 'useContext', 'AttentionContext', 'InboxActionMenu', 'styles', 'isAttentionMessage', 'labels',
+  compiledAttention+';return {AttentionMessage, AttentionToolbar};')(
+  attentionReact, () => attentionView, {}, 'disclosure', {}, eligibleAttentionMessage,
+  { pending: 'Pendiente', resolved: 'Resuelto', untracked: 'Sin seguimiento anterior' });
+const attentionExample = { id: '00000000-0000-4000-8000-000000000099', sender_type: 'guest', content: 'Solicitud sintética' };
+const elements = node => Array.isArray(node) ? node.flatMap(elements) : node && typeof node === 'object'
+  ? [node, ...elements(node.props?.children)] : [];
+const presentMessage = () => elements(presentation.AttentionMessage({ message: attentionExample }));
+attentionView = { available: true, canManage: true, busy: false, selected: [], rows: new Map([[attentionExample.id,
+  { status: 'pending', changedAt: '2026-09-11T08:00:00Z', actorKind: 'inbound' }]]),
+  prepare: (...args) => prepared.push(args), toggle: id => toggled.push(id), refresh: () => refreshed++ };
+let attentionNodes = presentMessage();
+assert.equal(prepared.length, 0, 'Rendering the disclosure must not change attention');
+assert.equal(attentionNodes.find(n => n.type === 'disclosure').props.inline, true, 'Message actions expand within their own message');
+attentionNodes.find(n => n.type === 'button').props.onClick();
+assert.deepEqual(prepared, [['resolved', [attentionExample.id]]], 'Resolve still prepares confirmation for exactly this message');
+attentionNodes.find(n => n.type === 'input').props.onChange();
+assert.deepEqual(toggled, [attentionExample.id]);
+attentionView.rows.get(attentionExample.id).status = 'resolved';
+presentMessage().find(n => n.type === 'button').props.onClick();
+assert.deepEqual(prepared.at(-1), ['pending', [attentionExample.id]], 'Reopen retains its original scope');
+attentionView.rows.get(attentionExample.id).status = 'untracked';
+assert.equal(presentMessage().filter(n => n.type === 'button').length, 2, 'Historical untracked messages retain both explicit actions');
+attentionView.busy = true;
+assert.ok(presentMessage().filter(n => ['button', 'input'].includes(n.type)).every(n => n.props.disabled), 'Saving disables every mutation control');
+attentionView.canManage = false;
+assert.equal(presentMessage().filter(n => ['button', 'input'].includes(n.type)).length, 0, 'Read-only viewers cannot acquire mutation controls through the menu');
+assert.equal(presentMessage().filter(n => n.type === 'disclosure').length, 1, 'Read-only viewers retain existing tracking information');
+attentionView.busy = false;
+elements(presentation.AttentionToolbar()).find(n => n.type === 'button').props.onClick();
+assert.equal(refreshed, 1, 'Refresh attention calls only the existing attention refresh');
+assert.ok(inboxComponentSource.indexOf('<AttentionToolbar />') < inboxComponentSource.indexOf('</header>'), 'Attention controls belong to the conversation header');
+console.log('Inbox attention disclosure permissions, busy state and operation scope passed');
