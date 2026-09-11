@@ -58,7 +58,7 @@ Para abrir el montaje ya preparado, usar la URL anterior. Si está detenido, des
 
 ## Límites
 
-- Zoom real del navegador pendiente: el atajo de la superficie automatizada no modificó la escala. Las cuatro resoluciones y el reflow móvil sí se comprobaron; no sustituyen esa prueba de zoom.
+- Zoom real al 125 % y 150 % confirmado posteriormente por el usuario durante la preparación de la PR (validación manual del usuario, no automatizada). El intento automatizado anterior no modificó la escala. Véase `inbox-polish-review.md`.
 - Revisión visual con sesión sintética Admin, no una certificación de cada pantalla y rol. Las pruebas de permisos y contratos permanecen activas.
 - La simulación no certifica Supabase, PostgreSQL, Realtime remoto ni entrega WhatsApp. No se hicieron llamadas externas ni cambios de datos reales.
 - Se mantiene el contrato anterior de borradores: navegación dentro de Inbox conserva el borrador en memoria; no se añade persistencia permanente de todos los borradores nuevos. Los recibos y recuperación de fallos/incertidumbre conservan su mecanismo existente.

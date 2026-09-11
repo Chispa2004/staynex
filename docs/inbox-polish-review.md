@@ -57,7 +57,9 @@ Capturas originales del navegador integrado, sin pasar por un visor, en `.npm-ca
 
 ## Zoom y límites
 
-**Zoom real 125 % y 150 %: pendiente.** Se intentó acceder a los controles nativos de Chrome; Computer Use detuvo la operación porque no pudo determinar la URL activa con suficiente confianza para aplicar su política. No se intentó eludir ese bloqueo. Cambiar viewport o escala de dispositivo no se ha contabilizado como zoom.
+**Zoom real 125 % y 150 %: validación manual del usuario confirmada al preparar la PR.** El usuario comprobó ambos niveles y confirmó que funcionan correctamente. Esta evidencia es manual, no una prueba automatizada ni una comprobación realizada por el agente.
+
+El intento automatizado anterior se detuvo porque Computer Use no pudo determinar la URL activa con suficiente confianza para aplicar su política. Ese resultado se conserva como limitación de la automatización; la confirmación manual del usuario cierra el pendiente visual. Cambiar viewport o escala de dispositivo no se ha contabilizado como zoom.
 
 Comprobación manual: abrir la URL local en Chrome, usar menú ⋮ → Zoom hasta que indique 125 %, y después 150 %. En cada nivel abrir una conversación, sus «Opciones», el menú «Atención» y la ficha; comprobar texto, scroll y acceso al compositor, tabular y cerrar con Escape. Confirmar que el borrador continúa intacto, sin pulsar Enviar. Volver a 100 % al terminar.
 
