@@ -37,6 +37,7 @@ async function main(){
       sql(ack+fixture.sql,/Enabled user trigger/);assert.equal(counts(),'[0, 0, 0, 0, 0, 0, 0]');sql('drop trigger synthetic_outbound on messages;drop function synthetic_trigger();');
     });
     check('Three canonical cases: 3 received / 1 resolved / 2 pending / 1 urgent',()=>{load();assert.deepEqual(dash().counters,{received:3,resolved:1,pending:2,urgent:1});});
+    if(process.argv.includes('--integrated')) await require('./fixtures/demo-routes-integration.cjs').runDemoRoutesIntegration({pg,env,root,hotelId:h,otherHotelId:other,actorId:actor,fixture});
     check('Guest, reservation, phase, order, state and same-hotel Inbox links',()=>{
       const d=dash(),dto=attentionDashboardDTO(d,h);
       assert.equal(dto.coverage,'complete');assert.deepEqual(d.messages.map(m=>[m.guest,m.status,m.stayStage]),[

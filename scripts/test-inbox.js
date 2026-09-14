@@ -89,6 +89,10 @@ class FakeSupabaseQuery {
   }
 
   execute() {
+    if (this.tableName === 'guests' && this.options.guestLanguageColumnMissing && this.selectClause.includes('preferred_language')) {
+      return {data:null,error:{code:'42703',message:'column guests.preferred_language does not exist'}};
+    }
+
     if (this.tableName === 'reservations' && this.options.reservationOptionalColumnsMissing && /room_number|source/.test(this.selectClause)) {
       return {data:null,error:{code:'42703',message:'column reservations.room_number does not exist'}};
     }
@@ -373,6 +377,14 @@ const baseReservationInbox = await getInboxConversations({
 });
 assert.deepEqual(baseReservationInbox.map(c=>c.guest?.name),inboxConversations.map(c=>c.guest?.name),'Optional reservation columns must not hide guest identities');
 assert.ok(baseReservationInbox.every(c=>c.hotel_id===hotelA),'Schema fallback preserves hotel scope');
+
+const languageLegacyInbox = await getInboxConversations({
+  supabase:createFakeSupabase({...baseTables,guests:baseTables.guests.map(({preferred_language,...guest})=>guest)},
+    {guestIdentityColumnsMissing:true,guestLanguageColumnMissing:true,reservationOptionalColumnsMissing:true}),hotelId:hotelA
+});
+assert.equal(languageLegacyInbox[0].guest.name,luciaName);
+assert.equal(languageLegacyInbox[0].guest.preferred_language,null,'Missing optional language must remain unknown');
+assert.ok(languageLegacyInbox.every(c=>c.hotel_id===hotelA));
 
 const phoneFallbackConversations = await getInboxConversations({
   supabase: createFakeSupabase({

@@ -75,28 +75,22 @@ const getGuestsForInbox = async ({ supabase, guestIds, hotelId }) => {
     return [];
   }
 
-  const baseSelect = 'id, hotel_id, phone_number, current_room, preferred_language';
-  const identitySelect = `${baseSelect}, name, full_name`;
-  let { data, error } = await supabase
-    .from('guests')
-    .select(identitySelect)
-    .eq('hotel_id', hotelId)
-    .in('id', guestIds);
-
-  if (error && isMissingGuestIdentityFields(error)) {
-    const fallback = await supabase
-      .from('guests')
-      .select(baseSelect)
-      .eq('hotel_id', hotelId)
-      .in('id', guestIds);
-
-    data = fallback.data;
-    error = fallback.error;
+  let select = 'id, hotel_id, phone_number, current_room, preferred_language, name, full_name';
+  let data, error;
+  // Optional legacy columns may be absent independently. Every retry keeps the
+  // identical authorized hotel and guest identities; unknown language stays unknown.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    ({ data, error } = await supabase.from('guests').select(select)
+      .eq('hotel_id', hotelId).in('id', guestIds));
+    if (!error) break;
+    if (['42703', 'PGRST204'].includes(error.code)
+      && /preferred_language/.test(error.message || '') && select.includes(', preferred_language')) {
+      select = select.replace(', preferred_language', '');
+    } else if (isMissingGuestIdentityFields(error) && select.includes(', name, full_name')) {
+      select = select.replace(', name, full_name', '');
+    } else break;
   }
-
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
   return data || [];
 };

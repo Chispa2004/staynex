@@ -149,3 +149,51 @@ No se ha publicado ni cargado la demo remota. Orden futuro:
 
 Volver al código anterior es compatible con v1, que permanece intacta. No hace falta
 borrar mensajes ni desactivar RLS. Cualquier retirada de demo debe pasar sus guardas.
+
+## Cierre de preparación de PR: integración HTTP y PostgreSQL
+
+Sobre `5ee20c071661be6395886ca16882f12857e34338`, se añadió una comprobación integrada
+que no reutiliza la captura estática. Comando reproducible (Node 24.19.0, dependencias
+de raíz/dashboard instaladas y la imagen oficial local `postgres:17.10`):
+
+```powershell
+node --experimental-vm-modules --require ./scripts/ci/isolate.cjs scripts/test-demo-message-stages-postgres.cjs --integrated
+```
+
+Resultado: **15 comprobaciones SQL + 7 comprobaciones HTTP PASS**. El host HTTP de
+pruebas carga directamente desde disco los módulos reales de `/api/executive-dashboard`,
+`/api/inbox` y `/api/inbox/attention`, incluyendo `current-hotel`, invitaciones,
+permisos, carga de fuentes, presentación de traducciones, copilot local y DTO.
+No modifica ni sustituye los handlers. Solo sustituye dos fronteras: la verificación
+del token de Supabase Auth (identidades sintéticas) y el transporte de consultas
+Supabase/PostgREST por un adaptador que ejecuta SELECT y RPC reales mediante psql.
+Las asignaciones hoteleras se leen de PostgreSQL, no se simulan en el contexto.
+
+Se sirven peticiones HTTP de loopback con sesiones válidas/ausentes/inválidas,
+selección hotelera manipulada, lectura cruzada denegada, tres conversaciones y sus
+estados, filtro SIMULADO/urgente y consulta trazable sin sustitución de ejemplos.
+Una inserción nueva incrementa recibidos a 4; resolver ese nuevo mensaje mediante
+POST autorizado cambia los indicadores a **4/2/2/1**. Las lecturas reflejan cambios
+de BD en la misma ejecución, no respuestas estáticas. Se retiran solo esos registros
+adicionales de prueba antes de continuar las 15 comprobaciones de demo.
+
+**Fallo encontrado y corregido:** sobre el esquema base, `/api/inbox` respondía 500
+al faltar `guests.preferred_language`. El lector ahora elimina únicamente las columnas
+opcionales ausentes en reintentos acotados; conserva hotel/IDs de huéspedes y deja
+el idioma desconocido como null. También contempla ausencia independiente de
+`name/full_name`. La prueba integrada reproduce esta combinación realmente en PG;
+`test:inbox` añade regresión para que el check crítico cubra el fallback.
+La dependencia anterior de `guests.preferred_language` deja de bloquear esta lectura;
+no se modifica el idioma de envío ni el traductor.
+
+La prueba integrada es de handlers HTTP, autorización de aplicación y BD real. No
+certifica Supabase Auth real, PostgREST, middleware/runtime de Next desplegado,
+Realtime, proveedores ni el esquema remoto completo. Las fuentes opcionales ausentes
+producen cobertura incompleta donde corresponde; no se crean fixtures para aparentar
+actividad de IA. Logs y resultados están en `.npm-cache/demo-message-stages/integrated/`.
+
+**CI:** los tres jobs existentes siguen siendo Critical tests and syntax, Dashboard
+build y PostgreSQL knowledge isolation. Ni las 15 comprobaciones de esta demo ni las
+7 integradas están incorporadas al workflow: se ejecutan **localmente** con el comando
+anterior. El job de Knowledge no valida `staynex_attention_dashboard_v2`.
+Ver el procedimiento remoto en [demo-message-stages-publication.md](demo-message-stages-publication.md).
