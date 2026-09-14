@@ -8,6 +8,7 @@ import {
 } from '../../shared/automations/runtime.js';
 import { writeAutomationDecisionToQueue } from '../../shared/automations/queue-writer.js';
 import { pmsConnectionSelectForSurface } from '../../shared/pms/safe-connection.js';
+import { isDemoMessageStagesContext, isDemoMessageStagesReservation } from '../../shared/demo-message-stages/server-provenance.js';
 
 export const PRE_CHECKOUT_FOLIO_AUTOMATION_TYPE = 'pre_checkout_folio_reminder';
 const PMS_FOLIO_SELECT = pmsConnectionSelectForSurface('tenant_settings');
@@ -171,6 +172,9 @@ export const getGuestFolioSummary = async ({
 } = {}) => {
   if (!hotelId) {
     return normalizeFolioSummary({ available: false, warnings: ['missing_hotel_id'] });
+  }
+  if (isDemoMessageStagesContext({ hotelId, reservationId })) {
+    return normalizeFolioSummary({ available: false, warnings: ['demo_external_blocked'] });
   }
 
   try {
@@ -416,7 +420,7 @@ export const runPreCheckoutFolioReminder = async ({
     }
 
     const reservations = await safeRows(reservationsQuery);
-    const candidateReservations = reservations.filter((reservation) => isPreCheckoutFolioEligibleWindow({ reservation, now }));
+    const candidateReservations = reservations.filter((reservation) => !isDemoMessageStagesReservation(reservation) && isPreCheckoutFolioEligibleWindow({ reservation, now }));
     const hotelIds = [...new Set(candidateReservations.map((reservation) => reservation.hotel_id).filter(Boolean))];
     const guestIds = [...new Set(candidateReservations.map((reservation) => reservation.guest_id).filter(Boolean))];
     const reservationIds = candidateReservations.map((reservation) => reservation.id).filter(Boolean);

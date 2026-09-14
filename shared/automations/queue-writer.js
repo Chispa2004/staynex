@@ -5,6 +5,7 @@ import {
   OPERATIONAL_STATUSES,
   getAutomationTypeFamily
 } from './catalog.js';
+import { isDemoMessageStagesContext } from '../demo-message-stages/server-provenance.js';
 
 const SENDABLE_MODES = new Set([
   EXECUTION_MODES.LIVE_LIMITED,
@@ -304,6 +305,9 @@ export const writeAutomationDecisionToQueue = async ({
 
   if (!decision?.idempotencyKey) {
     throw new Error('idempotencyKey is required to write automation decisions');
+  }
+  if (isDemoMessageStagesContext(decision)) {
+    return { status: OPERATIONAL_STATUSES.SKIPPED, reason: 'demo_external_blocked', scheduledMessage: null, automationRun: null, duplicate: false };
   }
 
   if (auditOnlyStatus) {

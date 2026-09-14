@@ -1,6 +1,7 @@
 import { syncAllSheets } from './google-sheets.service.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
+import { isDemoMessageStagesContext, isDemoMessageStagesReservation } from '../../shared/demo-message-stages/server-provenance.js';
 import {
   pmsConnectionSelectForSurface,
   serializePmsConnectionsSafe
@@ -130,19 +131,19 @@ export const loadPlatformSheetsData = async (supabase = getSupabase()) => {
 
   return {
     hotels,
-    reservations,
+    reservations: reservations.filter(row => !isDemoMessageStagesReservation(row)),
     experienceBookings,
     automations,
     automationRuns,
     pmsConnections: serializePmsConnectionsSafe(pmsConnections, { surface: 'health' }),
-    conversations,
+    conversations: conversations.filter(row => !isDemoMessageStagesContext({ hotelId: row.hotel_id, conversationId: row.id, guestId: row.guest_id })),
     aiLogs,
     tickets,
     hotelUsers,
     roomStatusRows,
     occupancyRows,
-    guestStayContexts,
-    scheduledMessages
+    guestStayContexts: guestStayContexts.filter(row => !isDemoMessageStagesContext({ hotelId: row.hotel_id, reservationId: row.reservation_id, guestId: row.guest_id })),
+    scheduledMessages: scheduledMessages.filter(row => !isDemoMessageStagesContext({ hotelId: row.hotel_id, reservationId: row.reservation_id, guestId: row.guest_id, conversationId: row.conversation_id }))
   };
 };
 

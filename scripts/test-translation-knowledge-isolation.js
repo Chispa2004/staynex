@@ -4,13 +4,14 @@ import { canAccess, canAccessPlatform, getPermissionsForPlatformRole, getPermiss
 import { detectGuestLanguage, normalizeLanguage } from '../src/services/language.service.js';
 import { validateAiResponse } from '../src/schemas/ai-response.schema.js';
 import crypto from 'node:crypto';
+import * as demoProvenance from '../shared/demo-message-stages/server-provenance.js';
 import { getVerifiedMessageTranslation, sanitizeInboxMessageTranslations, shouldCompactOriginalMessage } from '../dashboard/lib/inbox-message-presentation.js';
 
 // Load executable production bodies with controlled boundaries, as in test-auth-hotel-context.
-const load = (file, bindings, exports) => new Function(...Object.keys(bindings),
+const load = (file, supplied, exports) => { const bindings = { ...demoProvenance, ...supplied }; return new Function(...Object.keys(bindings),
   readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import[\s\S]*?;\r?\n/gm,'')
     .replaceAll('export const ','const ').replaceAll('export async function ','async function ')
-    + '\nreturn {'+exports.join(',')+'};')(...Object.values(bindings));
+    + '\nreturn {'+exports.join(',')+'};')(...Object.values(bindings)); };
 const A='11111111-1111-4111-8111-111111111111', B='22222222-2222-4222-8222-222222222222';
 const makeStore=()=>{
   const db={messages:[{id:'ma',hotel_id:A,conversation_id:'ca',content:'Synthetic A',metadata:{}},{id:'mb',hotel_id:B,conversation_id:'cb',content:'PRIVATE SYNTHETIC B',metadata:{}}],

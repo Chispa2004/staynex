@@ -7,6 +7,7 @@ import {
 import { logger } from '../utils/logger.js';
 import { detectGuestLanguage } from './language.service.js';
 import { maskPhoneForLogs } from '../utils/privacy.js';
+import { isDemoMessageStagesContext, demoExternalOperationError } from '../../shared/demo-message-stages/server-provenance.js';
 
 export const extractRoomNumber = (message) => {
   const match = message.match(/\b(?:habitaci[oó]n|hab\.?|room|cuarto|chambre|zimmer)\s*(\d{1,5})\b/i);
@@ -23,6 +24,7 @@ export const extractRoomNumber = (message) => {
 export const findOrCreateGuest = async ({ hotelId, phoneNumber, message }) => {
   const detectedRoom = extractRoomNumber(message);
   const existingGuest = await findGuestByPhone({ hotelId, phoneNumber });
+  if (isDemoMessageStagesContext({ hotelId, guestId: existingGuest?.id })) throw demoExternalOperationError();
   const detectedLanguage = detectGuestLanguage(message, existingGuest?.preferred_language || 'es');
   const phoneForLogs = maskPhoneForLogs(phoneNumber);
 

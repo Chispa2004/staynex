@@ -1,4 +1,5 @@
 import { sendStaffMessage } from '../services/message.service.js';
+import { isDemoMessageStagesContext, demoExternalOperationError } from '../../shared/demo-message-stages/server-provenance.js';
 import { getSupabase } from '../services/supabase.service.js';
 import { detectLanguage, translateText } from '../services/translation.service.js';
 import { normalizeLanguage } from '../services/language.service.js';
@@ -157,6 +158,9 @@ export const handleTranslateMessage = async (req, res, next) => {
         return res.status(404).json({ error: 'Message not found' });
       }
 
+      if (isDemoMessageStagesContext({ hotelId, messageId: message.id, conversationId: message.conversation_id })) {
+        return res.status(409).json({ error: demoExternalOperationError().message, code: 'demo_external_blocked' });
+      }
       sourceText = message.content;
       const cached = message.metadata?.translations?.[normalizedTarget];
 

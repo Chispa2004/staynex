@@ -23,27 +23,41 @@ Confirmar el UUID del hotel cuyo nombre es **Hotel Demo Checkin** y slug
 `hotel-demo-checkin`, su zona horaria y un operador activo owner/admin/manager/receptionist
 sin plataforma support. No crear asignaciones ni hoteles para eludir una discrepancia.
 
-El generador admite ese hotel en el proyecto actual; **no exige otro esquema/proyecto
-por diseño, pero el aislamiento de dicho proyecto no está demostrado**. No se deduce
-del nombre, `Modo demo`, `hotel_live_mode` ni `SEND_AUTOMATIONS=false`.
-El inventario local anterior solo cubre messages/hotel_knowledge: no mostraba triggers
-de usuario en messages, pero no cubre las otras seis tablas que modifica la carga ni
-acredita el estado actual de los consumidores externos.
+El proyecto compartido es compatible **cuando todas las instancias consumidoras ejecuten
+las guardas de identidad de esta PR**. No hace falta detener sus funciones para otros
+huéspedes/hoteles. El nombre, `Modo demo`, `hotel_live_mode`, SIMULADO y
+`SEND_AUTOMATIONS=false` no acreditan por sí solos el aislamiento.
 
-La carga SQL no invoca rutas inbound, IA ni proveedores y no crea colas. Rechaza
-triggers de usuario habilitados en las siete tablas. Eso no evita que un consumidor
-externo lea posteriormente las reservas: por ejemplo, `scheduler.service.js` contiene
-selección de reservas activas sin exclusión por marcador de fixture (su scheduler
-legacy está desactivado por defecto, pero esa opción no acredita todos los procesos).
+La revisión confirmó rutas concretas: traducción de Inbox hacia OpenAI, generación
+del scheduler legacy si se habilita, consulta PMS de folio y exportación a Sheets.
+Los teléfonos `synthetic-only:` ya impedían el envío manual, pero no esos otros
+recorridos. Se han añadido guardas comunes sobre los UUID reservados y deterministas
+del generador (`shared/demo-message-stages/server-provenance.js`). Se verifican en
+el servidor a partir del hotel autorizado y las identidades persistidas; quitar
+metadata o cambiar el teléfono no levanta el bloqueo. Nunca conceden acceso.
 
-**Antes de cargar, y durante toda la vida de los ejemplos**, confirmar workers,
-schedulers, reconciliadores, tareas programadas, webhooks de BD/CDC, consumidores de
-publicaciones e integraciones detenidos o simulados, y proveedores externos inaccesibles.
-No reactivar consumidores reales hasta retirar los ejemplos. Si esto no puede
-garantizarse sin afectar la operación compartida, usar un proyecto/entorno dedicado
-con datos exclusivamente sintéticos y URL propia; no conectar el Preview ni la URL
-de producción a otro proyecto como parte de esta PR. Esa preparación requiere una
-autorización separada. **La carga en el destino actual queda pendiente de esta evidencia.**
+Los ejemplos se excluyen de selección/creación/reconciliación de automatizaciones,
+inteligencia PMS/postestancia y exportación Sheets. Un envío encolado que referencie
+sus identidades se cancela antes de llamar al proveedor; además se comprueba la
+reserva leída en el momento de envío. Manual y traducción devuelven un rechazo
+explícito; no generan una aceptación ficticia. Inbound/IA se detienen antes de
+traducciones, generación, reservas de experiencias o comunicaciones a proveedores.
+Dashboard, Inbox y atención siguen leyendo los mismos originales y RPC.
+
+Antes de cargar, comprobar SHA activo en Vercel, Railway **y cada cron/worker que
+ejecute estos módulos**, y retirada de procesos antiguos. Mantener esa versión o
+una posterior con las guardas durante toda la vida de los ejemplos. No cargar
+mientras coexistan consumidores de la versión anterior. Se mantiene
+`SEND_AUTOMATIONS=false`; no se pide cambiar configuración en este pase.
+
+Único control de infraestructura adicional: confirmar que no hay consumidores
+externos a este código (webhooks de BD, CDC, suscripciones propias o ETL) que actúen
+sobre estas siete tablas sin excluir los ejemplos. Realtime de Inbox es lectura
+autorizada y no se desactiva. La carga rechaza triggers de usuario habilitados en
+las tablas afectadas, sin deshabilitarlos. El inventario anterior de dos tablas no
+acredita las otras cinco ni consumidores externos. Si existe uno, identificarlo y
+excluir allí estas identidades o usar un entorno dedicado; no parar globalmente el
+servicio compartido ni suponer que un SET de SQL controla ese consumidor.
 
 ## SQL y orden de publicación
 
@@ -65,11 +79,13 @@ autorización separada. **La carga en el destino actual queda pendiente de esta 
 3. Verificar definición, propietario y permisos efectivos de la nueva RPC (incluidos
    privilegios heredados). anon/authenticated no deben ejecutarla; service_role sí.
    Una llamada service_role no prueba aislamiento por RLS: verificar también las rutas.
-4. Integrar/publicar el código solo cuando se autorice posteriormente. El frontend viejo
+4. Integrar/publicar backend, dashboard y workers solo cuando se autorice posteriormente. El frontend viejo
    sigue usando v1 durante la transición. Si el nuevo código llega antes del SQL,
    mostrará seguimiento no disponible, sin inventar números. Confirmar el SHA activo
-   en Vercel y la carga de la URL exacta del usuario.
-5. Solo tras confirmar el aislamiento anterior, preparar y ejecutar la carga identificada.
+   en Vercel/Railway y la carga de la URL exacta del usuario. No se necesita garantizar
+   un orden entre ambos despliegues si todavía no hay ejemplos: esperar a que todos
+   estén actualizados y las instancias antiguas retiradas antes de cargarlos.
+5. Solo tras confirmar esas condiciones, preparar y ejecutar la carga identificada.
    Nunca ejecutar el reset general de Checkin para esta operación.
 
 ## Generación, aplicación autorizada y retirada
@@ -97,14 +113,14 @@ SET staynex.send_automations = 'false';
 ```
 
 Estos SET son reconocimientos operativos, no switches reales de Railway/Vercel ni
-garantías de red. No ejecutarlos hasta cumplir las condiciones de aislamiento.
+garantías de red. Confirman la revisión de versiones y consumidores indicada arriba.
 La transacción valida hotel/operador/fecha, bloquea las tablas modificadas, rechaza
 triggers habilitados y colisiones y crea solo entidades de los tres casos. Una segunda
 carga no modifica registros preexistentes ni duplica entidades/eventos. No hay envíos,
 facturas, acciones de mantenimiento ni reservas de traslado.
 
-Para retirar, usar `remove.sql` generado con **los mismos UUID y fecha original**, en
-la misma clase de sesión aislada y con los dos SET anteriores. Solo elimina las
+Para retirar, usar `remove.sql` generado con **los mismos UUID y fecha original**, con
+las guardas todavía desplegadas y los dos SET anteriores. Solo elimina las
 identidades de `staynex_message_stages_v1` y su evento sintético. Rechaza cambios de
 propiedad/contenido, nueva actividad humana y dependencias que pudieran provocar
 cascadas. Si rechaza la retirada, conservar datos y revisar la dependencia concreta;
@@ -124,9 +140,36 @@ requiere retirada segura antes de otra carga; no se reescriben fechas.
    filtros heurísticos de conversaciones o no leídos de Inbox.
 4. Abrir las tres filas: `/dashboard/inbox?conversationId=UUID_CORRESPONDIENTE` en el
    mismo hotel; contrastar huésped, original y estado de atención. Carlos habitación
-   208, Ana llegada mañana, Lucía salida ayer. No enviar, traducir ni pulsar acciones de IA.
-5. Verificar que no aparecieron llamadas a proveedores, jobs ni efectos externos.
+   208, Ana llegada mañana, Lucía salida ayer. El selector no habilita envíos.
+5. Tras autorización para la verificación remota: intentar responder o traducir un
+   mensaje de estos ejemplos debe mostrar el rechazo explícito de demo y conservar
+   el borrador, sin insertar un envío ni mostrar aceptación/entrega. La asistencia
+   del panel es cálculo local. Resolver/reabrir atención sigue autorizado y debe
+   reflejarse en Dashboard al consultar de nuevo SIMULADO. Esas transiciones dejan
+   auditoría real y la retirada conservadora puede rechazarlas: no borrar ese
+   historial automáticamente para conseguir una retirada exitosa.
+6. Verificar que no aparecieron llamadas a proveedores, jobs nuevos ni efectos externos
+   asociados a los UUID de los ejemplos. No probar estos bloqueos sobre huéspedes reales.
    La evidencia local no sustituye esta comprobación del entorno objetivo.
 
 Ante incompatibilidad del despliegue, conservar v1 y volver al código previo solo
-mediante una acción autorizada. No borrar mensajes ni desactivar RLS como recuperación.
+mediante una acción autorizada. Si se vuelve a código sin guardas, retirar antes los
+ejemplos mediante su retirada verificada; si esta rechaza actividad posterior, detener
+la reversión y resolver ese bloqueo. No borrar historia ni desactivar RLS.
+
+## Evidencia local y CI
+
+`npm run ci:critical` incluye ahora `test:demo-external-isolation`: diez comprobaciones
+de cuerpos productivos con BD sintética y proveedores espía, sin SDK externo. Se
+comprueban los tres ejemplos, metadatos ausentes, teléfono cambiado, hotel ajeno,
+colas/reintentos, folio, workers y Sheets. Los controles ordinarios del mismo hotel
+llegan a los espías WhatsApp, traducción, generación IA, folio y exportación; los
+ejemplos no se envían a esos proveedores. `SEND_AUTOMATIONS` permanece false; el test
+de generación sustituye OpenAI por una clase espía y sombrea solo su configuración
+local para evitar que USE_MOCK_AI oculte una llamada potencial.
+
+Las 15 comprobaciones PostgreSQL y las 7 HTTP contra PostgreSQL se repiten con
+`node --experimental-vm-modules --require ./scripts/ci/isolate.cjs scripts/test-demo-message-stages-postgres.cjs --integrated`.
+Siguen siendo locales: el job PostgreSQL knowledge isolation no certifica la RPC de
+esta demo. El nuevo test de proveedores sí forma parte de Critical tests and syntax.
+No se ha aplicado SQL/carga remota ni verificado funcionalmente producción.

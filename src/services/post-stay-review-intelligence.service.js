@@ -2,6 +2,7 @@ import { getSupabase } from './supabase.service.js';
 import { isHumanControlledConversation } from './conversation-context.service.js';
 import { logger } from '../utils/logger.js';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
+import { isDemoMessageStagesReservation } from '../../shared/demo-message-stages/server-provenance.js';
 import {
   applyAutomationDecisionOverride,
   evaluateAutomationDecision
@@ -446,7 +447,7 @@ export const runPostStayReviewIntelligence = async ({
       reservationsQuery = reservationsQuery.eq('hotel_id', hotelId);
     }
 
-    const reservations = (await safeRows(reservationsQuery)).filter((reservation) => isPostStayReviewDue({ reservation, now }));
+    const reservations = (await safeRows(reservationsQuery)).filter((reservation) => !isDemoMessageStagesReservation(reservation) && isPostStayReviewDue({ reservation, now }));
     const hotelIds = [...new Set(reservations.map((reservation) => reservation.hotel_id).filter(Boolean))];
     const guestIds = [...new Set(reservations.map((reservation) => reservation.guest_id).filter(Boolean))];
     const reservationIds = reservations.map((reservation) => reservation.id).filter(Boolean);

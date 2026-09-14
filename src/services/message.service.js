@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { getSupabase } from './supabase.service.js';
+import { isDemoMessageStagesContext } from '../../shared/demo-message-stages/server-provenance.js';
 import { sendManualWhatsAppMessage } from './twilio.service.js';
 import { detectLanguage, translateForGuest } from './translation.service.js';
 import { validateManualSend, manualSendError, manualDelivery, normalizeManualDelivery, classifyManualProviderError, classifyManualProviderResult, MANUAL_MESSAGE_MAX_LENGTH } from '../../shared/manual-send/contract.js';
@@ -14,6 +15,9 @@ export const createManualMessageSender = ({ getClient = getSupabase, send = send
     .select('id, hotel_id, guest_id').eq('id', conversationId).eq('hotel_id', hotelId).maybeSingle();
   if (conversationError) throw manualSendError('persistence_failed', 503, true);
   if (!conversation) throw manualSendError('access_denied', 404);
+  if (isDemoMessageStagesContext({ hotelId, conversationId: conversation.id, guestId: conversation.guest_id })) {
+    throw manualSendError('demo_external_blocked', 409);
+  }
   const { data: guest, error: guestError } = await client.from('guests')
     .select('id, hotel_id, phone_number, preferred_language').eq('id', conversation.guest_id).eq('hotel_id', hotelId).maybeSingle();
   if (guestError) throw manualSendError('persistence_failed', 503, true);

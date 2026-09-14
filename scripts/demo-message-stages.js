@@ -1,12 +1,12 @@
 // SQL generator only. No database client, environment files or provider imports.
-import { createHash } from 'node:crypto';
+import { demoMessageStageId, DEMO_MESSAGE_STAGES_MARKER } from '../shared/demo-message-stages/server-provenance.js';
 import { pathToFileURL } from 'node:url';
-const marker='staynex_message_stages_v1';
+const marker=DEMO_MESSAGE_STAGES_MARKER;
 const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
 const uuid=value=>typeof value==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 export const demoMessageStages = ({hotelId,actorId,referenceDate,action='load'}) => {
   if (!uuid(hotelId)||!uuid(actorId)||!/^\d{4}-\d{2}-\d{2}$/.test(referenceDate)||!['load','remove'].includes(action)) throw new Error('Explicit hotel UUID, actor UUID, YYYY-MM-DD reference date and load/remove required');
-  const id=(slot,entity)=>{const hex=createHash('sha256').update([marker,hotelId,slot,entity].join(':')).digest('hex');return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-8${hex.slice(17,20)}-${hex.slice(20,32)}`;};
+  const id=(slot,entity)=>demoMessageStageId(hotelId,slot,entity);
   const cases=[
     {slot:'ana',name:'Ana López',text:'Llegamos mañana a las 18:00. ¿Podéis ayudarnos a reservar un traslado desde el aeropuerto?',arrival:1,departure:4,room:null,status:'confirmed'},
     {slot:'carlos',name:'Carlos Ruiz',text:'El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento',arrival:-1,departure:2,room:'208',status:'checked_in'},
@@ -14,7 +14,8 @@ export const demoMessageStages = ({hotelId,actorId,referenceDate,action='load'})
   ].map(c=>({...c,guestId:id(c.slot,'guest'),reservationId:id(c.slot,'reservation'),conversationId:id(c.slot,'conversation'),messageId:id(c.slot,'message'),operationId:id(c.slot,'resolution'),phone:`synthetic-only:${id(c.slot,'guest')}`}));
   const values=cases.map(c=>`(${[c.slot,c.name,c.text,c.guestId,c.reservationId,c.conversationId,c.messageId,c.operationId,c.phone,c.room,c.status].map(v=>v===null?'null':quote(v)).join(',')},${c.arrival},${c.departure})`).join(',\n');
   return {cases,sql:`-- Generated synthetic demo ${marker}; never sends or connects to a provider.
--- Run only in an explicitly isolated/paused demo environment; keep all workers off.
+-- Deploy the server identity guards on every consumer before loading in a shared project.
+-- Review external DB/CDC consumers separately; these SET acknowledgements are not runtime switches.
 begin;
 set local lock_timeout='5s';
 set local statement_timeout='30s';
@@ -24,7 +25,7 @@ do $demo$
 declare h uuid:=${quote(hotelId)}; actor uuid:=${quote(actorId)}; ref date:=${quote(referenceDate)}; tz text; c record; midnight timestamptz; dependency record; referenced boolean;
 begin
   if current_setting('staynex.demo_isolated',true) is distinct from 'on' or current_setting('staynex.send_automations',true) is distinct from 'false' then
-    raise exception 'Require explicit isolated demo acknowledgement and SEND_AUTOMATIONS=false; all application workers/providers must be stopped or simulated';
+    raise exception 'Require explicit isolated demo acknowledgement and SEND_AUTOMATIONS=false; verify deployed identity guards and external DB consumers';
   end if;
   select timezone into tz from public.hotels where id=h and slug='hotel-demo-checkin' and name='Hotel Demo Checkin';
   if not found or not exists(select 1 from pg_timezone_names where name=tz) then raise exception 'Expected Hotel Demo Checkin and valid timezone'; end if;

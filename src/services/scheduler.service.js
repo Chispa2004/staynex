@@ -9,6 +9,7 @@ import {
 import { createAiLog } from './ai-log.service.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
+import { isDemoMessageStagesReservation } from '../../shared/demo-message-stages/server-provenance.js';
 
 const ACTIVE_RESERVATION_STATUSES = ['confirmed', 'checked_in', 'in_house'];
 
@@ -38,7 +39,7 @@ const getCandidateReservations = async ({ hotelId = null, limit = 250 } = {}) =>
     throw error;
   }
 
-  return data || [];
+  return (data || []).filter(row => !isDemoMessageStagesReservation(row));
 };
 
 const getRulesByHotelId = async (hotelIds) => {

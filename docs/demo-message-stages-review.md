@@ -1,5 +1,9 @@
 # Dashboard: mensajes antes, durante y después de la estancia
 
+**Actualización:** el cierre de aislamiento descrito al final y
+`demo-message-stages-publication.md` sustituyen la condición inicial de detener
+globalmente los consumidores. Los apartados iniciales conservan la evidencia histórica.
+
 Revisión local del 14 de septiembre de 2026. Rama `codex/demo-message-stages`,
 creada desde `origin/main` `b86209b80c9a54d026d3eaf6ec08baafe73fdc20`.
 Sin push, despliegue, SQL remoto ni operaciones sobre datos reales.
@@ -197,3 +201,71 @@ build y PostgreSQL knowledge isolation. Ni las 15 comprobaciones de esta demo ni
 7 integradas están incorporadas al workflow: se ejecutan **localmente** con el comando
 anterior. El job de Knowledge no valida `staynex_attention_dashboard_v2`.
 Ver el procedimiento remoto en [demo-message-stages-publication.md](demo-message-stages-publication.md).
+
+## Cierre de aislamiento por identidad de los ejemplos
+
+Revisión sobre `6619e62e36f2dc25eb47f581cdfaa7ee2c40cb06`, sin SQL/carga remota.
+La precaución anterior tenía causas reales, pero era más amplia de lo necesario:
+
+| Recorrido | Estado anterior | Tratamiento local |
+|---|---|---|
+| `message.service.js` → traducción → Twilio manual | El teléfono sintético ya era inválido; no era una política de procedencia | Rechazo 409 `demo_external_blocked` después de autorizar la conversación y antes de insertar/ traducir/enviar, incluso si cambian el teléfono. Borrador conservado; sin falsa aceptación |
+| Inbox → `/api/translate` → `messages.controller.js` → OpenAI | Autorizaba hotel/mensaje, pero podía traducir ejemplos externamente | Identidad de mensaje/conversación verificada después de autorización, rechazo antes de caché/proveedor |
+| Inbound → `guest.service.js` → `staynex.service.js` | Abrir el chat no genera IA; un inbound es otro recorrido | Bloqueo del huésped persistido antes de actualizar idioma/habitación, traducción o IA. También token de reserva y contexto preparado/reintentado. Impide alcanzar experiencias/email posteriores de ese procesamiento |
+| Scheduler legacy → generación OpenAI | Desactivado por defecto, pero si se habilitaba seleccionaba estas reservas | Excluye las identidades antes de cargar contexto; generación y creación directa también rechazan |
+| Decisiones → `queue-writer.js` → `message-queue.service.js` | Flags/live gates protegían configuración, no procedencia | No crea filas para estas identidades. Filas encoladas/reintentadas se cancelan antes del proveedor. Gate de reserva leída en envío también bloquea |
+| Reconciliación, precheckout, postestancia, inteligencia PMS | Podían consumir reservas sintéticas y crear derivados; folio podía consultar un conector | Excluye los ejemplos antes de folio, alertas, snapshots o reconciliación. Consulta directa de folio devuelve no disponible `demo_external_blocked` |
+| `platform-sheets-sync.service.js` → Google Sheets | Exportaba reservas y contaba conversaciones sintéticas | Excluye identidades/derivados referenciados antes de construir las filas exportadas; conserva registros ordinarios |
+
+La procedencia operacional no se deduce de `metadata.demo`, `pms_provider`, un nombre
+ni SIMULADO. Se reutiliza la identidad determinista ya emitida por el generador:
+SHA-256 de namespace/hotel/caso/entidad, materializado en las claves primarias. El
+generador y los consumidores usan ahora la misma función server-only. El UUID de
+hotel se normaliza a minúsculas. Cada guarda es exclusivamente denegatoria: no
+concede permisos ni sustituye los filtros hoteleros. Se evalúa sobre filas/decisiones
+del servidor; quitar metadata o poner un teléfono válido no habilita operaciones.
+No se añaden tablas, columnas, fechas de corte ni nuevos flags del navegador.
+
+Dashboard, Inbox, autoría, texto original, RPC de indicadores, etapas y transición
+de atención permanecen intactos. Resolver/reabrir atención deja auditoría real: la
+retirada sigue rechazando actividad humana posterior, en lugar de borrarla.
+
+### Comprobaciones de este cierre
+
+- `test:demo-external-isolation`: **10 PASS**. Cuerpos productivos con BD sintética
+  en memoria y proveedores espía. Cero llamadas externas de los ejemplos; los controles
+  ordinarios llegan a WhatsApp, traducción, generación IA, PMS folio y exportación
+  simulados. Incluye huéspedes/conversaciones sin metadata, teléfono válido editado,
+  hotel cruzado, retries, decisión en modo live y workers en ventanas elegibles.
+- `npm run ci:critical`: **PASS**, incluyendo ese nuevo test en el job existente.
+- PostgreSQL 17.10 desechable: **15 SQL + 7 HTTP PASS**, con RPC real, autorización,
+  indicadores, etapas, carga idempotente, atención y retirada. Sin conexión remota.
+- `npm run ci:dashboard`: **PASS** después de apartar exclusivamente la caché `.next`
+  anterior que produjo EINVAL/readlink en OneDrive. Caché preservada fuera de Git;
+  no se cambió configuración ni se evitó el build.
+- Automation runtime foundation, phase2a1, phase2a2, phase2b1, Checkin demo y Twilio
+  inbound dedupe: **PASS** con simulaciones. No se enviaron mensajes reales.
+- Comprobación adicional `test:guest-ai-tenant-isolation`: **FAIL previo, no corregido
+  ni debilitado**. Su aserción de texto exige `withHotel(supabase.from('ai_logs'))` en
+  `dashboard/app/api/executive-dashboard/route.js`; ese módulo ya usa carga delegada
+  y no se modificó en este cierre. La misma aserción no coincide con el archivo del
+  SHA base. No equivale a demostrar un fallo funcional de aislamiento, ni se declara
+  cerrado este test ajeno. Los tests ejecutables de autorización/tenant del CI pasan.
+- `git diff --check`: **PASS**. Inventario local intacto y sin seguimiento.
+
+Las diez comprobaciones de proveedores están en Critical tests and syntax. Las
+quince SQL y siete HTTP de demo siguen siendo locales; Knowledge valida su propio
+contrato. Ninguna sustituye la verificación de versiones, esquema y consumidores
+externos en el destino. La prueba visual histórica sigue siendo una captura estática,
+no evidencia visual del bloqueo nuevo.
+
+### Condiciones remotas pendientes
+
+No se requiere detener globalmente las funciones cubiertas: actualizar todas sus
+instancias (backend, dashboard, cron/workers) antes de cargar los ejemplos y mantener
+las guardas mientras existan. Falta confirmar proyecto/hotel, SQL v2 activo, SHA y
+retirada de versiones anteriores, y que no existan webhooks/CDC/ETL ajenos al código
+que actúen sobre las tablas de la carga. Estos consumidores no se pueden certificar
+desde Git; si hay alguno, identificarlo y excluir los ejemplos allí o utilizar un
+entorno dedicado. El SQL de carga ya rechaza triggers habilitados sin desactivarlos.
+No se ha verificado ni alterado su configuración remotamente en este pase.

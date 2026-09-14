@@ -35,6 +35,7 @@ export const manualDeliveryText = (delivery) => {
     invalid_conversation: 'Selecciona una conversación válida.', invalid_language: 'Revisa el idioma de envío.',
     access_denied: 'No tienes permiso para responder en esta conversación.', invalid_attempt: 'No se pudo validar este intento. Revisa el historial.',
     recipient_unavailable: 'No hay un destinatario válido para esta conversación. Revisa sus datos.',
+    demo_external_blocked: 'Ejemplo simulado: no se ha enviado nada. Puedes consultar el mensaje y cambiar su atención; el borrador se conserva.',
     persistence_failed: 'No enviado: no se pudo guardar el intento. El texto está disponible para reintentar.',
     translation_failed: 'No enviado: no se pudo preparar la traducción. Puedes reintentar.',
     provider_unavailable: 'No enviado: el servicio de WhatsApp no está disponible. Avisa a administración.',
