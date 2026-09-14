@@ -41,15 +41,18 @@ export const validAttentionSnapshot = (data,hotelId,conversationId,ids) => data?
     && (item.status==='untracked' ? item.changedAt===null : Number.isFinite(Date.parse(item.changedAt))));
 
 export const attentionDashboardUnavailable = () => ({
-  coverage: 'incomplete', pending: [], nextCursor: null,
+  coverage: 'incomplete', pending: [], messages: [], nextCursor: null,
   counters: Object.fromEntries(['received','resolved','pending','urgent'].map(key => [key,{value:null,detail:'Seguimiento no disponible'}])),
   scope: 'Seguimiento no disponible. No se asumen estados ni totales.'
 });
 export const attentionDashboardDTO = (data, hotelId) => {
-  if (data?.contract !== 1 || data.hotelId !== hotelId || !ATTENTION_ORIGINS.includes(data.origin)
-    || !Array.isArray(data.pending) || data.pending.length > 8 || !data.counters
-    || new Set(data.pending.map(item=>item.id)).size !== data.pending.length
-    || data.pending.some(item=>!uuid(item.id) || !uuid(item.conversationId) || item.origin!==data.origin || item.status!=='Pendiente'
+  const rows = data?.contract === 2 ? data.messages : data?.pending;
+  if (![1,2].includes(data?.contract) || data.hotelId !== hotelId || !ATTENTION_ORIGINS.includes(data.origin)
+    || !Array.isArray(rows) || rows.length > 8 || !data.counters
+    || new Set(rows.map(item=>item.id)).size !== rows.length
+    || rows.some(item=>!uuid(item.id) || !uuid(item.conversationId) || item.origin!==data.origin || !(data.contract===2 ? ['Pendiente','Resuelto'] : ['Pendiente']).includes(item.status)
+      || (item.status==='Resuelto' && item.priority==='urgent')
+      || (data.contract===2 && item.stayStage!=null && !['Antes de la llegada','Durante la estancia','Después de la salida'].includes(item.stayStage))
       || (data.urgentOnly && item.priority!=='urgent'))
     || ['received','resolved','pending','urgent'].some(key => data.counters[key] !== null
       && (!Number.isSafeInteger(data.counters[key]) || data.counters[key] < 0))) return attentionDashboardUnavailable();
@@ -58,7 +61,8 @@ export const attentionDashboardDTO = (data, hotelId) => {
   return { coverage:'complete', origin:data.origin, urgentOnly:data.urgentOnly, nextCursor:data.nextCursor,
     counters: Object.fromEntries(Object.keys(details).map(key => [key,{ value:data.counters[key],
       detail:data.counters[key] === null ? 'Fuente o periodo no disponible' : details[key] }])),
-    pending:data.pending.map(item => ({...item,title:item.title || 'Mensaje sin texto',
+    messages:rows.map(item => ({...item,title:item.title || 'Mensaje sin texto',
       href:'/dashboard/inbox?conversationId=' + encodeURIComponent(item.conversationId),actionLabel:'Abrir conversación'})),
+    pending:rows.filter(item=>item.status==='Pendiente').map(item=>({...item,href:'/dashboard/inbox?conversationId='+encodeURIComponent(item.conversationId),actionLabel:'Abrir conversación'})),
     scope:'Con seguimiento de atención. Históricos sin clasificar excluidos. Hoy usa la zona horaria del hotel.' };
 };

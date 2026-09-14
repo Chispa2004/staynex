@@ -7,6 +7,7 @@ import { getKnowledgeForHotel } from './knowledge.service.js';
 import { getLegacyAutomationTypesMap } from '../../shared/automations/catalog.js';
 import { evaluateAutomationDecision } from '../../shared/automations/runtime.js';
 import { writeAutomationDecisionToQueue } from '../../shared/automations/queue-writer.js';
+import { isDemoMessageStagesReservation, demoExternalOperationError } from '../../shared/demo-message-stages/server-provenance.js';
 
 const addDays = (dateValue, days) => {
   if (!dateValue) {
@@ -168,6 +169,7 @@ export const generateAutomationMessage = async ({
   language = 'es'
 }) => {
   const normalizedLanguage = normalizeLanguage(language);
+  if (isDemoMessageStagesReservation(reservation)) throw demoExternalOperationError();
   const fallbackMessage = fallbackTemplate({
     automationType,
     reservation,
@@ -447,6 +449,7 @@ export const createScheduledMessage = async ({
   language = 'es',
   metadata = {}
 }) => {
+  if (isDemoMessageStagesReservation(reservation)) throw demoExternalOperationError();
   const client = getSupabase();
   const scheduledDate = new Date(scheduledFor);
   const dayStart = new Date(Date.UTC(

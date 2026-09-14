@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase.service.js';
+import { isDemoMessageStagesReservation } from '../../shared/demo-message-stages/server-provenance.js';
 import { logger } from '../utils/logger.js';
 import {
   createOperationalEvent,
@@ -94,6 +95,7 @@ export const persistReservationOperationalContext = async ({
   now = new Date(),
   supabase = getSupabase()
 } = {}) => {
+  if (isDemoMessageStagesReservation(reservation || {})) return { context: null, events: [], roomStatus: null };
   if (!reservation?.hotel_id || !reservation?.id) {
     return {
       context: null,
@@ -264,7 +266,7 @@ export const runPmsIntelligenceRefresh = async ({
     reservationsQuery = reservationsQuery.eq('hotel_id', hotelId);
   }
 
-  const reservations = await safeRows(reservationsQuery, 'pms_intelligence_reservations');
+  const reservations = (await safeRows(reservationsQuery, 'pms_intelligence_reservations')).filter(row => !isDemoMessageStagesReservation(row));
   const hotelIds = [...new Set(reservations.map((reservation) => reservation.hotel_id).filter(Boolean))];
   const summary = {
     dryRun,

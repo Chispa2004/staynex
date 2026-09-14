@@ -6,6 +6,7 @@
   "main": "src/server.js",
   "scripts": {
     "test:manual-send": "node scripts/test-manual-send.js",
+    "test:demo-external-isolation": "node scripts/test-demo-external-isolation.js",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "check": "node --check src/server.js",

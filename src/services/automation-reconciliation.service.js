@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isDemoMessageStagesReservation } from '../../shared/demo-message-stages/server-provenance.js';
 import {
   AUTOMATION_RUNTIME_VERSION,
   EXECUTION_MODES,
@@ -567,6 +568,9 @@ export const reconcileReservationAutomationLifecycle = async ({
     sourceEventId
   });
   const result = baseResult(policy);
+  if (isDemoMessageStagesReservation(currentReservation || {}) || isDemoMessageStagesReservation(previousReservation || {})) {
+    return { ...result, reason: 'demo_external_blocked', action: 'none' };
+  }
 
   if (policy.action !== 'cancel_pending' && !policy.hotelId && !policy.reservationId) {
     return result;

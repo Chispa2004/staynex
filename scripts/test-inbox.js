@@ -89,6 +89,14 @@ class FakeSupabaseQuery {
   }
 
   execute() {
+    if (this.tableName === 'guests' && this.options.guestLanguageColumnMissing && this.selectClause.includes('preferred_language')) {
+      return {data:null,error:{code:'42703',message:'column guests.preferred_language does not exist'}};
+    }
+
+    if (this.tableName === 'reservations' && this.options.reservationOptionalColumnsMissing && /room_number|source/.test(this.selectClause)) {
+      return {data:null,error:{code:'42703',message:'column reservations.room_number does not exist'}};
+    }
+
     if (
       this.tableName === 'guests'
       && this.options.guestIdentityColumnsMissing
@@ -364,6 +372,20 @@ assert.deepEqual(inboxConversations[0].upsells.map((upsell) => upsell.id), ['ups
 assert.deepEqual(inboxConversations[0].offers.map((offer) => offer.id), ['offer-same-tenant'], 'Inbox offers must stay scoped to the active hotel');
 assert.deepEqual(inboxConversations[0].experienceBookings.map((booking) => booking.id), ['booking-same-tenant'], 'Inbox bookings must stay scoped to the active hotel');
 
+const baseReservationInbox = await getInboxConversations({
+  supabase: createFakeSupabase(baseTables, {guestIdentityColumnsMissing:true,reservationOptionalColumnsMissing:true}), hotelId:hotelA
+});
+assert.deepEqual(baseReservationInbox.map(c=>c.guest?.name),inboxConversations.map(c=>c.guest?.name),'Optional reservation columns must not hide guest identities');
+assert.ok(baseReservationInbox.every(c=>c.hotel_id===hotelA),'Schema fallback preserves hotel scope');
+
+const languageLegacyInbox = await getInboxConversations({
+  supabase:createFakeSupabase({...baseTables,guests:baseTables.guests.map(({preferred_language,...guest})=>guest)},
+    {guestIdentityColumnsMissing:true,guestLanguageColumnMissing:true,reservationOptionalColumnsMissing:true}),hotelId:hotelA
+});
+assert.equal(languageLegacyInbox[0].guest.name,luciaName);
+assert.equal(languageLegacyInbox[0].guest.preferred_language,null,'Missing optional language must remain unknown');
+assert.ok(languageLegacyInbox.every(c=>c.hotel_id===hotelA));
+
 const phoneFallbackConversations = await getInboxConversations({
   supabase: createFakeSupabase({
     ...baseTables,
@@ -398,7 +420,7 @@ const appShellSource = readFileSync(new URL('../dashboard/components/AppShell.js
 const globalStylesSource = readFileSync(new URL('../dashboard/app/globals.css', import.meta.url), 'utf8');
 const uiStylesSource = readFileSync(new URL('../dashboard/lib/ui/styles.js', import.meta.url), 'utf8');
 assert.match(inboxSource, /getReservationIdentityLookups/, 'Inbox should use reservation identity lookups');
-assert.match(inboxSource, /\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('guest_phone', phoneValues\)/, 'Reservation phone fallback must stay scoped to the active hotel');
+assert.match(inboxSource, /\.eq\('hotel_id', hotelId\)[\s\S]*?query\.in\(field, values\)[\s\S]*?queryReservations\('guest_phone', phoneValues, 500\)/, 'Reservation phone fallback must stay scoped to the active hotel');
 assert.match(inboxSource, /from\('ai_upsells'\)[\s\S]*?\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('conversation_id', conversationIds\)/, 'Inbox upsells must filter by hotel before conversation ids');
 assert.match(inboxSource, /from\('ai_offers'\)[\s\S]*?\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('conversation_id', conversationIds\)/, 'Inbox offers must filter by hotel before conversation ids');
 assert.match(inboxSource, /from\('experience_booking_requests'\)[\s\S]*?\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('conversation_id', conversationIds\)/, 'Inbox bookings must filter by hotel before conversation ids');

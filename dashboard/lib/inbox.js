@@ -75,28 +75,22 @@ const getGuestsForInbox = async ({ supabase, guestIds, hotelId }) => {
     return [];
   }
 
-  const baseSelect = 'id, hotel_id, phone_number, current_room, preferred_language';
-  const identitySelect = `${baseSelect}, name, full_name`;
-  let { data, error } = await supabase
-    .from('guests')
-    .select(identitySelect)
-    .eq('hotel_id', hotelId)
-    .in('id', guestIds);
-
-  if (error && isMissingGuestIdentityFields(error)) {
-    const fallback = await supabase
-      .from('guests')
-      .select(baseSelect)
-      .eq('hotel_id', hotelId)
-      .in('id', guestIds);
-
-    data = fallback.data;
-    error = fallback.error;
+  let select = 'id, hotel_id, phone_number, current_room, preferred_language, name, full_name';
+  let data, error;
+  // Optional legacy columns may be absent independently. Every retry keeps the
+  // identical authorized hotel and guest identities; unknown language stays unknown.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    ({ data, error } = await supabase.from('guests').select(select)
+      .eq('hotel_id', hotelId).in('id', guestIds));
+    if (!error) break;
+    if (['42703', 'PGRST204'].includes(error.code)
+      && /preferred_language/.test(error.message || '') && select.includes(', preferred_language')) {
+      select = select.replace(', preferred_language', '');
+    } else if (isMissingGuestIdentityFields(error) && select.includes(', name, full_name')) {
+      select = select.replace(', name, full_name', '');
+    } else break;
   }
-
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
   return data || [];
 };
@@ -415,26 +409,27 @@ const getReservationIdentityLookups = async ({ supabase, guestIds, guestPhones, 
 
   try {
     const select = 'id, hotel_id, guest_id, guest_name, guest_phone, room_number, room_type, arrival_date, departure_date, status, pms_provider, pms_reservation_id, source';
+    const queryReservations = async (field, values, limit) => {
+      const run = columns => {
+        let query = supabase.from('reservations').select(columns).eq('hotel_id', hotelId);
+        if (field) query = query.in(field, values);
+        return query.order('arrival_date', { ascending: false, nullsFirst: false }).limit(limit);
+      };
+      const result = await run(select);
+      if (['42703', 'PGRST204'].includes(result.error?.code)
+        && /room_number|source/.test(result.error?.message || '')) {
+        return run(select.replace(', room_number', '').replace(', source', ''));
+      }
+      return result;
+    };
     const queries = [];
 
     if (guestIds.length) {
-      queries.push(supabase
-        .from('reservations')
-        .select(select)
-        .eq('hotel_id', hotelId)
-        .in('guest_id', guestIds)
-        .order('arrival_date', { ascending: false, nullsFirst: false })
-        .limit(500));
+      queries.push(queryReservations('guest_id', guestIds, 500));
     }
 
     if (phoneValues.length) {
-      queries.push(supabase
-        .from('reservations')
-        .select(select)
-        .eq('hotel_id', hotelId)
-        .in('guest_phone', phoneValues)
-        .order('arrival_date', { ascending: false, nullsFirst: false })
-        .limit(500));
+      queries.push(queryReservations('guest_phone', phoneValues, 500));
     }
 
     const results = await Promise.all(queries);
@@ -450,12 +445,7 @@ const getReservationIdentityLookups = async ({ supabase, guestIds, guestPhones, 
     const needsNormalizedPhoneLookup = [...phoneKeys].some((phoneKey) => !matchedPhoneKeys.has(phoneKey));
 
     if (needsNormalizedPhoneLookup) {
-      const { data: hotelReservations, error } = await supabase
-        .from('reservations')
-        .select(select)
-        .eq('hotel_id', hotelId)
-        .order('arrival_date', { ascending: false, nullsFirst: false })
-        .limit(1000);
+      const { data: hotelReservations, error } = await queryReservations(null, null, 1000);
 
       if (error) {
         throw error;

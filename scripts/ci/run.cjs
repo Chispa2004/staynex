@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '../..');
 const expected = fs.readFileSync(path.join(root, '.node-version'), 'utf8').trim();
 if (process.versions.node !== expected) throw new Error(`CI requires Node ${expected}; found ${process.versions.node}`);
 const modes = {
-  critical: ['check:syntax', 'test:ci-guards', 'test:manual-send', 'test:inbox', 'test:auth-hotel-context', 'test:messages-tenant-isolation', 'test:pilot-human-safety', 'test:translation-knowledge-isolation', 'test:http-security'],
+  critical: ['check:syntax', 'test:ci-guards', 'test:manual-send', 'test:inbox', 'test:auth-hotel-context', 'test:messages-tenant-isolation', 'test:pilot-human-safety', 'test:translation-knowledge-isolation', 'test:demo-external-isolation', 'test:http-security'],
   dashboard: ['dashboard:build'],
   postgres: ['test:knowledge-isolation-postgres']
 };

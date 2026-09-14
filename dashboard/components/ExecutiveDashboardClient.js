@@ -277,7 +277,7 @@ export const ExecutiveDashboardClient = () => {
       </select></label> · {tx(operationalWorkspace.messageWorkspace?.scope || 'Seguimiento no disponible. No se asumen estados ni totales.')}</p>
       <div className={styles.columns}>
         <div className={styles.leftColumn}>
-          <WorkQueuePanel items={operationalWorkspace.messageWorkspace?.pending || []} coverage={operationalWorkspace.messageWorkspace?.coverage} loading={loading} timezone={timezone} permissions={permissions}
+          <WorkQueuePanel items={operationalWorkspace.messageWorkspace?.messages || []} coverage={operationalWorkspace.messageWorkspace?.coverage} loading={loading} timezone={timezone} permissions={permissions}
             urgentOnly={urgentOnly} nextCursor={operationalWorkspace.messageWorkspace?.nextCursor} hasCursor={Boolean(attentionCursor)}
             onPage={cursor => {setLoading(true);setAttentionCursor(cursor);}} />
           <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
@@ -491,11 +491,11 @@ const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, 
     } catch { return '—'; }
   };
   return (
-    <section id="attention-pending-list" className={styles.panel} aria-label={tx('Mensajes pendientes')}>
+    <section id="attention-pending-list" className={styles.panel} aria-label={tx('Mensajes')}>
       <div className={styles.panelHeader}>
         <div>
-          <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Mensajes pendientes')}</h2>
-          <p className={styles.subtitle}>{tx(urgentOnly ? 'Solo urgentes' : 'Con seguimiento de atención')}</p>
+          <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Mensajes')}</h2>
+          <p className={styles.subtitle}>{tx(urgentOnly ? 'Solo urgentes' : 'Muestra · urgentes, pendientes y resueltos')}</p>
         </div>
         <div className={styles.queueActions}>
           {hasCursor ? <button className={styles.link} onClick={() => onPage(null)}>{tx('Primera página')}</button> : null}
@@ -517,10 +517,10 @@ const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, 
                 <span className={styles.avatar} aria-hidden="true">{initialsFor(item.guest) || '?'}</span>
                 <div><p className={styles.guestName}>{item.guest || tx('Huésped sin identificar')}
                   {['urgent', 'high'].includes(item.priority) ? <span className={styles.critical}><AlertTriangle className="h-3 w-3" aria-hidden="true" />{tx(formatStatusLabel(item.priority))}</span> : null}
-                </p><QueueRequest title={item.title} /><span className={styles.time}>{tx(originLabels[item.origin] || originLabels.unknown)}</span>{item.linkedTickets ? <p className={styles.time}>{tx('Tickets vinculados')}: {item.linkedTickets}</p> : null}</div>
+                </p><QueueRequest title={item.title} /><p className={styles.time}>{tx(item.stayStage || 'Estancia no identificada')}</p><span className={styles.time}>{tx(originLabels[item.origin] || originLabels.unknown)}</span>{item.linkedTickets ? <p className={styles.time}>{tx('Tickets vinculados')}: {item.linkedTickets}</p> : null}</div>
               </div></td>
               <td data-label={tx('Habitación')}>{item.room || '—'}</td>
-              <td data-label={tx('Estado')}><span className={styles.badge} data-tone={item.status === 'open' ? 'amber' : item.status === 'in_progress' ? 'sky' : ui.statusTone(item.status)}>{tx(item.status?.includes(' ') ? item.status : formatStatusLabel(item.status))}</span></td>
+              <td data-label={tx('Estado')}><span className={styles.badge} data-tone={item.priority === 'urgent' ? 'red' : item.status === 'Resuelto' ? 'emerald' : 'amber'}>{tx(item.priority === 'urgent' ? 'Urgente · pendiente' : item.status)}</span></td>
               <td data-label={tx('Recibido')}><time className={styles.time} dateTime={item.createdAt || undefined}>{attentionTime(item.createdAt)}</time></td>
               <td>{permissions.inbox ? <Link href={item.href} className={styles.link} aria-label={tx(item.actionLabel) + ': ' + (item.guest || '') + ' — ' + item.title}>{tx('Abrir')}</Link> : null}</td>
             </tr>)}</tbody>

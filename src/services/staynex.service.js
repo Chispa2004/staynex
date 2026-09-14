@@ -116,6 +116,7 @@ import {
   maskPhoneForLogs
 } from '../utils/privacy.js';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
+import { isDemoMessageStagesContext, isDemoMessageStagesReservation, demoExternalOperationError } from '../../shared/demo-message-stages/server-provenance.js';
 
 const getOrCreateConversation = async ({ hotelId, guestId }) => {
   const existingConversation = await findActiveConversation({ hotelId, guestId });
@@ -313,6 +314,7 @@ export const prepareInboundGuestMessageForProcessing = async ({
     });
 
     reservation = await findReservationByAccessToken(detectedReservationToken);
+    if (reservation && isDemoMessageStagesReservation(reservation)) throw demoExternalOperationError();
 
     if (reservation?.hotel_id && reservation.hotel_id !== activeHotel?.id) {
       if (!allowHotelContextSwitch) {
@@ -570,6 +572,9 @@ export const processGuestMessage = async ({
       guestMessage
     } = prepared);
   }
+
+  if (isDemoMessageStagesContext({ hotelId: activeHotel.id, guestId: guest.id,
+    conversationId: conversation.id, messageId: guestMessage.id })) throw demoExternalOperationError();
 
   const rateLimit = checkInboundMessageRateLimit({
     hotelId: activeHotel.id,

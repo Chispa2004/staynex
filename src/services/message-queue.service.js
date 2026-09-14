@@ -3,6 +3,7 @@ import { getConversationContext, isHumanControlledConversation } from './convers
 import { getSupabase } from './supabase.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
 import { logger } from '../utils/logger.js';
+import { isDemoMessageStagesReservation, isDemoMessageStagesContext } from '../../shared/demo-message-stages/server-provenance.js';
 import { shouldAiAutoRespond } from '../../shared/pilot/ai-safety.js';
 import {
   AUTOMATION_RUNTIME_VERSION,
@@ -156,6 +157,9 @@ export const getReservationSendTimeGate = async ({
     if (!data) {
       return { allowed: false, reason: 'reservation_missing' };
     }
+    if (isDemoMessageStagesReservation(data)) {
+      return { allowed: false, reason: 'demo_external_blocked', reservation: data };
+    }
 
     if (isReservationTerminalForAutomations(data.status)) {
       return {
@@ -290,6 +294,13 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
   }
 
   const normalizedAutomation = normalizeAutomationType(scheduledMessage.automation_type);
+  if (isDemoMessageStagesContext({ hotelId: scheduledMessage.hotel_id,
+    guestId: scheduledMessage.guest_id, reservationId: scheduledMessage.reservation_id,
+    conversationId: scheduledMessage.conversation_id })) {
+    return updateScheduledMessageStatus(scheduledMessage.id, {
+      status: 'cancelled', error_message: 'demo_external_blocked'
+    }, { supabase: getQueueSupabase() });
+  }
   const automationTypeFamily = [
     normalizedAutomation.inputType,
     normalizedAutomation.canonicalType,
