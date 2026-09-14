@@ -89,9 +89,9 @@
 .table th:last-child { width: 8%; border-radius: 0 7px 7px 0; }
 .table.pendingTable th:first-child { width: 45%; }
 .table.pendingTable th:nth-child(2) { width: 9%; }
-.table.pendingTable th:nth-child(3) { width: 23%; }
+.table.pendingTable th:nth-child(3) { width: 21%; }
 .table.pendingTable th:nth-child(4) { width: 15%; }
-.table.pendingTable th:last-child { width: 8%; }
+.table.pendingTable th:last-child { width: 10%; white-space: nowrap; }
 .table td { padding: 10px 7px; border-bottom: 1px solid var(--ops-border); vertical-align: middle; height: 64px; overflow-wrap: anywhere; }
 .table tr:last-child td { border-bottom: 0; }
 .guestCell { display: flex; align-items: center; gap: 11px; }
@@ -101,6 +101,7 @@
 .request summary { cursor: pointer; }
 .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 20px; border: 1px solid var(--ops-border); padding: 5px 8px; color: var(--ops-muted); background: var(--ops-soft); font-size: 12px; line-height: 1.25; }
 .badge[data-tone='amber'] { background: #fff0e1; color: #a3450b; border-color: #ffe3c6; }
+.badge[data-tone='emerald'] { background: #e9faf2; color: #087b57; border-color: #c7efdf; }
 .badge[data-tone='red'], .critical { color: #bc1835; background: #fff0f3; border-color: #ffd6de; }
 .badge[data-tone='sky'] { color: #0061c8; background: #eaf3ff; border-color: #d6e7ff; }
 .badge[data-tone='violet'] { color: #6332a6; background: #f2ecff; border-color: #e5d8ff; }

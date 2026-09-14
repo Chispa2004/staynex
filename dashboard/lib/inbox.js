@@ -415,26 +415,27 @@ const getReservationIdentityLookups = async ({ supabase, guestIds, guestPhones, 
 
   try {
     const select = 'id, hotel_id, guest_id, guest_name, guest_phone, room_number, room_type, arrival_date, departure_date, status, pms_provider, pms_reservation_id, source';
+    const queryReservations = async (field, values, limit) => {
+      const run = columns => {
+        let query = supabase.from('reservations').select(columns).eq('hotel_id', hotelId);
+        if (field) query = query.in(field, values);
+        return query.order('arrival_date', { ascending: false, nullsFirst: false }).limit(limit);
+      };
+      const result = await run(select);
+      if (['42703', 'PGRST204'].includes(result.error?.code)
+        && /room_number|source/.test(result.error?.message || '')) {
+        return run(select.replace(', room_number', '').replace(', source', ''));
+      }
+      return result;
+    };
     const queries = [];
 
     if (guestIds.length) {
-      queries.push(supabase
-        .from('reservations')
-        .select(select)
-        .eq('hotel_id', hotelId)
-        .in('guest_id', guestIds)
-        .order('arrival_date', { ascending: false, nullsFirst: false })
-        .limit(500));
+      queries.push(queryReservations('guest_id', guestIds, 500));
     }
 
     if (phoneValues.length) {
-      queries.push(supabase
-        .from('reservations')
-        .select(select)
-        .eq('hotel_id', hotelId)
-        .in('guest_phone', phoneValues)
-        .order('arrival_date', { ascending: false, nullsFirst: false })
-        .limit(500));
+      queries.push(queryReservations('guest_phone', phoneValues, 500));
     }
 
     const results = await Promise.all(queries);
@@ -450,12 +451,7 @@ const getReservationIdentityLookups = async ({ supabase, guestIds, guestPhones, 
     const needsNormalizedPhoneLookup = [...phoneKeys].some((phoneKey) => !matchedPhoneKeys.has(phoneKey));
 
     if (needsNormalizedPhoneLookup) {
-      const { data: hotelReservations, error } = await supabase
-        .from('reservations')
-        .select(select)
-        .eq('hotel_id', hotelId)
-        .order('arrival_date', { ascending: false, nullsFirst: false })
-        .limit(1000);
+      const { data: hotelReservations, error } = await queryReservations(null, null, 1000);
 
       if (error) {
         throw error;

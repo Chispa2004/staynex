@@ -37,7 +37,7 @@ export const handleAttentionRequest = async ({ request, getContext }) => {
 export const loadAttentionDashboard = async ({ supabase, hotelId, origin='traced', urgentOnly=false, cursor=null }) => {
   if (!hotelId || !ATTENTION_ORIGINS.includes(origin)) return attentionDashboardUnavailable();
   try {
-    const {data,error} = await supabase.rpc('staynex_attention_dashboard_v1',{
+    const {data,error} = await supabase.rpc('staynex_attention_dashboard_v2',{
       p_hotel:hotelId,p_origin:origin,p_urgent_only:urgentOnly,p_cursor_at:cursor?.at || null,p_cursor_id:cursor?.id || null
     });
     return error ? attentionDashboardUnavailable() : attentionDashboardDTO(data,hotelId);
