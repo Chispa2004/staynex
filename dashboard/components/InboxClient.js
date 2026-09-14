@@ -12,6 +12,7 @@ import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { InboxAiCopilotPanel } from './InboxAiCopilotPanel';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import ergonomics from './InboxErgonomics.module.css';
+import { automaticReplyPresentation, guestInitials, languageName, sendLanguagePresentation, isKnownInternalExperienceEvent } from '@/lib/inbox-clarity';
 import { InboxActionMenu, InboxDetailPanel } from './InboxDetailPanel';
 import { shouldCompactOriginalMessage, getVerifiedMessageTranslation } from '@/lib/inbox-message-presentation';
 import { cn, ui } from '@/lib/ui/styles';
@@ -434,21 +435,7 @@ const getConversationPhoneNumber = (conversation) => (
   || null
 );
 
-const getConversationInitials = (conversation) => {
-  const label = getConversationGuestLabel(conversation);
-  const cleanLabel = String(label || 'Huésped').replace(/[^\p{L}0-9\s+]/gu, ' ').trim();
-  const words = cleanLabel.split(/\s+/).filter(Boolean);
-
-  if (!words.length) {
-    return 'G';
-  }
-
-  if (words.length === 1) {
-    return words[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase();
-};
+const getConversationInitials = guestInitials;
 
 const getConversationLanguage = (conversation) => (
   conversation?.guest?.preferred_language
@@ -475,28 +462,12 @@ const isUrgentConversation = (conversation, unreadCount) => (
   || ['medium', 'high'].includes(conversation?.copilot?.escalationRisk?.level)
 );
 
-const getHotelAiReplyAllowed = ({ pilotAiSafety, hotel }) => {
-  if (pilotAiSafety?.globalStatus?.allowed === false) {
-    return false;
-  }
+const getHotelAiReplyPresentation = automaticReplyPresentation;
 
-  if (pilotAiSafety?.hotelStatus?.configured) {
-    return pilotAiSafety.hotelStatus.enabled === true;
-  }
-
-  return hotel?.ai_auto_reply_enabled === true;
-};
-
-const getConversationControlBadge = ({ conversation, hotelAiReplyAllowed }) => {
-  if (isHumanTakeoverActive(conversation)) {
-    return { label: 'Control humano', tone: 'orange', icon: PauseCircle };
-  }
-
-  if (!hotelAiReplyAllowed) {
-    return { label: 'Respuestas off', tone: 'slate', icon: Bot };
-  }
-
-  return { label: 'IA activa', tone: 'emerald', icon: Bot };
+const getConversationControlBadge = ({ conversation, hotelAiReplyPresentation }) => {
+  if (isHumanTakeoverActive(conversation)) return { label: 'Control humano', tone: 'orange', icon: PauseCircle };
+  if (hotelAiReplyPresentation.state !== 'on') return { label: hotelAiReplyPresentation.label, tone: 'slate', icon: Bot };
+  return { label: 'Sin control humano', tone: 'emerald', icon: Bot };
 };
 
 const getConversationPriorityScore = (conversation, readState) => {
@@ -1473,11 +1444,11 @@ export const InboxClient = ({ conversations }) => {
   const selectedGuestLanguage = selectedConversation?.guest?.preferred_language
     || [...(selectedConversation?.messages || [])].reverse().find((item) => item.sender_type === 'guest')?.original_language
     || null;
-  const replyWillTranslate = Boolean(selectedGuestLanguage && selectedGuestLanguage !== staffLanguage);
+  const sendingLanguage = sendLanguagePresentation(selectedConversation, language);
   const humanTakeoverTotal = items.filter((conversation) => isHumanTakeoverActive(conversation)).length;
-  const hotelAiReplyAllowed = getHotelAiReplyAllowed({ pilotAiSafety, hotel: currentHotel });
+  const hotelAiReplyPresentation = getHotelAiReplyPresentation({ pilotAiSafety, hotel: currentHotel });
   const selectedControlBadge = selectedConversation
-    ? getConversationControlBadge({ conversation: selectedConversation, hotelAiReplyAllowed })
+    ? getConversationControlBadge({ conversation: selectedConversation, hotelAiReplyPresentation })
     : null;
   const filterItems = [
     { key: 'all', label: 'Todas', count: items.length },
@@ -1485,7 +1456,7 @@ export const InboxClient = ({ conversations }) => {
     { key: 'human', label: 'Control humano', count: humanTakeoverTotal },
     { key: 'urgent', label: 'Urgentes', count: items.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
     { key: 'vip', label: 'VIP', count: items.filter((conversation) => isVipConversation(conversation)).length },
-    { key: 'ai', label: hotelAiReplyAllowed ? 'IA activa' : 'IA sin control humano', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
+    { key: 'ai', label: 'Sin control humano', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
   return (
     <MessageAttentionProvider key={`${currentHotel?.id || ''}:${selectedConversation?.id || ''}`} hotelId={currentHotel?.id} conversation={selectedConversation}>
@@ -1637,7 +1608,7 @@ export const InboxClient = ({ conversations }) => {
             const vip = isVipConversation(conversation);
             const controlBadge = getConversationControlBadge({
               conversation,
-              hotelAiReplyAllowed
+              hotelAiReplyPresentation
             });
             const badgeItems = [
               controlBadge,
@@ -1693,7 +1664,7 @@ export const InboxClient = ({ conversations }) => {
                     isLight ? 'border-slate-200 bg-white text-slate-700' : 'border-white/10 bg-white/[0.06] text-slate-200'
                   )}
                   >
-                    {getConversationInitials(conversation)}
+                    {getConversationInitials(conversation) || <UserRound size={18} aria-hidden="true" />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
@@ -1784,7 +1755,7 @@ export const InboxClient = ({ conversations }) => {
               </div>
             </div>
             <div className={ergonomics.effectiveState}>
-              {!selectedHumanTakeoverActive ? <span className={[
+              <span className={[
                 'w-fit rounded-full border px-3 py-1 text-xs font-semibold capitalize',
                 selectedHumanEscalation.needsHuman
                   ? isLight
@@ -1795,10 +1766,9 @@ export const InboxClient = ({ conversations }) => {
                     : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100'
               ].join(' ')}
               >
-                {selectedHumanEscalation.needsHuman
-                  ? t('inbox.needsHuman')
-                  : t(`status.${selectedConversation?.status || 'unknown'}`)}
-              </span> : null}
+                Conversación: {t(`status.${selectedConversation?.status || 'unknown'}`)}
+                {selectedHumanEscalation.needsHuman ? ` · ${t('inbox.needsHuman')}` : ''}
+              </span>
               <span className={[
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
                 selectedHumanTakeoverActive
@@ -1819,7 +1789,10 @@ export const InboxClient = ({ conversations }) => {
                 ) : (
                   <Bot className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                {selectedHumanTakeoverActive ? 'Recepción al mando · IA en pausa' : selectedControlBadge?.label || 'IA'}
+                {selectedHumanTakeoverActive ? 'Recepción al mando' : 'Sin control humano'}
+              </span>
+              <span title="Configuración disponible; no acredita la disponibilidad del proveedor ni una respuesta enviada." data-auto-replies={hotelAiReplyPresentation.state}>
+                {selectedHumanTakeoverActive && hotelAiReplyPresentation.state === 'on' ? 'Respuestas automáticas en pausa por control humano' : hotelAiReplyPresentation.label}
               </span>
               <AttentionToolbar />
             </div>
@@ -1873,6 +1846,10 @@ export const InboxClient = ({ conversations }) => {
         data-inbox-scroll-region="message-history"
         >
           {(selectedConversation?.messages || []).map((item) => {
+            if (isKnownInternalExperienceEvent(item)) return <article key={item.id} className={ergonomics.internalEvent} aria-label="Actividad interna: solicitud de experiencia">
+              <p className={ergonomics.eventHeading}><Clock3 size={14} aria-hidden="true" />Actividad interna · Solicitud de experiencia <time dateTime={item.created_at}>{formatDate(item.created_at)}</time></p>
+              <p className={ergonomics.messageText}>{item.content}</p>
+            </article>;
             const isStaff = item.sender_type === 'staff';
             const messageDelivery = getManualMessageDelivery(item, manualReceipts[`${recoveryKey}:${item.id}`] || selectedRecovery);
             const translationKey = `${item.id}:${staffLanguage}`;
@@ -2053,12 +2030,6 @@ export const InboxClient = ({ conversations }) => {
               ) : null}
             </div>
           ) : null}
-          {replyWillTranslate ? (
-            <p className={isLight ? 'mb-2 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600' : 'mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-400'}>
-              <Languages className="h-3.5 w-3.5" aria-hidden="true" />
-              {t('inbox.replyWillBeSentIn', { language: String(selectedGuestLanguage).toUpperCase() })}
-            </p>
-          ) : null}
           <div className={ergonomics.quickReplies} data-inbox-actions="quick-replies">
             <InboxActionMenu label="Respuestas rápidas" icon={<Zap size={15} aria-hidden="true" />}>
             {quickReplyTemplates.map((reply) => (
@@ -2117,7 +2088,7 @@ export const InboxClient = ({ conversations }) => {
                   : 'border-white/10 bg-white/[0.04] text-slate-200'
               )}
               >
-                <span>{t('inbox.readIn')}</span>
+                <span>{t('inbox.readIn')}:</span>
                 <select
                   value={staffLanguage}
                   onChange={handleTranslationLanguageChange}
@@ -2130,11 +2101,13 @@ export const InboxClient = ({ conversations }) => {
                   aria-label={t('inbox.readIn')}
                 >
                   {TRANSLATION_LANGUAGES.map((item) => (
-                    <option key={item.code} value={item.code}>{item.label}</option>
+                    <option key={item.code} value={item.code}>{languageName(item.code, language)}</option>
                   ))}
                 </select>
               </label>
-
+              <span className={ergonomics.sendLanguage} title={sendingLanguage.defaulted ? 'Español es el idioma predeterminado del servidor cuando el huésped no tiene uno configurado.' : 'Idioma configurado del huésped; el servidor lo verifica al enviar.'}>
+                Enviar en: <strong>{sendingLanguage.label}</strong>
+              </span>
           </div>
           <div className={[
             'flex items-end gap-2 rounded-xl border p-2 shadow-inner',
@@ -2181,16 +2154,17 @@ export const InboxClient = ({ conversations }) => {
       {selectedConversation && (copilotOpen || guestPanelOpen) ? (
         <InboxDetailPanel title={guestPanelOpen ? 'Ficha del huésped' : 'Asistencia IA'} onClose={() => { setCopilotOpen(false); setGuestPanelOpen(false); }}>
           {guestPanelOpen ? <div className={ergonomics.guestInfo}>
-            <span className={ergonomics.guestAvatar}>{getConversationInitials(selectedConversation)}</span>
+            <span className={ergonomics.guestAvatar}>{getConversationInitials(selectedConversation) || <UserRound size={24} aria-hidden="true" />}</span>
             <h3>{selectedDisplayName}</h3>
             <p>{selectedRoomNumber ? `Habitación ${selectedRoomNumber}` : 'Habitación no disponible'}</p>
             <dl>
               <dt>Teléfono</dt><dd>{selectedPhoneNumber || 'No disponible'}</dd>
-              <dt>Idioma del huésped</dt><dd>{selectedGuestLanguage ? String(selectedGuestLanguage).toUpperCase() : 'No disponible'}</dd>
+              <dt>Idioma del huésped</dt><dd>{selectedGuestLanguage ? languageName(selectedGuestLanguage, language) : 'No disponible'}</dd>
               <dt>Llegada</dt><dd>{selectedConversation.pmsIntelligenceContext?.reservation?.arrivalDate || 'No disponible'}</dd>
               <dt>Salida</dt><dd>{selectedConversation.pmsIntelligenceContext?.reservation?.departureDate || 'No disponible'}</dd>
               <dt>Hotel activo</dt><dd>{currentHotel?.name || 'No disponible'}</dd>
-              <dt>Control de la conversación</dt><dd>{selectedControlBadge?.label || 'No disponible'}</dd>
+              <dt>Control de la conversación</dt><dd>{selectedHumanTakeoverActive ? 'Recepción al mando' : 'Sin control humano'}</dd>
+              <dt>Respuestas automáticas</dt><dd>{selectedHumanTakeoverActive && hotelAiReplyPresentation.state === 'on' ? 'En pausa por control humano' : hotelAiReplyPresentation.label}</dd>
               <dt>Estado</dt><dd>{t(`status.${selectedConversation.status || 'unknown'}`)}</dd>
             </dl>
             {selectedHumanTakeoverActive ? <div className={ergonomics.controlNote}>

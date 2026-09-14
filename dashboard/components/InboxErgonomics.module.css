@@ -154,6 +154,23 @@
 
 .secondaryControls { display: grid; grid-template-columns: 44px 44px; max-width: none; align-content: space-between; gap: 6px; }
 .secondaryControls > button:nth-child(2) { grid-column: 1 / -1; grid-row: 2; width: max-content; justify-self: end; white-space: nowrap; }
+.inbox .listHeader { padding: 14px 18px 10px; }
+.listHeader > div:first-child p { font-size: 22px; }
+.listHeader > p { margin-top: 4px; line-height: 1.45; }
+.inbox .filters { padding: 2px 16px 8px; gap: 0 8px; }
+.filters > button { padding: 6px 3px; }
+.inbox .conversationRow { padding: 12px 16px; }
+.listBadges { margin-top: 5px; gap: 2px 6px; }
+.inbox .header { padding-top: 13px; padding-bottom: 13px; }
+.effectiveState { gap: 6px 12px; }
+.effectiveState > span[data-auto-replies] { color: #53665c; }
+.quickReplies > label { margin-left: 0; }
+.quickReplies > .sendLanguage { display: inline; color: #52725f; font-size: 12px; white-space: normal; }
+.sendLanguage strong { font-weight: 500; }
+.quickReplies select { max-width: 145px; }
+.internalEvent { max-width: 1080px; margin: 16px auto; padding: 12px 16px; border: 1px dashed #ccd9d1; border-radius: 8px; color: #516459; background: #eef2ef; }
+.eventHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; font-weight: 600; }
+.eventHeading time { font-size: 11px; font-weight: 400; margin-left: auto; }
 @media (max-width: 599px) {
   .secondaryControls { grid-template-columns: 34px 34px; }
   .secondaryControls > button:nth-child(2) { font-size: 11px; padding-left: 2px; padding-right: 2px; }

@@ -422,8 +422,34 @@ assert.match(inboxComponentSource, /draftsByConversation/, 'Inbox drafts should 
 assert.match(inboxComponentSource, /\$\{currentHotel\.id\}:\$\{selectedConversation\.id\}/, 'Inbox draft keys should be scoped by hotel and conversation');
 assert.match(inboxComponentSource, /setDraftsByConversation\(\{\}\)/, 'Hotel changes should clear conversation drafts');
 assert.doesNotMatch(inboxComponentSource, /localStorage\.(?:setItem|getItem|removeItem)\([^)]*draft/i, 'Inbox should not persist PII drafts in localStorage');
-assert.match(inboxComponentSource, /getHotelAiReplyAllowed/, 'Inbox should derive effective AI labels from the hotel safety state');
-assert.match(inboxComponentSource, /Respuestas off/, 'Inbox should avoid showing AI active when automatic replies are blocked');
+assert.match(inboxComponentSource, /getHotelAiReplyPresentation/, 'Inbox should derive effective AI labels from the hotel safety state');
+const { automaticReplyPresentation, guestInitials, languageName, sendLanguagePresentation, isKnownInternalExperienceEvent } = await import('../dashboard/lib/inbox-clarity.js');
+const aiContext = (allowed, enabled) => ({ pilotAiSafety: { globalStatus: { allowed }, hotelStatus: { configured: true, enabled } } });
+assert.equal(automaticReplyPresentation(aiContext(true, true)).state, 'on');
+assert.equal(automaticReplyPresentation(aiContext(false, true)).label, 'Respuestas automáticas desactivadas');
+assert.equal(automaticReplyPresentation(aiContext(true, false)).state, 'off');
+assert.equal(automaticReplyPresentation(aiContext(undefined, true)).state, 'unknown', 'Missing global evidence cannot promise an automatic response');
+assert.equal(automaticReplyPresentation().state, 'unknown');
+assert.match(inboxComponentSource, /key: 'ai', label: 'Sin control humano'/, 'Filter label describes its unchanged control predicate');
+assert.match(inboxComponentSource, /activeFilter === 'ai'[^\n]*!isHumanTakeoverActive\(conversation\)/);
+assert.equal(guestInitials({ guest: { name: 'Ana López', phone_number: '+34 600 000 001' } }), 'AL');
+assert.equal(guestInitials({ guestName: '+34 600 000 001', guest: { phone_number: '+34 600 000 001' } }), null, 'A phone-only identity must use the person icon');
+assert.equal(guestInitials({}), null);
+assert.equal(languageName('fr', 'es'), 'Francés');
+assert.equal(languageName('es', 'fr'), 'Espagnol');
+assert.equal(languageName('not a language'), 'Sin confirmar');
+assert.equal(sendLanguagePresentation({ guest: { preferred_language: 'es' }, staffLanguage: 'fr' }, 'es').label, 'Español');
+assert.equal(sendLanguagePresentation({ latestGuestMessage: { original_language: 'fr' } }).code, 'es', 'Send destination uses the server default, never latest inbound or reading language');
+const event = { sender_type: 'ai', content: 'Provider experience request created: Synthetic dinner.', metadata: { system_event: 'experience_booking_request_created' } };
+assert.equal(isKnownInternalExperienceEvent(event), true);
+assert.equal(isKnownInternalExperienceEvent({ ...event, metadata: null }), false, 'Wording alone cannot establish provenance');
+assert.equal(isKnownInternalExperienceEvent({ ...event, sender_type: 'staff' }), false);
+assert.equal(isKnownInternalExperienceEvent({ ...event, metadata: { system_event: 'unknown' } }), false);
+for (const contradiction of [{ translation_direction: 'ai_to_guest' }, { manual_send: { state: 'accepted' } }, { outbound_text: event.content }, { response_language: 'en' }, { provider_message_id: 'synthetic-id' }]) {
+  assert.equal(isKnownInternalExperienceEvent({ ...event, metadata: { ...event.metadata, ...contradiction } }), false, 'Contradictory outbound evidence retains ordinary rendering');
+}
+assert.equal(isKnownInternalExperienceEvent({ ...event, twilio_sid: 'synthetic-id' }), false);
+
 assert.match(inboxApiSource, /getPilotAiSafetyReadiness/, 'Inbox API should return canonical AI safety state for labels');
 assert.match(appShellSource, /isInboxRoute \? 'flex flex-col overflow-hidden' : 'overflow-y-auto'/, 'Inbox should let its workspace panes own scrolling');
 assert.match(appShellSource, /isInboxRoute[\s\S]*'flex min-h-0 flex-1 flex-col w-full/, 'Inbox route wrapper should pass full height to the workspace');
