@@ -280,9 +280,8 @@ export const ExecutiveDashboardClient = () => {
           <WorkQueuePanel items={operationalWorkspace.messageWorkspace?.messages || []} coverage={operationalWorkspace.messageWorkspace?.coverage} loading={loading} timezone={timezone} permissions={permissions}
             urgentOnly={urgentOnly} nextCursor={operationalWorkspace.messageWorkspace?.nextCursor} hasCursor={Boolean(attentionCursor)}
             onPage={cursor => {setLoading(true);setAttentionCursor(cursor);}} />
-          <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
         </div>
-        <AiActivityPanel items={operationalWorkspace.activity || []} coverage={operationalWorkspace.coverage} loading={loading} timezone={timezone} permissions={permissions} />
+        <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
       </div>
     </section>
   );
@@ -558,12 +557,12 @@ const ServiceStatusStrip = ({ services = [], loading, permissions }) => {
   const { theme } = useDashboardTheme();
   const { tx } = useDashboardLanguage();
   return (
-    <section className={styles.panel}>
+    <section className={styles.panel} aria-label={tx('Estado de conexión y servicios')}>
       <div className={cn(styles.panelHeader, styles.serviceHeader)}>
         <div><h2 className={styles.panelTitle}><ShieldCheck aria-hidden="true" />{tx('Estado de conexión y servicios')}</h2></div>
         {permissions.health ? <Link href="/dashboard/health" className={styles.link}>{tx('Ver salud')}<ChevronRight className="h-4 w-4" aria-hidden="true" /></Link> : null}
       </div>
-      {loading ? <div className={styles.empty}><SkeletonGrid /></div> : <div className={styles.services}>
+      {loading ? <div className={styles.empty}><SkeletonList /></div> : <div className={styles.services}>
         {services.map((service) => {
           const Icon = service.icon;
           return <div key={service.id} className={styles.service}>
