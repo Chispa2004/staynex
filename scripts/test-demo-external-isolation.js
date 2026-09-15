@@ -45,6 +45,10 @@ const test=async(name,fn)=>{await fn();tests.push(name);console.log('PASS '+name
 const calls={whatsapp:0,translation:0,automationAi:0,folio:0,sheets:0};
 
 await test('Reserved server identities match generator, not mutable labels, browser flags or another hotel',()=>{
+  assert.equal(fixture.cases.length,9);
+  for(const slot of ['ana','carlos','lucia'])for(const entity of ['guest','reservation','conversation','message']){
+    assert.ok(provenance.isDemoMessageStagesContext({hotelId:H,[entity+'Id']:provenance.demoMessageStageId(H,slot,entity)}),'Legacy identity remains blocked during replacement/recovery');
+  }
   for(const c of fixture.cases){
     assert.ok(provenance.isDemoMessageStagesContext({hotelId:H,guestId:c.guestId}));
     assert.ok(provenance.isDemoMessageStagesContext({hotelId:H,conversationId:c.conversationId}));
@@ -155,7 +159,7 @@ await test('Due pre-checkout/post-stay workers and PMS refresh leave examples un
     assert.ok(folio.isPreCheckoutFolioEligibleWindow({reservation:r,now}));
     await folio.runPreCheckoutFolioReminder({hotelId:H,now,supabase:db.client,folioProvider:async()=>{calls.folio++;throw Error('Demo reached PMS');}});
   }
-  assert.ok(poststay.isPostStayReviewDue({reservation:reservations[2],now:new Date('2026-09-15T12:00:00Z')}));
+  for(const reservation of reservations.filter(r=>r.status==='checked_out'))assert.ok(poststay.isPostStayReviewDue({reservation,now:new Date('2026-09-15T12:00:00Z')}));
   await poststay.runPostStayReviewIntelligence({hotelId:H,now:new Date('2026-09-15T12:00:00Z'),supabase:db.client});
   assert.equal((await pms.runPmsIntelligenceRefresh({hotelId:H,supabase:db.client})).reservationsScanned,0);
   for(const reservation of reservations)assert.equal((await pms.persistReservationOperationalContext({reservation,supabase:db.client})).context,null);

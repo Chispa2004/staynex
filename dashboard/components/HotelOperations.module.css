@@ -48,9 +48,6 @@
 .userAvatar { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: var(--ops-soft); border: 1px solid var(--ops-border); color: var(--ops-text); font-size: 13px; font-weight: 650; }
 .topbar > div:first-child { min-width: 0; }
 .greeting { overflow-wrap: anywhere; }
-.greetingRow { display: flex; align-items: center; gap: 10px; }
-.navigationToggle { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; color: var(--ops-text); border: 1px solid var(--ops-border); border-radius: 8px; background: var(--ops-panel); }
-.navigationToggle:focus-visible { outline: 2px solid var(--ops-link); outline-offset: 3px; }
 .urgentKpi { border-color: #e69ba7; background: #fff7f8; box-shadow: inset 3px 0 #cc2444; }
 .urgentKpi .kpiValue { color: #b21d39; }
 .dashboard[data-theme='dark'] .urgentKpi { background: #2b1925; border-color: #8f4557; }

@@ -17,7 +17,6 @@ import {
   Languages,
   Map,
   MapPin,
-  Menu,
   BedDouble,
   ChevronRight,
   PauseCircle,
@@ -31,7 +30,6 @@ import {
   Zap
 } from 'lucide-react';
 import styles from './HotelOperations.module.css';
-import { useShellNavigation } from '@/lib/shell-navigation';
 import { LanguageSelector } from './LanguageSelector';
 import { ThemeToggle } from './ThemeToggle';
 import { useSessionDisplayName } from '@/lib/use-session-display-name';
@@ -399,7 +397,6 @@ const initialsFor = (name) => String(name || '').split(/\s+/).filter(Boolean).sl
 const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshing, onRefresh }) => {
   const { tx, language } = useDashboardLanguage();
   const displayName = useSessionDisplayName();
-  const navigation = useShellNavigation();
   let country = hotel.country || '';
   try {
     if (hotel.country_code) country = new Intl.DisplayNames([language], { type: 'region' }).of(hotel.country_code);
@@ -409,7 +406,7 @@ const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshi
     <>
       <header className={styles.topbar}>
         <div>
-          <div className={styles.greetingRow}><button type="button" className={styles.navigationToggle} onClick={navigation?.toggleNavigation} disabled={!navigation} aria-label={tx(navigation?.open ? 'Ocultar menú lateral' : 'Mostrar menú lateral')} aria-expanded={navigation?.open ?? false} aria-controls="staynex-sidebar"><Menu className="h-5 w-5" aria-hidden="true" /></button><p className={styles.greeting}>{displayName ? `${tx(getHotelGreeting(timezone))}, ${displayName}` : tx('Bienvenido')}</p></div>
+          <p className={styles.greeting}>{displayName ? `${tx(getHotelGreeting(timezone))}, ${displayName}` : tx('Bienvenido')}</p>
           <p className={styles.subtitle}>{tx('Aquí tienes el resumen operativo de tu hotel.')}</p>
         </div>
         <div className={styles.toolbar}>

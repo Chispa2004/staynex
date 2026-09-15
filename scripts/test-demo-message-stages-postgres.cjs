@@ -4,7 +4,8 @@ const root=path.resolve(__dirname,'..'),evidence=path.join(root,'.npm-cache/demo
 const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>/^(PATH|PATHEXT|SYSTEMROOT|WINDIR|TEMP|TMP|COMSPEC|APPDATA|LOCALAPPDATA|USERPROFILE|HOME)$/i.test(k)));
 Object.assign(env,{SEND_AUTOMATIONS:'false',USE_MOCK_AI:'true'});
 async function main(){
-  const {demoMessageStages}=await import('./demo-message-stages.js');
+    const {demoMessageStages:generate}=await import('./demo-message-stages.js');
+    const demoMessageStages=options=>generate({...options,edition:'legacy'});
   const {attentionDashboardDTO}=await import('../shared/message-attention/contract.js');
   const pg=require('./ci/disposable-postgres.cjs').createDisposablePostgres({env});
   const results=[];let sequence=0;
