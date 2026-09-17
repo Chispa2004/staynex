@@ -5,9 +5,9 @@ const root = path.resolve(__dirname, '../..');
 const expected = fs.readFileSync(path.join(root, '.node-version'), 'utf8').trim();
 if (process.versions.node !== expected) throw new Error(`CI requires Node ${expected}; found ${process.versions.node}`);
 const modes = {
-  critical: ['check:syntax', 'test:ci-guards', 'test:manual-send', 'test:inbox', 'test:auth-hotel-context', 'test:messages-tenant-isolation', 'test:pilot-human-safety', 'test:translation-knowledge-isolation', 'test:demo-external-isolation', 'test:http-security'],
+  critical: ['check:syntax', 'test:ci-guards', 'test:manual-send', 'test:automation-dispatch-contract', 'test:inbox', 'test:auth-hotel-context', 'test:messages-tenant-isolation', 'test:pilot-human-safety', 'test:translation-knowledge-isolation', 'test:demo-external-isolation', 'test:automation-runtime-foundation', 'test:automation-runtime-phase2a1', 'test:automation-runtime-phase2a2', 'test:http-security'],
   dashboard: ['dashboard:build'],
-  postgres: ['test:knowledge-isolation-postgres']
+  postgres: ['test:knowledge-isolation-postgres', 'test:automation-dispatch-postgres']
 };
 const tasks = modes[process.argv[2]];
 if (!tasks || process.argv.length !== 3) throw new Error('Expected critical, dashboard or postgres');

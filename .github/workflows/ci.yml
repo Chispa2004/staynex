@@ -57,7 +57,7 @@ jobs:
       - run: npm run ci:dashboard
 
   postgres:
-    name: PostgreSQL knowledge isolation
+    name: PostgreSQL knowledge and automation dispatch
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -67,5 +67,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: docker pull postgres:17.10
       - run: npm run ci:postgres
