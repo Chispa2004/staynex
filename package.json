@@ -89,7 +89,9 @@
     "test:ci-guards": "node scripts/test-ci-guards.cjs",
     "test:automation-dispatch-contract": "node scripts/test-automation-dispatch-contract.js",
     "test:automation-dispatch-postgres": "node scripts/test-automation-dispatch-postgres.js",
-    "test:knowledge-isolation-postgres": "node scripts/test-knowledge-isolation-postgres.cjs"
+    "test:knowledge-isolation-postgres": "node scripts/test-knowledge-isolation-postgres.cjs",
+    "test:organization-postgres": "node scripts/test-organization-postgres.cjs",
+    "test:organization-access": "node scripts/test-organization-access.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

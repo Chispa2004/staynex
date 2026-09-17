@@ -46,13 +46,18 @@ export async function POST(request) {
       email: data.user.email,
       statuses: ['active']
     });
+    const { data: memberships, error: membershipError } = await supabase.from('organization_users')
+      .select('role,status,organization:organizations(status)').eq('user_id', data.user.id);
+    if (membershipError) throw membershipError;
     const loginDestination = resolvePostLoginDestination({
+      memberships: memberships || [],
       assignments,
       requestedHotelId: getRequestedHotelId(request)
     });
+    if (loginDestination.accessDeniedReason === 'hotel_not_authorized') return NextResponse.json({ error: 'Hotel no autorizado', defaultRoute: '/my-hotels', accessDeniedReason: loginDestination.accessDeniedReason }, { status: 403 });
     const selected = loginDestination.selectedHotelId
       ? assignments.find((assignment) => assignment.hotel_id === loginDestination.selectedHotelId)
-      : assignments.find((assignment) => assignment.is_default) || assignments[0] || null;
+      : null;
     const role = selected?.role || 'blocked';
 
     return NextResponse.json({

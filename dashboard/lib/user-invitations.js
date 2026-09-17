@@ -1,3 +1,4 @@
+import { selectEffectiveAssignments } from '../../shared/access/organization-scope.js';
 export const normalizeAuthEmail = (email) => String(email || '').trim().toLowerCase();
 
 export const attachUserToHotelInvitation = async ({ supabase, invitationId, userId }) => {
@@ -30,12 +31,15 @@ export const resolvePendingInvitationsForUser = async ({ supabase, user }) => {
   const userId = user?.id || null;
   const email = normalizeAuthEmail(user?.email);
 
-  if (!userId || !email) {
+  if (!userId || !email || (!user.email_confirmed_at && !user.confirmed_at)) {
     return {
       resolved: [],
       count: 0
     };
   }
+
+  const { error: organizationError } = await supabase.rpc('staynex_accept_organization_invitations', { p_user: userId, p_email: email });
+  if (organizationError) throw organizationError;
 
   const { data: invitations, error } = await supabase
     .from('hotel_users')
@@ -80,40 +84,38 @@ export const getUserHotelAssignments = async ({
   userId,
   email,
   statuses = ['active'],
-  includeHotels = true
+  includeHotels = true,
+  authorize = true
 }) => {
-  const normalizedEmail = normalizeAuthEmail(email);
-
-  if (!userId && !normalizedEmail) {
-    return [];
+  if (!userId) return [];
+  const data = [];
+  for (let offset = 0; ; offset += 500) {
+    let query = supabase.from('hotel_users').select(includeHotels ? '*, hotel:hotels(*)' : '*')
+      .eq('user_id', userId).order('is_default', { ascending: false }).order('created_at').order('id');
+    if (Array.isArray(statuses) && statuses.length) query = query.in('status', statuses);
+    const result = await query.range(offset, offset + 499);
+    if (result.error) throw result.error;
+    data.push(...(result.data || []));
+    if ((result.data || []).length < 500) break;
   }
 
-  const filters = [];
-
-  if (userId) {
-    filters.push(`user_id.eq.${userId}`);
+  const boundRows = (data || []).filter(row => row.user_id === userId);
+  if (!includeHotels || !authorize) return boundRows;
+  const ids = [...new Set(boundRows.map(row => row.hotel?.organization_id).filter(Boolean))];
+  let memberships = [];
+  if (ids.length) {
+    for (let offset = 0; ; offset += 500) {
+      const result = await supabase.from('organization_users')
+        .select('id,organization_id,user_id,role,status,organization:organizations(id,name,kind,status)')
+        .eq('user_id', userId).order('id').range(offset, offset + 499);
+      if (result.error) throw result.error;
+      memberships.push(...(result.data || []));
+      if ((result.data || []).length < 500) break;
+    }
   }
-
-  if (normalizedEmail) {
-    filters.push(`email.eq.${normalizedEmail}`);
-  }
-
-  let query = supabase
-    .from('hotel_users')
-    .select(includeHotels ? '*, hotel:hotels(*)' : '*')
-    .or(filters.join(','))
-    .order('is_default', { ascending: false })
-    .order('created_at', { ascending: true });
-
-  if (Array.isArray(statuses) && statuses.length > 0) {
-    query = query.in('status', statuses);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw error;
-  }
-
-  return data || [];
+  const effective = selectEffectiveAssignments(boundRows, memberships, userId);
+  return [
+    ...boundRows.filter(row => row.status === 'active' && row.platform_role && row.platform_role !== 'none'),
+    ...effective.map(row => ({ ...row, organization: memberships.find(m => m.organization_id === row.hotel.organization_id)?.organization || null }))
+  ];
 };

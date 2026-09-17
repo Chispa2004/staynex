@@ -16,11 +16,7 @@ export const appendHotelIdToRoute = (route, hotelId) => {
 };
 
 export const getPlatformRoleFromAssignments = (assignments = []) => {
-  const platformAssignment = assignments.find((assignment) => (
-    assignment.platform_role && assignment.platform_role !== 'none'
-  ));
-
-  return platformAssignment?.platform_role || 'none';
+  return ['super_admin','platform_admin','internal_only','support'].find(role => assignments.some(a => a.platform_role === role && (a.status || 'active') === 'active')) || 'none';
 };
 
 export const isInternalPlatformRole = (platformRole = 'none') => (
@@ -29,6 +25,7 @@ export const isInternalPlatformRole = (platformRole = 'none') => (
 
 export const resolvePostLoginDestination = ({
   assignments = [],
+  memberships = [],
   requestedHotelId = null
 } = {}) => {
   const activeAssignments = Array.isArray(assignments)
@@ -59,6 +56,13 @@ export const resolvePostLoginDestination = ({
       requiresHotelSelection: false,
       accessDeniedReason: null
     };
+  }
+
+  if (normalizedRequestedHotelId && !activeAssignments.some(a => a.hotel_id === normalizedRequestedHotelId)) {
+    return { defaultRoute: '/my-hotels', selectedHotelId: null, platformRole, reason: 'hotel_not_authorized', accessDeniedReason: 'hotel_not_authorized' };
+  }
+  if (!normalizedRequestedHotelId && (activeAssignments.length > 1 || memberships.some(m => m.role === 'org_admin' && m.status === 'active' && m.organization?.status === 'active'))) {
+    return { defaultRoute: '/my-hotels', selectedHotelId: null, platformRole, reason: 'organization_directory', accessDeniedReason: null };
   }
 
   if (!activeAssignments.length) {

@@ -52,7 +52,7 @@ export async function GET(request) {
     }
 
     return NextResponse.json({
-      users: data || [],
+      users: (data || []).map(row => ({ ...row, managedByOrganization: Boolean(row.organization_user_id), protected: Boolean(row.organization_user_id) || (row.platform_role && row.platform_role !== 'none') })),
       role,
       hotel,
       hotelId: hotel.id
@@ -128,6 +128,8 @@ export async function PATCH(request) {
       .update(updates)
       .eq('id', body.id)
       .eq('hotel_id', hotel.id)
+      .is('organization_user_id', null)
+      .eq('platform_role', 'none')
       .select('*')
       .maybeSingle();
 
@@ -163,6 +165,8 @@ export async function DELETE(request) {
       })
       .eq('id', body.id)
       .eq('hotel_id', hotel.id)
+      .is('organization_user_id', null)
+      .eq('platform_role', 'none')
       .select('*')
       .maybeSingle();
 
@@ -170,6 +174,7 @@ export async function DELETE(request) {
       throw error;
     }
 
+    if (!data) return jsonError('Asignación protegida o no encontrada', 403);
     return NextResponse.json({ user: data });
   } catch (error) {
     console.error('Hotel user disable failed', error);

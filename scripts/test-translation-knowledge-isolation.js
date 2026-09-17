@@ -129,11 +129,11 @@ await test('Authenticated user -> actual hotel resolver -> internal authenticati
         requireInternalApiToken(req,res,()=>{authorized=true;});assert.equal(authorized,true);assert.equal(req.body.hotelId,A);
         await b.handleTranslateMessage(req,res,e=>{throw e;});return {status:res.statusCode,json:async()=>res.body};}
     },['POST']);
-    const request=(body,token='synthetic-session-a')=>({url:'https://synthetic.test/api/translate?hotelId='+B,
-      headers:new Headers({'authorization':'Bearer '+token,'x-staynex-hotel-id':B,'x-staynex-workspace-path':'/dashboard/inbox'}),json:async()=>body});
-    for(const hotelId of [B,undefined])assert.equal((await POST(request({messageId:'mb',hotelId}))).status,404);
+    const request=(body,token='synthetic-session-a',selected=B)=>({url:'https://synthetic.test/api/translate?hotelId='+selected,
+      headers:new Headers({'authorization':'Bearer '+token,'x-staynex-hotel-id':selected,'x-staynex-workspace-path':'/dashboard/inbox'}),json:async()=>body});
+    for(const hotelId of [B,undefined])assert.equal((await POST(request({messageId:'mb',hotelId}))).status,403);
     assert.equal(forwarded,0);assert.equal(b.translations.length,0);
-    assert.equal((await POST(request({messageId:'ma',hotelId:B}))).status,200);
+    assert.equal((await POST(request({messageId:'ma',hotelId:B},'synthetic-session-a',A))).status,200);
     assert.equal(forwarded,1);assert.equal(b.translations[0].hotelId,A);
     assert.equal((await POST(request({messageId:'ma'},'invalid'))).status,403);assert.equal(forwarded,1);assert.equal(authCalls,4);
   } finally {delete process.env.STAYNEX_INTERNAL_API_TOKEN;}

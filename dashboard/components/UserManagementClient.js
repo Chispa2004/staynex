@@ -290,12 +290,14 @@ export const UserManagementClient = () => {
                   <p className={cn('text-sm font-semibold', isLight ? 'text-slate-950' : 'text-white')}>
                     {user.email || user.user_id || 'Unlinked user'}
                   </p>
+                  {user.protected && <p className={ui.text.muted(isLight)}>{user.managedByOrganization ? "Concesi\u00f3n de cadena (gestionada por Staynex)" : "Asignaci\u00f3n interna protegida"}</p>}
                   <p className={ui.text.muted(isLight)}>Created {formatDate(user.created_at)}</p>
                 </div>
 
                 <div className="space-y-2">
                   <RoleBadge role={user.role} />
                   <select
+                    disabled={user.protected}
                     value={HOTEL_MANAGEMENT_ROLES.includes(user.role) ? user.role : ''}
                     onChange={(event) => updateUser(user.id, { role: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
@@ -320,6 +322,7 @@ export const UserManagementClient = () => {
                     <p className={ui.text.muted(isLight)}>Awaiting acceptance</p>
                   ) : null}
                   <select
+                    disabled={user.protected}
                     value={user.status}
                     onChange={(event) => updateUser(user.id, { status: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
@@ -333,6 +336,7 @@ export const UserManagementClient = () => {
                 <div className="flex flex-wrap items-start gap-2 lg:justify-end">
                   <button
                     type="button"
+                    disabled={user.protected}
                     onClick={() => updateUser(user.id, { is_default: !user.is_default })}
                     className={ui.button(isLight, 'secondary')}
                   >
@@ -350,6 +354,7 @@ export const UserManagementClient = () => {
                   ) : null}
                   <button
                     type="button"
+                    disabled={user.protected}
                     onClick={() => disableUser(user.id)}
                     className={ui.button(isLight, 'danger')}
                   >

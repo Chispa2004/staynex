@@ -109,9 +109,9 @@ const staleStoredHotelForHotelUser = resolvePostLoginDestination({
     hotelAssignment({ hotelId: 'hotel-a', role: 'manager', isDefault: true })
   ]
 });
-assert.equal(staleStoredHotelForHotelUser.defaultRoute, '/dashboard?hotelId=hotel-a');
-assert.equal(staleStoredHotelForHotelUser.selectedHotelId, 'hotel-a');
-assert.equal(staleStoredHotelForHotelUser.reason, 'single_hotel_assignment');
+assert.equal(staleStoredHotelForHotelUser.defaultRoute, '/my-hotels');
+assert.equal(staleStoredHotelForHotelUser.selectedHotelId, null);
+assert.equal(staleStoredHotelForHotelUser.reason, 'hotel_not_authorized');
 
 const noHotelAssignment = resolvePostLoginDestination({ assignments: [] });
 assert.equal(noHotelAssignment.defaultRoute, '/dashboard');
@@ -135,7 +135,7 @@ assert.equal(appShellSource.includes('Back to Platform Hotels'), false, 'Old int
 
 const currentHotelSource = readFileSync(join(root, 'dashboard/lib/current-hotel.js'), 'utf8');
 assert.ok(currentHotelSource.includes('buildWorkspaceSelectionRequiredContext'), 'Current hotel resolver should centralize workspace-required handling');
-assert.ok(currentHotelSource.includes('if (!requestedHotel && isHotelWorkspacePath(requestedWorkspacePath))'), 'Invalid platform workspace hotelIds should not fall back to another hotel');
+assert.ok(currentHotelSource.includes('hotel = requestedHotel;'), 'Invalid platform workspace hotelIds should not fall back to another hotel');
 assert.equal(currentHotelSource.includes("|| 'owner'"), false, 'Current hotel resolver must not invent owner roles for missing assignment roles');
 
 console.log('Post-login workspace routing tests passed');

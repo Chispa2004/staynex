@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -119,7 +119,8 @@ const navigationGroups = [
 
 const platformNavigationItems = [
   { href: '/platform', label: 'Staynex Platform', icon: ShieldCheck },
-  { href: '/platform/hotels', label: 'Hotels', icon: Building2 },
+  { href: '/platform/organizations', label: 'Cadenas', icon: Building2 },
+  { href: '/platform/hotels', label: 'Todos los hoteles', icon: Building2 },
   { href: '/platform/providers', label: 'Experience Providers', icon: Compass },
   { href: '/platform/monitoring', label: 'Monitoring', icon: Activity }
 ];
@@ -170,6 +171,8 @@ const getWorkspaceResolutionErrorCopy = (reason) => {
 
 const AppShellContent = ({ children }) => {
   const pathname = usePathname();
+  const isDirectory = pathname === '/my-hotels' || pathname === '/platform/organizations';
+  const contextGeneration = useRef(0);
   const router = useRouter();
   const [urgentCount, setUrgentCount] = useState(0);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
@@ -336,14 +339,15 @@ const AppShellContent = ({ children }) => {
   }, [isLoginPage, router]);
 
   useEffect(() => {
-    if (isLoginPage || authLoading || !isAuthenticated) {
+    if (isDirectory || isLoginPage || authLoading || !isAuthenticated) {
       return undefined;
     }
 
     let active = true;
+    const generation = ++contextGeneration.current;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
-      if (!active) {
+      if (!active || generation !== contextGeneration.current) {
         return;
       }
 
@@ -370,7 +374,7 @@ const AppShellContent = ({ children }) => {
         const body = await response.json();
         window.clearTimeout(timeoutId);
 
-        if (active && (response.status === 401 || SESSION_DENIED_REASONS.has(body.accessDeniedReason))) {
+        if (active && generation === contextGeneration.current && (response.status === 401 || SESSION_DENIED_REASONS.has(body.accessDeniedReason))) {
           setIsAuthenticated(false);
           setSessionAccessToken(null);
           setCurrentHotel(null);
@@ -381,7 +385,7 @@ const AppShellContent = ({ children }) => {
           return;
         }
 
-        if (active && response.ok) {
+        if (active && generation === contextGeneration.current && response.ok) {
           setCurrentHotel(body.hotel || null);
           if (body.hotel?.id) {
             persistWorkspaceSelection({
@@ -394,6 +398,7 @@ const AppShellContent = ({ children }) => {
             });
           }
           setHotelContext({
+            organization: body.organization || null,
             role: body.role || 'blocked',
             permissions: Array.isArray(body.permissions) ? body.permissions : [],
             platformRole: body.platformRole || 'none',
@@ -416,7 +421,7 @@ const AppShellContent = ({ children }) => {
             });
           }
           setHotelContextLoaded(true);
-        } else if (active) {
+        } else if (active && generation === contextGeneration.current) {
           setCurrentHotel(null);
           setHotelContext({
             role: 'blocked',
@@ -433,14 +438,14 @@ const AppShellContent = ({ children }) => {
             accessDenied: Boolean(body.accessDenied),
             accessDeniedReason: body.accessDeniedReason || 'workspace_context_unavailable'
           });
-          setWorkspaceError(getWorkspaceResolutionErrorCopy(body.accessDeniedReason || 'workspace_context_unavailable'));
+          setWorkspaceError(body.accessDenied ? null : getWorkspaceResolutionErrorCopy(body.accessDeniedReason || 'workspace_context_unavailable'));
           setHotelContextLoaded(true);
         }
       } catch (error) {
         if (error.name !== 'AbortError') {
           console.error('Current hotel lookup failed', error);
         }
-        if (active) {
+        if (active && generation === contextGeneration.current) {
           setWorkspaceError(error.name === 'AbortError'
             ? getWorkspaceResolutionErrorCopy('timeout')
             : getWorkspaceResolutionErrorCopy('workspace_context_unavailable'));
@@ -458,7 +463,7 @@ const AppShellContent = ({ children }) => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [authLoading, isAuthenticated, isLoginPage, router, sessionAccessToken, workspaceRetryNonce]);
+  }, [authLoading, isAuthenticated, isLoginPage, router, sessionAccessToken, workspaceRetryNonce, isDirectory]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isLoginPage) {
@@ -472,6 +477,7 @@ const AppShellContent = ({ children }) => {
         return;
       }
 
+      contextGeneration.current++;
       setHotelContextLoaded(false);
       setWorkspaceError(null);
       setCurrentHotel(null);
@@ -491,7 +497,7 @@ const AppShellContent = ({ children }) => {
   }, [currentHotel?.id, isLoginPage]);
 
   useEffect(() => {
-    if (isLoginPage || authLoading || !isAuthenticated) {
+    if (isDirectory || isLoginPage || authLoading || !isAuthenticated) {
       return undefined;
     }
 
@@ -575,7 +581,7 @@ const AppShellContent = ({ children }) => {
   }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, onboardingChecked, onboardingCompleted, router, sessionAccessToken]);
 
   useEffect(() => {
-    if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
+    if (isDirectory || isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
       return;
     }
 
@@ -599,6 +605,7 @@ const AppShellContent = ({ children }) => {
   useEffect(() => {
     if (
       isLoginPage
+      || isDirectory
       || authLoading
       || !isAuthenticated
       || !hotelContextLoaded
@@ -657,6 +664,7 @@ const AppShellContent = ({ children }) => {
       return;
     }
 
+    contextGeneration.current++;
     setSwitchingHotel(true);
     setHotelContextLoaded(false);
     setWorkspaceError(null);
@@ -676,25 +684,7 @@ const AppShellContent = ({ children }) => {
         accessToken: sessionAccessToken
       });
 
-      setCurrentHotel(body.hotel || null);
-      setOnboardingChecked(false);
-      setHotelContext({
-        role: body.role || 'blocked',
-        permissions: Array.isArray(body.permissions) ? body.permissions : [],
-        platformRole: body.platformRole || 'none',
-        platformPermissions: body.platformPermissions || [],
-        guestMemoryEnabled: body.guestMemoryEnabled === true,
-        multiPropertyAccess: Boolean(body.multiPropertyAccess),
-        canSwitchWorkspaces: Boolean(body.canSwitchWorkspaces),
-        canCreateWorkspaces: Boolean(body.canCreateWorkspaces),
-        availableHotels: body.availableHotels || [],
-        hotelUser: body.hotelUser || null,
-        fallback: Boolean(body.fallback),
-        accessDenied: Boolean(body.accessDenied),
-        accessDeniedReason: body.accessDeniedReason || null
-      });
-      setHotelContextLoaded(true);
-      router.replace(getFirstAllowedRoute(body.role || 'blocked'));
+      window.location.assign(`${getFirstAllowedRoute(body.role || 'blocked')}?hotelId=${encodeURIComponent(hotelId)}`);
     } catch (error) {
       console.error('Hotel switch failed', error);
       setHotelContextLoaded(true);
@@ -800,7 +790,7 @@ const AppShellContent = ({ children }) => {
   }, [currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, sessionAccessToken]);
 
   useEffect(() => {
-    if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
+    if (isDirectory || isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
       return;
     }
 
@@ -874,6 +864,8 @@ const AppShellContent = ({ children }) => {
     );
   }
 
+  if (isDirectory && !authLoading && isAuthenticated) return <div className="theme-light flex h-dvh flex-col overflow-hidden"><div className="flex shrink-0 justify-end bg-slate-50 px-5 py-3"><button onClick={handleLogout} className="min-h-11 text-sm font-semibold text-slate-600">Cerrar sesión</button></div>{children}</div>;
+
   if (authLoading || !isAuthenticated || !hotelContextLoaded) {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
@@ -936,6 +928,7 @@ const AppShellContent = ({ children }) => {
     }
 
     const reasonCopy = {
+      hotel_not_authorized: 'No tienes acceso al hotel solicitado. Elige uno en Mis hoteles.',
       disabled: tx('Your Staynex access is disabled. Please contact your hotel administrator.'),
       invitation_pending: tx('Your invitation is still pending. Log in with the invited email or contact your administrator.'),
       no_active_assignment: tx('Your account does not have a hotel assigned yet. Contact the Staynex administrator.'),
@@ -952,6 +945,7 @@ const AppShellContent = ({ children }) => {
           <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
             {reasonCopy[hotelContext.accessDeniedReason] || tx('No active hotel assignment is available for your user.')}
           </p>
+          <Link href="/my-hotels" className="mt-5 block font-semibold text-blue-700">Mis hoteles</Link>
           <button
             type="button"
             onClick={hotelContext.accessDeniedReason === 'workspace_required'
@@ -1319,6 +1313,7 @@ const AppShellContent = ({ children }) => {
                 accessToken={sessionAccessToken}
                 onWorkspaceCreated={handleHotelSwitch}
               />
+              {!canAccessPlatformConsole && <Link href="/my-hotels" className={shellStyles.platformLink}><ArrowLeft className="h-4 w-4" aria-hidden="true"/><span className={shellStyles.navLabel}>Mis hoteles</span></Link>}
               {showBackToPlatform ? <>
                 <p className={cn(shellStyles.navLabel, "mb-2 text-xs text-slate-500")}>{tx('Hotel workspace view')}</p>
                 <Link href="/platform/hotels" aria-label={tx('Back to Platform')} onMouseEnter={showNavigationHint} onFocus={showNavigationHint} onMouseLeave={hideNavigationHint} onBlur={hideNavigationHint} className={shellStyles.platformLink}><ArrowLeft className="h-4 w-4" aria-hidden="true" /><span className={shellStyles.navLabel}>{tx('Back to Platform')}</span></Link>
@@ -1360,6 +1355,7 @@ const AppShellContent = ({ children }) => {
                 <LanguageSelector />
               </div>
             ) : null}
+            {!isPlatformContext && <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-4 py-2 text-xs text-slate-600" aria-label="Contexto de acceso"><span>{hotelContext.organization?.name || (currentHotel.organization_id ? 'Organización cliente' : 'Hotel pendiente de incorporación')}</span><span>{sidebarHotelName}</span><strong>{ROLE_LABELS[activeRole] || activeRole}{showBackToPlatform ? ' · Identidad Staynex' : ''}</strong><Link className="ml-auto min-h-8 content-center font-semibold text-blue-700" href={`${showBackToPlatform ? '/platform/organizations' : '/my-hotels'}${currentHotel.organization_id ? '?organizationId=' + encodeURIComponent(currentHotel.organization_id) : ''}`}>{showBackToPlatform ? 'Platform' : 'Mis hoteles'}</Link></div>}
             {isInboxRoute ? <div className={shellStyles.inboxContext} data-admin={showBackToPlatform}>
               <span><Building2 size={14} aria-hidden="true" /> {sidebarHotelName}</span>
               <span>{ROLE_LABELS[activeRole] || activeRole}{showBackToPlatform ? ' · Administración Staynex' : ''}</span>
@@ -1423,7 +1419,7 @@ const AppShellContent = ({ children }) => {
             ) : null}
             <div
               key={`${currentHotel.id}:${supportSession ? 'support' : 'hotel'}`}
-              className={isInboxRoute ? 'min-h-0 flex-1' : undefined}
+              className={isInboxRoute ? 'min-h-0 flex-1' : isOperationsDashboard ? 'pt-4 md:pt-6' : undefined}
             >
               {children}
             </div>
