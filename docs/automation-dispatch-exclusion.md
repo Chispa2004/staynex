@@ -2,8 +2,9 @@
 
 Revisión local del 17 de septiembre de 2026. Base: `dcf3383d39acce09be7df56ff6afba36b4e62f28`.
 Rama: `codex/automation-dispatch-exclusion`. Implementación en `4f89499`.
-Preparación de PR autorizada posteriormente: push y PR hacia main, sin merge ni
-auto-merge. El procedimiento operativo de este documento no se ha ejecutado.
+PR #10. La autorización posterior permite desplegar tras superar el procedimiento
+y el CI del SHA final. El estado operativo y los inventarios se conservan fuera de Git;
+este documento describe el contrato y no acredita por sí solo un despliegue.
 
 ## Diagnóstico y recorrido real
 
@@ -43,6 +44,9 @@ esta corrección.
 ## Contrato persistente
 
 Migración: `supabase/sql/add_automation_dispatch_exclusion.sql`.
+
+Prerrequisito incremental: `supabase/sql/add_hotels_metadata_prerequisite.sql`,
+siempre **antes** de la migración de exclusión. Véase la revisión acotada siguiente.
 
 Añade `automation_dispatches`, con una fila de control por mensaje, identidad de
 intento, lease, evidencia del proveedor e historial de los intentos sustituidos.
@@ -124,7 +128,61 @@ El job de PostgreSQL del CI instala dependencias de backend y ahora se llama
 `PostgreSQL knowledge and automation dispatch`. Si hay reglas remotas que exigen el
 nombre anterior, deben ajustarse en la futura publicación; no se modificaron aquí.
 
-## Publicación y recuperación futuras (no ejecutadas)
+## Prerrequisito hotels.metadata: revisión acotada
+
+El preflight encontró `public.hotels.metadata` ausente. La incorporación autorizada
+es únicamente `jsonb DEFAULT '{}'::jsonb`, nullable; no introduce ninguna aprobación.
+El fichero incremental está versionado. Bloquea brevemente la tabla, añade la columna
+solo si falta y verifica tipo jsonb, columna no generada y default literal `'{}'::jsonb`.
+Una columna existente compatible conserva definición y valores, incluidos SQL NULL.
+Un tipo/default distinto aborta la transacción, sin convertir, sobrescribir ni rellenar
+datos. Un default ausente exige revisión explícita, no se sustituye silenciosamente.
+
+Funciones exactas del contrato que la necesitan:
+
+| Función | Lectura y finalidad |
+| --- | --- |
+| `getHotelLiveAutomationGate` en `message-queue.service.js`, invocada por el procesador | Lee `id, metadata, ai_auto_reply_enabled` del hotel almacenado; falla cerrado si no está disponible. Conserva además el Kill Switch canónico. |
+| `isHotelAutomationLiveExplicitlyEnabled` en el mismo servicio | Exige `automation_live_enabled === true`, modo `live`/`live_limited` y aprobación explícita. Lee `automation_execution_mode` o `automation_mode`; `automation_live_approved_at`; y `automation_live_approved_by` o `automation_live_approval_id`. Los campos superiores `automation_execution_mode`/`execution_mode` son fallbacks de modo, nunca de aprobación. |
+| `automation_dispatch_begin(uuid,uuid,uuid,jsonb,jsonb)` | Relee la instantánea `id, metadata, ai_auto_reply_enabled` y la compara con `p_checks.hotel`. No interpreta claves ni concede aprobación: evita usar una validación obsoleta. Es una RPC de servidor; el llamador confiable aplica las guardas. |
+
+Las otras cuatro RPC no leen `hotels.metadata`. `{}`, columna/clave ausente,
+SQL NULL/JSON null, enabled nulo o string `"true"`, fecha ausente/nula y ambas
+identidades de aprobación ausentes/nulas deniegan el envío. La ausencia de una
+clave alternativa no deniega si su alternativa válida está presente: esto conserva
+el contrato aprobado. `approved_at` e identidad se comprueban por presencia truthy,
+no como firma ni como verificación criptográfica de identidad/fecha. Por eso su
+escritura es privilegiada. No se cambia esa política ni se crea una ruta para aprobar.
+
+Revisión de permisos efectiva: el destino tiene grants de tabla INSERT/UPDATE a
+`anon` y `authenticated`, pero RLS está habilitado y **no tiene políticas**; ambos
+roles carecen de BYPASSRLS, propiedad y pertenencia a los roles privilegiados.
+Por tanto no pueden insertar filas ni actualizar metadata. `service_role` tiene
+BYPASSRLS y permanece reservado al servidor. Esto sigue la
+[semántica default-deny de PostgreSQL](https://www.postgresql.org/docs/17/ddl-rowsecurity.html).
+El prerrequisito verifica esa forma de autorización y aborta si cambia; no contiene
+GRANT, REVOKE ni CREATE/ALTER POLICY. Cualquier futura política de escritura de hoteles
+debe revisar expresamente este campo privilegiado antes de habilitarse.
+
+El catálogo revisado no tiene vistas ni triggers de hoteles; la única función
+SECURITY DEFINER que referencia hotels es una lectura de timezone para Dashboard,
+sin EXECUTE para los roles públicos. Las rutas de perfil/onboarding, creación y
+branding usan listas de campos que no aceptan metadata arbitraria. El archivado y
+`enable_live_mode` requieren administrador de plataforma y mezclan valores almacenados
+con claves construidas por el servidor; `hotel_live_mode` no es
+`automation_live_enabled` ni concede aprobación de automatizaciones. No se invocaron
+esas acciones durante la revisión.
+
+La suite PostgreSQL reproduce la ausencia de la columna y los grants/RLS remotos.
+Aplica el prerrequisito y después el SQL de exclusión sin modificar este último.
+Cubre repetición, conservación de valores/null/ACL, default de filas nuevas,
+rollback ante definición/RLS/políticas/herencia incompatibles y escrituras denegadas
+con los roles API reales. Prueba metadata vacía/nula e incompleta mediante el procesador
+real con mensajes exclusivamente sintéticos. Conserva los 15 escenarios de exclusión.
+El job `PostgreSQL knowledge and automation dispatch` ejecuta esta misma suite por
+`npm run ci:postgres`; Knowledge no la sustituye.
+
+## Publicación y recuperación
 
 ### Puerta de entrada: identificar y vaciar consumidores antiguos
 
@@ -205,8 +263,10 @@ firmas/definiciones con el SQL del SHA desplegado y conservar sus datos.
 ### Orden de migración y comprobación de los procesos nuevos
 
 Con drenaje demostrado y `SEND_AUTOMATIONS=false` verificado **en cada servicio y
-entorno relevante**, aplicar `add_automation_dispatch_exclusion.sql` una sola vez
-con el rol administrativo autorizado. Registrar hash del archivo, resultado de la
+entorno relevante**, aplicar primero `add_hotels_metadata_prerequisite.sql` y después
+`add_automation_dispatch_exclusion.sql`, con el rol administrativo autorizado.
+Reejecutar el preflight de dependencias entre ambos: ahora debe devolver cero filas.
+Registrar hashes de ambos archivos, resultado de cada
 transacción y hora. Después desplegar backend y Dashboard del SHA aprobado, con
 consumidores aún detenidos. Si los despliegues automáticos entregasen código antes
 del SQL, mantenerlos sin consumo: el código nuevo falla cerrado sin la RPC; eso no
@@ -226,7 +286,9 @@ ejecución anterior sigue activa. Cualquier wrapper externo debe llamar al proce
 nuevo, sin POST directo ni fallback al envío antiguo; un wrapper no verificable
 permanece detenido. No se crea ni activa un worker donde antes no había ninguno.
 
-Tras el SQL, comprobar en metadatos RLS de `automation_dispatches`, EXECUTE de las
+Tras el SQL, comprobar tipo/default de `hotels.metadata`, RLS y ausencia de políticas,
+roles y pertenencias igual que en el prerrequisito, sin escribir filas de prueba.
+Comprobar en metadatos RLS de `automation_dispatches`, EXECUTE de las
 cinco firmas solo para los roles administrativos/de servidor previstos, ausencia
 de EXECUTE para PUBLIC/anon/authenticated y ausencia de escritura directa de
 service_role en la tabla. Contrastar definiciones con el archivo aprobado. Comprobar

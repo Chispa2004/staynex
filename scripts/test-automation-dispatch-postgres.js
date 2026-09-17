@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { createAutomationQueueProcessor, getDueScheduledMessages } from '../src/services/message-queue.service.js';
+import { createAutomationQueueProcessor, getDueScheduledMessages, isHotelAutomationLiveExplicitlyEnabled } from '../src/services/message-queue.service.js';
 import { dispatchRpc, requestAutomationRetry } from '../shared/automations/dispatch.js';
 import { AUTOMATION_RUNTIME_VERSION } from '../shared/automations/catalog.js';
 import { DEMO_RESERVED_SLOTS, demoMessageStageId } from '../shared/demo-message-stages/server-provenance.js';
@@ -99,8 +99,10 @@ const tests = [];
 const test = async (name, fn) => { await fn(); tests.push(name); console.log(`PASS ${name}`); };
 
 try {
-  await sql(`create role anon; create role authenticated; create role service_role;
-    create table hotels(id uuid primary key, metadata jsonb, ai_auto_reply_enabled boolean);
+  await sql(`create role anon; create role authenticated; create role service_role bypassrls;
+    create table hotels(id uuid primary key, ai_auto_reply_enabled boolean);
+    alter table hotels enable row level security;
+    grant all on hotels to anon, authenticated, service_role;
     create table reservations(id uuid primary key, hotel_id uuid, status text, arrival_date date, departure_date date);
     create table guests(id uuid primary key, hotel_id uuid);
     create table conversations(id uuid primary key, hotel_id uuid);
@@ -111,14 +113,84 @@ try {
     await sql(readFileSync(new URL('../supabase/sql/' + file, import.meta.url), 'utf8'));
   }
   await sql('grant select on all tables in schema public to service_role;');
-  for (const h of [H, B]) await sql(`insert into hotels values(${q(h)}, ${q({ automation_live_enabled: true,
-    automation_execution_mode: 'live', automation_live_approved_at: '2026-01-01', automation_live_approved_by: 'disposable-test' })},true);`);
+  const prerequisite = readFileSync(new URL('../supabase/sql/add_hotels_metadata_prerequisite.sql', import.meta.url), 'utf8');
+  const approvedMetadata = { automation_live_enabled: true, automation_execution_mode: 'live',
+    automation_live_approved_at: '2026-01-01', automation_live_approved_by: 'disposable-test' };
+  await test('Remote shape without metadata: prerequisite adds empty default, preserves rows and is repeatable', async () => {
+    await sql(`insert into hotels(id,ai_auto_reply_enabled) values(${q(H)},true),(${q(B)},true);`);
+    await assert.rejects(() => sql('select metadata from hotels;'), /does not exist/);
+    await assert.rejects(() => sql('begin; alter table hotels disable row level security; '
+      + prerequisite.replace(/^begin;\r?$/m, '')), /Unreviewed hotels authorization/);
+    await assert.rejects(() => sql('select metadata from hotels;'), /does not exist/);
+    const acl = await sql("select relacl::text from pg_class where oid='hotels'::regclass;");
+    await sql(prerequisite);
+    assert.deepEqual(await json(`select metadata from hotels where id=${q(H)};`), {});
+    const inserted = randomUUID();
+    await sql(`insert into hotels(id,ai_auto_reply_enabled) values(${q(inserted)},true);`);
+    assert.deepEqual(await json(`select metadata from hotels where id=${q(inserted)};`), {});
+    await sql(`update hotels set metadata=${q({ retained: 'synthetic' })} where id=${q(H)};
+      update hotels set metadata=null where id=${q(B)};`);
+    await sql(prerequisite);
+    assert.deepEqual(await json(`select metadata from hotels where id=${q(H)};`), { retained: 'synthetic' });
+    assert.equal(await json(`select metadata from hotels where id=${q(B)};`), null);
+    assert.equal(await sql("select relacl::text from pg_class where oid='hotels'::regclass;"), acl);
+    await sql(`update hotels set metadata='{}';`);
+  });
+  await test('Incompatible existing column or authorization aborts without repair or data loss', async () => {
+    // The failed connection closes/rolls back its outer transaction as well.
+    for (const change of [
+      'alter table hotels alter column metadata type json using metadata::json;',
+      'alter table hotels alter column metadata drop default;',
+      `alter table hotels alter column metadata set default '{"unreviewed":true}'::jsonb;`,
+      'alter table hotels disable row level security;',
+      'create policy unreviewed on hotels for all to authenticated using(true) with check(true);',
+      'grant service_role to authenticated;'
+    ]) {
+      await assert.rejects(() => sql('begin; ' + change + prerequisite.replace(/^begin;\r?$/m, '')), /Incompatible hotels.metadata|Unreviewed hotels authorization/);
+      await sql(prerequisite);
+      assert.deepEqual(await json(`select metadata from hotels where id=${q(H)};`), {});
+    }
+  });
+  await test('Effective API writes denied despite table grants; trusted server remains able to write', async () => {
+    for (const role of ['anon', 'authenticated']) {
+      assert.equal(await sql(`select has_column_privilege(${q(role)},'hotels','metadata','UPDATE');`), 't');
+      assert.equal(await sql(`with changed as (update hotels set metadata=${q(approvedMetadata)} returning id) select count(*) from changed;`, role), '0');
+      await assert.rejects(() => sql(`insert into hotels(id,metadata) values(${q(randomUUID())},${q(approvedMetadata)});`, role), /row-level security/);
+      assert.equal(await sql(`select pg_has_role(${q(role)},'service_role','MEMBER');`), 'f');
+    }
+    await sql(`update hotels set metadata=${q(approvedMetadata)};`, 'service_role');
+    assert.deepEqual(await json(`select metadata from hotels where id=${q(H)};`), approvedMetadata);
+  });
 
   await test('Missing migration fails closed before provider', async () => {
     const row = await seed(); await assert.rejects(() => run(row)); assert.equal(sends, 0);
   });
   const migration = readFileSync(new URL('../supabase/sql/add_automation_dispatch_exclusion.sql', import.meta.url), 'utf8');
   await sql(migration); await sql(migration); // Additive/re-runnable.
+  await test('Empty, absent or null approval values deny the real processor before provider', async () => {
+    const before = sends;
+    const denied = [undefined, null, 'null', {}, false, [], { automation_live_enabled: null },
+      { ...approvedMetadata, automation_live_enabled: 'true' }];
+    for (const key of Object.keys(approvedMetadata)) {
+      const missing = { ...approvedMetadata }; delete missing[key];
+      denied.push(missing, { ...approvedMetadata, [key]: null });
+    }
+    denied.push({ ...approvedMetadata, automation_live_approved_by: null, automation_live_approval_id: null });
+    for (const metadata of denied) {
+      assert.equal(isHotelAutomationLiveExplicitlyEnabled({ metadata }), false);
+      await sql(`update hotels set metadata=${q(metadata)} where id=${q(H)};`);
+      const row = await seed(), result = await run(row);
+      assert.equal(result.error_message, 'hotel_live_config_missing');
+      assert.equal((await dispatchFor(row.id)).phase, 'blocked');
+    }
+    assert.equal(isHotelAutomationLiveExplicitlyEnabled({ execution_mode: 'live', metadata: {} }), false);
+    // Approved aliases remain part of the existing contract, not new approvals.
+    assert.equal(isHotelAutomationLiveExplicitlyEnabled({ metadata: { ...approvedMetadata,
+      automation_execution_mode: null, automation_mode: 'live_limited',
+      automation_live_approved_by: null, automation_live_approval_id: 'synthetic' } }), true);
+    assert.equal(sends, before);
+    await sql(`update hotels set metadata=${q(approvedMetadata)} where id=${q(H)};`);
+  });
   await test('RPCs and dispatch writes are server-only; service role cannot rewrite evidence directly', async () => {
     for (const role of ['anon', 'authenticated']) {
       for (const fn of ['claim(uuid,uuid)', 'begin(uuid,uuid,uuid,jsonb,jsonb)', 'block(uuid,uuid,uuid,jsonb)', 'finish(uuid,uuid,uuid,jsonb)', 'retry(uuid,uuid)']) {
