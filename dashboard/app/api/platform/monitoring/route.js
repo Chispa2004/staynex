@@ -1,3 +1,4 @@
+import { requestAutomationRetry } from '../../../../../shared/automations/dispatch.js';
 import { NextResponse } from 'next/server';
 import { getPlatformContext, writePlatformAuditLog } from '@/lib/platform';
 import { canAccessPlatform } from '@/lib/permissions';
@@ -158,18 +159,12 @@ export async function POST(request) {
         return NextResponse.json({ ok: false, error: 'Scheduled message id is required' }, { status: 400, ...noStore });
       }
 
-      const { data, error } = await supabase
-        .from('scheduled_messages')
-        .update({
-          status: 'retry',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .select('*')
-        .single();
-
-      if (error) {
-        throw error;
+      const { data: message, error } = await supabase.from('scheduled_messages')
+        .select('id, hotel_id').eq('id', id).maybeSingle();
+      if (error) throw error;
+      const data = message && await requestAutomationRetry({ supabase, messageId: message.id, hotelId: message.hotel_id });
+      if (!data) {
+        return NextResponse.json({ ok: false, error: 'No hay evidencia suficiente para reintentar este envío.' }, { status: 409, ...noStore });
       }
 
       await writePlatformAuditLog({

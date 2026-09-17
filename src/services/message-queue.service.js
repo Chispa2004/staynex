@@ -1,7 +1,8 @@
+import { dispatchRpc, classifyAutomationProviderError, classifyAutomationProviderResult } from '../../shared/automations/dispatch.js';
 import { createAiLog } from './ai-log.service.js';
 import { getConversationContext, isHumanControlledConversation } from './conversation-context.service.js';
 import { getSupabase } from './supabase.service.js';
-import { sendWhatsAppMessage } from './twilio.service.js';
+import { sendAutomationWhatsAppMessage } from './twilio.service.js';
 import { logger } from '../utils/logger.js';
 import { isDemoMessageStagesReservation, isDemoMessageStagesContext } from '../../shared/demo-message-stages/server-provenance.js';
 import { shouldAiAutoRespond } from '../../shared/pilot/ai-safety.js';
@@ -18,7 +19,7 @@ import {
   isReservationTerminalForAutomations
 } from '../../shared/automations/reservation-lifecycle.js';
 
-const isSendAutomationsEnabled = () => process.env.SEND_AUTOMATIONS === 'true';
+const isSendAutomationsEnabled = (env = process.env) => env.SEND_AUTOMATIONS === 'true';
 
 const isMissingScheduledMessagesTable = (error) => (
   error?.message?.includes('scheduled_messages')
@@ -85,7 +86,7 @@ export const isHotelAutomationLiveExplicitlyEnabled = (hotel = {}) => {
   );
 };
 
-const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = getSupabase() } = {}) => {
+const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = getSupabase(), env = process.env } = {}) => {
   if (!scheduledMessage.hotel_id) {
     return { allowed: false, reason: 'hotel_live_config_missing' };
   }
@@ -107,7 +108,7 @@ const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = ge
 
     const autoReplyGate = shouldAiAutoRespond({
       hotel: data,
-      env: process.env
+      env
     });
 
     if (!autoReplyGate.allowed) {
@@ -235,7 +236,7 @@ export const getDueScheduledMessages = async ({
   const { data, error } = await supabase
     .from('scheduled_messages')
     .select('*')
-    .eq('status', 'scheduled')
+    .in('status', ['scheduled', 'retry', 'processing'])
     .lte('scheduled_for', now.toISOString())
     .not('idempotency_key', 'is', null)
     .not('execution_mode', 'is', null)
@@ -254,25 +255,22 @@ export const getDueScheduledMessages = async ({
   return (data || []).filter(isCanonicalAutomationScheduledMessage);
 };
 
-const updateScheduledMessageStatus = async (id, updates, { supabase = getSupabase() } = {}) => {
-  const { data, error } = await supabase
-    .from('scheduled_messages')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', id)
-    .select('*')
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-};
-
-export const processScheduledMessage = async (scheduledMessage, options = {}) => {
+// Dependencies are injected only by isolated tests; production uses these defaults.
+export const createAutomationQueueProcessor = ({
+  env = process.env,
+  send = sendAutomationWhatsAppMessage,
+  readConversation = getConversationContext,
+  audit = createAiLog
+} = {}) => async (scheduledMessage, options = {}) => {
+  let attemptId = null;
+  const identity = () => ({ p_message_id: scheduledMessage.id,
+    p_hotel_id: scheduledMessage.hotel_id, p_attempt_id: attemptId });
+  const updateScheduledMessageStatus = async (_id, updates) => {
+    // Cheap deny-only paths (demo, disabled preview) never dispatch or overwrite
+    // an in-flight attempt. All writes after a claim are fenced in PostgreSQL.
+    if (!attemptId) return { ...scheduledMessage, ...updates, skipped: true };
+    return dispatchRpc(getQueueSupabase(), 'block', { ...identity(), p_updates: updates });
+  };
   let scopedSupabase = options.supabase || null;
   const getQueueSupabase = () => {
     scopedSupabase ||= getSupabase();
@@ -296,10 +294,10 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
   const normalizedAutomation = normalizeAutomationType(scheduledMessage.automation_type);
   if (isDemoMessageStagesContext({ hotelId: scheduledMessage.hotel_id,
     guestId: scheduledMessage.guest_id, reservationId: scheduledMessage.reservation_id,
-    conversationId: scheduledMessage.conversation_id })) {
+    conversationId: scheduledMessage.conversation_id }) && !isSendAutomationsEnabled(env)) {
     return updateScheduledMessageStatus(scheduledMessage.id, {
       status: 'cancelled', error_message: 'demo_external_blocked'
-    }, { supabase: getQueueSupabase() });
+    });
   }
   const automationTypeFamily = [
     normalizedAutomation.inputType,
@@ -308,7 +306,7 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
     scheduledMessage.metadata?.legacy_automation_type
   ].filter(Boolean);
 
-  if (automationTypeFamily.some((type) => previewOnlyAutomationTypes.has(type))) {
+  if (automationTypeFamily.some((type) => previewOnlyAutomationTypes.has(type)) && !isSendAutomationsEnabled(env)) {
     logger.info('automation_send_blocked_preview_only', {
       scheduledMessageId: scheduledMessage.id,
       automationType: scheduledMessage.automation_type
@@ -317,10 +315,10 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
     return updateScheduledMessageStatus(scheduledMessage.id, {
       status: 'preview',
       error_message: null
-    }, { supabase: getQueueSupabase() });
+    });
   }
 
-  if (!isSendAutomationsEnabled()) {
+  if (!isSendAutomationsEnabled(env)) {
     logger.info('Automation sending disabled; leaving message scheduled', {
       scheduledMessageId: scheduledMessage.id,
       automationType: scheduledMessage.automation_type
@@ -330,6 +328,24 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
       ...scheduledMessage,
       skipped: true
     };
+  }
+
+  const claim = await dispatchRpc(getQueueSupabase(), 'claim', {
+    p_message_id: scheduledMessage.id, p_hotel_id: scheduledMessage.hotel_id
+  });
+  if (!claim) return { ...scheduledMessage, skipped: true, reason: 'dispatch_not_claimed' };
+  scheduledMessage = claim.message; // Never dispatch a stale caller-supplied payload.
+  attemptId = claim.attempt_id;
+  if (!isCanonicalAutomationScheduledMessage(scheduledMessage)
+    || isDemoMessageStagesContext({ hotelId: scheduledMessage.hotel_id,
+      guestId: scheduledMessage.guest_id, reservationId: scheduledMessage.reservation_id,
+      conversationId: scheduledMessage.conversation_id })) {
+    return updateScheduledMessageStatus(scheduledMessage.id, { status: 'cancelled', error_message: 'demo_external_blocked' });
+  }
+  const freshType = normalizeAutomationType(scheduledMessage.automation_type);
+  if ([freshType.inputType, freshType.canonicalType, scheduledMessage.metadata?.canonical_automation_type,
+    scheduledMessage.metadata?.legacy_automation_type].some(type => previewOnlyAutomationTypes.has(type))) {
+    return updateScheduledMessageStatus(scheduledMessage.id, { status: 'preview', error_message: 'preview_only' });
   }
 
   const liveGate = liveGateForScheduledMessage(scheduledMessage);
@@ -343,10 +359,10 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
     return updateScheduledMessageStatus(scheduledMessage.id, {
       status: 'preview',
       error_message: liveGate.reason
-    }, { supabase: getQueueSupabase() });
+    });
   }
 
-  const hotelLiveGate = await getHotelLiveAutomationGate(scheduledMessage, { supabase: getQueueSupabase() });
+  const hotelLiveGate = await getHotelLiveAutomationGate(scheduledMessage, { supabase: getQueueSupabase(), env });
   if (!hotelLiveGate.allowed) {
     logger.info('automation_send_blocked_by_hotel_live_gate', {
       scheduledMessageId: scheduledMessage.id,
@@ -357,7 +373,7 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
     return updateScheduledMessageStatus(scheduledMessage.id, {
       status: 'preview',
       error_message: hotelLiveGate.reason
-    }, { supabase: getQueueSupabase() });
+    });
   }
 
   const reservationGate = await getReservationSendTimeGate({
@@ -388,7 +404,7 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
           checked_at: checkedAt
         }
       }
-    }, { supabase: getQueueSupabase() });
+    });
   }
 
   const scheduleGate = getReservationScheduleSendTimeGate({
@@ -417,7 +433,7 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
           checked_at: checkedAt
         }
       }
-    }, { supabase: getQueueSupabase() });
+    });
   }
 
   if (!scheduledMessage.send_to) {
@@ -425,15 +441,15 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
       status: 'failed',
       failed_at: new Date().toISOString(),
       error_message: 'Missing send_to'
-    }, { supabase: getQueueSupabase() });
+    });
   }
 
+  let aiState = null;
   if (scheduledMessage.conversation_id && scheduledMessage.hotel_id) {
-    let aiState = null;
     let stateLookupFailed = false;
 
     try {
-      aiState = await getConversationContext({
+      aiState = await readConversation({
         hotelId: scheduledMessage.hotel_id,
         conversationId: scheduledMessage.conversation_id,
         throwOnError: true
@@ -452,7 +468,7 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
       hotel: hotelLiveGate.hotel || { id: scheduledMessage.hotel_id },
       conversationState: aiState,
       stateLookupFailed,
-      env: process.env
+      env
     });
 
     if (!conversationGate.allowed) {
@@ -472,55 +488,57 @@ export const processScheduledMessage = async (scheduledMessage, options = {}) =>
       return updateScheduledMessageStatus(scheduledMessage.id, {
         status: 'failed',
         error_message: conversationGate.reason
-      }, { supabase: getQueueSupabase() });
+      });
     }
   }
 
-  try {
-    const twilioMessage = await sendWhatsAppMessage({
-      to: scheduledMessage.send_to,
-      body: scheduledMessage.message_preview
-    });
-    const updated = await updateScheduledMessageStatus(scheduledMessage.id, {
-      status: 'sent',
-      sent_at: new Date().toISOString(),
-      error_message: null
-    }, { supabase: getQueueSupabase() });
-
-    await createAiLog({
-      hotelId: scheduledMessage.hotel_id || null,
-      guestId: scheduledMessage.guest_id || null,
-      conversationId: scheduledMessage.conversation_id || null,
-      detectedIntent: 'automation',
-      generatedResponse: scheduledMessage.message_preview,
-      aiProvider: scheduledMessage.ai_provider,
-      aiModel: scheduledMessage.ai_model,
-      fallbackUsed: scheduledMessage.automation_fallback,
-      automationTriggered: true,
-      automationType: scheduledMessage.automation_type,
-      automationSent: true,
-      automationFallback: scheduledMessage.automation_fallback
-    });
-
-    logger.info('Automation WhatsApp sent', {
-      scheduledMessageId: scheduledMessage.id,
-      twilioSid: twilioMessage?.sid || null
-    });
-
-    return updated;
-  } catch (error) {
-    logger.warn('Automation WhatsApp send failed', {
-      scheduledMessageId: scheduledMessage.id,
-      message: error.message
-    });
-
-    return updateScheduledMessageStatus(scheduledMessage.id, {
-      status: 'failed',
-      failed_at: new Date().toISOString(),
-      error_message: error.message
-    }, { supabase: getQueueSupabase() });
+  // Recheck the local kill switch at the last synchronous boundary. The durable
+  // begin also fences the lease and compares the complete queued payload.
+  if (!isSendAutomationsEnabled(env) || !shouldAiAutoRespond({ hotel: hotelLiveGate.hotel, env }).allowed) {
+    return updateScheduledMessageStatus(scheduledMessage.id, { status: 'failed', error_message: 'automation_disabled_before_dispatch' });
   }
+  const begun = await dispatchRpc(getQueueSupabase(), 'begin', { ...identity(), p_expected: scheduledMessage,
+    p_checks: { hotel: hotelLiveGate.hotel, reservation: reservationGate.reservation, conversation: aiState } });
+  if (!begun) return { ...scheduledMessage, skipped: true, reason: 'dispatch_fence_lost' };
+
+  let result;
+  try {
+    result = classifyAutomationProviderResult(await send({ to: begun.send_to, body: begun.message_preview }));
+  } catch (error) {
+    result = classifyAutomationProviderError(error);
+  }
+  let updated;
+  try {
+    updated = await dispatchRpc(getQueueSupabase(), 'finish', { ...identity(), p_result: result });
+  } catch {
+    // The DB may have committed even when its response was lost. Do not write
+    // failed or retry; retain dispatching/accepted and the SID in restricted logs.
+    logger.error('automation_dispatch_persistence_unconfirmed', {
+      scheduledMessageId: scheduledMessage.id, attemptId, providerSid: result.sid || null, outcome: result.phase
+    });
+    return { ...begun, dispatchOutcome: 'unknown', reconciliationRequired: true, providerSid: result.sid || null };
+  }
+  if (!updated) {
+    logger.error('automation_dispatch_late_result', { scheduledMessageId: scheduledMessage.id,
+      attemptId, providerSid: result.sid || null, outcome: result.phase });
+    return { ...begun, dispatchOutcome: 'unknown', reconciliationRequired: true, providerSid: result.sid || null };
+  }
+  if (result.phase === 'accepted') {
+    try {
+      await audit({ hotelId: scheduledMessage.hotel_id, guestId: scheduledMessage.guest_id || null,
+        conversationId: scheduledMessage.conversation_id || null, detectedIntent: 'automation',
+        generatedResponse: scheduledMessage.message_preview, aiProvider: scheduledMessage.ai_provider,
+        aiModel: scheduledMessage.ai_model, fallbackUsed: scheduledMessage.automation_fallback,
+        automationTriggered: true, automationType: scheduledMessage.automation_type,
+        automationSent: true, automationFallback: scheduledMessage.automation_fallback });
+    } catch {
+      logger.warn('automation_dispatch_audit_failed', { scheduledMessageId: scheduledMessage.id, attemptId });
+    }
+  }
+  return { ...updated, dispatchOutcome: result.phase };
 };
+
+export const processScheduledMessage = createAutomationQueueProcessor();
 
 export const processDueScheduledMessages = async ({
   now = new Date(),

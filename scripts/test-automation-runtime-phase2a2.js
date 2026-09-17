@@ -1,3 +1,4 @@
+import { automationGateRpc } from './helpers/automation-gate-rpc.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
@@ -432,6 +433,7 @@ const createMockSupabase = (initial = {}) => {
 
   return {
     db,
+    rpc: automationGateRpc(db),
     from(table) {
       return new QueryBuilder(db, table);
     }

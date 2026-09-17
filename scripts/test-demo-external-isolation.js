@@ -121,7 +121,7 @@ await test('Scheduler excludes only reserved reservations; direct AI generation 
 await test('Queued demo retries are cancelled before send flags/provider; send-time DB gate rejects demo and permits ordinary',async()=>{
   const rows=reservations.map((r,i)=>({id:'queue-'+i,hotel_id:H,reservation_id:r.id,guest_id:r.guest_id,automation_type:'pre_arrival',execution_mode:'live',certification_status:'certified',runtime_version:catalog.AUTOMATION_RUNTIME_VERSION,idempotency_key:'synthetic-'+i,send_to:'+34900000001'}));
   const db=dbFor({reservations:[...reservations,ordinary],scheduled_messages:rows});
-  const queue=load('src/services/message-queue.service.js',{getSupabase:()=>db.client,sendWhatsAppMessage:async()=>{calls.whatsapp++;}},['processScheduledMessage','getReservationSendTimeGate']);
+  const queue=load('src/services/message-queue.service.js',{getSupabase:()=>db.client,sendAutomationWhatsAppMessage:async()=>{calls.whatsapp++;},getConversationContext:async()=>null,createAiLog:async()=>{}},['processScheduledMessage','getReservationSendTimeGate']);
   const before=calls.whatsapp;
   for(const row of rows){assert.ok(lifecycle.isCanonicalAutomationScheduledMessage(row));const result=await queue.processScheduledMessage(row,{supabase:db.client});assert.equal(result.status,'cancelled');assert.equal(result.error_message,'demo_external_blocked');
     assert.equal((await queue.getReservationSendTimeGate({scheduledMessage:row,supabase:db.client})).reason,'demo_external_blocked');}

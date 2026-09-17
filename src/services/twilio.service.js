@@ -31,6 +31,18 @@ export const sendManualWhatsAppMessage = async ({ to, body }) => {
   return client.messages.create({ from: toWhatsappAddress(process.env.TWILIO_WHATSAPP_FROM), to: toWhatsappAddress(to), body });
 };
 
+// Queue dispatch owns retry policy. Never let the SDK replay a POST behind it.
+export const sendAutomationWhatsAppMessage = async ({ to, body }) => {
+  let client;
+  try {
+    if (!process.env.TWILIO_WHATSAPP_FROM) throw new Error('Missing sender');
+    client = getTwilioClient({ timeout: 15000, autoRetry: false });
+  } catch {
+    throw Object.assign(new Error('Automation provider unavailable'), { automationSendNotAttempted: true });
+  }
+  return client.messages.create({ from: toWhatsappAddress(process.env.TWILIO_WHATSAPP_FROM), to: toWhatsappAddress(to), body });
+};
+
 export const sendWhatsAppMessage = async ({ to, body }) => {
   if (!process.env.TWILIO_WHATSAPP_FROM) {
     throw new Error('TWILIO_WHATSAPP_FROM is not configured');

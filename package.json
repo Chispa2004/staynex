@@ -87,6 +87,8 @@
     "ci:dashboard": "node scripts/ci/run.cjs dashboard",
     "ci:postgres": "node scripts/ci/run.cjs postgres",
     "test:ci-guards": "node scripts/test-ci-guards.cjs",
+    "test:automation-dispatch-contract": "node scripts/test-automation-dispatch-contract.js",
+    "test:automation-dispatch-postgres": "node scripts/test-automation-dispatch-postgres.js",
     "test:knowledge-isolation-postgres": "node scripts/test-knowledge-isolation-postgres.cjs"
   },
   "dependencies": {
