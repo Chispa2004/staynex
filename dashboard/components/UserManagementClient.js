@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { ROLE_LABELS, ROLES } from '@/lib/permissions';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -38,6 +39,7 @@ const statusTone = (status) => {
 };
 
 const RoleBadge = ({ role }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const tone = role === 'owner' || role === 'admin' ? 'emerald' : role === 'manager' ? 'sky' : 'slate';
@@ -45,7 +47,7 @@ const RoleBadge = ({ role }) => {
 
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <span className={ui.badge(isLight, tone)}>{ROLE_LABELS[role] || role}</span>
+      <span className={ui.badge(isLight, tone)}>{tx(ROLE_LABELS[role] || role)}</span>
       {isLegacy ? <span className={ui.badge(isLight, 'amber')}>Legacy role</span> : null}
     </span>
   );
@@ -59,6 +61,7 @@ const StatusBadge = ({ status }) => {
 };
 
 export const UserManagementClient = () => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [users, setUsers] = useState([]);
@@ -211,7 +214,7 @@ export const UserManagementClient = () => {
       <form onSubmit={inviteUser} className={cn('rounded-xl border p-5', ui.surface(isLight))}>
         <div className="mb-4">
           <p className={cn('text-sm font-semibold', isLight ? 'text-slate-950' : 'text-white')}>Add hotel user</p>
-          <p className={ui.text.body(isLight)}>Choose whether this user is an Admin or Receptionist.</p>
+          <p className={ui.text.body(isLight)}>{tx('Choose whether this user is an Admin or Receptionist.')}</p>
         </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="min-w-0 flex-1">
@@ -234,7 +237,7 @@ export const UserManagementClient = () => {
               className={`${ui.input(isLight)} mt-2 w-full`}
             >
               {HOTEL_MANAGEMENT_ROLES.map((item) => (
-                <option key={item} value={item}>{ROLE_LABELS[item]}</option>
+                <option key={item} value={item}>{tx(ROLE_LABELS[item])}</option>
               ))}
             </select>
             <p className={cn('mt-2 text-xs leading-5', isLight ? 'text-slate-500' : 'text-slate-400')}>
@@ -303,16 +306,16 @@ export const UserManagementClient = () => {
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
                   >
                     {!HOTEL_MANAGEMENT_ROLES.includes(user.role) ? (
-                      <option value="" disabled>{ROLE_LABELS[user.role] || user.role}</option>
+                      <option value="" disabled>{tx(ROLE_LABELS[user.role] || user.role)}</option>
                     ) : null}
                     {HOTEL_MANAGEMENT_ROLES.map((item) => (
-                      <option key={item} value={item}>{ROLE_LABELS[item]}</option>
+                      <option key={item} value={item}>{tx(ROLE_LABELS[item])}</option>
                     ))}
                   </select>
                   <p className={ui.text.muted(isLight)}>
                     {HOTEL_MANAGEMENT_ROLES.includes(user.role)
                       ? roleDescriptions[user.role]
-                      : 'Existing advanced role. It can be changed to Admin or Receptionist from this screen.'}
+                      : tx('Existing advanced role. It can be changed to Admin or Receptionist from this screen.')}
                   </p>
                 </div>
 

@@ -3,6 +3,7 @@
 import { Building2, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ROLE_LABELS } from '@/lib/permissions';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const getInitials = (name = 'Staynex') => name
@@ -51,6 +52,7 @@ export const HotelWorkspaceSwitcher = ({
   accessToken,
   onWorkspaceCreated
 }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [open, setOpen] = useState(false);
@@ -143,8 +145,8 @@ export const HotelWorkspaceSwitcher = ({
             : 'border-white/10 bg-white/[0.035] text-white hover:border-white/15 hover:bg-white/[0.06]',
           canOpenMenu ? 'cursor-pointer' : 'cursor-default'
         ].join(' ')}
-        aria-label={`${currentHotel?.name || 'Hotel activo'} · ${ROLE_LABELS[activeRole] || activeRole}`}
-        title={`${currentHotel?.name || 'Hotel activo'} · ${ROLE_LABELS[activeRole] || activeRole}`}
+        aria-label={`${currentHotel?.name || 'Hotel activo'} · ${tx(ROLE_LABELS[activeRole] || activeRole)}`}
+        title={`${currentHotel?.name || 'Hotel activo'} · ${tx(ROLE_LABELS[activeRole] || activeRole)}`}
         aria-haspopup={canOpenMenu ? 'listbox' : undefined}
         aria-expanded={canOpenMenu ? open : undefined}
       >
@@ -157,7 +159,7 @@ export const HotelWorkspaceSwitcher = ({
             {currentHotel?.brand_name || currentHotel?.workspace_slug || currentHotel?.slug || 'Hotel operations'}
           </p>
           {!compact ? <p className={isLight ? 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700' : 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-300'}>
-            {ROLE_LABELS[activeRole] || activeRole}
+            {tx(ROLE_LABELS[activeRole] || activeRole)}
           </p> : null}
         </div>
         {switching ? (
@@ -208,7 +210,7 @@ export const HotelWorkspaceSwitcher = ({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{hotel.name}</p>
                     <p className={isLight ? 'truncate text-xs text-slate-500' : 'truncate text-xs text-slate-500'}>
-                      {ROLE_LABELS[role] || role}
+                      {tx(ROLE_LABELS[role] || role)}
                     </p>
                   </div>
                   {active ? <Check className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" /> : null}

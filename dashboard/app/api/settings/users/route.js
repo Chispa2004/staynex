@@ -14,7 +14,9 @@ const getContext = async (request) => {
   const context = await getCurrentHotelForRequest(request);
 
   if (!context.hotel?.id) {
-    throw new Error('No hotel available');
+    const error = new Error('Access denied');
+    error.status = ['missing_session', 'invalid_session'].includes(context.accessDeniedReason) ? 401 : 403;
+    throw error;
   }
 
   if (!canAccess(context.role, 'user_management')) {

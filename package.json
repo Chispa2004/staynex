@@ -91,7 +91,8 @@
     "test:automation-dispatch-postgres": "node scripts/test-automation-dispatch-postgres.js",
     "test:knowledge-isolation-postgres": "node scripts/test-knowledge-isolation-postgres.cjs",
     "test:organization-postgres": "node scripts/test-organization-postgres.cjs",
-    "test:organization-access": "node scripts/test-organization-access.js"
+    "test:organization-access": "node scripts/test-organization-access.js",
+    "test:organization-production": "node scripts/test-organization-production.cjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

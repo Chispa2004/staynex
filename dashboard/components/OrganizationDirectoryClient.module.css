@@ -97,6 +97,11 @@
   font-size:13px;
   color:#52627a;
 }
+.metrics small {
+  font-size:12px;
+  line-height:1.4;
+  color:#52627a;
+}
 .hotels {
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));

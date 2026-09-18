@@ -980,7 +980,7 @@ const AppShellContent = ({ children }) => {
   const workspaceSecondaryColor = isPlatformContext ? '#084EC7' : currentHotel?.secondary_color || '#0f766e';
   const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext;
   const sidebarTitle = isPlatformContext ? 'Staynex Platform' : sidebarHotelName;
-  const sidebarSubtitle = isPlatformContext ? tx('Internal command center') : (ROLE_LABELS[activeRole] || activeRole);
+  const sidebarSubtitle = isPlatformContext ? tx('Internal command center') : tx(ROLE_LABELS[activeRole] || activeRole);
   const isNavItemActive = (item) => item.href === '/dashboard'
     ? pathname === item.href
     : pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -1355,10 +1355,10 @@ const AppShellContent = ({ children }) => {
                 <LanguageSelector />
               </div>
             ) : null}
-            {!isPlatformContext && <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-4 py-2 text-xs text-slate-600" aria-label="Contexto de acceso"><span>{hotelContext.organization?.name || (currentHotel.organization_id ? 'Organización cliente' : 'Hotel pendiente de incorporación')}</span><span>{sidebarHotelName}</span><strong>{ROLE_LABELS[activeRole] || activeRole}{showBackToPlatform ? ' · Identidad Staynex' : ''}</strong><Link className="ml-auto min-h-8 content-center font-semibold text-blue-700" href={`${showBackToPlatform ? '/platform/organizations' : '/my-hotels'}${currentHotel.organization_id ? '?organizationId=' + encodeURIComponent(currentHotel.organization_id) : ''}`}>{showBackToPlatform ? 'Platform' : 'Mis hoteles'}</Link></div>}
+            {!isPlatformContext && <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-200 bg-white px-4 py-2 text-xs text-slate-600" aria-label="Contexto de acceso"><span>{hotelContext.organization?.name || (currentHotel.organization_id ? 'Organización cliente' : 'Hotel pendiente de incorporación')}</span><span>{sidebarHotelName}</span><strong>{tx(ROLE_LABELS[activeRole] || activeRole)}{showBackToPlatform ? ' · Identidad Staynex' : ''}</strong><Link className="ml-auto min-h-8 content-center font-semibold text-blue-700" href={`${showBackToPlatform ? '/platform/organizations' : '/my-hotels'}${currentHotel.organization_id ? '?organizationId=' + encodeURIComponent(currentHotel.organization_id) : ''}`}>{showBackToPlatform ? 'Platform' : 'Mis hoteles'}</Link></div>}
             {isInboxRoute ? <div className={shellStyles.inboxContext} data-admin={showBackToPlatform}>
               <span><Building2 size={14} aria-hidden="true" /> {sidebarHotelName}</span>
-              <span>{ROLE_LABELS[activeRole] || activeRole}{showBackToPlatform ? ' · Administración Staynex' : ''}</span>
+              <span>{tx(ROLE_LABELS[activeRole] || activeRole)}{showBackToPlatform ? ' · Administración Staynex' : ''}</span>
             </div> : null}
             {showBackToPlatform && !isOperationsDashboard && !isInboxRoute ? (
               <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
@@ -1405,7 +1405,7 @@ const AppShellContent = ({ children }) => {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="font-semibold">{tx('Welcome to {hotel}', { hotel: welcomeState.hotelName || sidebarHotelName })}</p>
-                    <p className="mt-1 opacity-80">{tx('Your role is {role}. Staynex linked your invitation automatically.', { role: ROLE_LABELS[welcomeState.role] || welcomeState.role })}</p>
+                    <p className="mt-1 opacity-80">{tx('Your role is {role}. Staynex linked your invitation automatically.', { role: tx(ROLE_LABELS[welcomeState.role] || welcomeState.role) })}</p>
                   </div>
                   <button
                     type="button"

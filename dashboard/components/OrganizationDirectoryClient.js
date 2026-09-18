@@ -5,9 +5,11 @@ import { Building2, ArrowRight, Users, TicketCheck } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { switchWorkspace } from '@/lib/workspace-context';
 import { getFirstAllowedRoute, ROLE_LABELS } from '@/lib/permissions';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import styles from './OrganizationDirectoryClient.module.css';
 
 export function OrganizationDirectoryClient({ platform = false, initialOrganizationId = '' }) {
+  const { tx } = useDashboardLanguage();
   const [directory, setDirectory] = useState(null);
   const [organizationId, setOrganizationId] = useState(initialOrganizationId);
   const [error, setError] = useState('');
@@ -73,13 +75,13 @@ export function OrganizationDirectoryClient({ platform = false, initialOrganizat
       </select></label><span>{selected ? (selected.kind === 'independent' ? 'Cliente independiente' : 'Cadena hotelera') : 'Directorio de hoteles'}</span></div>
       {directory.requiresOrganizationSelection ? <p>Selecciona una organización para ver sus hoteles e indicadores.</p> : <>
         <section className={styles.metrics} aria-label="Indicadores del ámbito autorizado">
-          {[[Building2,'Hoteles',directory.metrics?.hotels],[Users,'Personas únicas',directory.metrics?.people],[Users,'Asignaciones activas',directory.metrics?.assignments],[TicketCheck,'Tickets abiertos',directory.metrics?.openTickets]].map(([Icon,label,value]) => <article key={label}><Icon size={19} aria-hidden="true"/><strong>{value ?? 0}</strong><span>{label}</span></article>)}
+          {[[Building2,'Hoteles',directory.metrics?.hotels],[Users,'Users',directory.metrics?.people],[Users,'Hotel accesses',directory.metrics?.assignments],[TicketCheck,'Tickets abiertos',directory.metrics?.openTickets]].map(([Icon,label,value]) => <article key={label}><Icon size={19} aria-hidden="true"/><strong>{value ?? 0}</strong><span>{tx(label)}</span>{label === 'Hotel accesses' && <small>{tx('One person can have access to several hotels')}</small>}</article>)}
         </section>
         <section className={styles.hotels} aria-label="Hoteles autorizados">
           {directory.hotels.map(h => <article key={h.id} className={styles.hotel}>
             <div className={styles.hotelIcon}><Building2 aria-hidden="true"/></div><p className={styles.eyebrow}>{h.organizationName}</p><h2>{h.name}</h2>
             <p>{[h.city,h.country_code].filter(Boolean).join(' · ') || 'Hotel incorporado a Staynex'}</p>
-            <p className={styles.role}>{h.canEnter ? (ROLE_LABELS[h.role] || h.role) : 'Acceso operativo suspendido'}{platform ? ' · Identidad Staynex' : ''}</p>
+            <p className={styles.role}>{h.canEnter ? tx(ROLE_LABELS[h.role] || h.role) : 'Acceso operativo suspendido'}{platform ? ' · Identidad Staynex' : ''}</p>
             <dl><div><dt>Tickets abiertos</dt><dd>{h.openTickets}</dd></div><div><dt>Urgentes abiertos</dt><dd>{h.urgentTickets}</dd></div></dl>
             <button disabled={busy || !h.canEnter} onClick={() => enter(h)}>Abrir hotel <ArrowRight size={17} aria-hidden="true"/></button>
           </article>)}

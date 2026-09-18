@@ -110,3 +110,12 @@ assert.equal(pagedAssignments.length,1002);
 rows.organization_users=[{...m(A,'org_admin'),status:'disabled'}];
 assert.equal((await resolveAssignments({supabase,userId:'u'})).length,0);
 console.log('Actual assignment resolver PASS: >1000 assignments and membership revocation fail closed.');
+
+const { translatePhrase } = await import('../dashboard/lib/i18n/translations.js');
+assert.equal(translatePhrase('es','Users'),'Usuarios');
+assert.equal(translatePhrase('es','Hotel accesses'),'Accesos a hoteles');
+assert.equal(translatePhrase('es','One person can have access to several hotels'),'Una persona puede tener acceso a varios hoteles');
+assert.equal(translatePhrase('es','Admin'),'Administrador');
+assert.equal(translatePhrase('es','Receptionist'),'Recepción');
+assert.equal(translatePhrase('en','Receptionist'),'Reception');
+console.log('Organization copy PASS: existing translation system; role identifiers and metric formulas unchanged.');

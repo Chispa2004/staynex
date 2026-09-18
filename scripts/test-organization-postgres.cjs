@@ -50,6 +50,7 @@ try {
     insert into conversations(hotel_id,status) values (${q(HA)},'open'),(${q(HB)},'open'),(${q(HI)},'open');
     insert into tickets(hotel_id,status,priority) values (${q(HA)},'open','urgent'),(${q(HB)},'open','normal');`);
   sql(readFileSync('supabase/sql/rls_phase_2_write_protection.sql','utf8'));
+  sql(readFileSync('supabase/sql/preflight_organizations.sql','utf8'));
   const original = sql(`select jsonb_agg(jsonb_build_object('id',id,'role',role,'user',user_id) order by id) from hotel_users;`);
   check('unbound active legacy identities stop migration without partial schema', () => {
     sql(`insert into hotel_users(hotel_id,email) values(${q(LEGACY)},'unbound@synthetic.invalid');`);
@@ -136,6 +137,8 @@ try {
     membership(A,MIXED,'member','disabled'); assert.equal(can(MIXED,HA),'f'); assert.equal(can(MIXED,HB),'t');
     assert.equal(sql(`select status from hotel_users where user_id=${q(MIXED)} and hotel_id=${q(HA)};`),'active');
     assert.equal(auth(MIXED,`select count(*) from conversations where hotel_id=${q(HA)};`),'0');
+    assert.equal(auth(MIXED,`with changed as (update tickets set status='completed' where hotel_id=${q(HA)} returning id) select count(*) from changed;`),'0');
+    assert.throws(()=>auth(MIXED,`insert into tickets(hotel_id,status) values(${q(HA)},'open');`),/row-level security/);
   });
   check('organization suspension denies all customer access, preserves internal identity', () => {
     manage('status',{organization_id:A,status:'disabled'}); assert.equal(can(RECEPTION,HA),'f'); assert.equal(can(ADMIN,HA),'f');
@@ -169,6 +172,11 @@ try {
     assert.ok(Number(sql(`select count(*) from platform_audit_logs where action='organization_hotel_grant_created';`))>=4);
     assert.ok(Number(sql(`select count(*) from platform_audit_logs where actor_user_id=${q(INTERNAL)};`))>=10);
     assert.equal(sql(`select count(*) from hotel_users where organization_user_id is not null and platform_role<>'none';`),'0');
+  });
+  check('read-only preflight works before and after migration without changing assignments', () => {
+    const before=sql('select jsonb_agg(to_jsonb(h) order by id) from hotel_users h;');
+    sql(readFileSync('supabase/sql/preflight_organizations.sql','utf8'));
+    assert.equal(sql('select jsonb_agg(to_jsonb(h) order by id) from hotel_users h;'),before);
   });
   console.log(`Organization PostgreSQL: ${tests} scenarios PASS; disposable database; no provider calls.`);
 } finally { pg.cleanup(); }

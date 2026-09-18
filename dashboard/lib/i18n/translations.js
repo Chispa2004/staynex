@@ -2946,6 +2946,24 @@ const receptionMessagePhrases = [
 ];
 for (const phrase of receptionMessagePhrases) { ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; }); }
 
+// Organization directory copy; identifiers and counting formulas stay unchanged.
+const organizationPhrases = {
+  en: ['Users', 'Hotel accesses', 'One person can have access to several hotels', 'Administrator', 'Reception'],
+  es: ['Usuarios', 'Accesos a hoteles', 'Una persona puede tener acceso a varios hoteles', 'Administrador', 'Recepción'],
+  fr: ['Utilisateurs', 'Accès aux hôtels', 'Une personne peut avoir accès à plusieurs hôtels', 'Administrateur', 'Réception'],
+  de: ['Benutzer', 'Hotelzugänge', 'Eine Person kann Zugang zu mehreren Hotels haben', 'Administrator', 'Rezeption']
+};
+for (const [language, values] of Object.entries(organizationPhrases)) {
+  Object.assign(phraseTranslations[language], Object.fromEntries(
+    ['Users', 'Hotel accesses', 'One person can have access to several hotels', 'Admin', 'Receptionist'].map((key, index) => [key, values[index]])
+  ));
+}
+
+Object.assign(phraseTranslations.es, {
+  'Choose whether this user is an Admin or Receptionist.': 'Elige si esta persona tendrá el rol de Administrador o Recepción.',
+  'Existing advanced role. It can be changed to Admin or Receptionist from this screen.': 'Rol avanzado existente. Desde esta pantalla puede cambiarse a Administrador o Recepción.'
+});
+
 const phrasePatterns = {
   es: [
     [/^(\d+) active conversations$/, '$1 conversaciones activas'],

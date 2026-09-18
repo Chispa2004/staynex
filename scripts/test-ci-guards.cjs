@@ -23,10 +23,11 @@ try {
   assert.ok(!failed.stdout.includes('CI running test:manual-send'), 'Runner must stop after failure');
   put('probe.cjs', "const fs=require('node:fs'),net=require('node:net'),assert=require('node:assert/strict');assert.equal(process.env.SEND_AUTOMATIONS,'false');assert.equal(process.env.USE_MOCK_AI,'true');assert.equal(process.env.OPENAI_API_KEY,undefined);assert.throws(()=>fs.readFileSync('.env'),e=>e.code==='ENOENT');assert.throws(()=>net.connect({host:'provider.invalid',port:443}),/CI blocked/);console.log('ISOLATION PASS');");
   put('.env', 'OPENAI_API_KEY=synthetic-must-not-load');
-  put('package.json', JSON.stringify({ scripts: { 'dashboard:build': 'node probe.cjs' } }));
+  put('package.json', JSON.stringify({ scripts: { 'dashboard:build': 'node probe.cjs', 'test:organization-production': 'node probe.cjs' } }));
   const result = spawnSync(process.execPath, ['scripts/ci/run.cjs', 'dashboard'], { cwd: temp, env: { ...process.env, NODE_OPTIONS: '', OPENAI_API_KEY: 'synthetic-inherited', SEND_AUTOMATIONS: 'true' }, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /ISOLATION PASS/);
+  assert.match(result.stdout, /CI running test:organization-production/);
   console.log('CI guards PASS: new/missing sources, parse without execution, child exit 23 propagated, sanitized environment and external network blocked.');
 } finally {
   assert.ok(path.resolve(temp).startsWith(path.resolve(os.tmpdir()) + path.sep + 'staynex-ci-guards-'));

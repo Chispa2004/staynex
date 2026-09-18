@@ -1,5 +1,7 @@
 # Organizaciones y hoteles: primera versión local
 
+El cierre del 18 de septiembre, la prueba del build real, las correcciones de texto y el procedimiento detallado están en [organization-publication-readiness.md](organization-publication-readiness.md). El resultado del 17 de septiembre que aparece al final se conserva como evidencia histórica.
+
 Base de trabajo: `c3be26dc190308ea399f2143dc8a00430c957b44`, en la rama local `codex/organization-hotel-access`. Su árbol inicial coincide con `79da26e315072c9878dcb57df892b42b171064f9`, el main identificado en el diagnóstico anterior. No se han consultado ni modificado datos remotos durante esta implementación. El inventario privado preexistente queda fuera de Git.
 
 ## Comportamiento y permisos
@@ -46,7 +48,7 @@ Las invitaciones se vinculan por correo **verificado** de Supabase Auth. Despué
 - `shared/access/organization-scope.js`: selección de asignaciones efectivas y comprobación conjunta de identidad, membresía, organización y asignación.
 - `dashboard/lib/user-invitations.js` y `current-hotel.js`: resolución operativa central, sin sustitución silenciosa ni recuperación por errores de esquema. La compatibilidad se limita a hoteles con `organization_id IS NULL` y asignaciones independientes activas vinculadas.
 - `dashboard/lib/organization-access.js`: directorio e indicadores con filtros de organización y hoteles autorizados **antes** de consultar/paginar/agregar. No usa el resumen global de Platform para clientes. No devuelve filas de huéspedes, credenciales ni conjuntos `raw`.
-- Los indicadores distinguen personas únicas y asignaciones operativas activas. Una concesión y una asignación independiente son dos asignaciones, una persona. Los tickets abiertos conservan los estados `open` / `in_progress`; urgentes añade `priority=urgent`.
+- Los indicadores «Usuarios» y «Accesos a hoteles» distinguen personas únicas y asignaciones operativas activas, con la explicación «Una persona puede tener acceso a varios hoteles». Una concesión y una asignación independiente son dos asignaciones, una persona. Los tickets abiertos conservan los estados `open` / `in_progress`; urgentes añade `priority=urgent`.
 - Una cadena puede ver la ficha de un hotel incorporado con acceso operativo suspendido, pero el botón queda desactivado y sus datos operativos no entran en las consultas del usuario suspendido.
 - `/api/settings/users` limita cambios a la fila del hotel autorizado, independiente y sin rol interno; el cuerpo no controla hotel, origen ni permisos internos. Las concesiones se muestran protegidas. Platform permite suspender una concesión, pero no cambiar su identidad o convertirla en invitación desde la gestión hotelaria.
 - Los helpers RLS mantienen sus firmas. Guardas restrictivas añaden la condición de ámbito sobre las políticas existentes; no conceden permisos directos nuevos ni cambian las publicaciones de Realtime. Las tablas de organizaciones y sus mutaciones quedan detrás del servidor/RPC. La identidad no puede editarse directamente como `authenticated` o `anon`. Un trigger con derechos del invocante impide cambiar `hotels.organization_id` directamente incluso si existe una política antigua de escritura; conserva la edición de los demás campos autorizados y permite el contrato interno de incorporación.
@@ -89,6 +91,8 @@ Estas dependencias no se han sustituido por suposiciones sobre nombres, marcas o
 ## Pruebas y laboratorio
 
 `npm run ci:critical`, `npm run ci:postgres` y `npm run ci:dashboard` usan el aislamiento existente, sin `.env` privados ni proveedores. Las pruebas nuevas están en el job Critical (`test:organization-access`, además de post-login) y en el job PostgreSQL (`test:organization-postgres`), junto a Knowledge y exclusión de automatizaciones.
+
+El job Dashboard ejecuta además `test:organization-production` después del build. Inicia `next start` y usa los handlers reales, sustituyendo únicamente el transporte Auth/PostgREST por un servidor HTTP local. Comprueba la ausencia del laboratorio, manipulación de contexto, alcance, escrituras y revocación con la misma sesión. No acredita una sesión Auth remota. PostgreSQL incluye ahora 22 escenarios y la comprobación del preflight READ ONLY antes/después de migrar.
 
 Los escenarios PostgreSQL reproducen dos cadenas y un independiente, conservación de UUID/roles, nuevas incorporaciones y repetición, concesiones separadas, suspensión manual, revocación de rol/membresía/organización, invitaciones, identificadores ajenos, escritura directa de identidades y RLS. Las pruebas de servidor ejecutan el directorio y las acciones reales de gestión con adaptadores de datos, incluida paginación de más de mil tickets y rechazo de filas internas/derivadas/ajenas. Las regresiones existentes cubren recursos anidados, traducción, Inbox y controles de envío.
 
