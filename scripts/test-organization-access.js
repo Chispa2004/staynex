@@ -72,7 +72,7 @@ const teamRows=[{id:'independent',hotel_id:'a1',platform_role:'none',organizatio
   {id:'derived',hotel_id:'a1',platform_role:'none',organization_user_id:'m',role:'admin'},
   {id:'internal',hotel_id:'a1',platform_role:'platform_admin',organization_user_id:null,role:'owner'},
   {id:'foreign',hotel_id:'b1',platform_role:'none',organization_user_id:null,role:'receptionist'}];
-const teamDb={from(){let filters=[],changes={};const query={update:u=>{changes=u;return query;},eq:(k,v)=>{filters.push([k,v]);return query;},is:(k,v)=>{filters.push([k,v]);return query;},select:()=>query,async maybeSingle(){const row=teamRows.find(r=>filters.every(([k,v])=>r[k]===v));if(row)Object.assign(row,changes);return{data:row||null,error:null};}};return query;}};
+const teamDb={from(){let filters=[],changes={};const query={update:u=>{changes=u;return query;},eq:(k,v)=>{filters.push([k,v]);return query;},is:(k,v)=>{filters.push([k,v]);return query;},not:()=>query,select:()=>query,async maybeSingle(){const row=teamRows.find(r=>filters.every(([k,v])=>r[k]===v));if(row)Object.assign(row,changes);return{data:row||null,error:null};}};return query;}};
 const teamSource=readFileSync('dashboard/app/api/settings/users/route.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export async function ','async function ');
 const context={supabase:teamDb,hotel:hotels[0],role:'admin'};
 const team=new Function('NextResponse','getCurrentHotelForRequest','canAccess',`${teamSource}\nreturn {PATCH,DELETE};`)({json:(body,init={})=>({body,status:init.status||200})},async()=>context,canAccess);
@@ -119,3 +119,12 @@ assert.equal(translatePhrase('es','Admin'),'Administrador');
 assert.equal(translatePhrase('es','Receptionist'),'Recepción');
 assert.equal(translatePhrase('en','Receptionist'),'Reception');
 console.log('Organization copy PASS: existing translation system; role identifiers and metric formulas unchanged.');
+
+// Target diagnostics exposes only the server project reference, never a URL or key.
+const targetSource=readFileSync('dashboard/app/api/deployment-target/route.js','utf8').replace(/^import .*;\r?\n/gm,'').replaceAll('export const ','const ').replaceAll('export async function ','async function ');
+const diagnosticEnv={SUPABASE_URL:'https://abcdefghijklmnopqrst.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'must-not-appear',NEXT_PUBLIC_SUPABASE_URL:'https://xxxxxxxxxxxxxxxxxxxx.supabase.co'};
+const target=new Function('NextResponse','process',targetSource+';return GET;')({json:(body,init)=>({body,...init})},{env:diagnosticEnv});
+assert.deepEqual((await target()).body,{projectRef:'abcdefghijklmnopqrst'});
+diagnosticEnv.SUPABASE_URL='https://abcdefghijklmnopqrst.supabase.co.evil.invalid';
+assert.equal((await target()).status,503);assert.deepEqual((await target()).body,{projectRef:null});
+console.log('Deployment target diagnostic PASS: exact server variable, reference only, no fallback or secrets.');

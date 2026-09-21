@@ -24,13 +24,14 @@ try {
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     create function auth.jwt() returns jsonb language sql stable as $$ select '{}'::jsonb $$;
     create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz default now());
-    create table hotels(id uuid primary key default gen_random_uuid(),name text,slug text,city text,country_code text,timezone text,metadata jsonb default '{}');
+    create table hotels(id uuid primary key default gen_random_uuid(),name text,slug text,city text,country_code text,timezone text,metadata jsonb default '{}',brand_name text,workspace_slug text,timezone_integrity_status text,default_language text,support_email text,brand_color text,subscription_plan text,ai_auto_reply_enabled boolean default false,hotel_live_mode boolean default false,whatsapp_number text);
     create table hotel_users(id uuid primary key default gen_random_uuid(),hotel_id uuid references hotels(id),user_id uuid,email text,
       role text default 'receptionist',status text default 'active',platform_role text default 'none',multi_property_access boolean default false,
-      is_default boolean default false,accepted_at timestamptz,created_at timestamptz default now(),updated_at timestamptz default now());
+      is_default boolean default false,invited_at timestamptz,accepted_at timestamptz,created_at timestamptz default now(),updated_at timestamptz default now());
     create unique index hotel_users_user_id_hotel_id on hotel_users(user_id,hotel_id) where user_id is not null;
     create unique index hotel_users_user_id_hotel_id_unique on hotel_users(user_id,hotel_id) where user_id is not null;
     create unique index hotel_users_hotel_id_email_unique on hotel_users(hotel_id,email) where email is not null;
+    create table hotel_onboarding_state(hotel_id uuid primary key references hotels(id),current_step text,completed_steps jsonb,onboarding_completed boolean);
     create table platform_audit_logs(id uuid primary key default gen_random_uuid(),actor_user_id uuid,action text,hotel_id uuid,target_user_id uuid,metadata jsonb);
     create table conversations(id uuid primary key default gen_random_uuid(),hotel_id uuid references hotels(id),status text);
     create table tickets(id uuid primary key default gen_random_uuid(),hotel_id uuid references hotels(id),status text,priority text);
@@ -51,7 +52,8 @@ try {
     insert into tickets(hotel_id,status,priority) values (${q(HA)},'open','urgent'),(${q(HB)},'open','normal');`);
   sql(readFileSync('supabase/sql/rls_phase_2_write_protection.sql','utf8'));
   sql(readFileSync('supabase/sql/preflight_organizations.sql','utf8'));
-  const original = sql(`select jsonb_agg(jsonb_build_object('id',id,'role',role,'user',user_id) order by id) from hotel_users;`);
+  sql(`insert into hotel_users(hotel_id,email,status,role) values(${q(LEGACY)},'legacy-pending@synthetic.invalid','invited','admin'),(${q(LEGACY)},'legacy-disabled@synthetic.invalid','disabled','receptionist');`);
+  const original = sql(`select jsonb_agg(jsonb_build_object('id',id,'role',role,'status',status,'email',email,'user',user_id) order by id) from hotel_users;`);
   check('unbound active legacy identities stop migration without partial schema', () => {
     sql(`insert into hotel_users(hotel_id,email) values(${q(LEGACY)},'unbound@synthetic.invalid');`);
     assert.throws(()=>sql(readFileSync('supabase/sql/add_organizations.sql','utf8')),/Bind active legacy/);
@@ -61,8 +63,33 @@ try {
   sql(readFileSync('supabase/sql/add_organizations.sql','utf8'));
   check('schema repeatable and old UUID/roles unchanged', () => {
     sql(readFileSync('supabase/sql/add_organizations.sql','utf8'));
-    assert.equal(sql(`select jsonb_agg(jsonb_build_object('id',id,'role',role,'user',user_id) order by id) from hotel_users;`),original);
+    assert.equal(sql(`select jsonb_agg(jsonb_build_object('id',id,'role',role,'status',status,'email',email,'user',user_id) order by id) from hotel_users;`),original);
   });
+  check('atomic hotel creation requires Staynex and an active organization', () => {
+    const create=(org,payload,actor=INTERNAL)=>sql(`set role service_role; select staynex_create_organization_hotel(${q(actor)},${q(org)},${q(payload)});`);
+    const org=JSON.parse(manage('create',{name:'Onboarding synthetic',kind:'chain'})).id;
+    const payload={name:'Created from contract',slug:'created-synthetic',country_code:'ES',city:'Madrid',timezone:'Europe/Madrid',timezone_integrity_status:'verified',admin_email:'u104@synthetic.invalid',ai_auto_reply_enabled:true,hotel_live_mode:true,whatsapp_number:'do-not-use',metadata:{live_approved:true}};
+    assert.throws(()=>create(org,payload,RECEPTION),/Staynex administrator required/);
+    assert.throws(()=>auth(INTERNAL,`select staynex_create_organization_hotel(${q(INTERNAL)},${q(org)},${q(payload)});`),/permission denied/);
+    membership(org,ADMIN,'org_admin');
+    const result=JSON.parse(create(org,payload));
+    assert.equal(result.hotel.organization_id,org);assert.equal(result.hotel.ai_auto_reply_enabled,false);assert.equal(result.hotel.hotel_live_mode,false);
+    assert.equal(result.hotel.whatsapp_number,null);assert.deepEqual(result.hotel.metadata,{});assert.equal(result.hotelUser.user_id,RECEPTION);
+    assert.equal(can(ADMIN,result.hotel.id),'t'); assert.equal(can(RECEPTION,result.hotel.id),'t');
+    assert.equal(sql(`select count(*) from hotel_onboarding_state where hotel_id=${q(result.hotel.id)};`),'1');
+    manage('status',{organization_id:org,status:'disabled'});
+    assert.throws(()=>create(org,payload),/Active organization required/);
+  });
+  check('independent creation rollback preserves every previously created access', () => {
+    const org=JSON.parse(manage('create',{name:'Solo onboarding synthetic',kind:'independent'})).id;
+    const create=()=>sql(`set role service_role; select staynex_create_organization_hotel(${q(INTERNAL)},${q(org)},${q({name:'Solo new',slug:'solo-new',timezone:'Europe/Madrid',admin_email:'pending@synthetic.invalid'})});`);
+    const first=JSON.parse(create()); assert.equal(first.hotelUser.status,'invited');assert.equal(first.hotelUser.user_id,null);
+    const before=sql('select count(*) from hotels;'); assert.throws(create,/independent organization has one hotel/);
+    assert.equal(sql('select count(*) from hotels;'),before);
+    assert.equal(sql(`select count(*) from hotel_users where hotel_id=${q(first.hotel.id)};`),'1');
+  });
+  sql(`delete from hotel_onboarding_state; delete from hotel_users where hotel_id not in (${[HA,HA2,HB,HI,NEW,LEGACY].map(q).join(',')});
+    delete from hotels where id not in (${[HA,HA2,HB,HI,NEW,LEGACY].map(q).join(',')});delete from organization_users;delete from organizations;`);
   check('unincorporated compatibility is confined to assigned hotel', () => {
     assert.equal(can(RECEPTION,HA),'t'); assert.equal(can(RECEPTION,HB),'f');
   });
@@ -167,6 +194,23 @@ try {
     assert.throws(()=>manage('member',{organization_id:A,user_id:ADMIN,email:'u103@synthetic.invalid',role:'org_admin',status:'active'}),/identity must match/);
     sql(`set role service_role; select staynex_accept_organization_invitations(${q(MIXED)},'u103@synthetic.invalid');`);
     assert.equal(can(MIXED,HA),'f');
+  });
+  check('team invitation authorizes actor, scope and client roles inside PostgreSQL', () => {
+    const invite=(hotel,email,role='receptionist',actor=SOLO)=>sql(`set role service_role;select staynex_invite_hotel_user(${q(actor)},${q(hotel)},${q(email)},${q(role)});`);
+    assert.throws(()=>invite(HB,'team@synthetic.invalid'),/Hotel team administrator required/);
+    assert.throws(()=>invite(HI,'team@synthetic.invalid','platform_admin'),/Role not allowed/);
+    assert.throws(()=>auth(SOLO,`select staynex_invite_hotel_user(${q(SOLO)},${q(HI)},'team@synthetic.invalid','admin');`),/permission denied/);
+    const registered=JSON.parse(invite(HI,'u104@synthetic.invalid'));
+    assert.equal(registered.user_id,RECEPTION);assert.equal(registered.status,'active');assert.equal(registered.role,'receptionist');assert.equal(can(RECEPTION,HI),'t');
+    const pending=JSON.parse(invite(HI,'future@synthetic.invalid','admin'));
+    assert.equal(pending.user_id,null);assert.equal(pending.status,'invited');assert.equal(pending.platform_role,'none');
+  });
+  check('team invitations cannot replace disabled rows or revoked organization membership', () => {
+    sql(`update hotel_users set status='disabled' where hotel_id=${q(HI)} and user_id=${q(RECEPTION)};`);
+    const invite=()=>sql(`set role service_role; select staynex_invite_hotel_user(${q(SOLO)},${q(HI)},'u104@synthetic.invalid','admin');`);
+    assert.throws(invite,/duplicate key/);assert.equal(can(RECEPTION,HI),'f');
+    membership(I,RECEPTION,'member','disabled');
+    assert.throws(invite,/membership is revoked/);assert.equal(can(RECEPTION,HI),'f');
   });
   check('grant and management audit evidence retained', () => {
     assert.ok(Number(sql(`select count(*) from platform_audit_logs where action='organization_hotel_grant_created';`))>=4);

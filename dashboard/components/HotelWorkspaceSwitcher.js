@@ -56,13 +56,6 @@ export const HotelWorkspaceSwitcher = ({
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [open, setOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [workspaceName, setWorkspaceName] = useState('');
-  const [workspaceCountryCode, setWorkspaceCountryCode] = useState('');
-  const [workspaceCity, setWorkspaceCity] = useState('');
-  const [workspaceTimezone, setWorkspaceTimezone] = useState('');
-  const [createError, setCreateError] = useState(null);
   const containerRef = useRef(null);
   const canSwitch = canSwitchWorkspaces && availableHotels.length > 1;
   const canCreateWorkspace = canCreateWorkspaces;
@@ -87,49 +80,6 @@ export const HotelWorkspaceSwitcher = ({
 
     onSwitch(hotelId);
     setOpen(false);
-  };
-
-  const handleCreateWorkspace = async (event) => {
-    event.preventDefault();
-
-    if (!workspaceName.trim() || !workspaceCountryCode.trim() || !workspaceCity.trim() || !workspaceTimezone.trim() || creating) {
-      return;
-    }
-
-    setCreating(true);
-    setCreateError(null);
-
-    try {
-      const response = await fetch('/api/workspaces', {
-        method: 'POST',
-        headers: {
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: workspaceName,
-          country_code: workspaceCountryCode,
-          city: workspaceCity,
-          timezone: workspaceTimezone
-        })
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not create workspace');
-      }
-
-      setWorkspaceName('');
-      setWorkspaceCountryCode('');
-      setWorkspaceCity('');
-      setWorkspaceTimezone('');
-      setCreateOpen(false);
-      onWorkspaceCreated?.(body.hotel?.id);
-    } catch (error) {
-      setCreateError(error.message);
-    } finally {
-      setCreating(false);
-    }
   };
 
   return (
@@ -220,67 +170,9 @@ export const HotelWorkspaceSwitcher = ({
           </div>
           {canCreateWorkspace ? (
             <div className={isLight ? 'border-t border-slate-100 p-2' : 'border-t border-white/10 p-2'}>
-              {createOpen ? (
-                <form onSubmit={handleCreateWorkspace} className="space-y-2">
-                  <input
-                    value={workspaceName}
-                    onChange={(event) => setWorkspaceName(event.target.value)}
-                    placeholder="New hotel workspace"
-                    className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
-                  />
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <input
-                      value={workspaceCountryCode}
-                      onChange={(event) => setWorkspaceCountryCode(event.target.value)}
-                      placeholder="Country code"
-                      maxLength={2}
-                      className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
-                    />
-                    <input
-                      value={workspaceCity}
-                      onChange={(event) => setWorkspaceCity(event.target.value)}
-                      placeholder="City"
-                      className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
-                    />
-                  </div>
-                  <input
-                    value={workspaceTimezone}
-                    onChange={(event) => setWorkspaceTimezone(event.target.value)}
-                    placeholder="Europe/Madrid"
-                    className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
-                  />
-                  {createError ? (
-                    <p className="text-xs font-medium text-red-500">{createError}</p>
-                  ) : null}
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      disabled={creating || !workspaceName.trim() || !workspaceCountryCode.trim() || !workspaceCity.trim() || !workspaceTimezone.trim()}
-                      className="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-emerald-200 disabled:opacity-60"
-                    >
-                      {creating ? 'Creating...' : 'Create'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreateOpen(false);
-                        setCreateError(null);
-                      }}
-                      className={isLight ? 'rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50' : 'rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/[0.05]'}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setCreateOpen(true)}
-                  className={isLight ? 'w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950' : 'w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-400 transition hover:bg-white/[0.05] hover:text-white'}
-                >
-                  Create new hotel workspace
-                </button>
-              )}
+              <a href="/platform/organizations" className="block rounded-lg px-3 py-2 text-xs font-bold">
+                Crear hotel en una organización
+              </a>
             </div>
           ) : null}
         </div>

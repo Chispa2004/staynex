@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { Building2, ArrowRight, Users, TicketCheck } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { switchWorkspace } from '@/lib/workspace-context';
-import { getFirstAllowedRoute, ROLE_LABELS } from '@/lib/permissions';
+import { getFirstAllowedRoute, ROLE_LABELS, canAccess } from '@/lib/permissions';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
+import { CreateHotelForm } from './CreateHotelForm';
 import styles from './OrganizationDirectoryClient.module.css';
 
 export function OrganizationDirectoryClient({ platform = false, initialOrganizationId = '' }) {
@@ -37,14 +38,14 @@ export function OrganizationDirectoryClient({ platform = false, initialOrganizat
     })();
     return () => { generation.current++; controller.abort(); };
   }, [organizationId, revision, platform]);
-  const enter = async hotel => {
+  const enter = async (hotel, route) => {
     setBusy(true); setError('');
     try {
       const auth = await headers();
       const context = await switchWorkspace({ hotelId: hotel.id, accessToken: auth.Authorization.slice(7) });
       window.sessionStorage.removeItem('staynex_support_session');
       // A fresh document discards all previous hotel component and request state.
-      window.location.assign(`${getFirstAllowedRoute(context.role)}?hotelId=${encodeURIComponent(hotel.id)}`);
+      window.location.assign(`${route || getFirstAllowedRoute(context.role)}?hotelId=${encodeURIComponent(hotel.id)}`);
     } catch (e) { setError(e.message); setBusy(false); }
   };
   const manage = async (event, action) => {
@@ -58,6 +59,15 @@ export function OrganizationDirectoryClient({ platform = false, initialOrganizat
       if (!response.ok) throw new Error(body.error);
       if (action === 'create') setOrganizationId(body.result.id);
       form.reset(); setRevision(r => r + 1);
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
+  const createHotel = async payload => {
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/api/platform/hotels', { method: 'POST', headers: await headers(), body: JSON.stringify(payload) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+      setRevision(r => r + 1);
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
   const selected = directory?.organizations.find(o => o.id === directory.selectedOrganizationId);
@@ -84,6 +94,7 @@ export function OrganizationDirectoryClient({ platform = false, initialOrganizat
             <p className={styles.role}>{h.canEnter ? tx(ROLE_LABELS[h.role] || h.role) : 'Acceso operativo suspendido'}{platform ? ' · Identidad Staynex' : ''}</p>
             <dl><div><dt>Tickets abiertos</dt><dd>{h.openTickets}</dd></div><div><dt>Urgentes abiertos</dt><dd>{h.urgentTickets}</dd></div></dl>
             <button disabled={busy || !h.canEnter} onClick={() => enter(h)}>Abrir hotel <ArrowRight size={17} aria-hidden="true"/></button>
+            {h.canEnter && canAccess(h.role, 'user_management') && <button disabled={busy} onClick={() => enter(h, '/dashboard/settings/users')}>Gestionar equipo</button>}
           </article>)}
         </section>
         {!directory.hotels.length && <p>No hay hoteles disponibles en este ámbito.</p>}
@@ -91,8 +102,15 @@ export function OrganizationDirectoryClient({ platform = false, initialOrganizat
       {directory.canManage && <section className={styles.management}><h2>Administración de Staynex</h2>
         <details><summary>Crear organización</summary><form onSubmit={e => manage(e, 'create')}><label>Nombre<input name="name" required maxLength={160}/></label><label>Tipo<select name="kind"><option value="chain">Cadena</option><option value="independent">Independiente</option></select></label><button disabled={busy}>Crear organización</button></form></details>
         {selected && <>
-          <details><summary>Incorporar hotel existente</summary><form onSubmit={e => manage(e, 'incorporate')}><label>UUID del hotel<input name="hotel_id" required placeholder="UUID del directorio Todos los hoteles"/></label><p>Se conservan los usuarios actuales como miembros ordinarios. Un hotel ya incorporado no puede trasladarse desde aquí.</p><button disabled={busy}>Incorporar hotel</button></form></details>
-          <details><summary>Administradores y membresías de la organización</summary><form onSubmit={e => manage(e, 'member')}><label>Correo de la cuenta<input name="email" type="email" required/></label><label>Rol<select name="role"><option value="org_admin">Administrador de cadena</option><option value="member">Miembro ordinario</option></select></label><label>Estado<select name="status"><option value="invited">Invitar</option><option value="active">Activo (cuenta vinculada)</option><option value="disabled">Revocado</option></select></label><p>La invitación se vincula al iniciar sesión con ese correo. El rol de cadena concede administración en sus hoteles.</p><button disabled={busy}>Guardar membresía</button></form></details>
+          {selected.status === 'active' && <details><summary>Crear hotel en {selected.name}</summary><CreateHotelForm key={`${selected.id}-${revision}`} isLight saving={busy} onSubmit={createHotel} onCancel={() => setRevision(r => r + 1)} organizations={directory.organizations} organizationId={selected.id}/></details>}
+          <details><summary>Incorporar hotel existente</summary><form onSubmit={e => manage(e, 'incorporate')}><label>Hotel<select name="hotel_id" required><option value="">Selecciona un hotel sin organización</option>{directory.availableHotels?.map(h => <option key={h.id} value={h.id}>{h.name}{h.city ? ` · ${h.city}` : ''}</option>)}</select></label><p>Se conservan los usuarios actuales como miembros ordinarios. Un hotel ya incorporado no puede trasladarse desde aquí.</p><button disabled={busy}>Incorporar hotel</button></form></details>
+          <details><summary>Administradores y membresías de la organización</summary>
+            {directory.managedMembers?.map(member => <form key={`${member.id}-${revision}`} onSubmit={e => manage(e, 'member')}>
+              <label>Cuenta<input name="email" type="email" value={member.email} readOnly/></label>
+              <label>Rol<select name="role" defaultValue={member.role}><option value="org_admin">Administrador de cadena</option><option value="member">Miembro ordinario</option></select></label>
+              <label>Estado<select name="status" defaultValue={member.status}><option value="invited">Invitación pendiente</option><option value="active">Activo (cuenta vinculada)</option><option value="disabled">Revocado</option></select></label><button disabled={busy}>Guardar acceso de {member.email}</button>
+            </form>)}
+            <h3>Incorporar o invitar una cuenta</h3><form onSubmit={e => manage(e, 'member')}><label>Correo de la cuenta<input name="email" type="email" required/></label><label>Rol<select name="role"><option value="org_admin">Administrador de cadena</option><option value="member">Miembro ordinario</option></select></label><label>Estado<select name="status"><option value="invited">Invitar</option><option value="active">Activo (cuenta vinculada)</option><option value="disabled">Revocado</option></select></label><p>La invitación se vincula al iniciar sesión con ese correo. El rol de cadena concede administración en sus hoteles.</p><button disabled={busy}>Guardar membresía</button></form></details>
           <details><summary>Estado de la organización</summary><form onSubmit={e => manage(e, 'status')}><label>Estado<select name="status" defaultValue={selected.status}><option value="active">Activa</option><option value="disabled">Suspendida</option></select></label><button disabled={busy}>Guardar estado</button></form></details>
         </>}
       </section>}

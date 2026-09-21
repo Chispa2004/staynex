@@ -294,4 +294,64 @@ drop policy if exists organization_identity_update_guard on public.hotel_users;
 create policy organization_identity_update_guard on public.hotel_users as restrictive for update to anon,authenticated using(false) with check(false);
 drop policy if exists organization_identity_delete_guard on public.hotel_users;
 create policy organization_identity_delete_guard on public.hotel_users as restrictive for delete to anon,authenticated using(false);
+-- Ordinary onboarding is atomic and cannot create a legacy (unscoped) hotel.
+create or replace function public.staynex_create_organization_hotel(p_actor uuid,p_organization uuid,p_payload jsonb)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare h public.hotels; hu public.hotel_users; uid uuid; v_email text:=lower(btrim(p_payload->>'admin_email'));
+begin
+  if not exists(select 1 from public.hotel_users where user_id=p_actor and status='active' and platform_role in ('super_admin','platform_admin')) then
+    raise exception 'Staynex administrator required' using errcode='42501';
+  end if;
+  perform 1 from public.organizations where id=p_organization and status='active' for update;
+  if not found then raise exception 'Active organization required'; end if;
+  if coalesce(length(btrim(p_payload->>'name')),0)=0 or coalesce(position('@' in v_email),0)<2 then raise exception 'Hotel name and admin email required'; end if;
+  if exists(select 1 from public.organization_users where organization_id=p_organization and organization_users.email=v_email and status='disabled') then
+    raise exception 'Organization membership is revoked; review that access explicitly';
+  end if;
+  select id into uid from auth.users where lower(auth.users.email)=v_email and email_confirmed_at is not null;
+  -- Explicit allowlist: ignore caller supplied provider configuration, metadata, flags and roles.
+  insert into public.hotels(organization_id,name,brand_name,slug,workspace_slug,country_code,city,timezone,timezone_integrity_status,
+    default_language,support_email,brand_color,subscription_plan,ai_auto_reply_enabled,hotel_live_mode,whatsapp_number,metadata)
+  values(p_organization,btrim(p_payload->>'name'),p_payload->>'brand_name',p_payload->>'slug',p_payload->>'slug',p_payload->>'country_code',
+    p_payload->>'city',p_payload->>'timezone',p_payload->>'timezone_integrity_status',coalesce(p_payload->>'default_language','es'),
+    p_payload->>'support_email',p_payload->>'brand_color',p_payload->>'subscription_plan',false,false,null,'{}'::jsonb) returning * into h;
+  insert into public.hotel_onboarding_state(hotel_id,current_step,completed_steps,onboarding_completed)
+    values(h.id,'hotel_setup','[]'::jsonb,false);
+  insert into public.hotel_users(hotel_id,user_id,email,role,status,is_default,invited_at,accepted_at)
+    values(h.id,uid,v_email,'admin',case when uid is null then 'invited' else 'active' end,false,now(),case when uid is not null then now() end) returning * into hu;
+  insert into public.platform_audit_logs(actor_user_id,action,hotel_id,target_user_id,metadata)
+    values(p_actor,'hotel_created',h.id,uid,jsonb_build_object('organization_id',p_organization,'assignment_id',hu.id));
+  return jsonb_build_object('hotel',to_jsonb(h),'hotelUser',to_jsonb(hu));
+end $$;
+revoke all on function public.staynex_create_organization_hotel(uuid,uuid,jsonb) from public,anon,authenticated;
+grant execute on function public.staynex_create_organization_hotel(uuid,uuid,jsonb) to service_role;
+
+create or replace function public.staynex_invite_hotel_user(p_actor uuid,p_hotel uuid,p_email text,p_role text)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare oid uuid; uid uuid; result jsonb;
+begin
+  select organization_id into oid from public.hotels where id=p_hotel;
+  if not found then raise exception 'Hotel not found'; end if;
+  if oid is not null then perform 1 from public.organizations where id=oid for update; end if;
+  if not exists(select 1 from public.hotel_users hu where hu.user_id=p_actor and hu.status='active' and
+    (hu.platform_role in ('super_admin','platform_admin','internal_only') or
+      (hu.hotel_id=p_hotel and hu.role in ('owner','admin') and public.staynex_assignment_is_authorized(hu.id,p_actor)))) then
+    raise exception 'Hotel team administrator required' using errcode='42501';
+  end if;
+  if p_role not in ('admin','receptionist') or p_role is null then raise exception 'Role not allowed'; end if;
+  p_email:=lower(btrim(p_email));
+  if coalesce(position('@' in p_email),0)<2 then raise exception 'Email required'; end if;
+  if exists(select 1 from public.organization_users where organization_id=oid and email=p_email and status='disabled') then
+    raise exception 'Organization membership is revoked; review that access explicitly';
+  end if;
+  select id into uid from auth.users where lower(email)=p_email and email_confirmed_at is not null;
+  insert into public.hotel_users(hotel_id,user_id,email,role,status,invited_at,accepted_at)
+    values(p_hotel,uid,p_email,p_role,case when uid is null then 'invited' else 'active' end,now(),case when uid is not null then now() end)
+    returning to_jsonb(hotel_users.*) into result;
+  insert into public.platform_audit_logs(actor_user_id,action,hotel_id,target_user_id,metadata)
+    values(p_actor,'hotel_team_access_created',p_hotel,uid,jsonb_build_object('assignment_id',result->>'id','role',p_role,'status',result->>'status'));
+  return result;
+end $$;
+revoke all on function public.staynex_invite_hotel_user(uuid,uuid,text,text) from public,anon,authenticated;
+grant execute on function public.staynex_invite_hotel_user(uuid,uuid,text,text) to service_role;
 commit;

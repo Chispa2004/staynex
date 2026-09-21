@@ -70,7 +70,12 @@ export const loadOrganizationDirectory = async (principal, organizationId = null
     .select('id,organization_id,user_id,role,status,organization:organizations(id,status)').order('id'), 'organization_id', orgIds) : [];
   const activeUsers = users.filter(u => assignmentAuthorized({ ...u, hotel: visible.find(h => h.id === u.hotel_id) }, scopedMemberships, u.user_id));
   const open = tickets.filter(t => ['open','in_progress'].includes(t.status));
-  return { organizations, selectedOrganizationId: selectedId || null, requiresOrganizationSelection: false,
+  const canManage = ['super_admin', 'platform_admin'].includes(platformRole);
+  const managedMembers = canManage && selectedId ? await readAllPages(() => supabase.from('organization_users')
+    .select('id,email,role,status').eq('organization_id', selectedId).order('id')) : [];
+  const availableHotels = canManage ? await readAllPages(() => supabase.from('hotels')
+    .select('id,name,city,metadata').is('organization_id', null).order('id')) : [];
+  return { organizations, managedMembers, availableHotels: availableHotels.filter(h => !h.metadata?.archived && !h.metadata?.archived_at && !String(h.name || '').endsWith(' (archived)')).map(({metadata,...h}) => h), selectedOrganizationId: selectedId || null, requiresOrganizationSelection: false,
     hotels: visible.map(({ metadata, ...h }) => ({ ...h,
       organizationName: organizations.find(o => o.id === h.organization_id)?.name || 'Pendiente de incorporación',
       canEnter: internal || authorizedIds.includes(h.id),

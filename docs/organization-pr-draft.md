@@ -1,28 +1,29 @@
 # Título preparado
 
-Organizaciones cliente y acceso hotelario explícito con directorios por ámbito
+Alta de organizaciones, hoteles y equipos con acceso explícito por ámbito
 
 # Descripción preparada
 
-Los clientes con varios hoteles necesitan un directorio propio y permisos separados por hotel. Esta rama añade organizaciones de tipo cadena o independiente, «Mis hoteles» y contexto de organización/hotel sobre Dashboard e Inbox existentes. Staynex conserva el acceso interno y registra las aperturas con la identidad real del operador.
+Staynex puede crear una cadena o cliente independiente, dar de alta sus hoteles y nombrar al administrador de cadena desde Platform. El alta reutiliza el formulario existente y crea hotel, dirección, onboarding, concesiones y auditoría en una transacción; exige una organización activa. El directorio permite gestionar membresías y elegir hoteles existentes por nombre, sin UUID manuales.
 
-La administración de cadena genera concesiones hotelarias explícitas e idempotentes, separadas de las asignaciones independientes. Revocar rol, membresía u organización retira el alcance correspondiente; conservar un rol en otro hotel no concede permisos adicionales. El servidor comprueba la sesión y filtra el ámbito antes de consultar/paginar; RLS y RPC privadas cubren el acceso directo. La gestión hotelaria no puede conceder roles internos ni modificar concesiones derivadas.
+Cadena y dirección acceden a la gestión de equipo hotelaria existente. Una cuenta verificada se incorpora por correo; las demás quedan invitadas mediante el mecanismo actual (sin envío de correo ni creación de credenciales). Solo se conceden roles hotelarios; las filas internas/derivadas están protegidas. El equipo puede configurarse antes de completar el onboarding de proveedores. Altas y cambios conservan conexiones apagadas y no activan envíos.
 
-Los indicadores mantienen sus fórmulas y muestran «Usuarios» y «Accesos a hoteles», con la explicación de múltiples accesos. Los roles visibles se traducen a «Administrador» y «Recepción». Ticket ajeno devuelve 404 antes de escribir; gestión de equipo sin sesión/ámbito devuelve 401/403.
+Se conservan hoteles, identidades, invitaciones y asignaciones deshabilitadas existentes mediante la compatibilidad de hoteles sin organización. **Agrupar comercialmente los hoteles actuales no es un requisito de publicación.** Las denegaciones del modelo nuevo prevalecen sobre asignaciones independientes; no hay backfill, promociones ni carga de clientes reales.
 
 ## Validación
 
-- `ci:critical`: PASS, incluyendo autorización, traducciones, contexto y paginación de más de 1.000 filas.
-- `ci:postgres`: PASS, incluidos 22 escenarios de organizaciones y las regresiones existentes de Knowledge/exclusión.
-- `ci:dashboard`: PASS, build de producción y prueba HTTP con handlers reales. Auth/PostgREST usan un transporte local simulado; el laboratorio está deshabilitado y sus mecanismos no están en los artefactos del producto.
-- `git diff --check`: PASS.
-- Revisión visual a 1920, 1366 y 390 px; textos, selector, directorios, contexto y retorno. Capturas locales separadas de la validación de autorización.
-- La prueba adicional de Salud falla también en el worktree de la base anterior con condiciones equivalentes. Fallo heredado documentado, sin debilitar su aserción.
+- `ci:critical`: autorización, contexto, paginación y diagnóstico de destino sin secretos.
+- `ci:postgres`: 26 escenarios de organizaciones (22 previos + 4 de alta/equipo), Knowledge y 19 regresiones de exclusión de despacho.
+- `ci:dashboard`: build y pruebas HTTP de los handlers reales, incluyendo ambos endpoints de alta, actor ligado a Auth, ámbito obligatorio y rechazo de activar una invitación sin identidad. Auth/PostgREST locales controlados; sin adaptadores de laboratorio en el producto.
+- Ensayo de interfaz aislado con handlers reales y PostgreSQL desechable: cadena con dos hoteles, tercero posterior, independiente, dirección, recepción, invitación, modificación y revocación. Capturas privadas del navegador a 1920/1366/390 px. No se confunde con autenticación remota ni Realtime.
+- `git diff --check`. Fallo adicional heredado de Salud conservado y documentado, sin debilitar pruebas.
 
-## Publicación y límites
+## Preparación de publicación
 
-Requiere comprobar el catálogo efectivo, reconciliar identidades activas no vinculadas, drenar escritores antiguos, aplicar `supabase/sql/add_organizations.sql` y publicar todos los consumidores nuevos antes de incorporar hoteles. El mapa de clientes/UUID/administradores permanece privado y pendiente de aprobación. No volver al consumidor antiguo después de incorporar: ignora membresías y puede interpretar incorrectamente las nuevas concesiones.
+`/api/deployment-target` lee en el servidor la misma `SUPABASE_URL` que usa el cliente administrativo y devuelve únicamente el identificador público del proyecto; no consulta Auth ni datos. Permite verificar el destino del Preview sin modificar secretos o datos remotos.
 
-Procedimiento, evidencia y recuperación: [organization-publication-readiness.md](organization-publication-readiness.md). Modelo y recorrido: [organization-hotel-access.md](organization-hotel-access.md).
+Procedimiento vigente y recuperación: [organization-onboarding-release.md](organization-onboarding-release.md). Evidencia anterior: [organization-publication-readiness.md](organization-publication-readiness.md).
 
-`SEND_AUTOMATIONS=false`; proveedores simulados en pruebas. No se incluyen inventarios, respaldos, clientes sintéticos ni cargas reales. Catálogo remoto, sesiones Auth reales y Realtime posteriores al despliegue quedan por comprobar. Esta es únicamente la descripción preparada; no se ha creado ni publicado una PR en esta fase.
+Orden futuro: destino/preflight/respaldo privado → pausa y drenaje de escritores de identidad → `add_organizations.sql` de este SHA → despliegue de todos los consumidores nuevos con escrituras pausadas → ACL/PostgREST/versiones y conservación de accesos → restablecimiento y revisión pública. No volver automáticamente a consumidores que ignoran membresías o revocaciones.
+
+PR abierta, sin merge ni auto-merge. `SEND_AUTOMATIONS=false`. Esta pasada no aplica migraciones ni cambia datos/permisos/configuración remotos; solo publicación de la rama, CI y Preview autorizados. Inventarios, respaldos y capturas permanecen fuera de Git.

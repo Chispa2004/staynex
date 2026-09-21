@@ -239,6 +239,8 @@ const AppShellContent = ({ children }) => {
   const isLight = theme === 'light';
   const isLoginPage = pathname === '/login';
   const isOnboardingPage = pathname === '/dashboard/onboarding';
+  // Teams must be assignable before PMS/provider onboarding is completed.
+  const isTeamSetupPage = pathname === '/dashboard/settings/users';
   const activeRole = hotelContext.role || 'blocked';
   const pilotNavigationGroups = useMemo(
     () => filterPilotNavigation(navigationGroups, {
@@ -507,7 +509,7 @@ const AppShellContent = ({ children }) => {
     }
 
     if (onboardingChecked) {
-      if (!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
+      if (!onboardingCompleted && !isOnboardingPage && !isTeamSetupPage && canAccess(activeRole, 'onboarding')) {
         router.replace('/dashboard/onboarding');
       }
 
@@ -551,7 +553,7 @@ const AppShellContent = ({ children }) => {
         setOnboardingCompleted(completed);
         setOnboardingChecked(true);
 
-        if (!hotelContext.accessDenied && !completed && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
+        if (!hotelContext.accessDenied && !completed && !isOnboardingPage && !isTeamSetupPage && canAccess(activeRole, 'onboarding')) {
           if (process.env.NODE_ENV !== 'production') {
             console.info('onboarding incomplete', { redirectTarget: '/dashboard/onboarding' });
           }
@@ -578,7 +580,7 @@ const AppShellContent = ({ children }) => {
       active = false;
       window.removeEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
     };
-  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, onboardingChecked, onboardingCompleted, router, sessionAccessToken]);
+  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, isTeamSetupPage, onboardingChecked, onboardingCompleted, router, sessionAccessToken]);
 
   useEffect(() => {
     if (isDirectory || isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
@@ -997,7 +999,7 @@ const AppShellContent = ({ children }) => {
     }));
   };
 
-  if (!isOnboardingPage && canAccess(activeRole, 'onboarding') && currentHotel?.id && !onboardingChecked) {
+  if (!isOnboardingPage && !isTeamSetupPage && canAccess(activeRole, 'onboarding') && currentHotel?.id && !onboardingChecked) {
     if (process.env.NODE_ENV !== 'production') {
       console.info('analytics gated', { reason: 'workspace_onboarding_pending', pathname });
     }
@@ -1138,7 +1140,7 @@ const AppShellContent = ({ children }) => {
             </div>
           ) : (
             <>
-              {!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding') ? (
+              {!onboardingCompleted && !isOnboardingPage && !isTeamSetupPage && canAccess(activeRole, 'onboarding') ? (
                 <div className="px-4 pb-5">
                   <Link
                     href="/dashboard/onboarding"

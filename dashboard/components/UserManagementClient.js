@@ -132,7 +132,7 @@ export const UserManagementClient = () => {
       setUsers((current) => [...current, body.user]);
       setEmail('');
       setRole('receptionist');
-      setSuccess('User invitation created locally.');
+      setSuccess(body.user.status === 'active' ? 'Acceso creado para la cuenta existente.' : 'Invitación pendiente: se acepta al iniciar sesión con ese correo verificado.');
     } catch (caughtError) {
       setError(caughtError.message);
     } finally {
@@ -269,7 +269,7 @@ export const UserManagementClient = () => {
       <div className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
         <div className={isLight ? 'border-b border-slate-200 px-5 py-4' : 'border-b border-white/10 px-5 py-4'}>
           <p className={cn('text-sm', ui.text.title(isLight))}>Hotel users</p>
-          <p className={ui.text.muted(isLight)}>Local invitations are stored now. Email delivery can be added later.</p>
+          <p className={ui.text.muted(isLight)}>Las invitaciones quedan pendientes hasta el inicio de sesión verificado. El mecanismo actual no envía correo ni crea credenciales.</p>
         </div>
 
         {loading ? (
@@ -301,6 +301,7 @@ export const UserManagementClient = () => {
                   <RoleBadge role={user.role} />
                   <select
                     disabled={user.protected}
+                    aria-label={`Rol de ${user.email}`}
                     value={HOTEL_MANAGEMENT_ROLES.includes(user.role) ? user.role : ''}
                     onChange={(event) => updateUser(user.id, { role: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
@@ -326,12 +327,13 @@ export const UserManagementClient = () => {
                   ) : null}
                   <select
                     disabled={user.protected}
+                    aria-label={`Estado de ${user.email}`}
                     value={user.status}
                     onChange={(event) => updateUser(user.id, { status: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
                   >
                     {statuses.map((item) => (
-                      <option key={item} value={item}>{item}</option>
+                      <option key={item} value={item} disabled={item === 'active' && !user.user_id}>{item}</option>
                     ))}
                   </select>
                 </div>

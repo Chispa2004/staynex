@@ -67,7 +67,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { supabase, hotel } = await getContext(request);
+    const { supabase, hotel, user } = await getContext(request);
     const body = await request.json();
     const email = String(body.email || '').trim().toLowerCase();
     const role = normalizeAllowedHotelRole(body.role || 'receptionist');
@@ -76,18 +76,9 @@ export async function POST(request) {
       return jsonError('A valid email is required', 400);
     }
 
-    const { data, error } = await supabase
-      .from('hotel_users')
-      .insert({
-        hotel_id: hotel.id,
-        email,
-        role,
-        status: 'invited',
-        is_default: Boolean(body.is_default),
-        invited_at: new Date().toISOString()
-      })
-      .select('*')
-      .single();
+    const { data, error } = await supabase.rpc('staynex_invite_hotel_user', {
+      p_actor: user.id, p_hotel: hotel.id, p_email: email, p_role: role
+    });
 
     if (error) {
       throw error;
@@ -125,15 +116,16 @@ export async function PATCH(request) {
 
     updates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('hotel_users')
       .update(updates)
       .eq('id', body.id)
       .eq('hotel_id', hotel.id)
       .is('organization_user_id', null)
-      .eq('platform_role', 'none')
-      .select('*')
-      .maybeSingle();
+      .eq('platform_role', 'none');
+    // Only verified invitation acceptance can bind an unregistered identity.
+    if (updates.status === 'active') query = query.not('user_id', 'is', null);
+    const { data, error } = await query.select('*').maybeSingle();
 
     if (error) {
       throw error;

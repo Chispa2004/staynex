@@ -31,6 +31,7 @@ import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
+import { CreateHotelForm } from './CreateHotelForm';
 import { StaynexLogo } from './StaynexBrand';
 
 const plans = ['starter', 'professional', 'enterprise', 'enterprise_demo', 'pro_demo'];
@@ -386,93 +387,6 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
   );
 };
 
-const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
-  const { tx } = useDashboardLanguage();
-  const [form, setForm] = useState(initialForm);
-
-  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit(form);
-      }}
-      className={cn('rounded-xl border p-5', ui.surface(isLight))}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className={ui.text.eyebrow(isLight)}>{tx('Create workspace')}</p>
-          <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{tx('New hotel tenant')}</h2>
-          <p className={cn('mt-1 text-sm', ui.text.body(isLight))}>{tx('Creates the hotel, onboarding state and first invited admin.')}</p>
-        </div>
-        <button type="button" onClick={onCancel} className={ui.button(isLight, 'ghost')}>{tx('Cancel')}</button>
-      </div>
-
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Hotel name')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.name} onChange={(event) => update('name', event.target.value)} required />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Brand name')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.brand_name} onChange={(event) => update('brand_name', event.target.value)} />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Workspace slug')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.slug} onChange={(event) => update('slug', event.target.value)} placeholder="hotel-costa-azul" />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Admin email')}</span>
-          <input className={cn('w-full', ui.input(isLight))} type="email" value={form.admin_email} onChange={(event) => update('admin_email', event.target.value)} required />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Country code')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.country_code} onChange={(event) => update('country_code', event.target.value)} maxLength={2} required />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('City')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.city} onChange={(event) => update('city', event.target.value)} required />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Timezone')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.timezone} onChange={(event) => update('timezone', event.target.value)} placeholder="Europe/Madrid" required />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Language')}</span>
-          <select className={cn('w-full', ui.input(isLight))} value={form.default_language} onChange={(event) => update('default_language', event.target.value)}>
-            {languages.map((language) => <option key={language} value={language}>{language.toUpperCase()}</option>)}
-          </select>
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>WhatsApp</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.whatsapp_number} onChange={(event) => update('whatsapp_number', event.target.value)} placeholder="+34123456789" />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Support email')}</span>
-          <input className={cn('w-full', ui.input(isLight))} type="email" value={form.support_email} onChange={(event) => update('support_email', event.target.value)} />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Brand color')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.brand_color} onChange={(event) => update('brand_color', event.target.value)} />
-        </label>
-        <label className="space-y-1.5">
-          <span className={ui.text.eyebrow(isLight)}>{tx('Subscription plan')}</span>
-          <select className={cn('w-full', ui.input(isLight))} value={form.subscription_plan} onChange={(event) => update('subscription_plan', event.target.value)}>
-            {plans.map((plan) => <option key={plan} value={plan}>{plan.replaceAll('_', ' ')}</option>)}
-          </select>
-        </label>
-      </div>
-
-      <div className="mt-5 flex justify-end">
-        <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {tx(saving ? 'Creating...' : 'Create Hotel Workspace')}
-        </button>
-      </div>
-    </form>
-  );
-};
 
 const ProviderEmailTestPanel = ({ isLight }) => {
   const { tx } = useDashboardLanguage();

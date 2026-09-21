@@ -35,10 +35,17 @@ const fixture = http.createServer(async (req,res)=>{
     const table=url.pathname.replace('/rest/v1/','');
     calls.push({table,method:req.method,params:[...url.searchParams],payload});
     if(table==='rpc/staynex_accept_organization_invitations') return response(res,200,null);
+    if(table==='rpc/staynex_create_organization_hotel') return response(res,200,{hotel:{id:id(999),organization_id:payload.p_organization},hotelUser:{status:'invited'}});
+    if(table==='rpc/staynex_invite_hotel_user') {
+      const created={id:id(900+assignments.length),hotel_id:payload.p_hotel,email:payload.p_email,role:payload.p_role,status:'invited',platform_role:'none',organization_user_id:null};
+      assignments.push(created);return response(res,200,created);
+    }
     assert.ok(rows[table],`Unexpected fixture table: ${table}`);
     const filters=[...url.searchParams].filter(([k])=>!['select','order','offset','limit'].includes(k));
     const matches=row=>filters.every(([key,value])=>{
+      if(key==='or') return value.slice(1,-1).split(',').some(term=>{const [field,op,...val]=term.split('.');return op==='eq'&&String(row[field])===val.join('.');});
       if(value.startsWith('eq.')) return String(row[key])===value.slice(3);
+      if(value==='not.is.null') return row[key]!=null;
       if(value.startsWith('is.')) return value==='is.null'&&row[key]==null;
       if(value.startsWith('in.(')) return value.slice(4,-1).split(',').map(v=>v.replaceAll('"','')).includes(String(row[key]));
       throw Error(`Unsupported fixture filter ${key}=${value}`);
@@ -109,7 +116,9 @@ const files=dir=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirecto
     for(const call of calls.filter(c=>['tickets','messages'].includes(c.table))) assert.ok(call.params.some(([k,v])=>k==='hotel_id'&&v===`eq.${H1}`),'Nested resource must be scoped in the query');
     assert.equal((await request(`/api/settings/users?hotelId=${H1}`,{method:'POST',body:{email:'new@synthetic.invalid',role:'platform_admin'}})).status,400);
     assert.equal((await request(`/api/settings/users?hotelId=${H1}`,{method:'POST',body:{email:'new@synthetic.invalid',role:'receptionist',hotel_id:H3,user_id:INTERNAL,platform_role:'platform_admin',organization_user_id:'forged'}})).status,200);
-    const created=assignments.at(-1);assert.equal(created.hotel_id,H1);assert.equal(created.platform_role,'none');assert.equal(created.user_id,undefined);assert.equal(created.organization_user_id,null);
+    const created=assignments.at(-1);
+    assert.equal((await request(`/api/settings/users?hotelId=${H1}`,{method:'PATCH',body:{id:created.id,status:'active'}})).status,404);
+assert.equal(created.hotel_id,H1);assert.equal(created.platform_role,'none');assert.equal(created.user_id,undefined);assert.equal(created.organization_user_id,null);
     for(const assignmentId of [assignments[0].id,assignments[5].id,assignments[4].id]) {
       assert.notEqual((await request(`/api/settings/users?hotelId=${H1}`,{method:'PATCH',body:{id:assignmentId,status:'active',role:'admin',hotel_id:H1}})).status,200);
       assert.notEqual((await request(`/api/settings/users?hotelId=${H1}`,{method:'DELETE',body:{id:assignmentId}})).status,200);
@@ -129,6 +138,17 @@ const files=dir=>fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirecto
     assert.equal((await request(`/api/current-hotel?hotelId=${H3}`,{token:'proof-internal'})).body.user.id,INTERNAL);
     assert.ok(rows.enterprise_audit_logs.some(a=>a.actor_user_id===INTERNAL&&a.hotel_id===H3&&a.action==='workspace_opened'));
     console.log('PASS production HTTP: stale session/URL denied after revocation, independent role only while valid, internal identity audited');
+    const createPayload={name:'Synthetic onboarding',organization_id:A,admin_email:'future@synthetic.invalid',country_code:'ES',city:'Madrid',timezone:'Europe/Madrid',p_actor:U};
+    for(const route of ['/api/platform/hotels','/api/workspaces']) {
+      assert.equal((await request(route,{token:'proof-mixed',method:'POST',body:createPayload})).status,403);
+      assert.equal((await request(route,{token:'proof-internal',method:'POST',body:{...createPayload,organization_id:null}})).status,400);
+      assert.equal((await request(route,{token:'proof-internal',method:'POST',body:createPayload})).status,201);
+    }
+    const creations=calls.filter(c=>c.table==='rpc/staynex_create_organization_hotel');
+    assert.equal(creations.length,2);assert.ok(creations.every(c=>c.payload.p_actor===INTERNAL&&c.payload.p_organization===A));
+    assert.ok(creations.every(c=>c.payload.p_payload.timezone==='Europe/Madrid'));
+    const target=await request('/api/deployment-target',{token:null});assert.equal(target.status,503);assert.deepEqual(target.body,{projectRef:null});
+    console.log('PASS production HTTP: both creation entry points require internal admin and organization; actor comes from Auth; target emits no URL/key');
     console.log('Organization production proof PASS. Local transport fixture, not remote Auth; zero providers.');
   } catch(error) {console.error(serverLog.slice(-6000));throw error;}
   finally { if(child){child.kill();await Promise.race([once(child,'exit'),new Promise(r=>setTimeout(r,3000))]);}fixture.closeAllConnections();await new Promise(r=>fixture.close(r)); }

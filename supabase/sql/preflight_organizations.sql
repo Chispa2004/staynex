@@ -17,7 +17,7 @@ from information_schema.columns where table_schema='public'
 order by table_name,ordinal_position;
 select table_name,column_name,data_type,is_nullable,column_default
 from information_schema.columns where table_schema='public'
-  and table_name in ('hotels','hotel_users','platform_audit_logs','enterprise_audit_logs')
+  and table_name in ('hotels','hotel_users','hotel_onboarding_state','platform_audit_logs','enterprise_audit_logs')
 order by table_name,ordinal_position;
 select indexname,indexdef from pg_indexes where schemaname='public' and tablename in ('hotel_users','organization_users') order by tablename,indexname;
 select c.relname as table_name,k.conname,pg_get_constraintdef(k.oid) as definition
@@ -28,7 +28,7 @@ from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oi
 where n.nspname='public' and not t.tgisinternal and c.relname in ('hotels','hotel_users','organizations','organization_users') order by c.relname,t.tgname;
 select p.oid::regprocedure as function,p.prosecdef as security_definer,p.proconfig,p.proacl
 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-where n.nspname='public' and p.proname in ('staynex_can_read_hotel','staynex_can_write_hotel','staynex_can_manage_hotel','staynex_is_platform_operator','staynex_is_platform_admin','staynex_manage_organization','staynex_accept_organization_invitations') order by 1;
+where n.nspname='public' and p.proname in ('staynex_can_read_hotel','staynex_can_write_hotel','staynex_can_manage_hotel','staynex_is_platform_operator','staynex_is_platform_admin','staynex_manage_organization','staynex_accept_organization_invitations','staynex_create_organization_hotel','staynex_invite_hotel_user') order by 1;
 select tablename,policyname,roles,cmd,qual,with_check from pg_policies
 where schemaname='public' and tablename in ('hotels','hotel_users','organizations','organization_users','messages','conversations','tickets') order by tablename,policyname;
 select count(*) filter(where user_id is null and status='active') as unbound_active_assignments,
