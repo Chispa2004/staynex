@@ -30,7 +30,8 @@ export const writeEnterpriseAuditLog = async ({
   entityId = null,
   oldValues = {},
   newValues = {},
-  metadata = {}
+  metadata = {},
+  required = false
 }) => {
   if (!supabase || !action || !entityType) {
     return;
@@ -40,7 +41,7 @@ export const writeEnterpriseAuditLog = async ({
   const forwardedFor = request?.headers?.get?.('x-forwarded-for') || null;
 
   try {
-    await supabase.from('enterprise_audit_logs').insert({
+    const { error } = await supabase.from('enterprise_audit_logs').insert({
       actor_user_id: actor?.id || null,
       actor_email: actor?.email || null,
       actor_role: actorRole || null,
@@ -57,7 +58,9 @@ export const writeEnterpriseAuditLog = async ({
         forwarded_for: forwardedFor
       }
     });
+    if (error) throw error;
   } catch (error) {
+    if (required) throw error;
     if (!isMissingEnterpriseAuditTable(error)) {
       console.warn('Enterprise audit log write failed', error.message);
     }

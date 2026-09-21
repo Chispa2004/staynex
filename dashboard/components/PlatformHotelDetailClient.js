@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { persistWorkspaceSelection } from '@/lib/workspace-context';
+import { switchWorkspace } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -362,29 +362,10 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
     setNotice(null);
 
     try {
-      const response = await fetch(`/api/platform/hotels/${hotelId}/support`, {
-        method: 'POST',
-        headers: await getAuthHeaders(),
-        cache: 'no-store'
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not enter support session');
-      }
-
-      window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
-      persistWorkspaceSelection({
-        hotelId,
-        workspace: {
-          hotel: body.hotel,
-          role: 'support',
-          supportSession: body.supportSession
-        },
-        notify: true
-      });
-      router.push(`/dashboard?hotelId=${encodeURIComponent(hotelId)}`);
-      router.refresh();
+      const headers = await getAuthHeaders();
+      await switchWorkspace({ hotelId: hotelId, accessToken: (headers.Authorization || '').replace(/^Bearer\s+/i, '') });
+      window.sessionStorage.removeItem('staynex_support_session');
+      window.location.assign(`/dashboard?hotelId=${encodeURIComponent(hotelId)}`);
     } catch (caughtError) {
       setError(caughtError.message);
     }
@@ -458,7 +439,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
           </button>
           <button type="button" onClick={enterSupport} className={ui.button(isLight, 'primary')}>
             <DoorOpen className="h-4 w-4" aria-hidden="true" />
-            Enter workspace as support
+            Abrir hotel con identidad Staynex
           </button>
         </div>
       </div>

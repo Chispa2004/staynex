@@ -70,6 +70,10 @@ export async function PATCH(request, { params }) {
         throw lookupError;
       }
 
+      if (hotelUser.organization_user_id && (action !== 'disable_user' || (body.status && body.status !== 'disabled'))) {
+        return NextResponse.json({ error: 'Derived grants keep their organization identity and admin role. Manage membership in Cadenas.' }, { status: 403 });
+      }
+
       const updates = { updated_at: new Date().toISOString() };
 
       if (action === 'disable_user') {

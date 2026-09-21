@@ -57,7 +57,7 @@ jobs:
       - run: npm run ci:dashboard
 
   postgres:
-    name: PostgreSQL knowledge and automation dispatch
+    name: PostgreSQL knowledge, dispatch and organizations
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

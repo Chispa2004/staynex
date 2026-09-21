@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { ROLE_LABELS, ROLES } from '@/lib/permissions';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -38,6 +39,7 @@ const statusTone = (status) => {
 };
 
 const RoleBadge = ({ role }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const tone = role === 'owner' || role === 'admin' ? 'emerald' : role === 'manager' ? 'sky' : 'slate';
@@ -45,7 +47,7 @@ const RoleBadge = ({ role }) => {
 
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <span className={ui.badge(isLight, tone)}>{ROLE_LABELS[role] || role}</span>
+      <span className={ui.badge(isLight, tone)}>{tx(ROLE_LABELS[role] || role)}</span>
       {isLegacy ? <span className={ui.badge(isLight, 'amber')}>Legacy role</span> : null}
     </span>
   );
@@ -59,6 +61,7 @@ const StatusBadge = ({ status }) => {
 };
 
 export const UserManagementClient = () => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [users, setUsers] = useState([]);
@@ -129,7 +132,7 @@ export const UserManagementClient = () => {
       setUsers((current) => [...current, body.user]);
       setEmail('');
       setRole('receptionist');
-      setSuccess('User invitation created locally.');
+      setSuccess(body.user.status === 'active' ? 'Acceso creado para la cuenta existente.' : 'Invitación pendiente: se acepta al iniciar sesión con ese correo verificado.');
     } catch (caughtError) {
       setError(caughtError.message);
     } finally {
@@ -211,7 +214,7 @@ export const UserManagementClient = () => {
       <form onSubmit={inviteUser} className={cn('rounded-xl border p-5', ui.surface(isLight))}>
         <div className="mb-4">
           <p className={cn('text-sm font-semibold', isLight ? 'text-slate-950' : 'text-white')}>Add hotel user</p>
-          <p className={ui.text.body(isLight)}>Choose whether this user is an Admin or Receptionist.</p>
+          <p className={ui.text.body(isLight)}>{tx('Choose whether this user is an Admin or Receptionist.')}</p>
         </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="min-w-0 flex-1">
@@ -234,7 +237,7 @@ export const UserManagementClient = () => {
               className={`${ui.input(isLight)} mt-2 w-full`}
             >
               {HOTEL_MANAGEMENT_ROLES.map((item) => (
-                <option key={item} value={item}>{ROLE_LABELS[item]}</option>
+                <option key={item} value={item}>{tx(ROLE_LABELS[item])}</option>
               ))}
             </select>
             <p className={cn('mt-2 text-xs leading-5', isLight ? 'text-slate-500' : 'text-slate-400')}>
@@ -266,7 +269,7 @@ export const UserManagementClient = () => {
       <div className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
         <div className={isLight ? 'border-b border-slate-200 px-5 py-4' : 'border-b border-white/10 px-5 py-4'}>
           <p className={cn('text-sm', ui.text.title(isLight))}>Hotel users</p>
-          <p className={ui.text.muted(isLight)}>Local invitations are stored now. Email delivery can be added later.</p>
+          <p className={ui.text.muted(isLight)}>Las invitaciones quedan pendientes hasta el inicio de sesión verificado. El mecanismo actual no envía correo ni crea credenciales.</p>
         </div>
 
         {loading ? (
@@ -290,27 +293,30 @@ export const UserManagementClient = () => {
                   <p className={cn('text-sm font-semibold', isLight ? 'text-slate-950' : 'text-white')}>
                     {user.email || user.user_id || 'Unlinked user'}
                   </p>
+                  {user.protected && <p className={ui.text.muted(isLight)}>{user.managedByOrganization ? "Concesi\u00f3n de cadena (gestionada por Staynex)" : "Asignaci\u00f3n interna protegida"}</p>}
                   <p className={ui.text.muted(isLight)}>Created {formatDate(user.created_at)}</p>
                 </div>
 
                 <div className="space-y-2">
                   <RoleBadge role={user.role} />
                   <select
+                    disabled={user.protected}
+                    aria-label={`Rol de ${user.email}`}
                     value={HOTEL_MANAGEMENT_ROLES.includes(user.role) ? user.role : ''}
                     onChange={(event) => updateUser(user.id, { role: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
                   >
                     {!HOTEL_MANAGEMENT_ROLES.includes(user.role) ? (
-                      <option value="" disabled>{ROLE_LABELS[user.role] || user.role}</option>
+                      <option value="" disabled>{tx(ROLE_LABELS[user.role] || user.role)}</option>
                     ) : null}
                     {HOTEL_MANAGEMENT_ROLES.map((item) => (
-                      <option key={item} value={item}>{ROLE_LABELS[item]}</option>
+                      <option key={item} value={item}>{tx(ROLE_LABELS[item])}</option>
                     ))}
                   </select>
                   <p className={ui.text.muted(isLight)}>
                     {HOTEL_MANAGEMENT_ROLES.includes(user.role)
                       ? roleDescriptions[user.role]
-                      : 'Existing advanced role. It can be changed to Admin or Receptionist from this screen.'}
+                      : tx('Existing advanced role. It can be changed to Admin or Receptionist from this screen.')}
                   </p>
                 </div>
 
@@ -320,12 +326,14 @@ export const UserManagementClient = () => {
                     <p className={ui.text.muted(isLight)}>Awaiting acceptance</p>
                   ) : null}
                   <select
+                    disabled={user.protected}
+                    aria-label={`Estado de ${user.email}`}
                     value={user.status}
                     onChange={(event) => updateUser(user.id, { status: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
                   >
                     {statuses.map((item) => (
-                      <option key={item} value={item}>{item}</option>
+                      <option key={item} value={item} disabled={item === 'active' && !user.user_id}>{item}</option>
                     ))}
                   </select>
                 </div>
@@ -333,6 +341,7 @@ export const UserManagementClient = () => {
                 <div className="flex flex-wrap items-start gap-2 lg:justify-end">
                   <button
                     type="button"
+                    disabled={user.protected}
                     onClick={() => updateUser(user.id, { is_default: !user.is_default })}
                     className={ui.button(isLight, 'secondary')}
                   >
@@ -350,6 +359,7 @@ export const UserManagementClient = () => {
                   ) : null}
                   <button
                     type="button"
+                    disabled={user.protected}
                     onClick={() => disableUser(user.id)}
                     className={ui.button(isLight, 'danger')}
                   >

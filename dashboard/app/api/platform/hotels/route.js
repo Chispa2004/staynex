@@ -110,80 +110,23 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
+    if (!['super_admin', 'platform_admin'].includes(platformRole)) {
+      return NextResponse.json({ error: 'Staynex administrator required' }, { status: 403 });
+    }
     const body = await request.json();
+    if (!body.organization_id) return NextResponse.json({ error: 'Selecciona una organización cliente' }, { status: 400 });
     const adminEmail = normalizeOptional(body.admin_email || body.adminEmail)?.toLowerCase();
+    if (!adminEmail || !adminEmail.includes('@')) return NextResponse.json({ error: 'A valid admin email is required' }, { status: 400 });
     const payload = buildHotelPayload(body);
     const locationPayload = buildValidatedHotelCreationInput(body);
-    const uniqueSlug = await getUniqueSlug({ supabase, slug: payload.slug });
-
-    if (!adminEmail || !adminEmail.includes('@')) {
-      return NextResponse.json({ error: 'A valid admin email is required' }, { status: 400 });
-    }
-
-    const { data: hotel, error: hotelError } = await supabase
-      .from('hotels')
-      .insert({
-        ...payload,
-        ...locationPayload,
-        slug: uniqueSlug,
-        workspace_slug: uniqueSlug
-      })
-      .select('*')
-      .single();
-
-    if (hotelError) {
-      throw hotelError;
-    }
-
-    const now = new Date().toISOString();
-
-    await supabase
-      .from('hotel_onboarding_state')
-      .insert({
-        hotel_id: hotel.id,
-        current_step: 'hotel_setup',
-        completed_steps: [],
-        onboarding_completed: false,
-        created_at: now,
-        updated_at: now
-      });
-
-    const { data: hotelUser, error: userError } = await supabase
-      .from('hotel_users')
-      .insert({
-        hotel_id: hotel.id,
-        email: adminEmail,
-        role: 'admin',
-        status: 'invited',
-        is_default: true,
-        invited_at: now
-      })
-      .select('*')
-      .single();
-
-    if (userError) {
-      throw userError;
-    }
-
-    await writePlatformAuditLog({
-      supabase,
-      actor: user,
-      platformRole,
-      action: 'hotel_created',
-      hotelId: hotel.id,
-      targetEmail: adminEmail,
-      metadata: {
-        subscription_plan: hotel.subscription_plan,
-        workspace_slug: hotel.workspace_slug,
-        timezone_integrity_status: hotel.timezone_integrity_status
-      }
+    const slug = await getUniqueSlug({ supabase, slug: payload.slug });
+    // One transaction includes membership/grants, onboarding and audit. No orphan hotel on failure.
+    const { data, error } = await supabase.rpc('staynex_create_organization_hotel', {
+      p_actor: user.id, p_organization: body.organization_id,
+      p_payload: { ...payload, ...locationPayload, slug, admin_email: adminEmail }
     });
-
-    return NextResponse.json({
-      ok: true,
-      hotel,
-      hotelUser
-    }, { status: 201 });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true, ...data }, { status: 201 });
   } catch (error) {
     return NextResponse.json({
       error: error.message || 'Could not create hotel workspace'

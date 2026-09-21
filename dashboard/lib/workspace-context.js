@@ -112,7 +112,7 @@ export const switchWorkspace = async ({ hotelId, accessToken }) => {
   });
   const body = await response.json();
 
-  if (!response.ok) {
+  if (!response.ok || body.hotel?.id !== hotelId || body.accessDenied) {
     throw new Error(body.error || 'Could not switch workspace');
   }
 

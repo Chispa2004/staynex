@@ -10,7 +10,7 @@ const jsonOptions = {
 const SESSION_ACCESS_DENIED_REASONS = new Set(['missing_session', 'invalid_session']);
 
 const getAccessDeniedStatus = (reason) => (
-  SESSION_ACCESS_DENIED_REASONS.has(reason) ? 401 : 200
+  SESSION_ACCESS_DENIED_REASONS.has(reason) ? 401 : reason === 'workspace_required' ? 200 : 403
 );
 
 const jsonError = (message, status = 503, reason = 'workspace_context_unavailable') => NextResponse.json({
@@ -34,7 +34,9 @@ const jsonError = (message, status = 503, reason = 'workspace_context_unavailabl
 export async function GET(request) {
   try {
     const {
+      supabase,
       hotel,
+      organization,
       hotelUser,
       role,
       permissions,
@@ -50,8 +52,16 @@ export async function GET(request) {
       accessDeniedReason
     } = await getCurrentHotelForRequest(request);
 
+    if (hotel && platformRole && platformRole !== 'none') {
+      await writeEnterpriseAuditLog({ supabase, request, actor: user, actorRole: role,
+        actorPlatformRole: platformRole, hotelId: hotel.id, action: 'workspace_opened',
+        entityType: 'hotel', entityId: hotel.id, required: true,
+        metadata: { organization_id: organization?.id || null, source: 'current_hotel_api' } });
+    }
+
     return NextResponse.json({
       hotel,
+      organization,
       hotelUser,
       role,
       permissions,
@@ -99,6 +109,7 @@ export async function POST(request) {
     const response = NextResponse.json({
       ok: true,
       hotel: context.hotel,
+      organization: context.organization || null,
       hotelUser: context.hotelUser,
       role: context.role,
       permissions: context.permissions,
@@ -120,6 +131,7 @@ export async function POST(request) {
 
     await writeEnterpriseAuditLog({
       supabase: context.supabase,
+      required: context.platformRole !== 'none',
       request,
       actor: context.user,
       actorRole: context.role,

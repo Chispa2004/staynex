@@ -59,7 +59,7 @@ export const LoginClient = () => {
         });
       }
 
-      router.replace(response.ok ? (body.defaultRoute || getDefaultRouteForRole(role)) : '/dashboard');
+      router.replace(body.accessDeniedReason === 'hotel_not_authorized' ? '/my-hotels' : response.ok ? (body.defaultRoute || getDefaultRouteForRole(role)) : '/dashboard');
       router.refresh();
     } catch (caughtError) {
       console.error('Invitation resolution failed after login', caughtError);

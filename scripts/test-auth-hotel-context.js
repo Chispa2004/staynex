@@ -134,6 +134,8 @@ class FakeSupabaseQuery {
     return this;
   }
 
+  range(from, to) { this.page = [from, to]; return this; }
+
   limit(count) {
     this.limitCount = count;
     return this;
@@ -174,6 +176,8 @@ class FakeSupabaseQuery {
     if (Number.isFinite(this.limitCount)) {
       data = data.slice(0, this.limitCount);
     }
+
+    if (this.page) data = data.slice(this.page[0], this.page[1] + 1);
 
     if (this.updateValues) {
       for (const row of data) {
@@ -370,17 +374,8 @@ const contextHarness = (options = {}) => {
 }
 
 {
-  const missingSchemaError = new Error('hotel_users schema missing');
-  const harness = contextHarness({
-    assignmentError: missingSchemaError,
-    missingHotelUsers: true
-  });
-  const context = await harness.getCurrentHotelForRequest(makeRequest({ token: 'valid' }));
-
-  assert.equal(context.accessDenied, true, 'missing identity schema without legacy access must be blocked');
-  assert.equal(context.accessDeniedReason, 'legacy_assignment_missing');
-  assert.equal(context.hotel, null);
-  assert.equal(context.role, 'blocked');
+  const harness = contextHarness({ assignmentError: new Error('hotel_users schema missing'), missingHotelUsers: true });
+  await assert.rejects(harness.getCurrentHotelForRequest(makeRequest({ token: 'valid' })), /schema missing/);
 }
 
 {
@@ -394,9 +389,9 @@ const contextHarness = (options = {}) => {
     queryHotelId: hotelB.id
   }));
 
-  assert.equal(context.accessDenied, undefined);
-  assert.equal(context.hotel.id, hotelA.id, 'ordinary hotel users must stay scoped to their assigned hotel');
-  assert.equal(context.role, 'receptionist');
+  assert.equal(context.accessDenied, true);
+  assert.equal(context.hotel, null, 'explicit unauthorized hotel must not fall back');
+  assert.equal(context.role, 'blocked');
   assert.equal(context.availableHotels.some((item) => item.hotel.id === hotelB.id), false, 'manipulated workspace state must not add Hotel B');
 }
 

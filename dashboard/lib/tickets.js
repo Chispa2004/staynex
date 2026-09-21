@@ -153,12 +153,15 @@ export const updateTicketStatus = async ({
   }
 
   const completedAt = status === 'completed' ? new Date().toISOString() : null;
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupError } = await supabase
     .from('tickets')
     .select(TICKET_SELECT)
     .eq('id', ticketId)
     .eq('hotel_id', hotelId)
     .maybeSingle();
+
+  if (lookupError) throw lookupError;
+  if (!existing) throw Object.assign(new Error('Ticket not found'), { status: 404 });
 
   const { data, error } = await supabase
     .from('tickets')

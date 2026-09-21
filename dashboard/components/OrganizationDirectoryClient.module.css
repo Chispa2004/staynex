@@ -1,0 +1,260 @@
+.page {
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  background:#f5f7fb;
+  color:#17243b;
+  padding:clamp(20px,4vw,64px);
+  font-size:15px;
+}
+.page>* {
+  max-width:1440px;
+  margin-left:auto;
+  margin-right:auto;
+}
+.header {
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:24px;
+  margin-bottom:32px;
+}
+.header h1 {
+  font-size:clamp(27px,3vw,38px);
+  font-weight:700;
+  letter-spacing:-.035em;
+  margin:8px 0;
+}
+.page p {
+  line-height:1.65;
+  color:#52627a;
+}
+.eyebrow {
+  font-size:12px!important;
+  font-weight:700;
+  letter-spacing:.07em;
+  color:#3d5c91!important;
+}
+.header nav {
+  display:flex;
+  flex-wrap:wrap;
+  gap:16px;
+  padding-top:12px;
+}
+.page a {
+  color:#1e51aa;
+  font-weight:600;
+}
+.scope {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  margin-bottom:24px;
+}
+.scope label {
+  width:min(100%,420px);
+}
+.scope>span {
+  color:#52627a;
+}
+.page label {
+  display:grid;
+  gap:8px;
+  font-weight:600;
+}
+.page input,.page select {
+  min-height:44px;
+  border:1px solid #c8d2e0;
+  border-radius:8px;
+  padding:10px 12px;
+  width:100%;
+  min-width:0;
+  background:white;
+  color:#17243b;
+}
+.metrics {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:16px;
+  margin-bottom:28px;
+}
+.metrics article {
+  background:white;
+  border:1px solid #dee5ef;
+  border-radius:12px;
+  padding:20px;
+  display:grid;
+  gap:8px;
+}
+.metrics svg {
+  color:#3d6fb9;
+}
+.metrics strong {
+  font-size:30px;
+}
+.metrics span {
+  font-size:13px;
+  color:#52627a;
+}
+.metrics small {
+  font-size:12px;
+  line-height:1.4;
+  color:#52627a;
+}
+.hotels {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:20px;
+}
+.hotel {
+  background:white;
+  border:1px solid #dee5ef;
+  border-radius:14px;
+  padding:24px;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  overflow-wrap:anywhere;
+}
+.hotelIcon {
+  width:44px;
+  height:44px;
+  border-radius:10px;
+  background:#eef4ff;
+  color:#3266bd;
+  display:grid;
+  place-items:center;
+  margin-bottom:8px;
+}
+.hotel h2 {
+  font-size:22px;
+  line-height:1.3;
+  font-weight:650;
+}
+.hotel .role {
+  font-size:13px;
+  color:#2553a1;
+  background:#eef4ff;
+  border-radius:6px;
+  padding:7px 10px;
+  align-self:flex-start;
+}
+.hotel dl {
+  margin:8px 0 14px;
+  display:grid;
+  gap:10px;
+}
+.hotel dl div {
+  display:flex;
+  gap:15px;
+  justify-content:space-between;
+}
+.hotel dt {
+  color:#52627a;
+}
+.hotel dd {
+  font-weight:650;
+}
+.page button {
+  min-height:44px;
+  border-radius:8px;
+  padding:10px 16px;
+  background:#2458b7;
+  color:white;
+  font-weight:600;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+}
+.hotel button {
+  margin-top:auto;
+  width:100%;
+}
+.page button:disabled {
+  opacity:.5;
+  cursor:not-allowed;
+}
+.page :is(button,a,input,select,summary):focus-visible {
+  outline:3px solid #7facf5;
+  outline-offset:3px;
+}
+.management {
+  margin-top:40px;
+  border-top:1px solid #dce3ed;
+  padding-top:24px;
+}
+.management h2 {
+  font-size:21px;
+  font-weight:650;
+  margin-bottom:16px;
+}
+.management details {
+  background:white;
+  border:1px solid #dce3ed;
+  border-radius:10px;
+  margin-bottom:12px;
+  padding:16px;
+}
+.management summary {
+  cursor:pointer;
+  min-height:32px;
+  font-weight:600;
+}
+.management form {
+  display:grid;
+  gap:16px;
+  max-width:600px;
+  padding-top:20px;
+}
+.error {
+  background:#fff1ee;
+  border:1px solid #efc2b8;
+  padding:16px;
+  margin-bottom:20px;
+  display:flex;
+  gap:16px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.error button {
+  background:#8f3324;
+}
+@media(max-width:1000px) {
+  .hotels {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:600px) {
+  .header,.scope {
+    flex-direction:column;
+  }
+  .header {
+    gap:12px;
+    margin-bottom:24px;
+  }
+  .scope {
+    align-items:stretch;
+  }
+  .metrics {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  .metrics article {
+    padding:16px;
+  }
+  .hotels {
+    grid-template-columns:1fr;
+  }
+  .hotel {
+    padding:20px;
+  }
+  .page {
+    padding:22px 16px;
+  }
+  .scope label {
+    width:100%;
+  }
+}

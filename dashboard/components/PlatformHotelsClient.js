@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { persistWorkspaceSelection } from '@/lib/workspace-context';
+import { switchWorkspace } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
@@ -229,27 +229,10 @@ export const PlatformHotelsClient = () => {
   const enterWorkspace = async (hotel) => {
     setError(null);
     try {
-      const response = await fetch(`/api/platform/hotels/${hotel.id}/support`, {
-        method: 'POST',
-        headers: await getAuthHeaders(),
-        cache: 'no-store'
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not enter hotel workspace');
-      }
-      window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
-      persistWorkspaceSelection({
-        hotelId: hotel.id,
-        workspace: {
-          hotel: body.hotel,
-          role: 'support',
-          supportSession: body.supportSession
-        },
-        notify: true
-      });
-      router.push(`/dashboard?hotelId=${encodeURIComponent(hotel.id)}`);
-      router.refresh();
+      const headers = await getAuthHeaders();
+      await switchWorkspace({ hotelId: hotel.id, accessToken: (headers.Authorization || '').replace(/^Bearer\s+/i, '') });
+      window.sessionStorage.removeItem('staynex_support_session');
+      window.location.assign(`/dashboard?hotelId=${encodeURIComponent(hotel.id)}`);
     } catch (caughtError) {
       setError(caughtError.message);
     }
