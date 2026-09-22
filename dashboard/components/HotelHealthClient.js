@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -21,7 +21,9 @@ import {
   Workflow
 } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
-import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { getActiveTenantId, shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { WORKSPACE_SELECTION_EVENT } from '@/lib/workspace-context';
+import { createHealthRequest, emptyHealthState, healthErrorText, presentHealth } from '@/lib/health-request';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
@@ -42,7 +44,12 @@ const iconById = {
 const statusLabel = {
   healthy: 'Operativo',
   warning: 'Necesita atención',
-  critical: 'Crítico'
+  critical: 'Crítico',
+  unavailable: 'No disponible',
+  partial: 'Información parcial',
+  unverified: 'Sin verificar',
+  loading: 'Cargando Salud',
+  stale: 'Última información disponible'
 };
 
 const pilotStatusLabel = {
@@ -67,8 +74,8 @@ const componentLabel = {
   AI: 'IA',
   Automations: 'Journeys',
   Operations: 'Operaciones',
-  'PMS Connected': 'PMS conectado',
-  'WhatsApp Online': 'WhatsApp disponible',
+  'PMS Connected': 'PMS',
+  'WhatsApp Online': 'WhatsApp',
   'AI Auto-Reply': 'Respuestas IA',
   'Open Tickets': 'Tickets abiertos',
   'Provider Bookings': 'Solicitudes a proveedores',
@@ -150,7 +157,7 @@ const valueLabels = {
 };
 
 const formatHealthText = (value) => {
-  if (!value) return '';
+  if (value === null || value === undefined) return '';
 
   const text = String(value);
   const exact = healthTextLabels[text] || componentLabel[text] || valueLabels[text];
@@ -229,49 +236,49 @@ const getPilotComponentDisplayStatus = (item = {}) => (
 );
 
 export const HotelHealthClient = () => {
-  const { theme } = useDashboardTheme();
-  const { tx } = useDashboardLanguage();
-  const isLight = theme === 'light';
-  const [payload, setPayload] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [requestState, setRequestState] = useState(emptyHealthState);
   const [killSwitchUpdating, setKillSwitchUpdating] = useState(false);
-  const [error, setError] = useState(null);
-
-  const loadHealth = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) {
-      setRefreshing(true);
-    }
-
+  const [actionError, setActionError] = useState(null);
+  const loader = useRef(null);
+  useEffect(() => {
+    const request = createHealthRequest({ getHotelId: getActiveTenantId, getHeaders: getAuthHeaders, onChange: setRequestState });
+    loader.current = request;
+    const onHotelChanged = () => { setActionError(null); request.load({ reset: true }); };
+    window.addEventListener(WORKSPACE_SELECTION_EVENT, onHotelChanged);
+    request.load();
+    return () => { request.cancel(); window.removeEventListener(WORKSPACE_SELECTION_EVENT, onHotelChanged); };
+  }, []);
+  const loadHealth = useCallback(() => loader.current?.load(), []);
+  const updateHotelAutoReply = async (enabled) => {
+    const hotelId = getActiveTenantId();
+    setKillSwitchUpdating(true);
+    setActionError(null);
     try {
       const response = await fetch('/api/health/hotel', {
-        headers: await getAuthHeaders(),
-        cache: 'no-store'
+        method: 'PATCH', headers: { ...(await getAuthHeaders({ hotelId })), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_ai_auto_reply', enabled })
       });
       const body = await response.json();
+      if (hotelId !== getActiveTenantId() || !shouldAcceptTenantPayload(body, 'hotel-health-action')) return;
+      if (!response.ok) throw new Error('action');
+      await loadHealth();
+    } catch {
+      if (hotelId === getActiveTenantId()) setActionError('No se pudo actualizar el Kill Switch IA');
+    } finally { setKillSwitchUpdating(false); }
+  };
+  return <HotelHealthView requestState={requestState} loadHealth={loadHealth}
+    updateHotelAutoReply={updateHotelAutoReply} killSwitchUpdating={killSwitchUpdating} actionError={actionError} />;
+};
 
-      if (!response.ok) {
-        throw new Error(body.error || tx('Hotel health could not be loaded'));
-      }
-
-      if (!shouldAcceptTenantPayload(body, 'hotel-health')) {
-        return;
-      }
-
-      setPayload(body);
-      setError(null);
-    } catch (caughtError) {
-      setError(caughtError.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadHealth();
-  }, [loadHealth]);
-
+export const HotelHealthView = ({ requestState, loadHealth, updateHotelAutoReply, killSwitchUpdating = false, actionError = null }) => {
+  const { theme } = useDashboardTheme();
+  const { tx, language } = useDashboardLanguage();
+  const isLight = theme === 'light';
+  const { payload, status, obtainedAt, error } = requestState;
+  const loading = status === 'loading';
+  const refreshing = loading || status === 'refreshing';
+  const presentation = presentHealth(requestState);
+  const historical = presentation.historical;
   const health = payload?.health || {};
   const pilotHealth = health.pilotHealth || {};
   const pilotAiSafety = payload?.pilotAiSafety || {};
@@ -280,89 +287,69 @@ export const HotelHealthClient = () => {
   const hotelAutoReplyConfigured = Boolean(hotelAiStatus.configured);
   const hotelAutoReplyEnabled = Boolean(hotelAiStatus.enabled);
   const globalAutoReplyAllowed = globalAiStatus.allowed !== false;
-  const allOperational = health.overallStatus === 'healthy' && !health.warnings?.length;
+  const allOperational = presentation.allOperational;
   const demoReadyLivePending = Boolean(pilotHealth.readyForPilotDemo && pilotHealth.readyForLiveAutomations === false);
   const pilotHeaderStatus = demoReadyLivePending ? 'DEMO_READY' : pilotHealth.demoStatus || pilotHealth.status;
-  const healthHeadline = demoReadyLivePending
-    ? 'Demo preparada; Go-Live pendiente.'
-    : allOperational ? 'Staynex está preparado y funcionando.' : 'Staynex necesita revisión antes de demo o envío real.';
-  const healthStateValue = demoReadyLivePending
-    ? 'Lista para demostración'
-    : statusLabel[health.overallStatus] || 'Operativo';
-  const healthStateTone = demoReadyLivePending
-    ? 'emerald'
-    : health.overallStatus === 'warning' ? 'amber' : health.overallStatus === 'critical' ? 'red' : 'emerald';
-
-  const updateHotelAutoReply = async (enabled) => {
-    setKillSwitchUpdating(true);
-
-    try {
-      const response = await fetch('/api/health/hotel', {
-        method: 'PATCH',
-        headers: {
-          ...(await getAuthHeaders()),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          action: 'set_ai_auto_reply',
-          enabled
-        })
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || tx('No se pudo actualizar el Kill Switch IA'));
-      }
-
-      setPayload((current) => ({
-        ...current,
-        ...body
-      }));
-      await loadHealth({ silent: true });
-      setError(null);
-    } catch (caughtError) {
-      setError(caughtError.message);
-    } finally {
-      setKillSwitchUpdating(false);
-    }
-  };
+  const healthHeadline = historical ? 'Última información disponible; estado actual sin confirmar.'
+    : loading ? 'Consultando la salud del hotel.'
+    : !payload ? 'Salud no disponible.'
+    : allOperational ? 'Sin incidencias en la información comprobada.'
+    : 'Revisa la información disponible y los servicios sin verificar.';
+  const healthStateValue = statusLabel[presentation.status] || 'No disponible';
+  const healthStateTone = ['warning', 'partial', 'unverified', 'stale'].includes(presentation.status) ? 'amber'
+    : presentation.status === 'critical' ? 'red' : presentation.status === 'healthy' ? 'emerald' : 'slate';
+  const checkedAt = obtainedAt ? new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'medium' }).format(new Date(obtainedAt)) : null;
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-5" aria-busy={refreshing}>
       <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className={ui.text.eyebrow(isLight)}>Salud operativa del hotel</p>
             <h2 className={cn('mt-2 text-3xl', ui.text.title(isLight))}>
-              {healthHeadline}
+              {tx(healthHeadline)}
             </h2>
             <p className={cn('mt-2 max-w-3xl', ui.text.body(isLight))}>
               Vista operativa para recepción y administración: impacto en huésped, causa y siguiente acción.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <HealthBadge status={health.overallStatus || 'healthy'} />
+            <HealthBadge status={presentation.status} />
             {health.environment?.isDemo ? <span className={ui.badge(isLight, 'sky')}>{formatHealthText(health.environment.label)}</span> : null}
-            {demoReadyLivePending ? <span className={ui.badge(isLight, 'amber')}>Go-Live pendiente</span> : null}
+            {!historical && payload && demoReadyLivePending ? <span className={ui.badge(isLight, 'amber')}>Go-Live pendiente</span> : null}
             <button type="button" onClick={() => loadHealth()} disabled={refreshing} className={ui.button(isLight, 'secondary')}>
               <RefreshCw className={refreshing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-              Actualizar
+              {tx(error ? 'Reintentar' : 'Actualizar')}
             </button>
           </div>
         </div>
 
+        <p role="status" aria-live="polite" className={cn('mt-4 text-sm', ui.text.body(isLight))}>
+          {tx(loading ? 'Consultando la salud del hotel.' : status === 'refreshing' ? 'Actualizando; el resultado anterior no confirma el estado actual.' : historical ? 'Última información disponible; estado actual sin confirmar.' : payload ? 'Consulta recibida. La verificación de cada servicio se indica por separado.' : 'Salud no disponible.')}
+          {checkedAt ? <> {tx('Datos obtenidos: {date}', { date: checkedAt })}</> : null}
+        </p>
+        {error || actionError ? <div role="alert" className={cn('mt-3 rounded-xl border p-4 text-sm', ui.notice(isLight, 'danger'))}>
+          {tx(actionError || healthErrorText(error))}
+        </div> : null}
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <SummaryTile label="Score operativo" value={loading ? '...' : `${health.healthScore || 0}%`} tone={health.overallStatus === 'critical' ? 'red' : health.overallStatus === 'warning' ? 'amber' : 'emerald'} />
-          <SummaryTile label="Estado actual" value={loading ? '...' : healthStateValue} tone={healthStateTone} />
-          <SummaryTile label="Avisos" value={loading ? '...' : health.warnings?.length || 0} tone={health.warnings?.length ? 'amber' : 'emerald'} />
+          <SummaryTile label="Score operativo" value={presentation.score} tone={healthStateTone} />
+          <SummaryTile label="Estado actual" value={tx(healthStateValue)} tone={healthStateTone} />
+          <SummaryTile label="Avisos" value={presentation.warnings} tone={presentation.warnings === '—' ? 'slate' : presentation.warnings ? 'amber' : 'emerald'} />
         </div>
+        {payload && health.coverage?.status !== 'complete' ? <div role="status" className={cn('mt-4 rounded-xl p-4', ui.notice(isLight, 'warning'))}>
+          <p>{tx('No se ha podido comprobar toda la información. Se conservan las fuentes disponibles.')}</p>
+          <ul className="mt-2 list-inside list-disc">
+            {Object.entries(health.coverage?.sources || {}).filter(([, source]) => source.status !== 'complete').map(([key, source]) =>
+              <li key={key}>{tx(source.label)}: {tx(source.status === 'unavailable' ? 'Fuente no disponible' : 'Muestra parcial; total no acreditado')}</li>)}
+          </ul>
+        </div> : null}
       </section>
 
-      {!loading && pilotHealth.components?.length ? (
+      {!loading && !historical && health.coverage?.status === 'complete' && pilotHealth.components?.length ? (
         <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className={ui.text.eyebrow(isLight)}>Salud piloto</p>
+              <p className={ui.text.eyebrow(isLight)}>{tx('Controles de preparación del piloto')}</p>
               <h3 className={cn('mt-1 text-2xl font-semibold', ui.text.title(isLight))}>
                 {pilotHealth.readyForPilotDemo ? 'Demo preparada' : 'Necesita acción antes de la demo'}
               </h3>
@@ -387,7 +374,7 @@ export const HotelHealthClient = () => {
 
           <div className="mt-5 grid gap-3 lg:grid-cols-2">
             {pilotHealth.components.map((item) => (
-              <PilotHealthRow key={item.id} item={item} />
+              <PilotHealthRow key={item.id} item={item} verification={health.statusCards?.find((card) => card.id === item.id)} />
             ))}
           </div>
 
@@ -404,10 +391,11 @@ export const HotelHealthClient = () => {
         </section>
       ) : null}
 
-      <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
+      {payload?.pilotAiSafety ? <section className={cn('rounded-2xl border p-5', ui.surface(isLight))}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className={ui.text.eyebrow(isLight)}>Kill Switch IA del hotel</p>
+            {historical ? <p className={ui.text.body(isLight)}>{tx('Configuración anterior; estado actual sin confirmar.')}</p> : null}
             <h3 className={cn('mt-1 text-xl', ui.text.title(isLight))}>
               {globalAutoReplyAllowed
                 ? hotelAutoReplyEnabled
@@ -436,7 +424,7 @@ export const HotelHealthClient = () => {
           <button
             type="button"
             onClick={() => updateHotelAutoReply(true)}
-            disabled={killSwitchUpdating || hotelAutoReplyEnabled}
+            disabled={historical || refreshing || killSwitchUpdating || hotelAutoReplyEnabled}
             className={ui.button(isLight, 'primary')}
           >
             <Power className="h-4 w-4" aria-hidden="true" />
@@ -445,26 +433,20 @@ export const HotelHealthClient = () => {
           <button
             type="button"
             onClick={() => updateHotelAutoReply(false)}
-            disabled={killSwitchUpdating || hotelAutoReplyConfigured && !hotelAutoReplyEnabled}
+            disabled={historical || refreshing || killSwitchUpdating || hotelAutoReplyConfigured && !hotelAutoReplyEnabled}
             className={ui.button(isLight, 'secondary')}
           >
             <PowerOff className="h-4 w-4" aria-hidden="true" />
             Apagar respuestas IA
           </button>
         </div>
-      </section>
-
-      {error ? (
-        <div className={cn('rounded-xl border p-4 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
-          No se pudo cargar o actualizar Pilot Health. Revisa la sesión del hotel y vuelve a intentarlo.
-        </div>
-      ) : null}
+      </section> : null}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {loading ? (
           [0, 1, 2, 3, 4, 5].map((item) => <div key={item} className={cn('h-36 rounded-xl', ui.skeleton(isLight))} />)
         ) : (
-          (health.statusCards || []).map((card) => <HealthCard key={card.id} card={card} />)
+          (health.statusCards || []).map((card) => <HealthCard key={card.id} card={historical ? { ...card, status: 'stale', value: card.value === 'Healthy' ? null : card.value, description: tx('Último resultado: {detail}', { detail: formatHealthText(card.description) }) } : card} />)
         )}
       </section>
 
@@ -488,11 +470,11 @@ export const HotelHealthClient = () => {
             ))}
           </div>
         ) : (
-          <div className={cn('mt-4 rounded-xl border border-dashed p-6 text-center', isLight ? 'border-emerald-200 bg-emerald-50' : 'border-emerald-300/20 bg-emerald-300/10')}>
-            <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-400" aria-hidden="true" />
-            <p className={cn('mt-3 text-sm font-semibold', ui.text.title(isLight))}>Todo operativo para la demo.</p>
-            <p className={cn('mt-1', ui.text.muted(isLight))}>No hay tickets urgentes, servicios desconectados o avisos visibles para huésped ahora mismo.</p>
-          </div>
+          <p className={cn('mt-4 rounded-xl border p-4 text-sm', allOperational ? ui.notice(isLight, 'success') : ui.notice(isLight, 'warning'))}>
+            {tx(!payload ? 'Avisos no disponibles.' : historical ? 'Los avisos anteriores no confirman el estado actual.'
+              : health.coverage?.status !== 'complete' ? 'No se puede confirmar la ausencia de avisos con información parcial.'
+              : 'No hay avisos en los datos consultados. Esto no acredita el funcionamiento de los servicios sin verificar.')}
+          </p>
         )}
       </section>
     </section>
@@ -510,10 +492,12 @@ const PilotStatusBadge = ({ status = 'HEALTHY' }) => {
   );
 };
 
-const PilotHealthRow = ({ item }) => {
+const PilotHealthRow = ({ item, verification }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const Icon = pilotIconById[item.id] || ShieldCheck;
+  const unverified = verification?.status === 'unverified';
   const displayStatus = getPilotComponentDisplayStatus(item);
 
   return (
@@ -526,10 +510,10 @@ const PilotHealthRow = ({ item }) => {
           <div className="min-w-0">
             <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{formatHealthText(item.label)}</p>
             <p className={cn('mt-1 text-xs font-semibold uppercase tracking-[0.14em]', ui.text.muted(isLight))}>Por qué</p>
-            <p className={cn('mt-1 text-sm leading-5', ui.text.body(isLight))}>{formatHealthText(item.why)}</p>
+            <p className={cn('mt-1 text-sm leading-5', ui.text.body(isLight))}>{unverified ? tx(verification.description) : formatHealthText(item.why)}</p>
           </div>
         </div>
-        <PilotStatusBadge status={displayStatus} />
+        {unverified ? <HealthBadge status="unverified" /> : <PilotStatusBadge status={displayStatus} />}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {item.action ? <span className={ui.badge(isLight, 'slate', true)}>Acción: {formatHealthText(item.action)}</span> : null}
@@ -544,14 +528,15 @@ const PilotHealthRow = ({ item }) => {
   );
 };
 
-const HealthBadge = ({ status = 'healthy' }) => {
+const HealthBadge = ({ status = 'unavailable' }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
-  const tone = status === 'critical' ? 'red' : status === 'warning' ? 'amber' : 'emerald';
+  const tone = status === 'critical' ? 'red' : ['warning', 'partial', 'unverified', 'stale'].includes(status) ? 'amber' : status === 'healthy' ? 'emerald' : 'slate';
 
   return (
     <span className={ui.badge(isLight, tone)}>
-      {statusLabel[status] || 'Operativo'}
+      {tx(statusLabel[status] || 'No disponible')}
     </span>
   );
 };
@@ -564,18 +549,19 @@ const SummaryTile = ({ label, value, tone }) => {
     <div className={cn('rounded-xl border p-4 text-center', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
       <p className={ui.text.eyebrow(isLight)}>{formatHealthText(label)}</p>
       <p className={cn('mt-2 text-2xl font-semibold tabular-nums', ui.text.title(isLight))}>{value}</p>
-      <div className={cn('mx-auto mt-3 h-1.5 w-16 rounded-full', tone === 'red' ? 'bg-red-400' : tone === 'amber' ? 'bg-amber-400' : 'bg-emerald-400')} />
+      <div className={cn('mx-auto mt-3 h-1.5 w-16 rounded-full', tone === 'red' ? 'bg-red-400' : tone === 'amber' ? 'bg-amber-400' : tone === 'emerald' ? 'bg-emerald-400' : 'bg-slate-300')} />
     </div>
   );
 };
 
 const HealthCard = ({ card }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const Icon = iconById[card.id] || ShieldCheck;
   const toneClass = card.status === 'critical'
     ? isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100'
-    : card.status === 'warning'
+    : ['warning', 'partial', 'unverified', 'stale', 'unavailable'].includes(card.status)
       ? isLight ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-amber-300/20 bg-amber-400/10 text-amber-100'
       : isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100';
 
@@ -588,9 +574,9 @@ const HealthCard = ({ card }) => {
         <HealthBadge status={card.status} />
       </div>
       <p className={cn('mt-4 text-sm font-semibold', ui.text.title(isLight))}>{formatHealthText(card.label)}</p>
-      <p className={cn('mt-2 text-2xl font-semibold tabular-nums', ui.text.title(isLight))}>{formatHealthText(card.value)}</p>
+      <p className={cn('mt-2 text-2xl font-semibold tabular-nums', ui.text.title(isLight))}>{card.value === null ? '—' : card.coverage === 'partial' ? tx('Muestra: {value}', { value: formatHealthText(card.value) }) : formatHealthText(card.value)}</p>
       {card.badge ? <span className={cn('mt-2', ui.badge(isLight, 'sky', true))}>{formatHealthText(card.badge)}</span> : null}
-      <p className={cn('mt-2 min-h-10 text-sm leading-5', ui.text.body(isLight))}>{formatHealthText(card.description)}</p>
+      <p className={cn('mt-2 min-h-10 text-sm leading-5', ui.text.body(isLight))}>{tx(formatHealthText(card.description))}</p>
     </article>
   );
 };

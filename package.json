@@ -86,6 +86,7 @@
     "ci:critical": "node scripts/ci/run.cjs critical",
     "ci:dashboard": "node scripts/ci/run.cjs dashboard",
     "ci:postgres": "node scripts/ci/run.cjs postgres",
+    "test:health-truthful-status": "node scripts/test-health-truthful-status.js",
     "test:ci-guards": "node scripts/test-ci-guards.cjs",
     "test:automation-dispatch-contract": "node scripts/test-automation-dispatch-contract.js",
     "test:automation-dispatch-postgres": "node scripts/test-automation-dispatch-postgres.js",

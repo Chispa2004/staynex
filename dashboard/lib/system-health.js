@@ -1,3 +1,5 @@
+import { buildHealthCoverage, applyHealthCoverage } from './health-coverage.js';
+import { getPmsProvider, isPmsProviderLiveApi } from './pms-providers.js';
 import {
   pmsConnectionSelectForSurface,
   serializePmsConnectionsSafe
@@ -48,27 +50,18 @@ const safeRows = async (query, fallback = []) => {
   return data || fallback;
 };
 
-const safeRowsResult = async (query, label, fallback = []) => {
-  const { data, error } = await query;
-
-  if (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('System health data unavailable', sanitizePilotOperationalMessage(error.message));
-    }
-
-    return {
-      rows: fallback,
-      issue: {
-        label,
-        message: sanitizePilotOperationalMessage(error.message)
-      }
-    };
+const safeRowsResult = async (query, label) => {
+  try {
+    const { data, error, count } = await query;
+    if (error || !Array.isArray(data)) throw new Error('unavailable');
+    const complete = Number.isInteger(count) && count === data.length;
+    return { rows: data, source: { status: complete ? 'complete' : 'partial', returned: data.length,
+      total: Number.isInteger(count) ? count : null }, label,
+      issue: null };
+  } catch {
+    return { rows: [], source: { status: 'unavailable', returned: null, total: null }, label,
+      issue: { label, message: 'Fuente no disponible. Revisa el acceso o vuelve a intentarlo.' } };
   }
-
-  return {
-    rows: data || fallback,
-    issue: null
-  };
 };
 
 const uniqueById = (rows = []) => Array.from(new Map(rows.map((row) => [row.id, row])).values());
@@ -332,12 +325,15 @@ export const buildHotelOperationalHealthSnapshot = ({
   qrRooms = [],
   reservations = [],
   aiLogs = [],
-  dataIssues = []
+  dataIssues = [],
+  sources = {},
+  now = new Date()
 } = {}) => {
   const demoEnvironment = isDemoHotel(hotel);
   const realTickets = tickets.filter((ticket) => !isDemoRow(ticket));
   const demoTickets = tickets.filter(isDemoRow);
-  const statusCards = buildHotelStatusCards({
+  const coverage = buildHealthCoverage(sources, dataIssues);
+  let statusCards = buildHotelStatusCards({
     hotel,
     pmsConnections,
     tickets,
@@ -349,34 +345,51 @@ export const buildHotelOperationalHealthSnapshot = ({
     reservations,
     aiLogs
   });
-  const warnings = buildHotelWarnings(statusCards, {
-    conversationStates,
-    bookings,
-    tickets,
-    reservations
+  const pilotHealth = buildPilotHealthSnapshot({ hotel, pmsConnections, tickets, conversations,
+    conversationStates, scheduledMessages, aiLogs, dataIssues, env: process.env, now });
+  const pms = pmsConnections.find((item) => item.enabled);
+  const pmsCheck = pilotHealth.components.find((item) => item.id === 'pms');
+  const realPms = pms && isPmsProviderLiveApi(getPmsProvider(pms.provider))
+    && !isDemoRow(pms) && !pms.metadata?.sandbox && !pms.metadata?.mock;
+  const successfulSync = ['connected', 'success', 'synced', 'healthy'].includes(pms?.sync_status);
+  statusCards = statusCards.map((card) => {
+    if (card.id === 'pms' && pms) {
+      const verified = realPms && successfulSync && pmsCheck?.status === 'HEALTHY';
+      card = { ...card, status: pmsCheck?.status === 'DEGRADED' ? 'warning' : verified ? 'healthy' : 'unverified',
+        description: pmsCheck?.status === 'DEGRADED' ? 'La última sincronización PMS falló. Revisa la conexión.'
+          : verified ? 'Sincronización PMS verificada en las últimas 48 horas.'
+          : pmsCheck?.details?.staleSync ? 'Sincronización antigua o sin fecha verificable. Revisa el PMS.'
+          : 'PMS configurado; funcionamiento real no verificado.',
+        verifiedAt: verified ? pms.last_sync_at : null };
+    }
+    if (card.id === 'whatsapp' && hotel.whatsapp_number) card = { ...card, status: 'unverified',
+      description: 'WhatsApp configurado. No hay una comprobación reciente de funcionamiento.' };
+    if (card.id === 'ai' && card.status === 'healthy') card = { ...card, status: 'unverified',
+      description: 'Configuración IA habilitada. Funcionamiento actual no verificado.' };
+    return applyHealthCoverage(card, coverage);
   });
-  const overallStatus = worstStatus(statusCards.map((card) => card.status));
-  const pilotHealth = buildPilotHealthSnapshot({
-    hotel,
-    pmsConnections,
-    tickets,
-    conversations,
-    conversationStates,
-    scheduledMessages,
-    aiLogs,
-    dataIssues,
-    env: process.env
+  const warnings = buildHotelWarnings(statusCards.filter((card) => ['healthy', 'warning', 'critical'].includes(card.status)), {
+    conversationStates, bookings, tickets, reservations
   });
-  const score = Math.max(0, Math.min(100, Math.round(
+  const unverified = statusCards.some((card) => card.status === 'unverified');
+  const overallStatus = statusCards.some((card) => card.status === 'critical') ? 'critical'
+    : coverage.status !== 'complete' ? coverage.status
+    : unverified ? 'unverified' : worstStatus(statusCards.map((card) => card.status));
+  const score = coverage.status !== 'complete' || unverified ? null : Math.max(0, Math.min(100, Math.round(
     statusCards.reduce((total, card) => total + (card.status === 'healthy' ? 10 : card.status === 'warning' ? 5 : 0), 0)
   )));
 
   return {
     scope: 'hotel_operational_health',
-    generatedAt: nowIso(),
+    generatedAt: now.toISOString(),
+    coverage,
+    dataIssues,
+    warningCount: coverage.status === 'complete' ? warnings.length : null,
     overallStatus,
     healthScore: score,
-    summary: warnings.length
+    summary: coverage.status !== 'complete' ? 'No se ha podido comprobar toda la información.'
+      : unverified ? 'Hay servicios cuyo funcionamiento no está verificado.'
+      : warnings.length
       ? `${warnings.length} operational item${warnings.length === 1 ? '' : 's'} need attention.`
       : 'All hotel systems operational.',
     statusCards: statusCards.map((card) => ({
@@ -391,8 +404,8 @@ export const buildHotelOperationalHealthSnapshot = ({
       label: demoEnvironment || demoTickets.length > 0 ? 'Demo environment' : 'Live workspace'
     },
     metrics: {
-      realOperationalTickets: realTickets.filter(isOpenTicket).length,
-      demoTickets: demoTickets.length
+      realOperationalTickets: coverage.sources.tickets.status === 'complete' ? realTickets.filter(isOpenTicket).length : null,
+      demoTickets: coverage.sources.tickets.status === 'complete' ? demoTickets.length : null
     }
   };
 };
@@ -410,17 +423,17 @@ export const getHotelOperationalHealth = async ({ supabase, hotelId, hotel }) =>
     reservationsResult,
     aiLogsResult
   ] = await Promise.all([
-    safeRowsResult(supabase.from('hotel_pms_connections').select(PMS_HEALTH_SELECT).eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(10), 'pms'),
-    safeRowsResult(supabase.from('tickets').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'tickets'),
-    safeRowsResult(supabase.from('conversations').select('*').eq('hotel_id', hotelId).order('last_message_at', { ascending: false, nullsFirst: false }).limit(250), 'conversations'),
-    safeRowsResult(supabase.from('conversation_ai_state').select('*').eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(250), 'conversation_ai_state'),
-    safeRowsResult(supabase.from('experience_booking_requests').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'experience_booking_requests'),
-    safeRowsResult(supabase.from('scheduled_messages').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'scheduled_messages'),
-    safeRowsResult(supabase.from('hotel_rooms').select('*').eq('hotel_id', hotelId).limit(500), 'hotel_rooms'),
-    safeRowsResult(supabase.from('reservations').select('*').eq('hotel_id', hotelId).gte('departure_date', new Date().toISOString().slice(0, 10)).limit(500), 'reservations'),
-    safeRowsResult(supabase.from('ai_logs').select('*').eq('hotel_id', hotelId).gte('created_at', today).limit(250), 'ai_logs')
+    safeRowsResult(supabase.from('hotel_pms_connections').select(PMS_HEALTH_SELECT, { count: 'exact' }).eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(10), 'pms'),
+    safeRowsResult(supabase.from('tickets').select('*', { count: 'exact' }).eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'tickets'),
+    safeRowsResult(supabase.from('conversations').select('*', { count: 'exact' }).eq('hotel_id', hotelId).order('last_message_at', { ascending: false, nullsFirst: false }).limit(250), 'conversations'),
+    safeRowsResult(supabase.from('conversation_ai_state').select('*', { count: 'exact' }).eq('hotel_id', hotelId).order('updated_at', { ascending: false }).limit(250), 'conversation_ai_state'),
+    safeRowsResult(supabase.from('experience_booking_requests').select('*', { count: 'exact' }).eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'experience_booking_requests'),
+    safeRowsResult(supabase.from('scheduled_messages').select('*', { count: 'exact' }).eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(250), 'scheduled_messages'),
+    safeRowsResult(supabase.from('hotel_rooms').select('*', { count: 'exact' }).eq('hotel_id', hotelId).limit(500), 'hotel_rooms'),
+    safeRowsResult(supabase.from('reservations').select('*', { count: 'exact' }).eq('hotel_id', hotelId).gte('departure_date', new Date().toISOString().slice(0, 10)).limit(500), 'reservations'),
+    safeRowsResult(supabase.from('ai_logs').select('*', { count: 'exact' }).eq('hotel_id', hotelId).gte('created_at', today).limit(250), 'ai_logs')
   ]);
-  const dataIssues = [
+  const results = [
     pmsConnectionsResult,
     ticketsResult,
     conversationsResult,
@@ -430,7 +443,9 @@ export const getHotelOperationalHealth = async ({ supabase, hotelId, hotel }) =>
     qrRoomsResult,
     reservationsResult,
     aiLogsResult
-  ].map((result) => result.issue).filter(Boolean);
+  ];
+  const dataIssues = results.map((result) => result.issue).filter(Boolean);
+  const sources = Object.fromEntries(results.map((result) => [result.label, result.source]));
 
   return buildHotelOperationalHealthSnapshot({
     hotel,
@@ -443,7 +458,8 @@ export const getHotelOperationalHealth = async ({ supabase, hotelId, hotel }) =>
     qrRooms: qrRoomsResult.rows,
     reservations: reservationsResult.rows,
     aiLogs: aiLogsResult.rows,
-    dataIssues
+    dataIssues,
+    sources
   });
 };
 

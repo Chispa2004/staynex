@@ -1,3 +1,4 @@
+import { buildHotelOperationalHealthSnapshot } from '../dashboard/lib/system-health.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -107,7 +108,10 @@ assert.ok(hotelHealthApiSource.includes("canAccess(role, 'hotel_health')"), 'Hot
 assert.equal(/OpenAI retries|schema cache|dead letter queue|repair mode/i.test(hotelHealthApiSource), false, 'Hotel health API should not expose internal technical wording');
 
 const hotelHealthUiSource = readFileSync(join(root, 'dashboard/components/HotelHealthClient.js'), 'utf8');
-assert.ok(hotelHealthUiSource.includes('All hotel systems operational.'), 'Hotel health should keep reassuring operational wording');
+const unavailableHealth = buildHotelOperationalHealthSnapshot({ dataIssues: [{ label: 'tickets', message: 'denied' }] });
+assert.notEqual(unavailableHealth.overallStatus, 'healthy', 'Failed sources must not certify operational health');
+assert.equal(unavailableHealth.healthScore, null, 'Unknown health is not a valid zero score');
+assert.equal(unavailableHealth.statusCards.find(card => card.id === 'tickets').value, null);
 assert.ok(hotelHealthUiSource.includes('health.environment?.isDemo') || hotelHealthUiSource.includes('Demo separated'), 'Hotel health should differentiate demo environments');
 assert.equal(/OpenAI retries|schema cache|dead letter queue|repair mode|Retry now/i.test(hotelHealthUiSource), false, 'Hotel health UI must not expose technical monitoring controls');
 

@@ -1,3 +1,4 @@
+import { healthPhrases } from './health-phrases.js';
 ﻿export const DASHBOARD_LANGUAGES = [
   { code: 'es', label: 'ES', name: 'Español' },
   { code: 'en', label: 'EN', name: 'English' },
@@ -2945,6 +2946,8 @@ const receptionMessagePhrases = [
   ]
 ];
 for (const phrase of receptionMessagePhrases) { ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; }); }
+
+for (const phrase of healthPhrases) { ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; }); }
 
 const phrasePatterns = {
   es: [
