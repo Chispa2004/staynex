@@ -1,5 +1,6 @@
 // Exact phrases use the same tx mechanism as the rest of the dashboard.
 export const healthPhrases = [
+  ['Estado operativo de PMS, WhatsApp, IA, tickets, solicitudes a proveedores, QR de habitaciones y recepción.', 'Operational status of PMS, WhatsApp, AI, tickets, provider requests, room QR codes and reception.', 'État opérationnel du PMS, de WhatsApp, de l’IA, des tickets, des demandes aux prestataires, des QR des chambres et de la réception.', 'Betriebsstatus von PMS, WhatsApp, KI, Tickets, Anbieteranfragen, Zimmer-QR-Codes und Rezeption.'],
   ['Configuración anterior; estado actual sin confirmar.', 'Previous configuration; current status unconfirmed.', 'Configuration précédente ; état actuel non confirmé.', 'Vorherige Konfiguration; aktueller Status unbestätigt.'],
   ['La última sincronización PMS falló. Revisa la conexión.', 'The last PMS synchronization failed. Check the connection.', 'La dernière synchronisation PMS a échoué. Vérifiez la connexion.', 'Die letzte PMS-Synchronisierung ist fehlgeschlagen. Verbindung prüfen.'],
   ['No disponible', 'Unavailable', 'Indisponible', 'Nicht verfügbar'],

@@ -161,3 +161,28 @@ assert(!render(recovered).includes('Última información disponible'));
 assert(render({ ...first, payload: { ...payload, health: partial } }).includes('Muestra parcial; total no acreditado'));
 assert(render({ ...first, payload: { ...payload, health: denied } }).includes('Fuente no disponible'));
 console.log('Health truthful status: coverage, independent sources, services, network/403/504, real deadline, refresh/recovery, ordering, tenant and React rendering PASS');
+
+// Render the actual page and its shared header in both languages.
+const compileView = async (file, dependencies) => {
+  const result = await swc.transform(readFileSync(new URL(file, import.meta.url), 'utf8'), {
+    filename: file, jsc: { parser: { syntax: 'ecmascript', jsx: true }, transform: { react: { runtime: 'automatic' } } },
+    module: { type: 'commonjs' }
+  });
+  const target = { exports: {} };
+  new Function('require', 'module', 'exports', result.code)((id) => dependencies[id] || requireDashboard(id), target, target.exports);
+  return target.exports;
+};
+for (const language of ['es', 'en']) {
+  const header = await compileView('../dashboard/components/PageHeader.js', {
+    '@/lib/i18n/useDashboardLanguage': { useDashboardLanguage: () => ({
+      t: () => '', tx: (value) => translatePhrase(language, value)
+    }) }
+  });
+  const page = await compileView('../dashboard/app/dashboard/health/page.js', {
+    '@/components/PageHeader': header, '@/components/HotelHealthClient': { HotelHealthClient: () => null }
+  });
+  const html = renderToStaticMarkup(React.createElement(page.default));
+  assert(html.includes(language === 'es' ? 'Estado operativo de PMS, WhatsApp, IA' : 'Operational status of PMS, WhatsApp, AI'));
+  assert(!html.includes('Simple hotel-facing status'));
+}
+console.log('Health page subtitle: real PageHeader ES/EN rendering PASS');

@@ -9,7 +9,7 @@ export default function DashboardHealthPage() {
       <PageHeader
         eyebrowKey="screens.operations"
         fallbackTitle="Hotel Operational Health"
-        fallbackDescription="Simple hotel-facing status for PMS, WhatsApp, AI, tickets, provider requests, QR rooms and reception readiness."
+        fallbackDescription="Estado operativo de PMS, WhatsApp, IA, tickets, solicitudes a proveedores, QR de habitaciones y recepción."
       />
 
       <HotelHealthClient />

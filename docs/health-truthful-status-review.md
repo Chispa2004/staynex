@@ -1,6 +1,6 @@
 # Salud: errores, cobertura y antigüedad — 22/09/2026
 
-Implementación y validación exclusivamente locales, sobre `main` integrado `79da26e315072c9878dcb57df892b42b171064f9`. Rama `codex/health-truthful-status`, worktree separado. `main` remoto seguía en ese SHA al comenzar. No incorpora commits de PR #11. La rama de organizaciones, el informe original de auditoría y los inventarios privados permanecen intactos.
+Implementación sobre `main` integrado `79da26e315072c9878dcb57df892b42b171064f9`. Rama `codex/health-truthful-status`, worktree separado. `main` remoto seguía en ese SHA al preparar la publicación autorizada el 22/09/2026. No incorpora commits de PR #11. La rama de organizaciones, el informe original de auditoría y los inventarios privados permanecen intactos.
 
 ## Causas y corrección
 
@@ -39,7 +39,9 @@ PASS local con Node 24.19.0, entorno saneado, `SEND_AUTOMATIONS=false`, proveedo
 - `npm run dashboard:build`: PASS, 64 páginas. Aviso de caché de Webpack en el montaje con dependencias locales enlazadas; no error de compilación.
 - `git diff --check`: PASS.
 
-La nueva regresión está incorporada en `scripts/ci/run.cjs`, modo `critical`, ejecutada por el job **Critical tests and syntax**. No se ha ejecutado GitHub CI para esta rama porque no se ha realizado push. El build validado usa el script normal `dashboard:build`; una invocación preliminar directa de Next desde la raíz se descartó como evidencia del empaquetado CSS por su directorio de trabajo.
+La nueva regresión está incorporada en `scripts/ci/run.cjs`, modo `critical`, ejecutada por el job **Critical tests and syntax**. La publicación debe contrastar su ejecución efectiva en los logs del SHA final. El build validado usa el script normal `dashboard:build`; una invocación preliminar directa de Next desde la raíz se descartó como evidencia del empaquetado CSS por su directorio de trabajo.
+
+Se corrigió también el subtítulo de la página mediante el sistema existente `tx`, con ES/EN/FR/DE. La regresión renderiza la página y `PageHeader` reales en ES y EN; comprueba el texto traducido y la ausencia del subtítulo inglés anterior. PASS junto con las pruebas de i18n, plataforma/PMS y sintaxis.
 
 Comprobación adicional: `test-pms-secrets-isolation.js` falla en línea 683, expectativa estática `platform overview raw block should be bounded`. Se reprodujo exactamente en la copia de M anterior a la corrección. No se cambió esa prueba ni se presenta como PASS. Las selecciones y serialización segura de credenciales PMS permanecen intactas.
 
@@ -74,12 +76,12 @@ No hay un umbral aprobado ni un heartbeat verificable para certificar funcionami
 
 Los recuentos exactos podrían aumentar el coste de las consultas en hoteles grandes. El deadline evita espera indefinida del cliente; no se afirma que interrumpa toda ejecución SQL ya iniciada en servidor. Un fallo/timeout no autoriza ocultarlo ni sustituirlo por cero. El alcance temporal de cada consulta se conserva (reservas vigentes, logs IA de hoy y límites existentes).
 
-Publicación preparada, no autorizada ni ejecutada en esta pasada:
+Publicación autorizada por el usuario el 22/09/2026; secuencia y condiciones:
 
 1. Revisar el commit y verificar que no incluye archivos privados, fixtures locales ni commits de organizaciones. Contrastar nuevamente `main` y ejecutar pruebas afectadas si cambia la base.
-2. Cuando se autorice: push/PR, esperar CI del SHA final, incluidos `test:health-truthful-status` y build. Sin SQL ni cambios de configuración.
+2. Push/PR, esperar CI del SHA final, incluidos `test:health-truthful-status` y build; resolver revisiones bloqueantes antes del merge normal. Sin SQL ni cambios de configuración.
 3. Publicar Dashboard siguiendo el flujo habitual. No requiere cambio del backend Express, migración ni activación. Mantener los flags actuales y `SEND_AUTOMATIONS=false`.
 4. Verificar con sesión autorizada la respuesta de Salud/cobertura y los recorridos de lectura. No provocar fallos cambiando permisos o proveedores de producción; los fallos controlados se reproducen en el laboratorio.
 5. Si hay incompatibilidad, conservar su evidencia y corregir la lectura/presentación. Volver al código anterior reintroduciría falsos positivos conocidos; no considerarlo una confirmación segura de salud.
 
-No se hizo push, PR, merge, despliegue, SQL remoto ni modificación de la demo.
+El cierre en producción requiere registrar PR, SHA integrado, CI, despliegue y verificación pública autenticada. La disponibilidad de un despliegue no sustituye esa verificación. No se requiere SQL remoto ni modificación de la demo.
