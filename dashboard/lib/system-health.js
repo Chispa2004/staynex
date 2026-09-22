@@ -364,7 +364,7 @@ export const buildHotelOperationalHealthSnapshot = ({
     }
     if (card.id === 'whatsapp' && hotel.whatsapp_number) card = { ...card, status: 'unverified',
       description: 'WhatsApp configurado. No hay una comprobación reciente de funcionamiento.' };
-    if (card.id === 'ai' && card.status === 'healthy') card = { ...card, status: 'unverified',
+    if (card.id === 'ai' && card.value === 'ON') card = { ...card, status: 'unverified',
       description: 'Configuración IA habilitada. Funcionamiento actual no verificado.' };
     return applyHealthCoverage(card, coverage);
   });

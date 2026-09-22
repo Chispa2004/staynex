@@ -160,6 +160,18 @@ assert(!render(stale).includes('>Operativo<'));
 assert(!render(recovered).includes('Última información disponible'));
 assert(render({ ...first, payload: { ...payload, health: partial } }).includes('Muestra parcial; total no acreditado'));
 assert(render({ ...first, payload: { ...payload, health: denied } }).includes('Fuente no disponible'));
+// Production case: enabled AI with active conversations but no recent AI logs.
+// The old warning card must not leave the preparation row claiming operation.
+const idleAi = buildHotelOperationalHealthSnapshot({ ...input,
+  hotel: { ...hotel, ai_auto_reply_enabled: true }, conversations: [{ status: 'active' }], aiLogs: [] });
+assert.equal(card(idleAi, 'ai').status, 'unverified');
+const idleAiHtml = render({ ...first, payload: { ...payload, health: { ...idleAi,
+  pilotHealth: { ...idleAi.pilotHealth, components: [{ id: 'ai', label: 'AI', status: 'HEALTHY',
+    why: 'Respuestas IA habilitadas, proveedor disponible y fallback humano usable.' }] }
+} } });
+assert.equal(idleAiHtml.split('Configuración IA habilitada. Funcionamiento actual no verificado.').length - 1, 2,
+  'both operational card and preparation row remain unverified');
+assert(!idleAiHtml.includes('Respuestas IA habilitadas, proveedor disponible y fallback humano usable.'));
 console.log('Health truthful status: coverage, independent sources, services, network/403/504, real deadline, refresh/recovery, ordering, tenant and React rendering PASS');
 
 // Render the actual page and its shared header in both languages.

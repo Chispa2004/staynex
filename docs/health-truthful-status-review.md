@@ -72,6 +72,8 @@ La UI del laboratorio añade únicamente un selector de escenario local; no se i
 
 ## Límites y publicación posterior
 
+La primera publicación mediante PR #12 integró `470071c14fad9a0901d6c2628b69182cd287d60b`; CI y despliegues pasaron. La comprobación pública detectó un caso adicional dentro de este alcance: IA habilitada con conversaciones activas y sin logs recientes mantenía la tarjeta en aviso y la fila de preparación podía afirmar «Operativo». Se amplía la normalización a toda configuración IA `ON`, manteniendo los estados apagado/no configurado y la cobertura. La regresión reproduce ese caso y renderiza las dos presentaciones, exigiendo «Sin verificar» en ambas. No cambia permisos, configuración ni preparación para live.
+
 No hay un umbral aprobado ni un heartbeat verificable para certificar funcionamiento actual de WhatsApp o IA; permanecen sin verificar. La fecha «Datos obtenidos» es la recepción del resultado en el navegador, no una prueba de actividad de todos los servicios. La frescura PMS reutiliza el umbral existente, sin prometer disponibilidad continua. Los controles de preparación para demo/live conservan su lógica y se presentan separadamente de la verificación operativa.
 
 Los recuentos exactos podrían aumentar el coste de las consultas en hoteles grandes. El deadline evita espera indefinida del cliente; no se afirma que interrumpa toda ejecución SQL ya iniciada en servidor. Un fallo/timeout no autoriza ocultarlo ni sustituirlo por cero. El alcance temporal de cada consulta se conserva (reservas vigentes, logs IA de hoy y límites existentes).
