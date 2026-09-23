@@ -81,3 +81,9 @@ Laboratorio privado en `http://127.0.0.1:3348/dashboard/onboarding`: componentes
 5. Recuperación: conservar migración y registro de operaciones; ante incertidumbre recuperar con la misma clave, nunca generar otra para forzar el alta. Corregir hacia delante; no considerar seguro volver al creador antiguo de escrituras separadas. Una pausa de altas/configuración si fuera necesaria requerirá el alcance de publicación correspondiente; no se pausa nada aquí.
 
 **Estado de auditoría:** corrección técnica local de C1–C3/punto 5 implementada y probada. Falta revisar/aplicar la migración, publicar y verificar el recorrido pertinente en producción para cerrar el punto. PR #15 y sus destinos se conservan; la comprobación pública completa C4/C7 con administrador de un hotel pendiente **sigue abierta**. No se incorporan organizaciones/PR #11, Ubikos, retención, inventarios ni datos de laboratorio. Sin push, SQL remoto, cambios de configuración, limpieza ni envíos.
+
+## Preparación de publicación autorizada
+
+Migración exacta del commit aprobado `71d803e6a2081d18d645267b0f8a99264874c181`: `supabase/sql/add_atomic_hotel_onboarding.sql`. SHA-256 de los bytes LF versionados y del fichero a aplicar: `ba4e0e5b7bd457a33bcc611a0789fe9bf3d33b856f2a9154a912e08473b52af3`. Su contenido no se modifica durante esta revisión.
+
+Origin/main actualizado sigue en `b755ed61cd60211bcf65a1c63d018b4514673aa4`. La revisión confirma transacción única, clave por actor/operación y RPC reservadas a service_role detrás de autorización de servidor. La tabla nueva no tiene acceso directo de clientes. No se activan proveedores ni se modifican flags al crear/finalizar. La aplicación remota queda condicionada al preflight, al CI del SHA final y a la ausencia de incompatibilidades. Las evidencias de catálogo y recuperación se conservarán fuera de Git.
