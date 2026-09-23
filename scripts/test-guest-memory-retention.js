@@ -56,6 +56,23 @@ await test('reservations, conversations and messages continue beyond a batch', a
   assert.equal(result.results[0].changed.guests, 6); assert.equal(result.results[0].conversationsScanned, 6);
   assert.equal(result.results[0].changed.messages, 6);
 });
+await test('resume and repeat revalidate a later stay before any guest-wide mutation', async () => {
+  for (const interrupted of [true, false]) {
+    let updates = 0, failEnabled = interrupted;
+    const db = memoryDb(fixture(), { cap: 1, fail: s => failEnabled && s.table === 'guest_memory' && s.action === 'update' && ++updates === 3 });
+    const first = await run(db);
+    assert.equal(first.complete, !interrupted);
+    // A new stay arrives between executions, on a later cursor page.
+    db.data.reservations.push({ ...db.data.reservations[0], id: id(99999), departure_date: '2026-10-01' });
+    failEnabled = false;
+    const before = structuredClone(db.data);
+    const resumed = await run(db);
+    assert.equal(resumed.complete, true);
+    for (const counter of ['guests', 'guestMemory', 'aiLogs', 'messages', 'experienceBookings']) assert.equal(resumed.results[0].changed[counter], 0);
+    for (const table of ['guests', 'guest_memory', 'ai_logs', 'messages', 'experience_booking_requests']) assert.deepEqual(db.data[table], before[table]);
+    assert.deepEqual(db.data.reservations.at(-1), before.reservations.at(-1));
+  }
+});
 await test('cutoff boundary stays protected and read failure is not an empty successful scope', async () => {
   const data = fixture(); data.reservations[0].departure_date = '2026-08-24';
   const before = structuredClone(data.guest_memory); const db = memoryDb(data);
