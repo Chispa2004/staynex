@@ -3,6 +3,7 @@
 import { CheckCircle2, Clock3, Copy, PlugZap } from 'lucide-react';
 import { useState } from 'react';
 import { ExecutiveBadge, ExecutiveCard } from './ExecutiveCard';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const formatDateTime = (value) => {
@@ -34,6 +35,7 @@ export const PmsProviderCard = ({
   busyAction,
   canManage = true
 }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [copiedWebhook, setCopiedWebhook] = useState(false);
@@ -42,7 +44,7 @@ export const PmsProviderCard = ({
   const pendingSetup = connection?.sync_status === 'pending_setup' || connection?.metadata?.setup_status === 'pending_setup';
   const webhookUrl = connection?.webhook_url || provider.webhookUrl || '';
   const statusTone = connected
-    ? 'emerald'
+    ? 'sky'
     : pendingSetup || provider.status === 'setup_available'
       ? 'amber'
       : provider.status === 'live_api'
@@ -74,21 +76,21 @@ export const PmsProviderCard = ({
           </div>
         </div>
         <ExecutiveBadge tone={statusTone}>
-          {connected ? 'Connected' : pendingSetup ? 'Pending setup' : provider.statusLabel || 'Setup available'}
+          {tx(connected ? 'Configurado; sin verificar' : pendingSetup ? 'Configuración pendiente' : provider.statusLabel || 'Setup available')}
         </ExecutiveBadge>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
-          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Region</p>
+          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>{tx('Region')}</p>
           <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{provider.region || 'Global'}</p>
         </div>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
-          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Type</p>
+          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>{tx('Type')}</p>
           <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{provider.type || 'PMS'}</p>
         </div>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 p-3' : 'rounded-lg border border-white/10 bg-white/[0.025] p-3'}>
-          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>Readiness</p>
+          <p className={isLight ? 'text-xs uppercase tracking-[0.14em] text-slate-500' : 'text-xs uppercase tracking-[0.14em] text-slate-500'}>{tx('Readiness')}</p>
           <p className={isLight ? 'mt-1 text-sm font-semibold text-slate-800' : 'mt-1 text-sm font-semibold text-slate-200'}>{provider.readiness || 'Roadmap'}</p>
         </div>
       </div>
@@ -158,31 +160,31 @@ export const PmsProviderCard = ({
         </div>
       ) : (
         <div className={isLight ? 'mt-5 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500' : 'mt-5 rounded-xl border border-dashed border-white/10 bg-white/[0.025] p-4 text-sm text-slate-500'}>
-          No connection saved yet.
+          {tx('No connection saved yet.')}
         </div>
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
         <button type="button" onClick={() => onEdit(provider, connection)} disabled={!canManage} className="rounded-lg border border-emerald-200/60 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
-          {connection ? 'Manage connection' : liveApi ? 'Connect' : 'Start setup'}
+          {tx(connection ? 'Manage connection' : liveApi ? 'Connect' : 'Start setup')}
         </button>
         <button type="button" onClick={() => onTest(provider)} disabled={!connection || !canManage || busyAction === 'test'} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
           <CheckCircle2 className={busyAction === 'test' ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} />
-          Test Connection
+              {tx("Test Connection")}
         </button>
         <button type="button" onClick={() => onSync(provider)} disabled={!connection || !canManage || busyAction === 'sync' || !liveApi} className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-50'}>
           <Clock3 className={busyAction === 'sync' ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-          {liveApi ? 'Sync Now' : 'Sync locked'}
+          {tx(liveApi ? 'Sync Now' : 'Sync locked')}
         </button>
         {connection ? (
           <button type="button" onClick={() => onDisconnect(connection)} disabled={!canManage} className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50' : 'rounded-lg border border-red-300/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/15 disabled:opacity-50'}>
-            Disconnect
+              {tx("Disconnect")}
           </button>
         ) : null}
       </div>
       {!canManage ? (
         <p className={isLight ? 'mt-3 text-xs text-slate-500' : 'mt-3 text-xs text-slate-500'}>
-          PMS management is available to hotel admins and platform admins.
+          {tx('PMS management is available to hotel admins and platform admins.')}
         </p>
       ) : null}
     </ExecutiveCard>

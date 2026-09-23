@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
+import { getPlatformReadinessAction } from '@/lib/onboarding-navigation';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
@@ -90,38 +92,39 @@ const integrityTone = (status) => {
 };
 
 const GoLiveReadinessPanel = ({ readiness, isLight, liveModeEnabled, saving, onEnable }) => {
+  const { tx } = useDashboardLanguage();
   const checks = readiness?.checks || [];
   const blockers = readiness?.criticalIssues || [];
 
   return (
-    <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+    <section id="hotel-readiness" tabIndex={-1} className={cn('rounded-xl border p-5', ui.surface(isLight))}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className={ui.text.eyebrow(isLight)}>Go-Live Readiness</p>
-          <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>Readiness Center</h2>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Preparación para operar en vivo')}</p>
+          <h2 className={cn('mt-2 text-2xl font-semibold', ui.text.title(isLight))}>{tx('Preparación del hotel')}</h2>
           <p className={cn('mt-2 max-w-3xl text-sm leading-6', ui.text.body(isLight))}>
-            Production validation for PMS, WhatsApp, AI, Automations, Revenue, GDPR, Marketplace and Staff operations.
+            {tx('Revisa los requisitos pendientes. Configuración guardada, conexión verificada y autorización para operar en vivo son estados distintos.')}
           </p>
         </div>
         <div className={cn('rounded-xl border p-4 text-center', isLight ? 'border-emerald-200 bg-emerald-50' : 'border-emerald-300/20 bg-emerald-300/10')}>
-          <p className={ui.text.eyebrow(isLight)}>Readiness</p>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Readiness')}</p>
           <p className={cn('mt-2 text-3xl font-semibold', ui.text.title(isLight))}>{readiness?.readiness_score || 0}%</p>
           <span className={ui.badge(isLight, readiness?.ready_for_live ? 'emerald' : blockers.length ? 'red' : 'amber')}>
-            {liveModeEnabled ? 'Live mode enabled' : readiness?.ready_for_live ? 'Ready for live' : 'Not ready'}
+            {tx(liveModeEnabled ? 'Live mode enabled' : readiness?.ready_for_live ? 'Ready for live' : 'Not ready')}
           </span>
         </div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-4">
-        <DetailStat icon={ShieldCheck} isLight={isLight} label="Healthy checks" value={readiness?.healthy_checks || 0} />
-        <DetailStat icon={AlertTriangle} isLight={isLight} label="Warnings" value={readiness?.warning_checks || 0} />
-        <DetailStat icon={ShieldAlert} isLight={isLight} label="Critical blockers" value={readiness?.critical_checks || 0} />
-        <DetailStat icon={Sparkles} isLight={isLight} label="Missing setup" value={readiness?.missing_checks || 0} />
+        <DetailStat icon={ShieldCheck} isLight={isLight} label={tx('Healthy checks')} value={readiness?.healthy_checks || 0} />
+        <DetailStat icon={AlertTriangle} isLight={isLight} label={tx('Warnings')} value={readiness?.warning_checks || 0} />
+        <DetailStat icon={ShieldAlert} isLight={isLight} label={tx('Critical blockers')} value={readiness?.critical_checks || 0} />
+        <DetailStat icon={Sparkles} isLight={isLight} label={tx('Missing setup')} value={readiness?.missing_checks || 0} />
       </div>
 
       {blockers.length ? (
         <div className={cn('mt-5 rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
-          Hotel not ready for live guests. Resolve critical blockers first.
+          {tx('El hotel no está listo para operar en vivo. Resuelve primero los bloqueos críticos.')}
         </div>
       ) : null}
 
@@ -130,30 +133,25 @@ const GoLiveReadinessPanel = ({ readiness, isLight, liveModeEnabled, saving, onE
           <article key={item.check_type} className={cn('rounded-xl border p-4', isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/[0.025]')}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{item.check_type.replaceAll('_', ' ')}</p>
-                <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{item.category}</p>
+                <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx(item.check_type.replaceAll('_', ' '))}</p>
+                <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>{tx(item.category)}</p>
               </div>
-              <span className={ui.badge(isLight, readinessTone(item.status))}>{item.status}</span>
+              <span className={ui.badge(isLight, readinessTone(item.status))}>{tx(item.status)}</span>
             </div>
-            <p className={cn('mt-3 text-sm leading-6', ui.text.body(isLight))}>{item.message}</p>
+            <p className={cn('mt-3 text-sm leading-6', ui.text.body(isLight))}>{tx(item.message)}</p>
+            {item.status !== 'healthy' ? <div className="mt-3 space-y-2">
+              <p className={cn('text-sm leading-6', ui.text.body(isLight))}>{tx(getPlatformReadinessAction(item.check_type).help)}</p>
+              {getPlatformReadinessAction(item.check_type).href ? <a className="inline-block text-sm font-semibold underline" href={getPlatformReadinessAction(item.check_type).href}>
+                {tx(getPlatformReadinessAction(item.check_type).label)}
+              </a> : null}
+            </div> : null}
           </article>
         ))}
       </div>
 
-      {readiness?.recommendations?.length ? (
-        <div className={cn('mt-5 rounded-xl border p-4', isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-black/10')}>
-          <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>Recommended actions</p>
-          <div className="mt-3 grid gap-2">
-            {readiness.recommendations.map((item) => (
-              <p key={item} className={cn('text-sm leading-6', ui.text.body(isLight))}>{item}</p>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className={cn('text-xs', ui.text.muted(isLight))}>
-          Threshold: {readiness?.threshold || 80}% and no critical blockers.
+          Umbral: {readiness?.threshold || 80}% y ningún bloqueo crítico.
         </p>
         <button
           type="button"
@@ -162,7 +160,7 @@ const GoLiveReadinessPanel = ({ readiness, isLight, liveModeEnabled, saving, onE
           className={cn('inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50', isLight ? 'border-emerald-200 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-emerald-300/20 bg-emerald-300 text-slate-950 hover:bg-emerald-200')}
         >
           <Sparkles className={saving ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
-          {liveModeEnabled ? 'Live Mode enabled' : saving ? 'Enabling...' : 'Enable Live Mode'}
+          {tx(liveModeEnabled ? 'Live Mode enabled' : saving ? 'Enabling...' : 'Enable Live Mode')}
         </button>
       </div>
     </section>
@@ -170,6 +168,7 @@ const GoLiveReadinessPanel = ({ readiness, isLight, liveModeEnabled, saving, onE
 };
 
 export const PlatformHotelDetailClient = ({ hotelId }) => {
+  const { tx } = useDashboardLanguage();
   const router = useRouter();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -491,17 +490,18 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
-        <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
-          <p className={ui.text.eyebrow(isLight)}>Branding management</p>
-          <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>Workspace identity</h2>
+        <section id="hotel-profile" tabIndex={-1} className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+          <a href="#hotel-readiness" className="text-sm font-semibold underline">Volver a la preparación del hotel</a>
+          <p className={ui.text.eyebrow(isLight)}>{tx('Branding management')}</p>
+          <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{tx('Workspace identity')}</h2>
           {form ? (
             <form onSubmit={saveBranding} className="mt-5 grid gap-3 md:grid-cols-2">
               <label className="space-y-1.5">
-                <span className={ui.text.eyebrow(isLight)}>Hotel name</span>
+                <span className={ui.text.eyebrow(isLight)}>{tx('Hotel name')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.name} onChange={(event) => updateForm('name', event.target.value)} required />
               </label>
               <label className="space-y-1.5">
-                <span className={ui.text.eyebrow(isLight)}>Brand name</span>
+                <span className={ui.text.eyebrow(isLight)}>{tx('Brand name')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.brand_name} onChange={(event) => updateForm('brand_name', event.target.value)} />
               </label>
               <label className="space-y-1.5">
@@ -509,15 +509,15 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
                 <input className={cn('w-full', ui.input(isLight))} value={form.slug} onChange={(event) => updateForm('slug', event.target.value)} />
               </label>
               <label className="space-y-1.5">
-                <span className={ui.text.eyebrow(isLight)}>Country code</span>
+                <span className={ui.text.eyebrow(isLight)}>{tx('Country code')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.country_code} onChange={(event) => updateForm('country_code', event.target.value)} maxLength={2} />
               </label>
               <label className="space-y-1.5">
-                <span className={ui.text.eyebrow(isLight)}>City</span>
+                <span className={ui.text.eyebrow(isLight)}>{tx('City')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.city} onChange={(event) => updateForm('city', event.target.value)} />
               </label>
               <label className="space-y-1.5">
-                <span className={ui.text.eyebrow(isLight)}>Timezone</span>
+                <span className={ui.text.eyebrow(isLight)}>{tx('Timezone')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.timezone} onChange={(event) => updateForm('timezone', event.target.value)} placeholder="Europe/Madrid" />
               </label>
               <label className="space-y-1.5">
@@ -527,20 +527,20 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
                 </select>
               </label>
               <label className="space-y-1.5">
-                <span className={ui.text.eyebrow(isLight)}>Brand color</span>
+                <span className={ui.text.eyebrow(isLight)}>{tx('Brand color')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.brand_color} onChange={(event) => updateForm('brand_color', event.target.value)} />
               </label>
               <label className="space-y-1.5">
-                <span className={ui.text.eyebrow(isLight)}>Secondary color</span>
+                <span className={ui.text.eyebrow(isLight)}>{tx('Secondary color')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.secondary_color} onChange={(event) => updateForm('secondary_color', event.target.value)} />
               </label>
               <label className="space-y-1.5">
-                <span className={ui.text.eyebrow(isLight)}>Support email</span>
+                <span className={ui.text.eyebrow(isLight)}>{tx('Support email')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.support_email} onChange={(event) => updateForm('support_email', event.target.value)} />
               </label>
               <label className="space-y-1.5">
                 <span className={ui.text.eyebrow(isLight)}>WhatsApp</span>
-                <input className={cn('w-full', ui.input(isLight))} value={form.whatsapp_number} onChange={(event) => updateForm('whatsapp_number', event.target.value)} />
+                <input className={cn('w-full', ui.input(isLight))} id="hotel-whatsapp" value={form.whatsapp_number} onChange={(event) => updateForm('whatsapp_number', event.target.value)} />
               </label>
               <div className="flex flex-col gap-3 md:col-span-2 md:flex-row md:items-center md:justify-between">
                 <span className={ui.badge(isLight, integrityTone(form.timezone_integrity_status), true)}>
@@ -549,17 +549,17 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
                 <div className="flex flex-wrap gap-2">
                   <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('verified')} className={ui.button(isLight, 'secondary')}>
                     <BadgeCheck className="h-4 w-4" aria-hidden="true" />
-                    Verify timezone
+                    {tx('Verify timezone')}
                   </button>
                   <button type="button" disabled={saving} onClick={() => confirmTimezoneIntegrity('manual_override')} className={ui.button(isLight, 'ghost')}>
-                    Manual override
+                    {tx('Manual override')}
                   </button>
                 </div>
               </div>
               <div className="md:col-span-2">
                 <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
                   <Save className="h-4 w-4" aria-hidden="true" />
-                  {saving ? 'Saving...' : 'Save branding'}
+                  {tx(saving ? 'Saving...' : 'Save branding')}
                 </button>
               </div>
             </form>
@@ -567,21 +567,22 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
         </section>
 
         <aside className="space-y-6">
-          <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
-            <p className={ui.text.eyebrow(isLight)}>PMS status</p>
+          <section id="hotel-pms" tabIndex={-1} className={cn('rounded-xl border p-5', ui.surface(isLight))}>
+            <a href="#hotel-readiness" className="text-sm font-semibold underline">Volver a la preparación del hotel</a>
+            <p className={ui.text.eyebrow(isLight)}>{tx('PMS status')}</p>
             <div className="mt-4 space-y-3">
               {pmsConnections.map((connection) => (
                 <div key={connection.id} className={cn('rounded-lg border p-3 text-sm', ui.surface(isLight, 'subtle'))}>
                   <div className="flex items-center justify-between gap-3">
                     <strong>{connection.provider}</strong>
-                    <span className={ui.badge(isLight, connection.enabled ? 'emerald' : 'slate', true)}>{connection.enabled ? 'Connected' : 'Disabled'}</span>
+                    <span className={ui.badge(isLight, connection.enabled ? 'emerald' : 'slate', true)}>{connection.enabled ? 'Configurado; sin verificar' : 'Desactivado'}</span>
                   </div>
                   <p className={cn('mt-2 text-xs', ui.text.muted(isLight))}>Last sync: {formatDate(connection.last_sync_at)}</p>
                   <p className={cn('mt-1 text-xs', ui.text.muted(isLight))}>Webhook: {connection.webhook_status || 'not configured'}</p>
                   {connection.last_sync_error ? <p className="mt-2 text-xs text-red-400">{connection.last_sync_error}</p> : null}
                 </div>
               ))}
-              {pmsConnections.length === 0 ? <p className={cn('text-sm', ui.text.muted(isLight))}>No PMS connection configured.</p> : null}
+              {pmsConnections.length === 0 ? <p className={cn('text-sm', ui.text.muted(isLight))}>{tx('No PMS connection configured.')}</p> : null}
             </div>
           </section>
 
@@ -657,10 +658,11 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
 
       <ExperienceProvidersPanel hotelId={hotelId} />
 
-      <section className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
+      <section id="hotel-users" tabIndex={-1} className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
+        <a href="#hotel-readiness" className="inline-block p-4 text-sm font-semibold underline">Volver a la preparación del hotel</a>
         <div className={cn('border-b px-4 py-3', isLight ? 'border-slate-200' : 'border-white/10')}>
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>Hotel users</h2>
+            <h2 className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx('Hotel users')}</h2>
             <p className={cn('text-xs', ui.text.muted(isLight))}>
               {usersByStatus.admins} admins / {usersByStatus.receptionists} receptionists / {usersByStatus.invited} invited / {usersByStatus.disabled} disabled
             </p>
@@ -680,8 +682,8 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
                 {hotelUser.status || 'unknown'}
               </span>
               <div className="flex flex-wrap gap-2 lg:justify-end">
-                <button type="button" onClick={() => runUserAction({ action: 'reset_invitation', hotelUserId: hotelUser.id })} className={ui.button(isLight, 'secondary')}>Reset invitation</button>
-                <button type="button" onClick={() => runUserAction({ action: 'disable_user', hotelUserId: hotelUser.id })} className={ui.button(isLight, 'danger')}>Disable</button>
+                <button type="button" onClick={() => runUserAction({ action: 'reset_invitation', hotelUserId: hotelUser.id })} className={ui.button(isLight, 'secondary')}>{tx('Reset invitation')}</button>
+                <button type="button" onClick={() => runUserAction({ action: 'disable_user', hotelUserId: hotelUser.id })} className={ui.button(isLight, 'danger')}>{tx('Disable')}</button>
               </div>
             </article>
           ))}
