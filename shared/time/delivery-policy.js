@@ -1,3 +1,5 @@
+import { validateIanaTimeZone } from './timezone-validation.js';
+export { validateIanaTimeZone } from './timezone-validation.js';
 import { createHash } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
 
@@ -17,7 +19,6 @@ export const DEFAULT_QUIET_HOURS_POLICY = Object.freeze({
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const CLOCK_PATTERN = /^(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
-const FIXED_OFFSET_TIME_ZONE_PATTERN = /^[+-](?:2[0-3]|[01]\d):?[0-5]\d$/;
 const MINUTE_MS = 60 * 1000;
 const SECOND_MS = 1000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
@@ -123,43 +124,6 @@ const parseClockParts = (value, { minuteOnly = false } = {}) => {
       + second * SECOND_MS
       + millisecond
   };
-};
-
-export const validateIanaTimeZone = (timeZone) => {
-  if (typeof timeZone !== 'string') {
-    return invalid('timezone_invalid', { timezone: null, normalizedTimezone: null });
-  }
-
-  const input = timeZone.trim();
-
-  if (!input || FIXED_OFFSET_TIME_ZONE_PATTERN.test(input)) {
-    return invalid('timezone_invalid', { timezone: null, normalizedTimezone: null });
-  }
-
-  try {
-    const zonedDateTime = Temporal.ZonedDateTime.from({
-      year: 2026,
-      month: 1,
-      day: 1,
-      hour: 0,
-      minute: 0,
-      timeZone: input
-    });
-    const normalizedTimezone = zonedDateTime.timeZoneId;
-
-    return {
-      valid: true,
-      input,
-      timezone: normalizedTimezone,
-      normalizedTimezone
-    };
-  } catch (error) {
-    return invalid('timezone_invalid', {
-      timezone: null,
-      normalizedTimezone: null,
-      error: error.message
-    });
-  }
 };
 
 export const normalizeLocalClock = (value) => {

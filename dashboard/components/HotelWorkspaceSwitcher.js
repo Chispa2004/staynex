@@ -2,6 +2,9 @@
 
 import { Building2, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { submitHotelCreation, hasPendingHotelCreation } from '@/lib/hotel-creation-client';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
+import { HotelFieldErrors } from '@/components/HotelFieldErrors';
 import { ROLE_LABELS } from '@/lib/permissions';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
@@ -49,8 +52,11 @@ export const HotelWorkspaceSwitcher = ({
   canCreateWorkspaces = false,
   onSwitch,
   accessToken,
+  actorId,
   onWorkspaceCreated
 }) => {
+  const { tx } = useDashboardLanguage();
+  const [canRecover, setCanRecover] = useState(false);
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [open, setOpen] = useState(false);
@@ -62,6 +68,8 @@ export const HotelWorkspaceSwitcher = ({
   const [workspaceTimezone, setWorkspaceTimezone] = useState('');
   const [createError, setCreateError] = useState(null);
   const containerRef = useRef(null);
+  const creatingRef = useRef(false);
+  const [fieldErrors, setFieldErrors] = useState(null);
   const canSwitch = canSwitchWorkspaces && availableHotels.length > 1;
   const canCreateWorkspace = canCreateWorkspaces;
   const canOpenMenu = canSwitch || canCreateWorkspace;
@@ -77,6 +85,8 @@ export const HotelWorkspaceSwitcher = ({
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, []);
 
+  useEffect(() => { setCanRecover(hasPendingHotelCreation('workspace',actorId)); }, [actorId,createOpen]);
+
   const handleSwitch = (hotelId) => {
     if (!hotelId || hotelId === currentHotel?.id || switching) {
       setOpen(false);
@@ -87,45 +97,34 @@ export const HotelWorkspaceSwitcher = ({
     setOpen(false);
   };
 
-  const handleCreateWorkspace = async (event) => {
+  const handleCreateWorkspace = async (event, recover = false) => {
     event.preventDefault();
 
-    if (!workspaceName.trim() || !workspaceCountryCode.trim() || !workspaceCity.trim() || !workspaceTimezone.trim() || creating) {
+    if (creatingRef.current || (!recover && (!workspaceName.trim() || !workspaceCountryCode.trim() || !workspaceCity.trim() || !workspaceTimezone.trim()))) {
       return;
     }
 
+    creatingRef.current = true;
+    setFieldErrors(null);
     setCreating(true);
     setCreateError(null);
 
     try {
-      const response = await fetch('/api/workspaces', {
-        method: 'POST',
-        headers: {
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: workspaceName,
-          country_code: workspaceCountryCode,
-          city: workspaceCity,
-          timezone: workspaceTimezone
-        })
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not create workspace');
-      }
-
+      const body = await submitHotelCreation({mode:'workspace',actorId,recover,form:{name:workspaceName,country_code:workspaceCountryCode,city:workspaceCity,timezone:workspaceTimezone},headers:accessToken?{Authorization: `Bearer ${accessToken}`}:{}});
+      setCanRecover(false);
       setWorkspaceName('');
       setWorkspaceCountryCode('');
       setWorkspaceCity('');
       setWorkspaceTimezone('');
       setCreateOpen(false);
+      setOpen(false);
       onWorkspaceCreated?.(body.hotel?.id);
     } catch (error) {
       setCreateError(error.message);
+      setFieldErrors(error.fields);
+      setCanRecover(Boolean(error.needsRecovery));
     } finally {
+      creatingRef.current = false;
       setCreating(false);
     }
   };
@@ -178,7 +177,7 @@ export const HotelWorkspaceSwitcher = ({
           role="listbox"
         >
           <div className={isLight ? 'border-b border-slate-100 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500' : 'border-b border-white/10 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500'}>
-            Switch workspace
+            {tx('Cambiar hotel')}
           </div>
           <div className="max-h-72 overflow-y-auto p-1.5">
             {availableHotels.map((assignment) => {
@@ -221,34 +220,40 @@ export const HotelWorkspaceSwitcher = ({
               {createOpen ? (
                 <form onSubmit={handleCreateWorkspace} className="space-y-2">
                   <input
+                    aria-label={tx('Nombre del hotel')}
                     value={workspaceName}
                     onChange={(event) => setWorkspaceName(event.target.value)}
-                    placeholder="New hotel workspace"
+                    placeholder={tx('Nuevo hotel')}
                     className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
                   />
                   <div className="grid gap-2 sm:grid-cols-2">
                     <input
+                      aria-label={tx('Código de país')}
                       value={workspaceCountryCode}
                       onChange={(event) => setWorkspaceCountryCode(event.target.value)}
-                      placeholder="Country code"
+                      placeholder={tx('Country code')}
                       maxLength={2}
                       className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
                     />
                     <input
+                      aria-label={tx('Ciudad')}
                       value={workspaceCity}
                       onChange={(event) => setWorkspaceCity(event.target.value)}
-                      placeholder="City"
+                      placeholder={tx('City')}
                       className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
                     />
                   </div>
                   <input
+                    aria-label={tx('Zona horaria')}
                     value={workspaceTimezone}
                     onChange={(event) => setWorkspaceTimezone(event.target.value)}
                     placeholder="Europe/Madrid"
                     className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
                   />
+                  <HotelFieldErrors fields={fieldErrors} />
+                  {canRecover ? <button type="button" disabled={creating} className="rounded border px-3 py-2 text-sm" onClick={event => handleCreateWorkspace(event, true)}>{tx('Recuperar alta pendiente')}</button> : null}
                   {createError ? (
-                    <p className="text-xs font-medium text-red-500">{createError}</p>
+                    <p role="alert" className="text-xs font-medium text-red-500">{tx(createError)}</p>
                   ) : null}
                   <div className="flex gap-2">
                     <button
@@ -256,7 +261,7 @@ export const HotelWorkspaceSwitcher = ({
                       disabled={creating || !workspaceName.trim() || !workspaceCountryCode.trim() || !workspaceCity.trim() || !workspaceTimezone.trim()}
                       className="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-emerald-200 disabled:opacity-60"
                     >
-                      {creating ? 'Creating...' : 'Create'}
+                      {tx(creating ? 'Creando...' : 'Crear')}
                     </button>
                     <button
                       type="button"
@@ -266,7 +271,7 @@ export const HotelWorkspaceSwitcher = ({
                       }}
                       className={isLight ? 'rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50' : 'rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/[0.05]'}
                     >
-                      Cancel
+                      {tx('Cancel')}
                     </button>
                   </div>
                 </form>
@@ -276,7 +281,7 @@ export const HotelWorkspaceSwitcher = ({
                   onClick={() => setCreateOpen(true)}
                   className={isLight ? 'w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950' : 'w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-400 transition hover:bg-white/[0.05] hover:text-white'}
                 >
-                  Create new hotel workspace
+                  {tx('Crear nuevo hotel')}
                 </button>
               )}
             </div>

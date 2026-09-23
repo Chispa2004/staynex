@@ -1,93 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
-import { buildValidatedHotelCreationInput } from '../../../../shared/location/hotel-location-integrity.js';
-
-const slugify = (value) => String(value || 'hotel')
-  .trim()
-  .toLowerCase()
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/[^a-z0-9]+/g, '-')
-  .replace(/^-+|-+$/g, '')
-  .slice(0, 48) || 'hotel';
-
-const normalizeOptional = (value) => {
-  const text = String(value || '').trim();
-  return text || null;
-};
+import { createHotelAtomically } from '@/lib/hotel-creation';
+import { readHotelJson } from '../../../../shared/onboarding/hotel-fields.js';
 
 export async function POST(request) {
   try {
     const context = await getCurrentHotelForRequest(request);
     const { supabase, user } = context;
-
     if (!context.canCreateWorkspaces || !user?.id || !user?.email) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
-
-    const body = await request.json();
-    const name = normalizeOptional(body.name);
-    const locationPayload = buildValidatedHotelCreationInput(body);
-
-    if (!name) {
-      return NextResponse.json({ error: 'Hotel name is required' }, { status: 400 });
-    }
-
-    const suffix = Math.random().toString(36).slice(2, 7);
-    const baseSlug = slugify(body.workspaceSlug || name);
-    const slug = `${baseSlug}-${suffix}`;
-
-    const { data: hotel, error: hotelError } = await supabase
-      .from('hotels')
-      .insert({
-        name,
-        brand_name: normalizeOptional(body.brandName) || name,
-        slug,
-        workspace_slug: slug,
-        country_code: locationPayload.country_code,
-        city: locationPayload.city,
-        timezone: locationPayload.timezone,
-        timezone_integrity_status: locationPayload.timezone_integrity_status,
-        default_language: normalizeOptional(body.defaultLanguage) || 'es',
-        brand_color: normalizeOptional(body.brandColor) || '#34d399',
-        secondary_color: normalizeOptional(body.secondaryColor) || '#0f766e',
-        subscription_plan: 'workspace_trial'
-      })
-      .select('*')
-      .single();
-
-    if (hotelError) {
-      throw hotelError;
-    }
-
-    const { data: hotelUser, error: userError } = await supabase
-      .from('hotel_users')
-      .insert({
-        hotel_id: hotel.id,
-        user_id: user.id,
-        email: user.email,
-        role: 'owner',
-        status: 'active',
-        is_default: false,
-        accepted_at: new Date().toISOString()
-      })
-      .select('*')
-      .single();
-
-    if (userError) {
-      throw userError;
-    }
-
-    return NextResponse.json({
-      ok: true,
-      hotel,
-      hotelUser,
-      role: hotelUser.role
-    });
+    const body = await readHotelJson(request);
+    const result = await createHotelAtomically({supabase,user,body,key:request.headers.get('Idempotency-Key'),mode:'workspace'});
+    return NextResponse.json(result, {status:result.replayed ? 200 : 201});
   } catch (error) {
-    console.error('Workspace creation failed', error);
-    return NextResponse.json({
-      error: error.message || 'Could not create workspace'
-    }, { status: error.status || 500 });
+    return NextResponse.json({error:error.message || 'No se pudo confirmar el alta.',fields:error.fields}, {status:error.status || 500});
   }
 }

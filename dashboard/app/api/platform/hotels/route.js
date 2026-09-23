@@ -1,3 +1,5 @@
+import { createHotelAtomically } from '@/lib/hotel-creation';
+import { validateHotelFields, readHotelJson } from '../../../../../shared/onboarding/hotel-fields.js';
 import { NextResponse } from 'next/server';
 import {
   getPlatformContext,
@@ -9,7 +11,6 @@ import {
 import {
   buildSafeLocationChangeAudit,
   confirmHotelTimezoneIntegrity,
-  buildValidatedHotelCreationInput,
   buildValidatedHotelProfileUpdate
 } from '../../../../../shared/location/hotel-location-integrity.js';
 
@@ -102,6 +103,7 @@ export async function GET(request) {
     return NextResponse.json({
       hotels: [],
       metrics: {},
+      fields: error.fields,
       error: error.message || 'Could not load platform hotels'
     }, { status: error.status || 500 });
   }
@@ -110,60 +112,10 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
-    const body = await request.json();
-    const adminEmail = normalizeOptional(body.admin_email || body.adminEmail)?.toLowerCase();
-    const payload = buildHotelPayload(body);
-    const locationPayload = buildValidatedHotelCreationInput(body);
-    const uniqueSlug = await getUniqueSlug({ supabase, slug: payload.slug });
-
-    if (!adminEmail || !adminEmail.includes('@')) {
-      return NextResponse.json({ error: 'A valid admin email is required' }, { status: 400 });
-    }
-
-    const { data: hotel, error: hotelError } = await supabase
-      .from('hotels')
-      .insert({
-        ...payload,
-        ...locationPayload,
-        slug: uniqueSlug,
-        workspace_slug: uniqueSlug
-      })
-      .select('*')
-      .single();
-
-    if (hotelError) {
-      throw hotelError;
-    }
-
-    const now = new Date().toISOString();
-
-    await supabase
-      .from('hotel_onboarding_state')
-      .insert({
-        hotel_id: hotel.id,
-        current_step: 'hotel_setup',
-        completed_steps: [],
-        onboarding_completed: false,
-        created_at: now,
-        updated_at: now
-      });
-
-    const { data: hotelUser, error: userError } = await supabase
-      .from('hotel_users')
-      .insert({
-        hotel_id: hotel.id,
-        email: adminEmail,
-        role: 'admin',
-        status: 'invited',
-        is_default: true,
-        invited_at: now
-      })
-      .select('*')
-      .single();
-
-    if (userError) {
-      throw userError;
-    }
+    const body = await readHotelJson(request);
+    const result = await createHotelAtomically({ supabase, user, body, key: request.headers.get('Idempotency-Key'), mode: 'platform' });
+    const { hotel, hotelUser } = result;
+    const adminEmail = hotelUser.email;
 
     await writePlatformAuditLog({
       supabase,
@@ -180,12 +132,11 @@ export async function POST(request) {
     });
 
     return NextResponse.json({
-      ok: true,
-      hotel,
-      hotelUser
-    }, { status: 201 });
+      ...result
+    }, { status: result.replayed ? 200 : 201 });
   } catch (error) {
     return NextResponse.json({
+      fields: error.fields,
       error: error.message || 'Could not create hotel workspace'
     }, { status: error.status || 500 });
   }
@@ -194,7 +145,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
-    const body = await request.json();
+    const body = await readHotelJson(request);
 
     if (!body.id) {
       return NextResponse.json({ error: 'Hotel id is required' }, { status: 400 });
@@ -241,11 +192,8 @@ export async function PATCH(request) {
       throw lookupError;
     }
 
-    const payload = buildHotelPayload({
-      ...existingHotel,
-      ...body,
-      name: body.name || existingHotel.name
-    });
+    const validated = validateHotelFields(body);
+    const payload = buildHotelPayload({ ...existingHotel, ...validated });
     const locationUpdate = buildValidatedHotelProfileUpdate({ body, existingHotel });
     const uniqueSlug = await getUniqueSlug({
       supabase,
@@ -297,6 +245,7 @@ export async function PATCH(request) {
     return NextResponse.json({ hotel });
   } catch (error) {
     return NextResponse.json({
+      fields: error.fields,
       error: error.message || 'Could not update hotel'
     }, { status: error.status || 500 });
   }

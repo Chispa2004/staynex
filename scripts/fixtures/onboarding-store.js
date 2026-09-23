@@ -8,7 +8,16 @@ export const createOnboardingStore = () => {
     hotel_onboarding_state: [{ id: 'state-a', hotel_id: hotel.id, current_step: 'users', completed_steps: [], onboarding_completed: false }],
     hotel_knowledge: [], local_knowledge_items: [], hotel_pms_connections: [] };
   const store = { tables, failNextWrite: false, writes: [], role: 'admin', platformRole: 'none', fallback: false };
-  store.supabase = { from(table) {
+  store.supabase = { async rpc(name,args) {
+    if(name !== 'save_hotel_onboarding_v1') throw new Error('Unexpected synthetic RPC '+name);
+    if(store.failNextWrite) {store.failNextWrite=false;return {data:null,error:{message:'No se pudo guardar. Reintenta.'}};}
+    let row=tables.hotel_onboarding_state.find(item=>item.hotel_id===args.p_hotel_id);
+    if(!row){row={id:'synthetic-state-'+args.p_hotel_id,hotel_id:args.p_hotel_id};tables.hotel_onboarding_state.push(row);}
+    Object.assign(row,{current_step:args.p_step,completed_steps:args.p_steps,onboarding_completed:row.onboarding_completed||args.p_completed,
+      onboarding_completed_at:row.onboarding_completed_at||(args.p_completed?new Date().toISOString():null)});
+    store.writes.push({table:'hotel_onboarding_state',mode:'rpc',ids:[row.id]});
+    return {data:structuredClone(row),error:null};
+  }, from(table) {
     let filters = [], mode = 'read', patch, single = false, limit = Infinity;
     const query = {
       select() { return query; }, order() { return query; },

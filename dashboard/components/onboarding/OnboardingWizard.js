@@ -1,5 +1,7 @@
 'use client';
 
+import { confirmedOnboardingResult } from '@/lib/hotel-creation-client';
+import { HotelFieldErrors } from '@/components/HotelFieldErrors';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -70,6 +72,8 @@ export const OnboardingWizard = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [profileDirty, setProfileDirty] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState(null);
   const [access, setAccess] = useState({ role: null, platformRole: null, fallback: false });
 
   const steps = pilot?.blocks?.length ? pilot.blocks : fallbackSteps;
@@ -104,6 +108,7 @@ export const OnboardingWizard = () => {
       setPilot(nextPilot);
       setCurrentStep(nextPilot?.blocks?.some((block) => block.id === nextCurrentStep) ? nextCurrentStep : fallbackSteps[0].id);
       setSuccess(null);
+      if (body.schemaReady === false) setError('No se puede finalizar: falta instalar el contrato de onboarding. Pide ayuda a Staynex.');
     } catch (caughtError) {
       setError(sanitizeError(caughtError.message));
     } finally {
@@ -115,12 +120,13 @@ export const OnboardingWizard = () => {
     load();
   }, [load]);
 
-  const saveProgress = async ({ nextStep = currentStep, completed = Boolean(state?.onboarding_completed) } = {}) => {
+  const saveProgress = async ({ nextStep = currentStep, completed = false } = {}) => {
     if (!canManage) {
       setError('No tienes permiso para modificar la configuración piloto.');
       return false;
     }
 
+    setFieldErrors(null);
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -130,6 +136,7 @@ export const OnboardingWizard = () => {
         method: 'PATCH',
         headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          hotelId: hotel.id,
           current_step: nextStep,
           completed_steps: completedBlocks.map((block) => block.id),
           onboarding_completed: completed
@@ -138,18 +145,20 @@ export const OnboardingWizard = () => {
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'No se pudo guardar el progreso.');
+        throw Object.assign(new Error(body.error || 'No se pudo guardar el progreso.'), {fields:body.fields});
       }
 
-      setState(body.state || null);
-      setCurrentStep(body.state?.current_step || nextStep);
+      confirmedOnboardingResult(body, hotel.id, completed);
+      setState(body.state);
+      setCurrentStep(body.state.current_step);
       setSuccess(completed ? 'Configuración disponible marcada como completada.' : 'Progreso guardado.');
       window.dispatchEvent(new CustomEvent('staynex:onboarding-updated', {
-        detail: { state: body.state }
+        detail: { state: body.state, completionConfirmed: completed }
       }));
 
       return true;
     } catch (caughtError) {
+      setFieldErrors(caughtError.fields);
       setError(sanitizeError(caughtError.message));
       return false;
     } finally {
@@ -176,13 +185,14 @@ export const OnboardingWizard = () => {
   };
 
   const completeConfiguration = async () => {
+    if (profileDirty || saving) return;
     const saved = await saveProgress({
       nextStep: 'readiness',
       completed: true
     });
 
     if (saved) {
-      router.push(pilot?.completion?.redirectHref || '/dashboard/health');
+      router.push('/dashboard/health');
     }
   };
 
@@ -251,6 +261,7 @@ export const OnboardingWizard = () => {
         />
       </div>
 
+      <HotelFieldErrors fields={fieldErrors} />
       {error ? (
         <div role="alert" className={ui.notice(isLight, 'danger')}>
           {error}
@@ -303,6 +314,7 @@ export const OnboardingWizard = () => {
             isLight={isLight}
             canManage={canManage}
             onHotelSaved={handleHotelSaved}
+            onDirtyChange={setProfileDirty}
             onSelectStep={setCurrentStep}
             access={access}
           />
@@ -320,7 +332,7 @@ export const OnboardingWizard = () => {
               <button
                 type="button"
                 onClick={completeConfiguration}
-                disabled={saving || !pilot?.completion?.canCompleteConfiguration || !canManage}
+                disabled={saving || profileDirty || !pilot?.completion?.canCompleteConfiguration || !canManage}
                 className={ui.button(isLight, 'primary')}
               >
                 <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
@@ -351,10 +363,10 @@ const ReadyPanel = ({ isLight, title, ready, description }) => (
   </ExecutiveCard>
 );
 
-const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onSelectStep, access }) => {
+const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onDirtyChange, onSelectStep, access }) => {
   const { tx } = useDashboardLanguage();
   if (block?.id === 'hotel' || block?.id === 'whatsapp') {
-    return <StepHotelSetup hotel={hotel} canEdit={canManage} onSaved={onHotelSaved} focusField={block?.id === 'whatsapp' ? 'whatsapp_number' : null} />;
+    return <StepHotelSetup hotel={hotel} canEdit={canManage} onSaved={onHotelSaved} onDirtyChange={onDirtyChange} focusField={block?.id === 'whatsapp' ? 'whatsapp_number' : null} />;
   }
 
   if (block?.id === 'readiness') {

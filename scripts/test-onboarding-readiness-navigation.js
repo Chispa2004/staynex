@@ -1,3 +1,5 @@
+import * as fields from '../shared/onboarding/hotel-fields.js';
+import * as creationClient from '../dashboard/lib/hotel-creation-client.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -50,6 +52,7 @@ const onboarding = await compile('../dashboard/lib/onboarding.js', {
   '../../shared/pms/safe-connection.js': pms, './system-health.js': health
 });
 const stateRoute = await compile('../dashboard/app/api/onboarding/state/route.js', {
+  '../../../../../shared/onboarding/hotel-fields.js': fields, '../../../../../shared/location/hotel-location-integrity.js': location,
   'next/server': next, '@/lib/onboarding': onboarding, '@/lib/pilot-onboarding': pilot, '@/lib/enterprise-audit': audit
 });
 const usersRoute = await compile('../dashboard/app/api/settings/users/route.js', {
@@ -57,7 +60,7 @@ const usersRoute = await compile('../dashboard/app/api/settings/users/route.js',
 });
 const hotelRoute = await compile('../dashboard/app/api/onboarding/hotel/route.js', {
   'next/server': next, '@/lib/current-hotel': currentHotel, '@/lib/enterprise-audit': audit,
-  '../../../../../shared/location/hotel-location-integrity.js': location
+  '../../../../../shared/location/hotel-location-integrity.js': location, '../../../../../shared/onboarding/hotel-fields.js': fields
 });
 const request = (method = 'GET', body, hotelId = 'hotel-onboarding-a') => new Request('http://localhost/api/test', {
   method, headers: { 'content-type': 'application/json', 'x-staynex-hotel-id': hotelId },
@@ -91,7 +94,7 @@ store.role = 'admin';
 assert.equal((await hotelRoute.PATCH(request('PATCH', { hotelId: 'hotel-onboarding-b', name: 'Attack' }))).status, 403);
 const oldNumber = store.tables.hotels[0].whatsapp_number;
 store.failNextWrite = true;
-assert.equal((await hotelRoute.PATCH(request('PATCH', { whatsapp_number: '+34000000000' }))).status, 400);
+assert.equal((await hotelRoute.PATCH(request('PATCH', { whatsapp_number: '+34000000000' }))).status, 503);
 assert.equal(store.tables.hotels[0].whatsapp_number, oldNumber);
 assert.equal((await hotelRoute.PATCH(request('PATCH', { whatsapp_number: '+34000000000' }))).status, 200);
 result = await read();
@@ -103,7 +106,7 @@ assert.deepEqual(store.tables.hotels[0].metadata, {});
 console.log('PASS hotel/role isolation, hotel save recovery and unchanged live/AI guards');
 
 const view = await compile('../dashboard/components/onboarding/OnboardingWizard.js', {
-  'next/navigation': {}, './StepHotelSetup': {}, '@/components/ExecutiveCard': {}, '@/lib/auth-headers': {},
+  '@/components/HotelFieldErrors': {}, '@/lib/hotel-creation-client': creationClient, 'next/navigation': {}, './StepHotelSetup': {}, '@/components/ExecutiveCard': {}, '@/lib/auth-headers': {},
   '@/lib/theme/useDashboardTheme': {}, '@/lib/ui/styles': styles, '@/lib/onboarding-navigation': navigation,
   '@/lib/i18n/useDashboardLanguage': { useDashboardLanguage: () => ({ tx: value => translatePhrase('es', value) }) },
   'next/link': ({ children, ...props }) => React.createElement('a', props, children)
@@ -126,7 +129,7 @@ assert(platform('gdpr_cleanup_ready').help.includes('autorización separadas'));
 console.log('PASS rendered actions, permission explanation, real destinations and external dependencies');
 
 const detailView = await compile('../dashboard/components/PlatformHotelDetailClient.js', {
-  'next/navigation': {}, '@/lib/supabase-browser': {}, '@/lib/workspace-context': {},
+  '../../shared/onboarding/hotel-fields.js': fields, '@/components/HotelFieldErrors': {}, 'next/navigation': {}, '@/lib/supabase-browser': {}, '@/lib/workspace-context': {},
   '@/lib/theme/useDashboardTheme': {}, '@/lib/ui/styles': styles,
   './PremiumEmptyState': {}, './ExperienceProvidersPanel': {},
   '@/lib/onboarding-navigation': navigation,

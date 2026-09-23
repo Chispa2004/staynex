@@ -1,3 +1,4 @@
+import { validateHotelFields, readHotelJson } from '../../../../../shared/onboarding/hotel-fields.js';
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
@@ -24,15 +25,11 @@ const allowedFields = [
   'description'
 ];
 
-const cleanText = (value) => (
-  typeof value === 'string' && value.trim() ? value.trim() : null
-);
-
 export async function PATCH(request) {
   try {
     const context = await getCurrentHotelForRequest(request);
     const { supabase, hotel, user, role, platformRole } = context;
-    const body = await request.json().catch(() => ({}));
+    const body = await readHotelJson(request);
     assertHotelIdMatchesContext({ requestedHotelId: body.hotelId || body.hotel_id, currentHotelId: hotel?.id });
 
     if (context.fallback || !user?.id || !hotel?.id || !isAuthorizedHotelLocationRole({ role, platformRole })) {
@@ -74,20 +71,17 @@ export async function PATCH(request) {
       });
     }
 
-    const locationUpdate = buildValidatedHotelProfileUpdate({ body, existingHotel: hotel });
+    const validated = validateHotelFields(body);
+    const locationUpdate = buildValidatedHotelProfileUpdate({ body: validated, existingHotel: hotel });
     const updates = allowedFields.reduce((payload, field) => {
-      if (body[field] !== undefined) {
-        payload[field] = cleanText(body[field]);
+      if (validated[field] !== undefined) {
+        payload[field] = validated[field];
       }
 
       return payload;
     }, {
       updated_at: new Date().toISOString()
     });
-
-    if (!updates.name) {
-      delete updates.name;
-    }
 
     Object.assign(updates, locationUpdate.updates);
 
@@ -101,6 +95,8 @@ export async function PATCH(request) {
     if (error) {
       throw error;
     }
+
+    if (data?.id !== hotel.id) throw Object.assign(new Error('No se pudo confirmar el hotel guardado. Reintenta.'), {status:503});
 
     if (locationUpdate.changedLocationFields.length) {
       const audit = buildSafeLocationChangeAudit({
@@ -133,7 +129,8 @@ export async function PATCH(request) {
   } catch (error) {
     return NextResponse.json({
       ok: false,
-      error: error.message || 'Could not update hotel setup'
-    }, { status: error.status || 400 });
+      fields: error.fields,
+      error: error.status ? error.message : 'No se pudo guardar el hotel. Reintenta.'
+    }, { status: error.status || 503 });
   }
 }
