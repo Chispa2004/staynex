@@ -1,5 +1,6 @@
 'use client';
 
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, ShieldCheck, UserPlus } from 'lucide-react';
 import { getAuthHeaders } from '@/lib/auth-headers';
@@ -38,6 +39,7 @@ const statusTone = (status) => {
 };
 
 const RoleBadge = ({ role }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const tone = role === 'owner' || role === 'admin' ? 'emerald' : role === 'manager' ? 'sky' : 'slate';
@@ -45,20 +47,22 @@ const RoleBadge = ({ role }) => {
 
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <span className={ui.badge(isLight, tone)}>{ROLE_LABELS[role] || role}</span>
-      {isLegacy ? <span className={ui.badge(isLight, 'amber')}>Legacy role</span> : null}
+      <span className={ui.badge(isLight, tone)}>{tx(ROLE_LABELS[role] || role)}</span>
+      {isLegacy ? <span className={ui.badge(isLight, 'amber')}>{tx('Legacy role')}</span> : null}
     </span>
   );
 };
 
 const StatusBadge = ({ status }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
 
-  return <span className={ui.badge(isLight, statusTone(status))}>{status}</span>;
+  return <span className={ui.badge(isLight, statusTone(status))}>{tx(status)}</span>;
 };
 
 export const UserManagementClient = () => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [users, setUsers] = useState([]);
@@ -202,7 +206,7 @@ export const UserManagementClient = () => {
           ['Invited users', invitedUsers]
         ].map(([label, value]) => (
           <div key={label} className={cn('rounded-xl border p-4', ui.surface(isLight))}>
-            <p className={ui.text.eyebrow(isLight)}>{label}</p>
+            <p className={ui.text.eyebrow(isLight)}>{tx(label)}</p>
             <p className={cn('mt-2 text-2xl', ui.text.title(isLight))}>{value}</p>
           </div>
         ))}
@@ -210,12 +214,12 @@ export const UserManagementClient = () => {
 
       <form onSubmit={inviteUser} className={cn('rounded-xl border p-5', ui.surface(isLight))}>
         <div className="mb-4">
-          <p className={cn('text-sm font-semibold', isLight ? 'text-slate-950' : 'text-white')}>Add hotel user</p>
-          <p className={ui.text.body(isLight)}>Choose whether this user is an Admin or Receptionist.</p>
+          <p className={cn('text-sm font-semibold', isLight ? 'text-slate-950' : 'text-white')}>{tx('Add hotel user')}</p>
+          <p className={ui.text.body(isLight)}>{tx('Choose whether this user is an Admin or Receptionist.')}</p>
         </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="min-w-0 flex-1">
-            <label className={ui.text.eyebrow(isLight)} htmlFor="invite-email">Email</label>
+            <label className={ui.text.eyebrow(isLight)} htmlFor="invite-email">{tx('Email')}</label>
             <input
               id="invite-email"
               value={email}
@@ -226,7 +230,7 @@ export const UserManagementClient = () => {
             />
           </div>
           <div className="lg:w-56">
-            <label className={ui.text.eyebrow(isLight)} htmlFor="invite-role">Role</label>
+            <label className={ui.text.eyebrow(isLight)} htmlFor="invite-role">{tx('Role')}</label>
             <select
               id="invite-role"
               value={role}
@@ -234,39 +238,39 @@ export const UserManagementClient = () => {
               className={`${ui.input(isLight)} mt-2 w-full`}
             >
               {HOTEL_MANAGEMENT_ROLES.map((item) => (
-                <option key={item} value={item}>{ROLE_LABELS[item]}</option>
+                <option key={item} value={item}>{tx(ROLE_LABELS[item])}</option>
               ))}
             </select>
             <p className={cn('mt-2 text-xs leading-5', isLight ? 'text-slate-500' : 'text-slate-400')}>
-              {roleDescriptions[role]}
+              {tx(roleDescriptions[role])}
             </p>
           </div>
           <button type="submit" disabled={saving} className={ui.button(isLight, 'primary')}>
             <UserPlus className="h-4 w-4" aria-hidden="true" />
-            {saving ? 'Saving...' : 'Add hotel user'}
+            {tx(saving ? 'Saving...' : 'Add hotel user')}
           </button>
           <button type="button" onClick={loadUsers} className={ui.button(isLight, 'secondary')}>
             <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-            Refresh
+            {tx('Refresh')}
           </button>
         </div>
       </form>
 
       {error ? (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
-          {error}
+        <div role="alert" className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
+          {tx(error)}
         </div>
       ) : null}
       {success ? (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
-          {success}
+        <div role="status" className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+          {tx(success)}
         </div>
       ) : null}
 
       <div className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
         <div className={isLight ? 'border-b border-slate-200 px-5 py-4' : 'border-b border-white/10 px-5 py-4'}>
-          <p className={cn('text-sm', ui.text.title(isLight))}>Hotel users</p>
-          <p className={ui.text.muted(isLight)}>Local invitations are stored now. Email delivery can be added later.</p>
+          <p className={cn('text-sm', ui.text.title(isLight))}>{tx('Hotel users')}</p>
+          <p className={ui.text.muted(isLight)}>{tx('Local invitations are stored now. Email delivery can be added later.')}</p>
         </div>
 
         {loading ? (
@@ -290,12 +294,13 @@ export const UserManagementClient = () => {
                   <p className={cn('text-sm font-semibold', isLight ? 'text-slate-950' : 'text-white')}>
                     {user.email || user.user_id || 'Unlinked user'}
                   </p>
-                  <p className={ui.text.muted(isLight)}>Created {formatDate(user.created_at)}</p>
+                  <p className={ui.text.muted(isLight)}>{tx('Created')} {formatDate(user.created_at)}</p>
                 </div>
 
                 <div className="space-y-2">
                   <RoleBadge role={user.role} />
                   <select
+                    aria-label={`${tx('Role')}: ${user.email}`}
                     value={HOTEL_MANAGEMENT_ROLES.includes(user.role) ? user.role : ''}
                     onChange={(event) => updateUser(user.id, { role: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
@@ -304,28 +309,29 @@ export const UserManagementClient = () => {
                       <option value="" disabled>{ROLE_LABELS[user.role] || user.role}</option>
                     ) : null}
                     {HOTEL_MANAGEMENT_ROLES.map((item) => (
-                      <option key={item} value={item}>{ROLE_LABELS[item]}</option>
+                      <option key={item} value={item}>{tx(ROLE_LABELS[item])}</option>
                     ))}
                   </select>
                   <p className={ui.text.muted(isLight)}>
                     {HOTEL_MANAGEMENT_ROLES.includes(user.role)
-                      ? roleDescriptions[user.role]
-                      : 'Existing advanced role. It can be changed to Admin or Receptionist from this screen.'}
+                      ? tx(roleDescriptions[user.role])
+                      : tx('Existing advanced role. It can be changed to Admin or Receptionist from this screen.')}
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <StatusBadge status={user.status} />
                   {user.status === 'invited' ? (
-                    <p className={ui.text.muted(isLight)}>Awaiting acceptance</p>
+                    <p className={ui.text.muted(isLight)}>{tx('Awaiting acceptance')}</p>
                   ) : null}
                   <select
+                    aria-label={`${tx('Status')}: ${user.email}`}
                     value={user.status}
                     onChange={(event) => updateUser(user.id, { status: event.target.value })}
                     className={`${ui.input(isLight)} w-full py-2 text-xs`}
                   >
                     {statuses.map((item) => (
-                      <option key={item} value={item}>{item}</option>
+                      <option key={item} value={item}>{tx(item)}</option>
                     ))}
                   </select>
                 </div>
@@ -336,16 +342,16 @@ export const UserManagementClient = () => {
                     onClick={() => updateUser(user.id, { is_default: !user.is_default })}
                     className={ui.button(isLight, 'secondary')}
                   >
-                    {user.is_default ? 'Default' : 'Set default'}
+                    {tx(user.is_default ? 'Default' : 'Set default')}
                   </button>
                   {user.status === 'invited' ? (
                     <button
                       type="button"
                       disabled
-                      title="Email resend will be connected later"
+                      title={tx('Email resend will be connected later')}
                       className={ui.button(isLight, 'secondary')}
                     >
-                      Resend
+                      {tx('Resend')}
                     </button>
                   ) : null}
                   <button
@@ -353,7 +359,7 @@ export const UserManagementClient = () => {
                     onClick={() => disableUser(user.id)}
                     className={ui.button(isLight, 'danger')}
                   >
-                    Disable
+                    {tx('Disable')}
                   </button>
                 </div>
               </article>

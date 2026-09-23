@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { StepHotelSetup } from './StepHotelSetup';
 import { ExecutiveBadge, ExecutiveCard } from '@/components/ExecutiveCard';
+import { getOnboardingAction } from '@/lib/onboarding-navigation';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
@@ -24,8 +26,8 @@ const fallbackSteps = [
   { id: 'users', label: 'USUARIOS', title: 'Usuarios', ctaLabel: 'Gestionar usuarios', href: '/dashboard/settings/users' },
   { id: 'pms', label: 'PMS', title: 'PMS', ctaLabel: 'Configurar PMS', href: '/dashboard/settings/pms' },
   { id: 'whatsapp', label: 'WHATSAPP', title: 'WhatsApp', ctaLabel: 'Configurar WhatsApp' },
-  { id: 'knowledge', label: 'KNOWLEDGE', title: 'Knowledge', ctaLabel: 'Configurar Knowledge', href: '/dashboard/knowledge' },
-  { id: 'readiness', label: 'PILOT READINESS', title: 'Pilot Readiness', ctaLabel: 'Revisar readiness', href: '/dashboard/health' }
+  { id: 'knowledge', label: 'KNOWLEDGE', title: 'Información del hotel', ctaLabel: 'Configurar Knowledge', href: '/dashboard/knowledge' },
+  { id: 'readiness', label: 'PILOT READINESS', title: 'Preparación del hotel', ctaLabel: 'Revisar readiness', href: '/dashboard/health' }
 ];
 
 const statusTone = {
@@ -57,6 +59,7 @@ const sanitizeError = (message) => {
 
 export const OnboardingWizard = () => {
   const router = useRouter();
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [hotel, setHotel] = useState(null);
@@ -112,7 +115,7 @@ export const OnboardingWizard = () => {
     load();
   }, [load]);
 
-  const saveProgress = async ({ nextStep = currentStep, completed = false } = {}) => {
+  const saveProgress = async ({ nextStep = currentStep, completed = Boolean(state?.onboarding_completed) } = {}) => {
     if (!canManage) {
       setError('No tienes permiso para modificar la configuración piloto.');
       return false;
@@ -212,7 +215,7 @@ export const OnboardingWizard = () => {
             Preparar hotel piloto
           </h1>
           <p className={cn('mt-3 max-w-3xl', ui.text.body(isLight))}>
-            Recorre Hotel, Usuarios, PMS, WhatsApp, Knowledge y Pilot Readiness con datos reales. Demo piloto y live automations se revisan por separado.
+            Recorre los requisitos del hotel con datos guardados. La configuración, la demo y la autorización para operar en vivo se revisan por separado.
           </p>
         </div>
         <button type="button" onClick={load} disabled={loading || saving} className={ui.button(isLight, 'secondary')}>
@@ -224,37 +227,37 @@ export const OnboardingWizard = () => {
       <div className="grid gap-3 md:grid-cols-2">
         <ReadyPanel
           isLight={isLight}
-          title="Ready for Configuration"
+          title={tx('Ready for Configuration')}
           ready={pilot?.readyForConfiguration}
           description={pilot?.readyForConfiguration
-            ? 'La configuración disponible puede cerrarse y pasar a readiness.'
+            ? 'La configuración disponible puede cerrarse y pasar a revisar los requisitos restantes.'
             : 'Completa los bloques accionables antes de cerrar configuración.'}
         />
         <ReadyPanel
           isLight={isLight}
-          title="Ready for Pilot Demo"
+          title={tx('Ready for Pilot Demo')}
           ready={pilot?.readyForPilotDemo}
           description={pilot?.readyForPilotDemo
-            ? 'El ensayo piloto puede ejecutarse con operación manual y health visible.'
-            : 'Demo piloto sigue pendiente hasta cerrar safety, observability y failure rehearsal.'}
+            ? 'El ensayo piloto permite operación manual y consulta de Salud.'
+            : 'La demo sigue pendiente hasta verificar la seguridad, la información operativa y el ensayo de fallos.'}
         />
         <ReadyPanel
           isLight={isLight}
-          title="Ready for Live Automations"
+          title={tx('Ready for Live Automations')}
           ready={pilot?.readyForLiveAutomations}
           description={pilot?.readyForLiveAutomations
             ? 'Automatizaciones live listas bajo rollout controlado.'
-            : 'Live automations siguen bloqueadas hasta Quiet Hours, outbound atomic delivery, WhatsApp real y PMS real.'}
+            : 'Los envíos siguen bloqueados hasta verificar horarios de silencio, exclusión de envíos duplicados, WhatsApp y PMS.'}
         />
       </div>
 
       {error ? (
-        <div className={ui.notice(isLight, 'danger')}>
+        <div role="alert" className={ui.notice(isLight, 'danger')}>
           {error}
         </div>
       ) : null}
       {success ? (
-        <div className={ui.notice(isLight, 'success')}>
+        <div role="status" className={ui.notice(isLight, 'success')}>
           {success}
         </div>
       ) : null}
@@ -283,7 +286,7 @@ export const OnboardingWizard = () => {
                   ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
                   : <Circle className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />}
                 <span className="min-w-0 flex-1">
-                  <span className={cn('block font-semibold', ui.text.title(isLight))}>{block.title}</span>
+                  <span className={cn('block font-semibold', ui.text.title(isLight))}>{tx(block.title)}</span>
                   <span className={cn('mt-1 inline-flex', ui.badge(isLight, statusTone[block.status] || block.tone || 'slate', true))}>
                     {block.status || 'ACCIÓN NECESARIA'}
                   </span>
@@ -301,6 +304,7 @@ export const OnboardingWizard = () => {
             canManage={canManage}
             onHotelSaved={handleHotelSaved}
             onSelectStep={setCurrentStep}
+            access={access}
           />
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -347,13 +351,14 @@ const ReadyPanel = ({ isLight, title, ready, description }) => (
   </ExecutiveCard>
 );
 
-const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onSelectStep }) => {
-  if (block?.id === 'hotel') {
-    return <StepHotelSetup hotel={hotel} canEdit={canManage} onSaved={onHotelSaved} />;
+const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onSelectStep, access }) => {
+  const { tx } = useDashboardLanguage();
+  if (block?.id === 'hotel' || block?.id === 'whatsapp') {
+    return <StepHotelSetup hotel={hotel} canEdit={canManage} onSaved={onHotelSaved} focusField={block?.id === 'whatsapp' ? 'whatsapp_number' : null} />;
   }
 
   if (block?.id === 'readiness') {
-    return <ReadinessDetail block={block} isLight={isLight} onSelectStep={onSelectStep} />;
+    return <ReadinessDetail block={block} isLight={isLight} onSelectStep={onSelectStep} access={access} />;
   }
 
   return (
@@ -361,8 +366,8 @@ const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onSe
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <ExecutiveBadge tone={statusTone[block?.status] || block?.tone || 'slate'}>{block?.label || block?.title}</ExecutiveBadge>
-          <h2 className={cn('mt-3 text-2xl font-semibold tracking-normal', ui.text.title(isLight))}>{block?.title}</h2>
-          <p className={cn('mt-2 max-w-2xl', ui.text.body(isLight))}>{block?.description}</p>
+          <h2 className={cn('mt-3 text-2xl font-semibold tracking-normal', ui.text.title(isLight))}>{tx(block?.title)}</h2>
+          <p className={cn('mt-2 max-w-2xl', ui.text.body(isLight))}>{tx(block?.description)}</p>
         </div>
         <span className={ui.badge(isLight, statusTone[block?.status] || block?.tone || 'slate')}>
           {block?.status || 'ACCIÓN NECESARIA'}
@@ -381,19 +386,21 @@ const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onSe
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-2">
-        <BlockAction block={block} isLight={isLight} onSelectStep={onSelectStep} />
+        <BlockAction block={block} isLight={isLight} onSelectStep={onSelectStep} access={access} />
       </div>
     </ExecutiveCard>
   );
 };
 
-const ReadinessDetail = ({ block, isLight, onSelectStep }) => (
+const ReadinessDetail = ({ block, isLight, onSelectStep, access }) => {
+  const { tx } = useDashboardLanguage();
+  return (
   <ExecutiveCard className="p-6">
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div>
-        <ExecutiveBadge tone={block?.tone || 'amber'}>Pilot Readiness</ExecutiveBadge>
-        <h2 className={cn('mt-3 text-2xl font-semibold tracking-normal', ui.text.title(isLight))}>Readiness accionable</h2>
-        <p className={cn('mt-2 max-w-2xl', ui.text.body(isLight))}>{block?.description}</p>
+        <ExecutiveBadge tone={block?.tone || 'amber'}>Preparación del hotel</ExecutiveBadge>
+        <h2 className={cn('mt-3 text-2xl font-semibold tracking-normal', ui.text.title(isLight))}>Requisitos y siguientes pasos</h2>
+        <p className={cn('mt-2 max-w-2xl', ui.text.body(isLight))}>{tx(block?.description)}</p>
       </div>
       <ShieldCheck className="h-6 w-6 text-emerald-400" aria-hidden="true" />
     </div>
@@ -403,38 +410,28 @@ const ReadinessDetail = ({ block, isLight, onSelectStep }) => (
         <div key={check.id || check.label} className={cn('flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between', ui.surface(isLight, 'subtle'))}>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{check.label}</p>
+              <p className={cn('text-sm font-semibold', ui.text.title(isLight))}>{tx(check.label)}</p>
               <span className={ui.badge(isLight, check.tone || statusTone[check.value] || 'slate', true)}>{check.value}</span>
             </div>
-            <p className={cn('mt-1', ui.text.muted(isLight))}>{check.description}</p>
+            <p className={cn('mt-1', ui.text.muted(isLight))}>{tx(check.description)}</p>
           </div>
-          <BlockAction block={check} isLight={isLight} onSelectStep={onSelectStep} compact />
+          <BlockAction block={check} isLight={isLight} onSelectStep={onSelectStep} access={access} compact />
         </div>
       ))}
     </div>
   </ExecutiveCard>
 );
+};
 
-const BlockAction = ({ block, isLight, onSelectStep, compact = false }) => {
-  const label = block?.actionLabel || 'Revisar';
-
-  if (block?.href) {
-    return (
-      <Link href={block.href} className={ui.button(isLight, compact ? 'small' : 'secondary')}>
-        {label}
-        <ExternalLink className="h-4 w-4" aria-hidden="true" />
-      </Link>
-    );
-  }
-
-  if (block?.step) {
-    return (
-      <button type="button" onClick={() => onSelectStep?.(block.step)} className={ui.button(isLight, compact ? 'small' : 'secondary')}>
-        {label}
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </button>
-    );
-  }
-
-  return null;
+const BlockAction = ({ block, isLight, onSelectStep, access, compact = false }) => {
+  const { tx } = useDashboardLanguage();
+  const action = getOnboardingAction(block?.id, access);
+  return <div className="min-w-0 space-y-2 sm:max-w-sm">
+    {action.help ? <p className={ui.text.muted(isLight)}>{tx(action.help)}</p> : null}
+    {action.label && action.href ? <Link href={action.href} className={ui.button(isLight, compact ? 'small' : 'secondary')}>
+      {tx(action.label)}<ExternalLink className="h-4 w-4" aria-hidden="true" />
+    </Link> : action.label && action.step ? <button type="button" onClick={() => onSelectStep?.(action.step)} className={ui.button(isLight, compact ? 'small' : 'secondary')}>
+      {tx(action.label)}<ArrowRight className="h-4 w-4" aria-hidden="true" />
+    </button> : null}
+  </div>;
 };

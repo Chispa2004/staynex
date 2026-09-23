@@ -37,6 +37,7 @@ import {
   Wrench,
   X
 } from 'lucide-react';
+import { ONBOARDING_DESTINATIONS, shouldRedirectToOnboarding } from '@/lib/onboarding-navigation';
 import shellStyles from './AppShell.module.css';
 import { ShellNavigationContext } from '@/lib/shell-navigation';
 import { LanguageSelector } from './LanguageSelector';
@@ -501,7 +502,7 @@ const AppShellContent = ({ children }) => {
     }
 
     if (onboardingChecked) {
-      if (!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
+      if (shouldRedirectToOnboarding({ pathname, completed: onboardingCompleted, role: activeRole, platformRole: hotelContext.platformRole })) {
         router.replace('/dashboard/onboarding');
       }
 
@@ -545,7 +546,7 @@ const AppShellContent = ({ children }) => {
         setOnboardingCompleted(completed);
         setOnboardingChecked(true);
 
-        if (!hotelContext.accessDenied && !completed && !isOnboardingPage && canAccess(activeRole, 'onboarding')) {
+        if (!hotelContext.accessDenied && shouldRedirectToOnboarding({ pathname, completed, role: activeRole, platformRole: hotelContext.platformRole })) {
           if (process.env.NODE_ENV !== 'production') {
             console.info('onboarding incomplete', { redirectTarget: '/dashboard/onboarding' });
           }
@@ -560,7 +561,12 @@ const AppShellContent = ({ children }) => {
     };
 
     loadOnboardingState();
+    return () => { active = false; };
+  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, onboardingChecked, onboardingCompleted, pathname, hotelContext.platformRole, router, sessionAccessToken]);
+
+  useEffect(() => {
     const handleOnboardingUpdate = (event) => {
+      if (event.detail?.state?.hotel_id !== currentHotel?.id) return;
       const completed = Boolean(event.detail?.state?.onboarding_completed);
       setOnboardingCompleted(completed);
       setOnboardingChecked(true);
@@ -569,10 +575,9 @@ const AppShellContent = ({ children }) => {
     window.addEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
 
     return () => {
-      active = false;
       window.removeEventListener('staynex:onboarding-updated', handleOnboardingUpdate);
     };
-  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, onboardingChecked, onboardingCompleted, router, sessionAccessToken]);
+  }, [currentHotel?.id]);
 
   useEffect(() => {
     if (isLoginPage || authLoading || !isAuthenticated || !hotelContextLoaded) {
@@ -1425,6 +1430,12 @@ const AppShellContent = ({ children }) => {
               key={`${currentHotel.id}:${supportSession ? 'support' : 'hotel'}`}
               className={isInboxRoute ? 'min-h-0 flex-1' : undefined}
             >
+              {!isOnboardingPage && !onboardingCompleted && canAccess(activeRole, 'onboarding') && ONBOARDING_DESTINATIONS.includes(pathname) ? (
+                <nav aria-label={tx('Preparación del hotel')} className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-slate-900">
+                  <Link href="/dashboard/onboarding" className="font-semibold underline">{tx('Volver al asistente')}</Link>
+                  <p className="mt-1">{tx('Guarda los cambios y vuelve al asistente para actualizar los requisitos. Abrir esta pantalla no los completa.')}</p>
+                </nav>
+              ) : null}
               {children}
             </div>
           </div>

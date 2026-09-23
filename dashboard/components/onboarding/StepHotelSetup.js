@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Building2, ShieldCheck } from 'lucide-react';
 import { ExecutiveBadge, ExecutiveCard } from '@/components/ExecutiveCard';
 import { getAuthHeaders } from '@/lib/auth-headers';
@@ -36,9 +36,11 @@ const integrityLabel = (status) => {
   return 'Pendiente';
 };
 
-export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
+export const StepHotelSetup = ({ hotel, canEdit = true, onSaved, focusField = null }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
+  const focusRef = useRef(null);
+  useEffect(() => { if (focusField) focusRef.current?.focus(); }, [focusField]);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
@@ -145,6 +147,8 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
         <Building2 className="h-6 w-6 text-emerald-400" aria-hidden="true" />
       </div>
 
+      {focusField === 'whatsapp_number' ? <p className="mb-4 text-sm">Guardar el número no verifica la conexión. Staynex y el proveedor deben confirmar su funcionamiento antes de operar en vivo.</p> : null}
+      {!canEdit ? <p className="mb-4 text-sm">Pide a un administrador del hotel que complete este requisito.</p> : null}
       <form onSubmit={save} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           {fields.map(([field, label, required]) => (
@@ -153,6 +157,8 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
                 {label}{required ? ' *' : ''}
               </span>
               <input
+                id={`onboarding-${field}`}
+                ref={field === focusField ? focusRef : undefined}
                 className={`${ui.input(isLight)} w-full`}
                 value={form[field] || ''}
                 onChange={(event) => update(field, event.target.value)}
@@ -173,7 +179,7 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved }) => {
         </label>
 
         {message ? (
-          <p className={message.type === 'error' ? 'text-sm text-red-400' : 'text-sm text-emerald-500'}>{message.text}</p>
+          <p role={message.type === 'error' ? 'alert' : 'status'} className={message.type === 'error' ? 'text-sm text-red-400' : 'text-sm text-emerald-500'}>{message.text}</p>
         ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

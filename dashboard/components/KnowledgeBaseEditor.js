@@ -41,7 +41,7 @@ const normalizeEntries = (entries) => entries.map((entry) => ({
 }));
 
 export const KnowledgeBaseEditor = () => {
-  const { t } = useDashboardLanguage();
+  const { t, tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [entries, setEntries] = useState([]);
@@ -298,20 +298,22 @@ export const KnowledgeBaseEditor = () => {
           <label className="relative">
             <Search className={isLight ? 'pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400' : 'pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-600'} aria-hidden="true" />
             <input
-              value={searchQuery}
+              aria-label={tx('Buscar información del hotel')}
+                value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search knowledge"
+              placeholder={tx('Buscar información del hotel')}
               className={`${inputClass} pl-9`}
             />
           </label>
           <select
-            value={categoryFilter}
+            aria-label={tx('Filtrar por categoría')}
+                value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
             className={inputClass}
           >
             {categories.map((category) => (
               <option key={category} value={category}>
-                {category === 'all' ? 'All categories' : category}
+                {category === 'all' ? tx('Todas las categorías') : category}
               </option>
             ))}
           </select>
@@ -319,13 +321,13 @@ export const KnowledgeBaseEditor = () => {
       </div>
 
       {error ? (
-        <div className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
+        <div role="alert" className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
           {error}
         </div>
       ) : null}
 
       {success ? (
-        <div className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800' : 'rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100'}>
+        <div role="status" className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800' : 'rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100'}>
           {success}
         </div>
       ) : null}
@@ -334,27 +336,31 @@ export const KnowledgeBaseEditor = () => {
       <form onSubmit={createEntry} className={panelClass}>
         <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px]">
           <input
-            value={newEntry.title}
+            aria-label={tx('Título')}
+                value={newEntry.title}
             onChange={(event) => setNewEntry((current) => ({ ...current, title: event.target.value }))}
-            placeholder="Title"
+            placeholder={tx('Título')}
             className={inputClass}
           />
           <input
-            value={newEntry.key}
+            aria-label={tx('Clave')}
+                value={newEntry.key}
             onChange={(event) => setNewEntry((current) => ({ ...current, key: event.target.value }))}
             placeholder={t('knowledge.key')}
             className={inputClass}
           />
           <input
-            value={newEntry.category}
+            aria-label={tx('Categoría')}
+                value={newEntry.category}
             onChange={(event) => setNewEntry((current) => ({ ...current, category: event.target.value }))}
-            placeholder="Category"
+            placeholder={tx('Categoría')}
             className={inputClass}
           />
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
           <textarea
-            value={newEntry.value}
+            aria-label={tx('Contenido')}
+                value={newEntry.value}
             onChange={(event) => setNewEntry((current) => ({ ...current, value: event.target.value }))}
             placeholder={t('knowledge.value')}
             rows={3}
@@ -389,7 +395,7 @@ export const KnowledgeBaseEditor = () => {
                   ? 'rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600'
                   : 'rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-400'}
               >
-                {entry.draftIsActive ? 'Active' : 'Inactive'}
+                {tx(entry.draftIsActive ? 'Active' : 'Inactive')}
               </span>
               {entry.status === 'saved' ? (
                 <p className={isLight ? 'text-xs text-emerald-700' : 'text-xs text-emerald-300'}>{t('knowledge.saved')}</p>
@@ -398,18 +404,21 @@ export const KnowledgeBaseEditor = () => {
 
             <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px] lg:items-start">
               <input
+                aria-label={tx('Título')}
                 value={entry.draftTitle}
                 onChange={(event) => updateDraft({ id: entry.id, field: 'draftTitle', value: event.target.value })}
                 disabled={!canManageKnowledge}
                 className={inputClass}
               />
               <input
+                aria-label={tx('Clave')}
                 value={entry.draftKey}
                 onChange={(event) => updateDraft({ id: entry.id, field: 'draftKey', value: event.target.value })}
                 disabled={!canManageKnowledge}
                 className={inputClass}
               />
               <input
+                aria-label={tx('Categoría')}
                 value={entry.draftCategory}
                 onChange={(event) => updateDraft({ id: entry.id, field: 'draftCategory', value: event.target.value })}
                 disabled={!canManageKnowledge}
@@ -419,6 +428,7 @@ export const KnowledgeBaseEditor = () => {
 
             <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-start">
               <textarea
+                aria-label={tx('Contenido')}
                 value={entry.draftValue}
                 onChange={(event) => updateDraft({ id: entry.id, field: 'draftValue', value: event.target.value })}
                 rows={3}
@@ -443,7 +453,7 @@ export const KnowledgeBaseEditor = () => {
                 className={isLight ? 'inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60' : 'inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-wait disabled:opacity-60'}
               >
                 <Power className="h-4 w-4" aria-hidden="true" />
-                {entry.draftIsActive ? 'Deactivate' : 'Activate'}
+                {tx(entry.draftIsActive ? 'Deactivate' : 'Activate')}
               </button>
               <button
                 type="button"

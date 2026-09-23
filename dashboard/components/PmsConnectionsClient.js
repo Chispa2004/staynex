@@ -8,6 +8,7 @@ import { PmsProviderCard } from './PmsProviderCard';
 import { PremiumLoadingState } from './PremiumLoadingState';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const defaultForm = (provider, connection) => ({
@@ -35,6 +36,7 @@ const dateWindow = () => {
 };
 
 export const PmsConnectionsClient = () => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [hotel, setHotel] = useState(null);
@@ -286,14 +288,14 @@ export const PmsConnectionsClient = () => {
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <ExecutiveBadge tone="emerald">PMS Connections</ExecutiveBadge>
+            <ExecutiveBadge tone="emerald">{tx('PMS Connections')}</ExecutiveBadge>
             {hotel?.name ? <ExecutiveBadge tone="slate">{hotel.name}</ExecutiveBadge> : null}
           </div>
           <h1 className={isLight ? 'text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl' : 'text-3xl font-semibold tracking-tight text-white sm:text-4xl'}>
-            Connect hotel PMS
+              {tx("Connect hotel PMS")}
           </h1>
           <p className={isLight ? 'mt-3 max-w-3xl text-sm leading-6 text-slate-600' : 'mt-3 max-w-3xl text-sm leading-6 text-slate-400'}>
-            Store PMS credentials per hotel, test read-only access, and sync reservations into Staynex without touching folios, charges or room assignments.
+              {tx("Store PMS credentials per hotel, test read-only access, and sync reservations into Staynex without touching folios, charges or room assignments.")}
           </p>
         </div>
         <button
@@ -303,7 +305,7 @@ export const PmsConnectionsClient = () => {
           className={isLight ? 'inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60' : 'inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-slate-200 hover:bg-white/[0.08] disabled:opacity-60'}
         >
           <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-          Refresh
+              {tx("Refresh")}
         </button>
       </div>
 
@@ -311,7 +313,7 @@ export const PmsConnectionsClient = () => {
         <ExecutiveCard className={feedback.type === 'error' ? 'border-red-300/25 p-4' : feedback.type === 'info' ? 'border-sky-300/25 p-4' : 'border-emerald-300/25 p-4'}>
           <div className="flex items-start gap-3">
             <AlertTriangle className={feedback.type === 'error' ? 'mt-0.5 h-4 w-4 text-red-400' : feedback.type === 'info' ? 'mt-0.5 h-4 w-4 text-sky-400' : 'mt-0.5 h-4 w-4 text-emerald-400'} />
-            <p className={isLight ? 'text-sm text-slate-700' : 'text-sm text-slate-300'}>{feedback.message}</p>
+            <p className={isLight ? 'text-sm text-slate-700' : 'text-sm text-slate-300'}>{tx(feedback.message)}</p>
           </div>
         </ExecutiveCard>
       ) : null}
@@ -320,9 +322,9 @@ export const PmsConnectionsClient = () => {
         <div className="flex items-start gap-3">
           <DatabaseZap className="mt-0.5 h-5 w-5 text-emerald-400" />
           <div>
-            <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>Safe PMS mode</p>
+            <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>{tx('Safe PMS mode')}</p>
             <p className={isLight ? 'mt-1 text-sm leading-6 text-slate-600' : 'mt-1 text-sm leading-6 text-slate-400'}>
-              Staynex only authenticates, reads reservations and imports them through the existing reservation token flow. Apaleo is live today; Pluriel, Ubikos and other PMS adapters are prepared as beta or coming-soon connectors without writing back to folios, charges or room assignments.
+              {tx("Staynex only authenticates, reads reservations and imports them through the existing reservation token flow. Apaleo is live today; Pluriel, Ubikos and other PMS adapters are prepared as beta or coming-soon connectors without writing back to folios, charges or room assignments.")}
             </p>
           </div>
         </div>
