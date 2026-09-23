@@ -26,6 +26,7 @@ const main = async () => {
   });
 
   console.log(JSON.stringify(result, null, 2));
+  if (!result.complete) process.exitCode = 1;
 };
 
 main().catch((error) => {

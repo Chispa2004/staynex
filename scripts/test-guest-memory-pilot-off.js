@@ -19,6 +19,7 @@ import { detectRevenueOpportunity } from '../src/services/concierge-ai.service.j
 import { buildProviderExperienceInterestMemories } from '../src/services/experience-booking.service.js';
 import { buildStaynexUserPrompt } from '../src/prompts/staynex.prompt.js';
 import { buildConversationCopilot } from '../dashboard/lib/ai-copilot.js';
+import { assertExecutiveMemoryOff } from './fixtures/guest-memory-off-runtime.js';
 
 const repoRoot = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const read = (path) => readFileSync(join(repoRoot, path), 'utf8');
@@ -212,7 +213,6 @@ try {
   const receptionApi = read('dashboard/app/api/reception/route.js');
   const inboxLib = read('dashboard/lib/inbox.js');
   const receptionLib = read('dashboard/lib/reception.js');
-  const executiveDashboardApi = read('dashboard/app/api/executive-dashboard/route.js');
   const appShell = read('dashboard/components/AppShell.js');
   const inboxCopilotPanel = read('dashboard/components/InboxAiCopilotPanel.js');
   const guestMemoryPage = read('dashboard/app/dashboard/guest-memory/page.js');
@@ -245,10 +245,13 @@ try {
   assertIncludes(receptionApi, "status: 'feature_disabled'", 'Reception memory fallback must return disabled status while OFF');
   assertIncludes(inboxLib, 'guestMemoryEnabled', 'Inbox memory read must use server flag');
   assertIncludes(receptionLib, 'guestMemoryEnabled && guestIds.length', 'Reception memory read must use server flag');
-  assertIncludes(executiveDashboardApi, 'guestMemoryEnabled ? safeRows', 'Executive dashboard memory feed must use server flag');
+  // The current dashboard no longer has a memory feed. Exercise the actual
+  // handler and its loaders instead of requiring an obsolete source fragment.
+  await assertExecutiveMemoryOff();
   assertIncludes(appShell, 'filterPilotNavigation', 'App navigation must hide Guest Memory while OFF');
   assertIncludes(appShell, "item.href !== '/dashboard/guest-memory' || guestMemoryEnabled === true", 'Guest Memory nav item must require explicit ON');
-  assertIncludes(inboxCopilotPanel, 'guestMemoryEnabled ? conversation?.guestMemory || [] : []', 'Inbox copilot UI must hide memory data while OFF');
+  // The current panel only exposes a memory count, behind explicit server ON.
+  assertIncludes(inboxCopilotPanel, 'conversation?.guestMemoryEnabled === true ? (conversation?.guestMemory || []).length : 0', 'Inbox copilot UI must hide memory data while OFF');
   assertIncludes(guestMemoryPage, 'Guest Memory is disabled for this pilot.', 'Direct Guest Memory page must show disabled pilot state');
   assertIncludes(guestMemoryDetailPage, 'Guest Memory is disabled for this pilot.', 'Direct Guest Memory detail page must show disabled pilot state');
 

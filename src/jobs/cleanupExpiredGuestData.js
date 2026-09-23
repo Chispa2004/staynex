@@ -1,396 +1,167 @@
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { getSupabase } from '../services/supabase.service.js';
 import { logger } from '../utils/logger.js';
 
 const JOB_NAME = 'cleanupExpiredGuestData';
-const DEFAULT_RETENTION_DAYS = 30;
-const DEFAULT_MESSAGE_BODY_RETENTION_DAYS = 90;
-const DEFAULT_LIMIT = 500;
-const ANONYMIZED_MESSAGE = '[Message anonymized by Staynex GDPR retention]';
-
-const isMissingTableOrColumn = (error) => (
-  error?.code === '42P01'
-  || error?.code === '42703'
-  || /does not exist|schema cache|column/i.test(error?.message || '')
-  || /does not exist|schema cache|column/i.test(error?.details || '')
-  || /does not exist|schema cache|column/i.test(error?.hint || '')
-);
-
-const toPositiveInt = (value, fallback) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+export const ANONYMIZED_MESSAGE = '[Message anonymized by Staynex GDPR retention]';
+// Mixed operational/profiling purposes: no new retention rule is inferred.
+export const RETENTION_POLICY_PENDING = ['guest_intelligence_profiles', 'guest_interest_affinities',
+  'guest_behavior_signals', 'guest_sentiment_history', 'guest_revenue_predictions', 'revenue_ai_events',
+  'guest_ai_profiles', 'guest_ai_tags', 'guest_ai_insights', 'guest_ai_actions',
+  'conversation_ai_state', 'guests additional identity fields', 'external provider/debug logs'];
+const positive = (value, fallback) => Number.isFinite(Number(value)) && Number(value) >= 1 ? Math.floor(Number(value)) : fallback;
+const before = (now, days) => new Date(now.getTime() - days * 86400000).toISOString();
+const failure = (stage, error) => ({ stage, code: /^[A-Z0-9_]+$/i.test(error?.code || '') ? error.code : 'RETENTION_FAILED' });
+const checked = async (query, stage) => {
+  const result = await query;
+  if (result.error || !Array.isArray(result.data)) throw Object.assign(new Error(stage), { stage, code: result.error?.code });
+  return result.data;
 };
 
-const addDays = (date, days) => {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-};
-
-const isoDate = (date) => date.toISOString().slice(0, 10);
-
-const hashValue = (value) => {
-  if (!value) {
-    return null;
+// Continue until an empty page, including when the server cap is smaller than
+// batchSize. Immutable IDs avoid offset skips when eligibility changes on write.
+async function* pages(makeQuery, batchSize, stage) {
+  let after = null;
+  for (;;) {
+    let query = makeQuery().order('id', { ascending: true }).limit(batchSize);
+    if (after) query = query.gt('id', after);
+    const rows = await checked(query, stage);
+    if (!rows.length) return;
+    const last = rows.at(-1).id;
+    if (!last || (after && last <= after)) throw Object.assign(new Error('Cursor did not advance'), { stage });
+    yield rows;
+    after = last;
   }
+}
 
-  return createHash('sha256')
-    .update(String(value))
-    .digest('hex');
-};
-
-const safeRows = async (query, label) => {
-  const { data, error } = await query;
-
-  if (error) {
-    if (isMissingTableOrColumn(error)) {
-      logger.warn('retention job skipped missing schema', {
-        jobName: JOB_NAME,
-        label,
-        message: error.message
-      });
-      return [];
-    }
-
-    throw error;
-  }
-
-  return data || [];
-};
-
-const safeUpdate = async ({ query, label }) => {
-  const { data, error, count } = await query;
-
-  if (error) {
-    if (isMissingTableOrColumn(error)) {
-      logger.warn('retention update skipped missing schema', {
-        jobName: JOB_NAME,
-        label,
-        message: error.message
-      });
-      return { rows: [], count: 0, skipped: true };
-    }
-
-    throw error;
-  }
-
-  return {
-    rows: data || [],
-    count: Number(count || data?.length || 0),
-    skipped: false
-  };
-};
-
-const insertAuditLog = async ({ supabase, hotelId, status, error = null, metadata = {}, recordsScanned = 0, recordsAnonymized = 0, recordsDeleted = 0 }) => {
-  const payload = {
-    hotel_id: hotelId,
-    job_name: JOB_NAME,
-    run_at: new Date().toISOString(),
-    records_scanned: recordsScanned,
-    records_anonymized: recordsAnonymized,
-    records_deleted: recordsDeleted,
-    status,
-    error,
-    metadata
-  };
-
-  const { error: auditError } = await supabase
-    .from('data_retention_audit_logs')
-    .insert(payload);
-
-  if (auditError && !isMissingTableOrColumn(auditError)) {
-    logger.warn('data_retention_audit_log_failed', {
-      hotelId,
-      message: auditError.message
-    });
-  }
-};
-
-const getHotels = async ({ supabase, hotelId = null }) => {
-  let query = supabase
-    .from('hotels')
-    .select('*')
-    .order('created_at', { ascending: true });
-
-  if (hotelId) {
-    query = query.eq('id', hotelId);
-  }
-
-  return safeRows(query, 'hotels');
-};
-
-const anonymizeHotelData = async ({ supabase, hotel, dryRun, now, limit }) => {
+const anonymizeHotel = async ({ supabase, hotel, dryRun, now, batchSize, summary }) => {
   const hotelId = hotel.id;
-  const retentionDays = toPositiveInt(
-    hotel.anonymize_after_checkout_days || hotel.guest_data_retention_days,
-    DEFAULT_RETENTION_DAYS
-  );
-  const messageRetentionDays = toPositiveInt(
-    hotel.delete_message_body_after_days,
-    DEFAULT_MESSAGE_BODY_RETENTION_DAYS
-  );
-  const checkoutCutoff = isoDate(addDays(now, -retentionDays));
-  const messageCutoff = addDays(now, -messageRetentionDays).toISOString();
-  const summary = {
-    hotelId,
-    hotelName: hotel.name || null,
-    dryRun,
-    checkoutCutoff,
-    messageCutoff,
-    reservationsScanned: 0,
-    guestsAnonymized: 0,
-    reservationsAnonymized: 0,
-    conversationsScanned: 0,
-    messagesAnonymized: 0,
-    guestMemoryAnonymized: 0,
-    experienceBookingsAnonymized: 0,
-    aiLogsAnonymized: 0,
-    errors: []
+  const checkoutCutoff = before(now, positive(hotel.anonymize_after_checkout_days || hotel.guest_data_retention_days, 30)).slice(0, 10);
+  const messageCutoff = before(now, positive(hotel.delete_message_body_after_days, 90));
+  Object.assign(summary, { checkoutCutoff, messageCutoff });
+  const read = (table, fields = '*') => supabase.from(table).select(fields).eq('hotel_id', hotelId);
+  const stamp = row => ({ anonymized: true,
+    anonymized_at: row.metadata?.retention_job === JOB_NAME && row.metadata?.retention_version === 2
+      ? row.metadata.anonymized_at : now.toISOString(), retention_job: JOB_NAME, retention_version: 2 });
+  const change = async (table, row, values, counter, updatedAt = false) => {
+    if (Object.entries(values).every(([key, value]) => isDeepStrictEqual(row[key], value))) return;
+    summary.planned[counter]++;
+    if (dryRun) return;
+    const patch = updatedAt ? { ...values, updated_at: now.toISOString() } : values;
+    const rows = await checked(supabase.from(table).update(patch).eq('hotel_id', hotelId).eq('id', row.id).select('id'), table);
+    if (rows.length !== 1 || rows[0].id !== row.id) throw Object.assign(new Error('Write not confirmed'), { stage: table });
+    summary.changed[counter]++;
   };
-
-  const reservations = await safeRows(
-    supabase
-      .from('reservations')
-      .select('id, hotel_id, guest_id, guest_name, guest_email, guest_phone, departure_date, status')
-      .eq('hotel_id', hotelId)
-      .lt('departure_date', checkoutCutoff)
-      .limit(limit),
-    'expired_reservations'
-  );
-  summary.reservationsScanned = reservations.length;
-
-  const reservationIds = reservations.map((item) => item.id).filter(Boolean);
-  const guestIds = [...new Set(reservations.map((item) => item.guest_id).filter(Boolean))];
-
-  const conversations = guestIds.length
-    ? await safeRows(
-      supabase
-        .from('conversations')
-        .select('id, guest_id')
-        .eq('hotel_id', hotelId)
-        .in('guest_id', guestIds)
-        .limit(limit),
-      'expired_conversations'
-    )
-    : [];
-  const conversationIds = conversations.map((item) => item.id).filter(Boolean);
-  summary.conversationsScanned = conversations.length;
-
-  if (dryRun) {
-    const oldMessages = conversationIds.length
-      ? await safeRows(
-        supabase
-          .from('messages')
-          .select('id')
-          .eq('hotel_id', hotelId)
-          .in('conversation_id', conversationIds)
-          .lt('created_at', messageCutoff)
-          .limit(limit),
-        'expired_messages_dry_run'
-      )
-      : [];
-
-    summary.guestsAnonymized = guestIds.length;
-    summary.reservationsAnonymized = reservationIds.length;
-    summary.messagesAnonymized = oldMessages.length;
-    summary.guestMemoryAnonymized = guestIds.length;
-    summary.experienceBookingsAnonymized = guestIds.length;
-    summary.aiLogsAnonymized = guestIds.length;
-    return summary;
-  }
-
-  if (guestIds.length) {
-    for (const guestId of guestIds) {
-      const anonymizedPhone = `anon-${hashValue(`${hotelId}:${guestId}`).slice(0, 24)}`;
-      const result = await safeUpdate({
-        label: 'guests',
-        query: supabase
-          .from('guests')
-          .update({
-            phone_number: anonymizedPhone,
-            current_room: null
-          })
-          .eq('hotel_id', hotelId)
-          .eq('id', guestId)
-          .select('id')
-      });
-      summary.guestsAnonymized += result.count;
+  const sweep = async (table, query, patch, counter, updatedAt = false) => {
+    for await (const rows of pages(query, batchSize, table)) {
+      summary.batches++;
+      for (const row of rows) await change(table, row, patch(row), counter, updatedAt);
+    }
+  };
+  // Inspect every stay before guest-wide retention; unknown checkout or any
+  // later stay protects the guest even when it appears on a later page.
+  const eligible = new Set(), protectedGuests = new Set();
+  for await (const rows of pages(() => read('reservations', 'id,guest_id,departure_date'), batchSize, 'eligibility')) {
+    summary.batches++;
+    for (const row of rows) {
+      summary.reservationsScanned++;
+      if (!row.guest_id) continue;
+      if (row.departure_date && row.departure_date < checkoutCutoff) eligible.add(row.guest_id);
+      else protectedGuests.add(row.guest_id);
     }
   }
+  for (const guestId of protectedGuests) eligible.delete(guestId);
+  summary.guestsEligible = eligible.size;
+  summary.guestsProtected = protectedGuests.size;
+  await sweep('reservations', () => read('reservations', 'id,guest_name,guest_email,guest_phone,notes').lt('departure_date', checkoutCutoff), () => ({
+    guest_name: 'Guest anonymized', guest_email: null, guest_phone: null, notes: null
+  }), 'reservations', true);
 
-  if (reservationIds.length) {
-    const result = await safeUpdate({
-      label: 'reservations',
-      query: supabase
-        .from('reservations')
-        .update({
-          guest_name: 'Guest anonymized',
-          guest_email: null,
-          guest_phone: null,
-          notes: null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('hotel_id', hotelId)
-        .in('id', reservationIds)
-        .select('id')
-    });
-    summary.reservationsAnonymized += result.count;
+  for (const guestId of eligible) {
+    // Recheck before the sweep, not a DB lock. Concurrent stay/identity writers
+    // still require a safe execution window; see the release procedure.
+    let stillEligible = true;
+    for await (const rows of pages(() => read('reservations', 'id,departure_date').eq('guest_id', guestId), batchSize, 'eligibility_recheck')) {
+      if (rows.some(row => !row.departure_date || row.departure_date >= checkoutCutoff)) stillEligible = false;
+    }
+    if (!stillEligible) { summary.guestsProtected++; summary.guestsEligible--; continue; }
+    await sweep('guest_memory', () => read('guest_memory', 'id,memory_type,memory_key,memory_value,confidence,source,source_message_id,reservation_id,is_active,metadata').eq('guest_id', guestId), row => ({
+      memory_type: 'anonymized', memory_key: `anonymized:${row.id}`, memory_value: '[anonymized]',
+      confidence: null, source: 'retention', source_message_id: null, reservation_id: null,
+      is_active: false, metadata: stamp(row)
+    }), 'guestMemory', true);
+    // Same eligible logs: erase copied memory labels and personal summaries,
+    // preserving IDs, operational links, metrics and ticket/send outcomes.
+    await sweep('ai_logs', () => read('ai_logs', 'id,raw_guest_message,generated_response,memory_keys_used,memory_used,ai_summary,ai_reasoning,human_reason')
+      .eq('guest_id', guestId), () => ({ raw_guest_message: null, generated_response: null,
+      memory_keys_used: [], memory_used: false, ai_summary: null, ai_reasoning: null, human_reason: null
+    }), 'aiLogs');
+    await sweep('guests', () => read('guests', 'id,phone_number,current_room').eq('id', guestId), () => ({
+      phone_number: `anon-${createHash('sha256').update(`${hotelId}:${guestId}`).digest('hex').slice(0, 24)}`,
+      current_room: null
+    }), 'guests');
+    await sweep('experience_booking_requests', () => read('experience_booking_requests', 'id,guest_name,room_number,notes,metadata').eq('guest_id', guestId)
+      .in('status', ['completed', 'cancelled', 'rejected']), row => ({
+      guest_name: 'Guest anonymized', room_number: null, notes: null, metadata: stamp(row)
+    }), 'experienceBookings', true);
+    for await (const rows of pages(() => read('conversations', 'id').eq('guest_id', guestId), batchSize, 'conversations')) {
+      summary.conversationsScanned += rows.length;
+      for (const conversation of rows) {
+        await sweep('messages', () => read('messages', 'id,content,translated_text,metadata').eq('conversation_id', conversation.id).lt('created_at', messageCutoff), row => ({
+          content: ANONYMIZED_MESSAGE, translated_text: null, metadata: stamp(row)
+        }), 'messages');
+      }
+    }
   }
-
-  if (conversationIds.length) {
-    const messageResult = await safeUpdate({
-      label: 'messages',
-      query: supabase
-        .from('messages')
-        .update({
-          content: ANONYMIZED_MESSAGE,
-          translated_text: null,
-          metadata: {
-            anonymized: true,
-            anonymized_at: new Date().toISOString(),
-            retention_job: JOB_NAME
-          }
-        })
-        .eq('hotel_id', hotelId)
-        .in('conversation_id', conversationIds)
-        .lt('created_at', messageCutoff)
-        .select('id')
-    });
-    summary.messagesAnonymized += messageResult.count;
-  }
-
-  if (guestIds.length) {
-    const memoryResult = await safeUpdate({
-      label: 'guest_memory',
-      query: supabase
-        .from('guest_memory')
-        .update({
-          memory_value: '[anonymized]',
-          is_active: false,
-          metadata: {
-            anonymized: true,
-            anonymized_at: new Date().toISOString(),
-            retention_job: JOB_NAME
-          },
-          updated_at: new Date().toISOString()
-        })
-        .eq('hotel_id', hotelId)
-        .in('guest_id', guestIds)
-        .select('id')
-    });
-    summary.guestMemoryAnonymized += memoryResult.count;
-
-    const bookingResult = await safeUpdate({
-      label: 'experience_booking_requests',
-      query: supabase
-        .from('experience_booking_requests')
-        .update({
-          guest_name: 'Guest anonymized',
-          room_number: null,
-          notes: null,
-          metadata: {
-            anonymized: true,
-            anonymized_at: new Date().toISOString(),
-            retention_job: JOB_NAME
-          },
-          updated_at: new Date().toISOString()
-        })
-        .eq('hotel_id', hotelId)
-        .in('guest_id', guestIds)
-        .in('status', ['completed', 'cancelled', 'rejected'])
-        .select('id')
-    });
-    summary.experienceBookingsAnonymized += bookingResult.count;
-
-    const aiLogResult = await safeUpdate({
-      label: 'ai_logs',
-      query: supabase
-        .from('ai_logs')
-        .update({
-          raw_guest_message: null,
-          generated_response: null
-        })
-        .eq('hotel_id', hotelId)
-        .in('guest_id', guestIds)
-        .select('id')
-    });
-    summary.aiLogsAnonymized += aiLogResult.count;
-  }
-
-  await safeUpdate({
-    label: 'hotels_last_cleanup',
-    query: supabase
-      .from('hotels')
-      .update({
-        last_data_retention_cleanup_at: new Date().toISOString()
-      })
-      .eq('id', hotelId)
-      .select('id')
-  });
-
-  return summary;
 };
 
-export const cleanupExpiredGuestData = async ({ hotelId = null, dryRun = false, limit = DEFAULT_LIMIT, now = new Date() } = {}) => {
-  const supabase = getSupabase();
-  const hotels = await getHotels({ supabase, hotelId });
-  const results = [];
-
-  for (const hotel of hotels) {
-    try {
-      const summary = await anonymizeHotelData({
-        supabase,
-        hotel,
-        dryRun,
-        now,
-        limit
-      });
-      const recordsAnonymized = summary.guestsAnonymized
-        + summary.reservationsAnonymized
-        + summary.messagesAnonymized
-        + summary.guestMemoryAnonymized
-        + summary.experienceBookingsAnonymized
-        + summary.aiLogsAnonymized;
-
-      if (!dryRun) {
-        await insertAuditLog({
-          supabase,
-          hotelId: hotel.id,
-          status: 'success',
-          recordsScanned: summary.reservationsScanned + summary.conversationsScanned,
-          recordsAnonymized,
-          recordsDeleted: 0,
-          metadata: summary
-        });
+const counts = () => ({ guests: 0, reservations: 0, messages: 0, guestMemory: 0, experienceBookings: 0, aiLogs: 0 });
+export const cleanupExpiredGuestData = async ({ hotelId = null, dryRun = false, limit = 500,
+  now = new Date(), supabase = getSupabase() } = {}) => {
+  const results = [], errors = [];
+  const batchSize = Math.min(positive(limit, 500), 500);
+  if (!Number.isFinite(now.getTime())) throw new Error('Invalid retention date');
+  try {
+    for await (const hotels of pages(() => {
+      const query = supabase.from('hotels').select('*');
+      return hotelId ? query.eq('id', hotelId) : query;
+    }, batchSize, 'hotels')) {
+      for (const hotel of hotels) {
+        const summary = { hotelId: hotel.id, dryRun, status: 'running', batches: 0,
+          reservationsScanned: 0, conversationsScanned: 0, planned: counts(), changed: counts(), errors: [] };
+        try { await anonymizeHotel({ supabase, hotel, dryRun, now, batchSize, summary }); }
+        catch (error) { summary.errors.push(failure(error.stage || 'hotel_cleanup', error)); }
+        if (!dryRun) {
+          // A failed audit is not success. Never copy raw DB errors/guest content.
+          try {
+            const { error } = await supabase.from('data_retention_audit_logs').insert({
+              hotel_id: hotel.id, job_name: JOB_NAME, run_at: now.toISOString(),
+              records_scanned: summary.reservationsScanned + summary.conversationsScanned,
+              records_anonymized: Object.values(summary.changed).reduce((a, b) => a + b, 0), records_deleted: 0,
+              status: summary.errors.length ? 'partial' : 'data_complete',
+              error: summary.errors.length ? 'Retention incomplete; inspect stage/code' : null,
+              metadata: { scope: 'existing_retention_rules', ...summary, status: summary.errors.length ? 'partial' : 'data_complete' }
+            });
+            if (error) throw error;
+          } catch (error) { summary.errors.push(failure('audit', error)); }
+          if (!summary.errors.length) {
+            try {
+              const rows = await checked(supabase.from('hotels').update({ last_data_retention_cleanup_at: now.toISOString() })
+                .eq('id', hotel.id).select('id'), 'completion_marker');
+              if (rows.length !== 1) throw new Error('Completion not confirmed');
+            } catch (error) { summary.errors.push(failure('completion_marker', error)); }
+          }
+        }
+        summary.status = summary.errors.length ? 'partial' : dryRun ? 'preview_complete' : 'complete';
+        logger[summary.errors.length ? 'error' : 'info']('retention_scope_result', summary);
+        results.push(summary);
       }
-
-      logger.info('gdpr_retention_cleanup_completed', summary);
-      results.push(summary);
-    } catch (error) {
-      logger.error('gdpr_retention_cleanup_failed', {
-        hotelId: hotel.id,
-        message: error.message
-      });
-      if (!dryRun) {
-        await insertAuditLog({
-          supabase,
-          hotelId: hotel.id,
-          status: 'failed',
-          error: error.message
-        });
-      }
-      results.push({
-        hotelId: hotel.id,
-        dryRun,
-        error: error.message
-      });
     }
-  }
-
-  return {
-    jobName: JOB_NAME,
-    dryRun,
-    hotelsProcessed: results.length,
-    results
-  };
+  } catch (error) { errors.push(failure(error.stage || 'hotels', error)); }
+  if (hotelId && !results.length && !errors.length) errors.push({ stage: 'hotels', code: 'HOTEL_NOT_FOUND' });
+  const complete = !errors.length && results.every(result => !result.errors.length);
+  return { jobName: JOB_NAME, scope: 'existing_retention_rules', dryRun, complete,
+    status: complete ? (dryRun ? 'preview_complete' : 'complete') : 'partial',
+    policyPending: RETENTION_POLICY_PENDING, hotelsProcessed: results.length, results, errors };
 };
