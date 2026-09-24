@@ -1,3 +1,4 @@
+import {readAllInboxRows} from '../shared/inbox/stay-stage.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { canAccess, canAccessPlatform, getPermissionsForPlatformRole, getPermissionsForRole } from '../dashboard/lib/permissions.js';
@@ -21,7 +22,7 @@ const makeStore=()=>{
   db.hotel_knowledge.forEach(x=>x.is_active=true);
   const calls=[];let serial=0;
   const client={from(table){let filters=[],action='select',values,columns='*';const query={
-    select(v='*'){columns=v;return query;},eq(k,v){filters.push([k,v]);return query;},in(k,vs){filters.push([k,vs]);return query;},order(){return query;},limit(){return query;},
+    select(v='*'){columns=v;return query;},eq(k,v){filters.push([k,v]);return query;},in(k,vs){filters.push([k,vs]);return query;},order(){return query;},limit(){return query;},range(start,end){query.bounds=[start,end];return query;},
     insert(v){action='insert';values=v;return query;},update(v){action='update';values=v;return query;},delete(){action='delete';return query;},
     async execute(single=false){let rows=db[table].filter(row=>filters.every(([k,v])=>Array.isArray(v)?v.includes(row[k]):row[k]===v));
       calls.push({table,action,columns,filters:structuredClone(filters),readIds:rows.map(x=>x.id)});
@@ -29,7 +30,7 @@ const makeStore=()=>{
       if(action==='insert'){rows=(Array.isArray(values)?values:[values]).map(x=>({id:'new-'+(++serial),...x}));db[table].push(...rows);}
       if(action==='update')rows.forEach(x=>Object.assign(x,values));
       if(action==='delete')db[table]=db[table].filter(x=>!rows.includes(x));
-      return {data:single?structuredClone(rows[0]??null):structuredClone(rows),error:single&&action==='update'&&!rows.length?Object.assign(new Error('Not found'),{status:404}):null};
+      if(!single && query.bounds) rows=rows.slice(query.bounds[0],query.bounds[1]+1);return {data:single?structuredClone(rows[0]??null):structuredClone(rows),error:single&&action==='update'&&!rows.length?Object.assign(new Error('Not found'),{status:404}):null};
     },maybeSingle(){return query.execute(true);},single(){return query.execute(true);},then(a,b){return query.execute().then(a,b);}
   };return query;}};return {db,calls,client};
 };
@@ -208,7 +209,7 @@ await test('Actual Inbox loader strips historical translations, retains new scop
   s.db.messages[0].translated_text='UNVERIFIED';s.db.messages[0].translated_language='es';
   s.db.messages[0].metadata={translations:{es:{translated_text:'UNVERIFIED',target_language:'es'}}};
   const {getMessagesForConversations}=load('dashboard/lib/inbox.js',{
-    getSupabaseAdmin:()=>{throw Error('Unscoped access forbidden');},buildConversationCopilot:()=>null,isGuestMemoryEnabled:()=>false,sanitizeInboxMessageTranslations
+    getSupabaseAdmin:()=>{throw Error('Unscoped access forbidden');},buildConversationCopilot:()=>null,isGuestMemoryEnabled:()=>false,readAllInboxRows,sanitizeInboxMessageTranslations
   },['getMessagesForConversations']);
   const before=structuredClone(s.db.messages);
   const messages=await getMessagesForConversations({supabase:s.client,conversationIds:['ca','cb'],hotelId:A});

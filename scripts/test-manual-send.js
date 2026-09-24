@@ -1,3 +1,4 @@
+import {readAllInboxRows} from '../shared/inbox/stay-stage.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createManualMessageSender } from '../src/services/message.service.js';
@@ -14,7 +15,7 @@ const store=()=>{
   const db={conversations:[{id:'ca',hotel_id:A,guest_id:'ga'},{id:'cb',hotel_id:B,guest_id:'gb'}],
     guests:[{id:'ga',hotel_id:A,phone_number:'+34900000001',preferred_language:'es'},{id:'gb',hotel_id:B,phone_number:'+34900000002'}],messages:[]};
   const calls=[];const client={from(table){let filters=[],action='select',values;const q={
-    select(){return q;},eq(k,v){filters.push([k,v]);return q;},in(k,v){filters.push([k,v]);return q;},order(){return q;},limit(){return q;},insert(v){action='insert';values=v;return q;},update(v){action='update';values=v;return q;},
+    select(){return q;},eq(k,v){filters.push([k,v]);return q;},in(k,v){filters.push([k,v]);return q;},order(){return q;},limit(){return q;},range(start,end){q.bounds=[start,end];return q;},insert(v){action='insert';values=v;return q;},update(v){action='update';values=v;return q;},
     execute(single=false){calls.push({table,action,filters,values});let rows=db[table].filter(row=>filters.every(([k,v])=>Array.isArray(v)?v.includes(row[k]):row[k]===v));
       if(table==='messages'&&action==='insert'){
         if(client.missingMetadata)return {data:null,error:{message:'column metadata does not exist'}};
@@ -132,7 +133,7 @@ await test('Manual Twilio adapter has bounded timeout, no SDK retries, no extern
 });
 await test('Reopened Inbox receives persisted failure/uncertainty/acceptance with original text; refresh never sends',async()=>{
   const {getMessagesForConversations}=load('dashboard/lib/inbox.js',{getSupabaseAdmin(){throw Error('Default DB forbidden');},
-    buildConversationCopilot:()=>null,isGuestMemoryEnabled:()=>false,sanitizeInboxMessageTranslations},['getMessagesForConversations']);
+    buildConversationCopilot:()=>null,isGuestMemoryEnabled:()=>false,readAllInboxRows,sanitizeInboxMessageTranslations},['getMessagesForConversations']);
   for(const error of [null,{status:429,code:20429},{code:'ETIMEDOUT'}]){
     const s=setup({error});const sent=await s.sender(input);
     const rows=await getMessagesForConversations({supabase:s.client,conversationIds:['ca'],hotelId:A});

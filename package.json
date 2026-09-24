@@ -97,7 +97,9 @@
     "test:onboarding-readiness-navigation": "node scripts/test-onboarding-readiness-navigation.js",
     "test:onboarding-whatsapp-dependency": "node scripts/test-onboarding-whatsapp-dependency.js",
     "test:onboarding-validation": "node scripts/test-onboarding-validation.js",
-    "test:onboarding-validation-postgres": "node scripts/test-onboarding-validation-postgres.js"
+    "test:onboarding-validation-postgres": "node scripts/test-onboarding-validation-postgres.js",
+    "test:checkin-ai-conversations": "node scripts/test-checkin-ai-conversations.js",
+    "test:checkin-ai-load-postgres": "node scripts/test-checkin-ai-load-postgres.cjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",
