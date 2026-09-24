@@ -1,4 +1,4 @@
-import { validateIanaTimeZone } from '../time/delivery-policy.js';
+import { validateIanaTimeZone } from '../time/timezone-validation.js';
 
 export const HOTEL_LOCATION_TIMEZONE_CHECK_TYPE = 'hotel_location_timezone_integrity';
 

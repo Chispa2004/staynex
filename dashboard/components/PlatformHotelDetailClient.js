@@ -23,6 +23,8 @@ import {
   TicketCheck,
   Users
 } from 'lucide-react';
+import { hotelFormInput, validateHotelFields } from '../../shared/onboarding/hotel-fields.js';
+import { HotelFieldErrors } from '@/components/HotelFieldErrors';
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { persistWorkspaceSelection } from '@/lib/workspace-context';
@@ -179,6 +181,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
   const [liveModeSaving, setLiveModeSaving] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState(null);
 
   const hotel = detail?.hotel;
   const users = detail?.users || [];
@@ -266,6 +269,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
 
   const saveBranding = async (event) => {
     event.preventDefault();
+    setFieldErrors(null);
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -277,18 +281,20 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
           ...(await getAuthHeaders()),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(form)
+        body: JSON.stringify({...validateHotelFields(hotelFormInput(form)),id:form.id})
       });
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not update hotel');
+        throw Object.assign(new Error(body.error || 'Could not update hotel'), {fields:body.fields});
       }
 
+      if(body.hotel?.id !== form.id) throw new Error('No se pudo confirmar el hotel guardado. Reintenta.');
       setNotice('Hotel branding and plan updated.');
       await loadDetail();
     } catch (caughtError) {
       setError(caughtError.message);
+      setFieldErrors(caughtError.fields);
     } finally {
       setSaving(false);
     }
@@ -496,6 +502,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
           <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{tx('Workspace identity')}</h2>
           {form ? (
             <form onSubmit={saveBranding} className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className="md:col-span-2"><HotelFieldErrors fields={fieldErrors} /></div>
               <label className="space-y-1.5">
                 <span className={ui.text.eyebrow(isLight)}>{tx('Hotel name')}</span>
                 <input className={cn('w-full', ui.input(isLight))} value={form.name} onChange={(event) => updateForm('name', event.target.value)} required />

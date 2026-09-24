@@ -1,5 +1,20 @@
 // Scoped onboarding phrases, registered with the existing dashboard translator.
 export const onboardingPhrases = [
+  ['Cambiar hotel', 'Switch workspace'], ['Crear nuevo hotel', 'Create new hotel workspace'], ['Nuevo hotel', 'New hotel workspace'], ['Crear', 'Create'],
+  ['Recuperar alta pendiente', 'Recover pending hotel creation'],
+  ['Hotel {name} creado. Invitación guardada; proveedores y envíos no activados.', 'Hotel {name} created. Invitation saved; providers and sending have not been enabled.'],
+  ['Guarda el perfil antes de verificar la zona horaria o finalizar.', 'Save the profile before verifying its timezone or completing setup.'],
+  ['Revisa los campos indicados.', 'Review the indicated fields.'],
+  ['Configuración guardada y completada. No se han activado proveedores ni envíos.', 'Configuration saved and completed. Providers and sending have not been enabled.'],
+  ['Nombre del hotel', 'Hotel name'], ['Correo del administrador', 'Admin email'], ['País', 'Country'], ['Ciudad', 'City'], ['Zona horaria', 'Timezone'],
+  ['Este campo es obligatorio.', 'This field is required.'], ['Introduce un texto válido, no vacío.', 'Enter valid, non-empty text.'],
+  ['Usa el código de país de dos letras.', 'Use the two-letter country code.'],
+  ['Introduce una zona horaria IANA válida, por ejemplo Europe/Madrid.', 'Enter a valid IANA timezone, for example Europe/Madrid.'],
+  ['Introduce un correo válido, por ejemplo nombre@hotel.com.', 'Enter a valid email, for example name@hotel.com.'],
+  ['Usa el formato internacional: + y entre 7 y 15 dígitos.', 'Use international format: + and 7 to 15 digits.'],
+  ['Usa una hora válida en formato HH:MM.', 'Use a valid time in HH:MM format.'],
+  ['Hotel guardado.', 'Hotel saved.'],
+
   [
     "Volver al asistente",
     "Return to setup"

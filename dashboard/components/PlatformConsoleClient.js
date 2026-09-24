@@ -24,7 +24,9 @@ import {
   Trash2,
   Users
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { submitHotelCreation, hasPendingHotelCreation } from '@/lib/hotel-creation-client';
+import { HotelFieldErrors } from '@/components/HotelFieldErrors';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { persistWorkspaceSelection } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -386,7 +388,7 @@ const PartnerMarketplaceRevenueSection = ({ metrics, revenue, isLight, loading }
   );
 };
 
-const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
+const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel, fieldErrors, canRecover }) => {
   const { tx } = useDashboardLanguage();
   const [form, setForm] = useState(initialForm);
 
@@ -409,56 +411,58 @@ const CreateHotelForm = ({ isLight, saving, onSubmit, onCancel }) => {
         <button type="button" onClick={onCancel} className={ui.button(isLight, 'ghost')}>{tx('Cancel')}</button>
       </div>
 
+      <HotelFieldErrors fields={fieldErrors} prefix="create-hotel" />
+      {canRecover ? <button type="button" disabled={saving} className={ui.button(isLight, 'secondary')} onClick={() => onSubmit(form, true)}>{tx('Recuperar alta pendiente')}</button> : null}
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Hotel name')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.name} onChange={(event) => update('name', event.target.value)} required />
+          <input className={cn('w-full', ui.input(isLight))} id="create-hotel-name" aria-invalid={Boolean(fieldErrors?.name)} value={form.name} onChange={(event) => update('name', event.target.value)} required />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Brand name')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.brand_name} onChange={(event) => update('brand_name', event.target.value)} />
+          <input className={cn('w-full', ui.input(isLight))} id="create-hotel-brand_name" aria-invalid={Boolean(fieldErrors?.brand_name)} value={form.brand_name} onChange={(event) => update('brand_name', event.target.value)} />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Workspace slug')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.slug} onChange={(event) => update('slug', event.target.value)} placeholder="hotel-costa-azul" />
+          <input className={cn('w-full', ui.input(isLight))} id="create-hotel-slug" aria-invalid={Boolean(fieldErrors?.slug)} value={form.slug} onChange={(event) => update('slug', event.target.value)} placeholder="hotel-costa-azul" />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Admin email')}</span>
-          <input className={cn('w-full', ui.input(isLight))} type="email" value={form.admin_email} onChange={(event) => update('admin_email', event.target.value)} required />
+          <input className={cn('w-full', ui.input(isLight))} type="email" id="create-hotel-admin_email" aria-invalid={Boolean(fieldErrors?.admin_email)} value={form.admin_email} onChange={(event) => update('admin_email', event.target.value)} required />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Country code')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.country_code} onChange={(event) => update('country_code', event.target.value)} maxLength={2} required />
+          <input className={cn('w-full', ui.input(isLight))} id="create-hotel-country_code" aria-invalid={Boolean(fieldErrors?.country_code)} value={form.country_code} onChange={(event) => update('country_code', event.target.value)} maxLength={2} required />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('City')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.city} onChange={(event) => update('city', event.target.value)} required />
+          <input className={cn('w-full', ui.input(isLight))} id="create-hotel-city" aria-invalid={Boolean(fieldErrors?.city)} value={form.city} onChange={(event) => update('city', event.target.value)} required />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Timezone')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.timezone} onChange={(event) => update('timezone', event.target.value)} placeholder="Europe/Madrid" required />
+          <input className={cn('w-full', ui.input(isLight))} id="create-hotel-timezone" aria-invalid={Boolean(fieldErrors?.timezone)} value={form.timezone} onChange={(event) => update('timezone', event.target.value)} placeholder="Europe/Madrid" required />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Language')}</span>
-          <select className={cn('w-full', ui.input(isLight))} value={form.default_language} onChange={(event) => update('default_language', event.target.value)}>
+          <select className={cn('w-full', ui.input(isLight))} id="create-hotel-default_language" aria-invalid={Boolean(fieldErrors?.default_language)} value={form.default_language} onChange={(event) => update('default_language', event.target.value)}>
             {languages.map((language) => <option key={language} value={language}>{language.toUpperCase()}</option>)}
           </select>
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>WhatsApp</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.whatsapp_number} onChange={(event) => update('whatsapp_number', event.target.value)} placeholder="+34123456789" />
+          <input className={cn('w-full', ui.input(isLight))} id="create-hotel-whatsapp_number" aria-invalid={Boolean(fieldErrors?.whatsapp_number)} value={form.whatsapp_number} onChange={(event) => update('whatsapp_number', event.target.value)} placeholder="+34123456789" />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Support email')}</span>
-          <input className={cn('w-full', ui.input(isLight))} type="email" value={form.support_email} onChange={(event) => update('support_email', event.target.value)} />
+          <input className={cn('w-full', ui.input(isLight))} type="email" id="create-hotel-support_email" aria-invalid={Boolean(fieldErrors?.support_email)} value={form.support_email} onChange={(event) => update('support_email', event.target.value)} />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Brand color')}</span>
-          <input className={cn('w-full', ui.input(isLight))} value={form.brand_color} onChange={(event) => update('brand_color', event.target.value)} />
+          <input className={cn('w-full', ui.input(isLight))} id="create-hotel-brand_color" aria-invalid={Boolean(fieldErrors?.brand_color)} value={form.brand_color} onChange={(event) => update('brand_color', event.target.value)} />
         </label>
         <label className="space-y-1.5">
           <span className={ui.text.eyebrow(isLight)}>{tx('Subscription plan')}</span>
-          <select className={cn('w-full', ui.input(isLight))} value={form.subscription_plan} onChange={(event) => update('subscription_plan', event.target.value)}>
+          <select className={cn('w-full', ui.input(isLight))} id="create-hotel-subscription_plan" aria-invalid={Boolean(fieldErrors?.subscription_plan)} value={form.subscription_plan} onChange={(event) => update('subscription_plan', event.target.value)}>
             {plans.map((plan) => <option key={plan} value={plan}>{plan.replaceAll('_', ' ')}</option>)}
           </select>
         </label>
@@ -651,6 +655,9 @@ export const PlatformConsoleClient = () => {
   const [data, setData] = useState({ hotels: [], metrics: {}, revenue: {} });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState(null);
+  const creatingRef = useRef(false);
+  const [canRecover, setCanRecover] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [planFilter, setPlanFilter] = useState('all');
   const [healthFilter, setHealthFilter] = useState('all');
@@ -697,32 +704,29 @@ export const PlatformConsoleClient = () => {
     .filter((hotel) => healthFilter === 'all' || hotel.healthStatus === healthFilter)
     .sort((a, b) => (b.lastActivityAt || '').localeCompare(a.lastActivityAt || '')), [healthFilter, hotels, planFilter]);
 
-  const createHotel = async (form) => {
+  useEffect(() => { setCanRecover(hasPendingHotelCreation('platform',data.user?.id)); }, [data.user?.id,showCreate]);
+
+  const createHotel = async (form, recover = false) => {
+    if (creatingRef.current) return;
+    creatingRef.current = true;
+    setFieldErrors(null);
     setSaving(true);
     setError(null);
     setNotice(null);
 
     try {
-      const response = await fetch('/api/platform/hotels', {
-        method: 'POST',
-        headers: {
-          ...(await getAuthHeaders()),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(form)
-      });
-      const body = await response.json();
+      const body = await submitHotelCreation({mode:'platform',actorId:data.user?.id,form,recover,headers:await getAuthHeaders()});
 
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not create hotel workspace');
-      }
-
-      setNotice(`Workspace created for ${body.hotel?.name || 'hotel'}. Admin invitation saved.`);
+      setCanRecover(false);
+      setNotice(tx('Hotel {name} creado. Invitación guardada; proveedores y envíos no activados.', {name:body.hotel.name}));
       setShowCreate(false);
       await loadPlatform({ silent: true });
     } catch (caughtError) {
       setError(caughtError.message);
+      setFieldErrors(caughtError.fields);
+      setCanRecover(Boolean(caughtError.needsRecovery));
     } finally {
+      creatingRef.current = false;
       setSaving(false);
     }
   };
@@ -819,17 +823,17 @@ export const PlatformConsoleClient = () => {
       </div>
 
       {error ? (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
+        <div role="alert" className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-red-200 bg-red-50 text-red-800' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
           {tx(error)}
         </div>
       ) : null}
       {notice ? (
-        <div className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+        <div role="status" className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
           {tx(notice)}
         </div>
       ) : null}
 
-      {showCreate ? <CreateHotelForm isLight={isLight} saving={saving} onSubmit={createHotel} onCancel={() => setShowCreate(false)} /> : null}
+      {showCreate ? <CreateHotelForm canRecover={canRecover} fieldErrors={fieldErrors} isLight={isLight} saving={saving} onSubmit={createHotel} onCancel={() => setShowCreate(false)} /> : null}
       <DeleteHotelModal
         hotel={deleteTarget}
         isLight={isLight}

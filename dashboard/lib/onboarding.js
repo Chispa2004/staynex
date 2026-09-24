@@ -38,10 +38,11 @@ const normalizeCompletedSteps = (value) => {
   return [];
 };
 
-const safeRows = async (query, fallback = []) => {
+const safeRows = async (query, fallback = [], strict = false) => {
   const { data, error } = await query;
 
-  if (error) {
+  if (error || (strict && !Array.isArray(data))) {
+    if (strict) throw Object.assign(new Error('No se pudieron verificar todos los requisitos. Reintenta sin cambiar la configuración.'), {status:503});
     if (process.env.NODE_ENV !== 'production') {
       console.warn('Pilot onboarding data unavailable', error.message);
     }
@@ -52,7 +53,7 @@ const safeRows = async (query, fallback = []) => {
   return data || fallback;
 };
 
-const loadKnowledgeEntries = async ({ supabase, hotelId }) => {
+const loadKnowledgeEntries = async ({ supabase, hotelId, strict = false }) => {
   const result = await supabase
     .from('hotel_knowledge')
     .select('id, hotel_id, title, key, category, value, is_active, updated_at')
@@ -60,6 +61,7 @@ const loadKnowledgeEntries = async ({ supabase, hotelId }) => {
     .limit(200);
 
   if (!result.error) {
+    if (strict && !Array.isArray(result.data)) throw Object.assign(new Error('La respuesta de información del hotel está incompleta. Reintenta.'), {status:503});
     return result.data || [];
   }
 
@@ -76,10 +78,11 @@ const loadKnowledgeEntries = async ({ supabase, hotelId }) => {
         .from('hotel_knowledge')
         .select('id, hotel_id, key, value')
         .eq('hotel_id', hotelId)
-        .limit(200)
+        .limit(200), [], strict
     );
   }
 
+  if (strict) throw Object.assign(new Error('No se pudo verificar la información del hotel. Reintenta.'), {status:503});
   if (process.env.NODE_ENV !== 'production') {
     console.warn('Pilot onboarding knowledge unavailable', result.error.message);
   }
@@ -87,7 +90,7 @@ const loadKnowledgeEntries = async ({ supabase, hotelId }) => {
   return [];
 };
 
-export const getOrCreateOnboardingState = async ({ supabase, hotelId }) => {
+export const getOnboardingState = async ({ supabase, hotelId }) => {
   const { data: existing, error: existingError } = await supabase
     .from('hotel_onboarding_state')
     .select('*')
@@ -107,25 +110,10 @@ export const getOrCreateOnboardingState = async ({ supabase, hotelId }) => {
     };
   }
 
-  const { data, error } = await supabase
-    .from('hotel_onboarding_state')
-    .insert({
-      hotel_id: hotelId,
-      current_step: ONBOARDING_STEPS[0],
-      completed_steps: []
-    })
-    .select('*')
-    .single();
+  // Reading never initializes or completes a hotel. The first authorized save
+  // creates the state; new hotels receive it in the atomic creation contract.
+  return { hotel_id: hotelId, current_step: ONBOARDING_STEPS[0], completed_steps: [], onboarding_completed: false };
 
-  if (error) {
-    throw error;
-  }
-
-  return {
-    ...data,
-    current_step: normalizePilotOnboardingStep(data.current_step),
-    completed_steps: normalizeCompletedSteps(data.completed_steps)
-  };
 };
 
 export const getOnboardingContext = async (request) => {
@@ -136,7 +124,7 @@ export const getOnboardingContext = async (request) => {
   }
 
   try {
-    const state = await getOrCreateOnboardingState({
+    const state = await getOnboardingState({
       supabase,
       hotelId: hotel.id
     });
@@ -164,7 +152,7 @@ export const getOnboardingContext = async (request) => {
           hotel_id: hotel.id,
           current_step: ONBOARDING_STEPS[0],
           completed_steps: [],
-          onboarding_completed: true,
+          onboarding_completed: false,
           onboarding_completed_at: null
         },
         schemaReady: false,
@@ -193,18 +181,17 @@ export const updateOnboardingState = async ({
     updated_at: new Date().toISOString()
   };
 
-  const { data, error } = await supabase
-    .from('hotel_onboarding_state')
-    .upsert(payload, {
-      onConflict: 'hotel_id'
-    })
-    .select('*')
-    .single();
+  const { data, error } = await supabase.rpc('save_hotel_onboarding_v1', {
+    p_hotel_id: hotelId, p_step: payload.current_step, p_steps: payload.completed_steps, p_completed: Boolean(completed)
+  });
 
   if (error) {
     throw error;
   }
 
+  if (!data?.id || data.hotel_id !== hotelId || typeof data.onboarding_completed !== 'boolean' || !Array.isArray(data.completed_steps) || (completed && (data.onboarding_completed !== true || !data.onboarding_completed_at))) {
+    throw Object.assign(new Error('No se pudo confirmar el progreso guardado. Reintenta.'), {status:503});
+  }
   return {
     ...data,
     current_step: normalizePilotOnboardingStep(data.current_step),
@@ -218,7 +205,7 @@ export const getPilotOnboardingSummaryForContext = async ({
   role,
   platformRole,
   fallback
-}) => {
+}, { strict = false } = {}) => {
   const hotelId = hotel?.id;
 
   if (!hotelId) {
@@ -242,7 +229,7 @@ export const getPilotOnboardingSummaryForContext = async ({
         .from('hotel_users')
         .select('id, hotel_id, user_id, email, role, status, created_at, updated_at')
         .eq('hotel_id', hotelId)
-        .limit(200)
+        .limit(200), [], strict
     ),
     safeRows(
       supabase
@@ -250,23 +237,26 @@ export const getPilotOnboardingSummaryForContext = async ({
         .select(PMS_ONBOARDING_SELECT)
         .eq('hotel_id', hotelId)
         .order('updated_at', { ascending: false })
-        .limit(20)
+        .limit(20), [], strict
     ),
-    loadKnowledgeEntries({ supabase, hotelId }),
+    loadKnowledgeEntries({ supabase, hotelId, strict }),
     safeRows(
       supabase
         .from('local_knowledge_items')
         .select('id, hotel_id, title, description, active, updated_at')
         .eq('hotel_id', hotelId)
-        .limit(200)
+        .limit(200), [], strict
     ),
     getHotelOperationalHealth({
       supabase,
       hotelId,
       hotel
-    }).catch(() => null)
+    }).catch(error => { if (strict) throw Object.assign(new Error('No se pudo verificar Salud. Reintenta.'), {status:503}); return null; })
   ]);
 
+  if (strict && (!operationalHealth?.coverage?.sources || Object.values(operationalHealth.coverage.sources).some(source => source.status === 'unavailable'))) {
+    throw Object.assign(new Error('Hay fuentes de Salud que no se han podido consultar. Reintenta o consulta a Staynex.'), {status:503});
+  }
   return buildPilotOnboardingSummary({
     hotel,
     users,

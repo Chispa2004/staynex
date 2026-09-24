@@ -179,6 +179,7 @@ const AppShellContent = ({ children }) => {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [sessionAccessToken, setSessionAccessToken] = useState(null);
+  const [sessionActorId, setSessionActorId] = useState(null);
   const [currentHotel, setCurrentHotel] = useState(null);
   const [hotelContext, setHotelContext] = useState({
     role: 'blocked',
@@ -203,6 +204,7 @@ const AppShellContent = ({ children }) => {
   const [supportSession, setSupportSession] = useState(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [onboardingNotice, setOnboardingNotice] = useState(null);
   const [openGroups, setOpenGroups] = useState(defaultOpenGroups);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
@@ -300,6 +302,7 @@ const AppShellContent = ({ children }) => {
       }
 
       setSessionAccessToken(data.session?.access_token || null);
+      setSessionActorId(data.session?.user?.id || null);
       if (data.session && process.env.NODE_ENV !== 'production') {
         console.info('session found');
       }
@@ -319,6 +322,7 @@ const AppShellContent = ({ children }) => {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setIsAuthenticated(Boolean(session));
       setSessionAccessToken(session?.access_token || null);
+      setSessionActorId(session?.user?.id || null);
       setAuthLoading(false);
 
       if (!session && !isLoginPage) {
@@ -374,6 +378,7 @@ const AppShellContent = ({ children }) => {
         if (active && (response.status === 401 || SESSION_DENIED_REASONS.has(body.accessDeniedReason))) {
           setIsAuthenticated(false);
           setSessionAccessToken(null);
+          setSessionActorId(null);
           setCurrentHotel(null);
           clearWorkspaceSelection();
           setWorkspaceError(null);
@@ -568,6 +573,7 @@ const AppShellContent = ({ children }) => {
     const handleOnboardingUpdate = (event) => {
       if (event.detail?.state?.hotel_id !== currentHotel?.id) return;
       const completed = Boolean(event.detail?.state?.onboarding_completed);
+      if (completed && event.detail?.completionConfirmed) setOnboardingNotice(currentHotel.id);
       setOnboardingCompleted(completed);
       setOnboardingChecked(true);
     };
@@ -644,6 +650,7 @@ const AppShellContent = ({ children }) => {
 
     setIsAuthenticated(false);
     setSessionAccessToken(null);
+    setSessionActorId(null);
     setCurrentHotel(null);
     clearWorkspaceSelection();
     setWorkspaceError(null);
@@ -1322,6 +1329,7 @@ const AppShellContent = ({ children }) => {
                 canCreateWorkspaces={hotelContext.canCreateWorkspaces}
                 onSwitch={handleHotelSwitch}
                 accessToken={sessionAccessToken}
+                actorId={sessionActorId}
                 onWorkspaceCreated={handleHotelSwitch}
               />
               {showBackToPlatform ? <>
@@ -1430,6 +1438,7 @@ const AppShellContent = ({ children }) => {
               key={`${currentHotel.id}:${supportSession ? 'support' : 'hotel'}`}
               className={isInboxRoute ? 'min-h-0 flex-1' : undefined}
             >
+              {onboardingNotice === currentHotel?.id && pathname === '/dashboard/health' ? <div role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">{tx('Configuración guardada y completada. No se han activado proveedores ni envíos.')}</div> : null}
               {!isOnboardingPage && !onboardingCompleted && canAccess(activeRole, 'onboarding') && ONBOARDING_DESTINATIONS.includes(pathname) ? (
                 <nav aria-label={tx('Preparación del hotel')} className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-slate-900">
                   <Link href="/dashboard/onboarding" className="font-semibold underline">{tx('Volver al asistente')}</Link>
