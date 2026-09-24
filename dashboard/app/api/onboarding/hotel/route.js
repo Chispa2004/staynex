@@ -1,4 +1,5 @@
 import { validateHotelFields, readHotelJson } from '../../../../../shared/onboarding/hotel-fields.js';
+import { saveWhatsappDependency } from '../../../../../shared/onboarding/whatsapp-dependency.js';
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
@@ -34,6 +35,15 @@ export async function PATCH(request) {
 
     if (context.fallback || !user?.id || !hotel?.id || !isAuthorizedHotelLocationRole({ role, platformRole })) {
       return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403 });
+    }
+
+    if (body.action === 'save_whatsapp_dependency') {
+      const data = await saveWhatsappDependency({supabase,hotel,body});
+      await writeEnterpriseAuditLog({supabase,actor:user,actorRole:role,actorPlatformRole:platformRole,
+        hotelId:hotel.id,action:'hotel_whatsapp_dependency_updated',entityType:'hotel',
+        oldValues:{whatsapp_setup_status:hotel.metadata?.whatsapp_setup_status || null},
+        newValues:{whatsapp_setup_status:data.metadata.whatsapp_setup_status}});
+      return NextResponse.json({ok:true,hotel:data});
     }
 
     if (body.action === 'confirm_timezone_integrity') {

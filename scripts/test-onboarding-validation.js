@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import * as fields from '../shared/onboarding/hotel-fields.js';
+import * as whatsapp from '../shared/onboarding/whatsapp-dependency.js';
 import * as creation from '../dashboard/lib/hotel-creation.js';
 import { submitHotelCreation, confirmedOnboardingResult } from '../dashboard/lib/hotel-creation-client.js';
 import * as location from '../shared/location/hotel-location-integrity.js';
@@ -16,7 +17,7 @@ const swc=require('next/dist/build/swc');
 const compile=async(path,mocks)=>{
   const {code}=await swc.transform(readFileSync(new URL(path,import.meta.url),'utf8'),{filename:path,jsc:{parser:{syntax:'ecmascript'}},module:{type:'commonjs'}});
   const module={exports:{}};
-  new Function('require','module','exports',code)(id=>mocks[id]||require(id),module,module.exports);
+  new Function('require','module','exports',code)(id=>id.endsWith('/whatsapp-dependency.js')?whatsapp:mocks[id]||require(id),module,module.exports);
   return module.exports;
 };
 const next={NextResponse:{json:(body,options)=>Response.json(body,options)}};

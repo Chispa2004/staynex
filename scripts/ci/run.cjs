@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '../..');
 const expected = fs.readFileSync(path.join(root, '.node-version'), 'utf8').trim();
 if (process.versions.node !== expected) throw new Error(`CI requires Node ${expected}; found ${process.versions.node}`);
 const modes = {
-  critical: ['check:syntax', 'test:ci-guards', 'test:onboarding-readiness-navigation', 'test:onboarding-validation', 'test:guest-memory-pilot-off', 'test:guest-memory-off-boundaries', 'test:guest-memory-retention', 'test:health-truthful-status', 'test:manual-send', 'test:automation-dispatch-contract', 'test:inbox', 'test:auth-hotel-context', 'test:messages-tenant-isolation', 'test:pilot-human-safety', 'test:translation-knowledge-isolation', 'test:demo-external-isolation', 'test:automation-runtime-foundation', 'test:automation-runtime-phase2a1', 'test:automation-runtime-phase2a2', 'test:http-security'],
+  critical: ['check:syntax', 'test:ci-guards', 'test:onboarding-readiness-navigation', 'test:onboarding-validation', 'test:onboarding-whatsapp-dependency', 'test:guest-memory-pilot-off', 'test:guest-memory-off-boundaries', 'test:guest-memory-retention', 'test:health-truthful-status', 'test:manual-send', 'test:automation-dispatch-contract', 'test:inbox', 'test:auth-hotel-context', 'test:messages-tenant-isolation', 'test:pilot-human-safety', 'test:translation-knowledge-isolation', 'test:demo-external-isolation', 'test:automation-runtime-foundation', 'test:automation-runtime-phase2a1', 'test:automation-runtime-phase2a2', 'test:http-security'],
   dashboard: ['dashboard:build'],
   postgres: ['test:onboarding-validation-postgres', 'test:knowledge-isolation-postgres', 'test:automation-dispatch-postgres', 'test:guest-memory-retention-postgres']
 };

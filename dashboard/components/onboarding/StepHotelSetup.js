@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { HotelFieldErrors } from '@/components/HotelFieldErrors';
+import { WhatsappDependency } from './WhatsappDependency';
 import { hotelFormInput, validateHotelFields, HOTEL_FIELD_LIMITS } from '../../../shared/onboarding/hotel-fields.js';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { Building2, ShieldCheck } from 'lucide-react';
@@ -48,6 +49,8 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved, onDirtyChange, 
   useEffect(() => { if (focusField) focusRef.current?.focus(); }, [focusField]);
   const [form, setForm] = useState({});
   const [dirty, setDirty] = useState(false);
+  const [dependencyDirty, setDependencyDirty] = useState(false);
+  useEffect(() => {onDirtyChange?.(dirty || dependencyDirty);},[dirty,dependencyDirty,onDirtyChange]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -221,6 +224,8 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved, onDirtyChange, 
           )}
         </div>
       </form>
+      {focusField === 'whatsapp_number' ? <WhatsappDependency hotel={hotel} canEdit={canEdit} isLight={isLight}
+        profileDirty={dirty} onSaved={onSaved} onDirtyChange={setDependencyDirty} /> : null}
     </ExecutiveCard>
   );
 };
