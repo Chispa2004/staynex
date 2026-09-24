@@ -11,7 +11,8 @@ let count=0;const test=(name,fn)=>{fn();count++;console.log('PASS '+name);};
 try{
  sql('create role anon nologin;create role authenticated nologin;create role service_role nologin bypassrls;create publication supabase_realtime;grant usage on schema public to service_role;');
  for(const name of ['../schema','create_hotels_and_hotel_users','create_user_roles_and_hotel_assignments','add_platform_role_to_hotel_users','add_multilanguage_translation_layer','create_enterprise_audit_logs','create_conversation_ai_state','twilio_inbound_messagesid_dedupe','create_reservations_core','create_message_attention'])sql(fs.readFileSync(path.join(root,'supabase/sql',name+'.sql'),'utf8'));
- sql("alter table hotel_knowledge add column is_active boolean default true, add column metadata jsonb default '{}'::jsonb;");
+ sql("alter table hotel_knowledge add column is_active boolean default true;");
+ test('Remote Knowledge contract has no metadata column',()=>{assert.equal(sql("select count(*) from information_schema.columns where table_schema='public' and table_name='hotel_knowledge' and column_name='metadata'"),'0');});
  const h='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',actor='33333333-3333-4333-8333-333333333333';
  sql(`insert into hotels(id,name,slug,timezone,whatsapp_number) values('${h}','Hotel Demo Checkin','hotel-demo-checkin','Europe/Madrid','synthetic-only:hotel'),('${other}','Other synthetic','other','Europe/Madrid','synthetic-only:other');insert into hotel_users(hotel_id,user_id,role,status,platform_role) values('${h}','${actor}','admin','active','none');`);
  const ref=sql("select (clock_timestamp() at time zone 'Europe/Madrid')::date"),ack="set staynex.demo_isolated='on';set staynex.send_automations='false';";
