@@ -95,6 +95,7 @@
     "test:automation-dispatch-postgres": "node scripts/test-automation-dispatch-postgres.js",
     "test:knowledge-isolation-postgres": "node scripts/test-knowledge-isolation-postgres.cjs",
     "test:onboarding-readiness-navigation": "node scripts/test-onboarding-readiness-navigation.js",
+    "test:onboarding-whatsapp-dependency": "node scripts/test-onboarding-whatsapp-dependency.js",
     "test:onboarding-validation": "node scripts/test-onboarding-validation.js",
     "test:onboarding-validation-postgres": "node scripts/test-onboarding-validation-postgres.js"
   },

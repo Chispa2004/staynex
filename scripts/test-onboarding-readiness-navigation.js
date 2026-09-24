@@ -1,6 +1,7 @@
 import * as fields from '../shared/onboarding/hotel-fields.js';
 import * as creationClient from '../dashboard/lib/hotel-creation-client.js';
 import assert from 'node:assert/strict';
+import * as whatsapp from '../shared/onboarding/whatsapp-dependency.js';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createOnboardingStore } from './fixtures/onboarding-store.js';
@@ -23,7 +24,7 @@ const compile = async (path, mocks = {}, extra = '') => {
   const output = await swc.transform(source, { filename: path, jsc: { parser: { syntax: 'ecmascript', jsx: true },
     transform: { react: { runtime: 'automatic' } } }, module: { type: 'commonjs' } });
   const module = { exports: {} };
-  new Function('require', 'module', 'exports', output.code)(id => mocks[id] || require(id), module, module.exports);
+  new Function('require', 'module', 'exports', output.code)(id => id.endsWith('/whatsapp-dependency.js') ? whatsapp : mocks[id] || require(id), module, module.exports);
   return module.exports;
 };
 const { shouldRedirectToOnboarding: redirect, getOnboardingAction: action } = navigation;

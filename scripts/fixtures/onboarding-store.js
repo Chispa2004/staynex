@@ -22,7 +22,8 @@ export const createOnboardingStore = () => {
     const query = {
       select() { return query; }, order() { return query; },
       limit(value) { limit = value; return query; },
-      eq(key, value) { filters.push(row => row[key] === value); return query; },
+      eq(key, value) { filters.push(row => key === 'metadata' ? JSON.stringify(row[key]) === value : row[key] === value); return query; },
+      is(key, value) { filters.push(row => value === null ? row[key] == null : row[key] === value); return query; },
       in(key, values) { filters.push(row => values.includes(row[key])); return query; },
       neq(key, value) { filters.push(row => row[key] !== value); return query; },
       gte(key, value) { filters.push(row => row[key] >= value); return query; },

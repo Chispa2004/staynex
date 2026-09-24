@@ -1,4 +1,5 @@
 import { buildHealthCoverage, applyHealthCoverage } from './health-coverage.js';
+import { getWhatsappDependency, WHATSAPP_DEPENDENCIES } from '../../shared/onboarding/whatsapp-dependency.js';
 import { getPmsProvider, isPmsProviderLiveApi } from './pms-providers.js';
 import {
   pmsConnectionSelectForSurface,
@@ -364,6 +365,10 @@ export const buildHotelOperationalHealthSnapshot = ({
     }
     if (card.id === 'whatsapp' && hotel.whatsapp_number) card = { ...card, status: 'unverified',
       description: 'WhatsApp configurado. No hay una comprobación reciente de funcionamiento.' };
+    if (card.id === 'whatsapp' && !hotel.whatsapp_number && getWhatsappDependency(hotel)) card = {
+      ...card, status:'warning', value:'Pendiente',
+      description:`${WHATSAPP_DEPENDENCIES[getWhatsappDependency(hotel)]}. WhatsApp no está conectado ni verificado; operación en vivo bloqueada.`
+    };
     if (card.id === 'ai' && card.value === 'ON') card = { ...card, status: 'unverified',
       description: 'Configuración IA habilitada. Funcionamiento actual no verificado.' };
     return applyHealthCoverage(card, coverage);
