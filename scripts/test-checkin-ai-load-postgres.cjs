@@ -1,0 +1,39 @@
+// Disposable PostgreSQL only. No remote credentials, network or actual AI calls.
+const fs=require('fs'),path=require('path'),assert=require('assert/strict'),{execFileSync}=require('child_process');
+const root=path.resolve(__dirname,'..');
+const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>/^(PATH|PATHEXT|SYSTEMROOT|WINDIR|TEMP|TMP|COMSPEC|APPDATA|LOCALAPPDATA|USERPROFILE|HOME)$/i.test(k)));
+Object.assign(env,{SEND_AUTOMATIONS:'false',USE_MOCK_AI:'true',GUEST_MEMORY_ENABLED:'false'});
+(async()=>{
+const {demoMessageStages}=await import('./demo-message-stages.js');const {prepareCheckinAiLoad}=await import('./checkin-ai-load.js');const {generateDemoReplies}=await import('./checkin-ai-rehearsal.js');const {buildCheckinDemoFixturePlan}=await import('../src/services/demo-data.service.js');
+const pg=require('./ci/disposable-postgres.cjs').createDisposablePostgres({env});
+const sql=(query,pattern)=>{let out,code=0;try{out=execFileSync(pg.docker,[...pg.host,'exec','-i',pg.container,'psql','-X','-qAt','-U','postgres','-v','ON_ERROR_STOP=1'],{input:query,env,encoding:'utf8',stdio:['pipe','pipe','pipe'],timeout:30000});}catch(e){code=e.status||1;out=String(e.stdout||'')+String(e.stderr||'');}if(pattern){assert.notEqual(code,0);assert.match(out,pattern);}else assert.equal(code,0,out);return out.trim();};
+let count=0;const test=(name,fn)=>{fn();count++;console.log('PASS '+name);};
+try{
+ sql('create role anon nologin;create role authenticated nologin;create role service_role nologin bypassrls;create publication supabase_realtime;grant usage on schema public to service_role;');
+ for(const name of ['../schema','create_hotels_and_hotel_users','create_user_roles_and_hotel_assignments','add_platform_role_to_hotel_users','add_multilanguage_translation_layer','create_enterprise_audit_logs','create_conversation_ai_state','twilio_inbound_messagesid_dedupe','create_reservations_core','create_message_attention'])sql(fs.readFileSync(path.join(root,'supabase/sql',name+'.sql'),'utf8'));
+ sql("alter table hotel_knowledge add column is_active boolean default true, add column metadata jsonb default '{}'::jsonb;");
+ const h='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222',actor='33333333-3333-4333-8333-333333333333';
+ sql(`insert into hotels(id,name,slug,timezone,whatsapp_number) values('${h}','Hotel Demo Checkin','hotel-demo-checkin','Europe/Madrid','synthetic-only:hotel'),('${other}','Other synthetic','other','Europe/Madrid','synthetic-only:other');insert into hotel_users(hotel_id,user_id,role,status,platform_role) values('${h}','${actor}','admin','active','none');`);
+ const ref=sql("select (clock_timestamp() at time zone 'Europe/Madrid')::date"),ack="set staynex.demo_isolated='on';set staynex.send_automations='false';";
+ const old=demoMessageStages({hotelId:h,actorId:actor,referenceDate:ref});sql(ack+old.sql);
+ sql(`insert into guests(id,hotel_id,phone_number) values('${other}','${h}','synthetic-only:historic');insert into conversations(id,hotel_id,guest_id) values('${other}','${h}','${other}');insert into tickets(hotel_id,guest_id,conversation_id,category,title,description) values('${h}','${other}','${other}','maintenance','Preserve historic','Synthetic');`);
+ sql(`insert into conversation_ai_state(hotel_id,conversation_id,state_metadata) values('${h}','${old.cases[0].conversationId}','{"conversation_ai_mode":"human_takeover"}');`);
+ const tables=['guests','reservations','conversations','messages','message_attention','conversation_ai_state','tickets','hotel_knowledge'];
+ const snap=()=>({hotel:{id:h,name:'Hotel Demo Checkin',slug:'hotel-demo-checkin',timezone:'Europe/Madrid'},actorId:actor,rows:Object.fromEntries(tables.map(t=>[t,JSON.parse(sql(`select coalesce(json_agg(r order by r.id),'[]') from ${t} r where hotel_id='${h}'`.replace('r.id',t==='message_attention'?'r.message_id':'r.id')))]))});
+ const backup=snap();const generationSnapshot={hotelId:h,rows:{...backup.rows,hotels:[backup.hotel],hotel_knowledge:buildCheckinDemoFixturePlan({hotelId:h}).knowledge}};
+ const generations=await generateDemoReplies({snapshot:generationSnapshot,generate:async()=>({ai_provider:'openai',ai_model:'LOCAL TEST SPY',reply:'Synthetic test output, never loaded remotely',fallback_used:false,create_ticket:false,escalate_to_human:false})});
+ const plan=prepareCheckinAiLoad({backup,generations});
+ test('Existing human control produces draft; no old message or attention transition',()=>{assert.ok(generations.find(g=>g.conversationId===old.cases[0].conversationId).draft);assert.equal(plan.added.messages.length,33);assert.equal(plan.updates.length,9);assert.equal(plan.added.conversations.length,6);});
+ test('Missing isolation acknowledgement rejects before writes',()=>{sql(plan.sql,/Isolation acknowledgement/);assert.deepEqual(snap(),backup);});
+ test('Trigger blocks load before invocation',()=>{sql("create function demo_trigger() returns trigger language plpgsql as $$begin raise exception 'SIDE EFFECT';end$$;create trigger demo_trigger before insert on messages for each row execute function demo_trigger();");sql(ack+plan.sql,/Enabled user trigger/);assert.deepEqual(snap(),backup);sql('drop trigger demo_trigger on messages;drop function demo_trigger();');});
+ test('Changed human control rejects instead of bypassing it',()=>{sql(`update conversation_ai_state set state_metadata='{"conversation_ai_mode":"escalation_lock"}' where conversation_id='${old.cases[0].conversationId}'`);sql(ack+plan.sql,/Snapshot changed/);sql(`update conversation_ai_state set state_metadata='{"conversation_ai_mode":"human_takeover"}' where conversation_id='${old.cases[0].conversationId}'`);});
+ test('New human state after backup rejects without writes',()=>{const id='44444444-4444-4444-8444-444444444444';sql(`insert into conversation_ai_state(id,hotel_id,conversation_id,state_metadata) values('${id}','${h}','${other}','{"conversation_ai_mode":"human_takeover"}')`);sql(ack+plan.sql,/Snapshot row set changed/);sql(`delete from conversation_ai_state where id='${id}'`);assert.deepEqual(snap(),backup);});
+ test('Intermediate failure rolls all new rows back',()=>{const broken=plan.sql.replace('end $load$;','raise exception \'Synthetic final failure\';end $load$;');sql(ack+broken,/Synthetic final failure/);assert.deepEqual(snap(),backup);});
+ test('Append 6 cases and 21 AI replies, preserve history/attention/tickets and other hotel',()=>{sql(ack+plan.sql);const after=snap();assert.equal(after.rows.messages.length,42);assert.equal(after.rows.conversations.length,16);for(const t of ['messages','message_attention','tickets','reservations','guests','conversation_ai_state'])for(const row of backup.rows[t])assert.deepEqual(after.rows[t].find(r=>t==='message_attention'?r.message_id===row.message_id:r.id===row.id),row);assert.equal(sql(`select count(*) from hotels where id='${other}' and name='Other synthetic'`),'1');});
+ test('Repeat is identical, without extra rows, date shifts or state reset',()=>{const before=snap();sql(ack+plan.sql);assert.deepEqual(snap(),before);});
+ const loaded=snap(),recovery=plan.recovery(loaded);
+ test('Recovery refuses new dependent activity without cascade',()=>{sql(`insert into tickets(hotel_id,guest_id,conversation_id,category,title,description) values('${h}','${plan.added.guests[0].id}','${plan.added.conversations[0].id}','reception','Later activity','Synthetic');`);sql(recovery,/Unbacked dependent activity/);sql("delete from tickets where title='Later activity';");});
+ test('Recovery removes only newly added rows and restores updated dates',()=>{sql(recovery);assert.deepEqual(snap(),backup);});
+ console.log(`${count} Checkin AI load PostgreSQL scenarios passed; no remote/provider calls; network=${pg.inspect.HostConfig.NetworkMode}`);
+}finally{pg.cleanup();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

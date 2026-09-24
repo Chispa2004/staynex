@@ -1,10 +1,9 @@
+import { messageStayStage, readAllInboxRows } from '../../shared/inbox/stay-stage.js';
 import { getSupabaseAdmin } from './supabase';
 import { buildConversationCopilot } from './ai-copilot';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import { sanitizeInboxMessageTranslations } from './inbox-message-presentation.js';
 
-const INBOX_CONVERSATION_LIMIT = 100;
-const INBOX_MESSAGE_LIMIT = 3000;
 
 const groupMessagesByConversation = (messages) => messages.reduce((groups, message) => {
   const current = groups.get(message.conversation_id) || [];
@@ -42,30 +41,15 @@ const getMessagesForConversations = async ({ supabase, conversationIds, hotelId 
 
   const baseSelect = 'id, conversation_id, hotel_id, sender_type, content, created_at';
   const extendedSelect = `${baseSelect}, original_language, translated_language, translated_text, translation_provider, translation_confidence, metadata`;
-  let { data, error } = await supabase
-    .from('messages')
-    .select(extendedSelect)
-    .eq('hotel_id', hotelId)
-    .in('conversation_id', conversationIds)
-    .order('created_at', { ascending: true })
-    .limit(INBOX_MESSAGE_LIMIT);
-
-  if (error && isMissingMessageTranslationFields(error)) {
-    const fallback = await supabase
-      .from('messages')
-      .select(baseSelect)
-      .eq('hotel_id', hotelId)
-      .in('conversation_id', conversationIds)
-      .order('created_at', { ascending: true })
-      .limit(INBOX_MESSAGE_LIMIT);
-
-    data = fallback.data;
-    error = fallback.error;
+  const query = columns => () => supabase.from('messages').select(columns).eq('hotel_id', hotelId)
+    .in('conversation_id', conversationIds).order('id', {ascending:true});
+  let data;
+  try { data = await readAllInboxRows(query(extendedSelect)); }
+  catch (error) {
+    if (!isMissingMessageTranslationFields(error)) throw error;
+    data = await readAllInboxRows(query(baseSelect));
   }
-
-  if (error) {
-    throw error;
-  }
+  data.sort((a,b)=>Date.parse(a.created_at)-Date.parse(b.created_at) || a.conversation_id.localeCompare(b.conversation_id) || (Number.isInteger(a.metadata?.demo_sequence) && Number.isInteger(b.metadata?.demo_sequence) ? a.metadata.demo_sequence-b.metadata.demo_sequence : 0) || a.id.localeCompare(b.id));
 
   return (data || []).map((message) => sanitizeInboxMessageTranslations(message, hotelId));
 };
@@ -557,38 +541,20 @@ const getGuestIntelligenceByGuest = async ({ supabase, guestIds, hotelId }) => {
   }
 };
 
-export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null } = {}) => {
-  let resolvedHotelId = hotelId;
+export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null, hotel = null } = {}) => {
+  if (!hotelId) return [];
+  const conversations = await readAllInboxRows(() => supabase.from('conversations')
+    .select('id, hotel_id, guest_id, status, last_message_at, created_at').eq('hotel_id', hotelId).order('id', {ascending:true}));
+  const result = [];
+  // Bound each IN clause; every authorized page is loaded before filtering.
+  for (let start = 0; start < conversations.length; start += 100) {
+    result.push(...await getInboxBatch({supabase, resolvedHotelId:hotelId, hotel, conversations:conversations.slice(start,start+100)}));
+  }
+  return result.sort((a,b)=>Date.parse(b.last_message_at || b.created_at)-Date.parse(a.last_message_at || a.created_at));
+};
+
+const getInboxBatch = async ({supabase, resolvedHotelId, hotel, conversations}) => {
   const guestMemoryEnabled = isGuestMemoryEnabled();
-
-  if (!resolvedHotelId) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Inbox tenant gate active: hotelId is required; returning empty conversations.');
-    }
-
-    return [];
-  }
-
-  let conversationsQuery = supabase
-    .from('conversations')
-    .select('id, hotel_id, guest_id, status, last_message_at, created_at')
-    .order('last_message_at', { ascending: false })
-    .limit(INBOX_CONVERSATION_LIMIT);
-
-  if (resolvedHotelId) {
-    conversationsQuery = conversationsQuery.eq('hotel_id', resolvedHotelId);
-  }
-
-  const { data: conversations, error: conversationsError } = await conversationsQuery;
-
-  if (conversationsError) {
-    throw conversationsError;
-  }
-
-  if (!conversations?.length) {
-    return [];
-  }
-
   const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id).filter(Boolean))];
   const conversationIds = conversations.map((conversation) => conversation.id).filter(Boolean);
   const [guests, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, intelligenceByGuest] = await Promise.all([
@@ -606,6 +572,16 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
     getGuestIntelligenceByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
   ]);
 
+  const stageReservations = guestIds.length ? await readAllInboxRows(() => supabase.from('reservations')
+    .select('id,hotel_id,guest_id,arrival_date,departure_date,status').eq('hotel_id', resolvedHotelId)
+    .in('guest_id',guestIds).order('id',{ascending:true})) : [];
+  for (const message of messages) {
+    const conversation = conversations.find(c=>c.id === message.conversation_id);
+    message.stayStage = messageStayStage(message, conversation, stageReservations, hotel);
+    const meta = message.metadata || {};
+    message.inboxOrigin = meta.demo === true || meta.checkin_demo === true || meta.simulation === true || Boolean(meta.fixture)
+      || /^(demo|mock|simulation|checkin_demo)([_-]|$)/i.test(meta.source || '') ? 'simulated' : 'other';
+  }
   const guestsById = new Map((guests || []).map((guest) => [guest.id, guest]));
   const reservationIdentityLookups = await getReservationIdentityLookups({
     supabase,

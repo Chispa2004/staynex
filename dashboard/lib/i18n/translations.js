@@ -1,3 +1,4 @@
+import { inboxStagePhrases } from './inbox-stage-phrases.js';
 import { onboardingPhrases, onboardingEnglishPhrases, readinessSpanishPhrases } from './onboarding-phrases.js';
 import { healthPhrases } from './health-phrases.js';
 ﻿export const DASHBOARD_LANGUAGES = [
@@ -2950,7 +2951,7 @@ for (const phrase of receptionMessagePhrases) { ['es', 'en', 'fr', 'de'].forEach
 
 for (const [es, en] of onboardingPhrases) { phraseTranslations.es[es] = es; phraseTranslations.en[es] = en; }
 Object.assign(phraseTranslations.es, onboardingEnglishPhrases, readinessSpanishPhrases);
-for (const phrase of healthPhrases) { ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; }); }
+for (const phrase of [...healthPhrases, ...inboxStagePhrases]) { ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; }); }
 
 const phrasePatterns = {
   es: [

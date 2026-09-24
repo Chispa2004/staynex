@@ -13,6 +13,7 @@ export async function GET(request) {
     }
     const conversations = await getInboxConversations({
       supabase,
+      hotel,
       hotelId: hotel?.id || null
     });
 

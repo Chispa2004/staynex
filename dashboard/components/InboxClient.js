@@ -21,6 +21,8 @@ import { MessageAttentionProvider, AttentionToolbar, AttentionMessage } from './
 import { MANUAL_MESSAGE_MAX_LENGTH, manualDeliveryText, normalizeManualDelivery } from '../../shared/manual-send/contract.js';
 import { readManualRecovery, blocksSameManualSend, runManualAttempt, getManualSessionStorage, getManualMessageDelivery } from '@/lib/manual-send-client';
 
+import { STAY_STAGES, conversationStages, matchesInboxScope, demoReplyLabel, inboxFilterUrl, filterInboxConversations } from '../../shared/inbox/stay-stage.js';
+
 const formatDate = (value) => {
   if (!value) {
     return 'Sin fecha';
@@ -427,13 +429,16 @@ const getConversationRoomNumber = (conversation) => (
   || null
 );
 
-const getConversationPhoneNumber = (conversation) => (
+const getConversationPhoneNumber = (conversation) => {
+  const phone = (
   conversation?.phoneNumber
   || conversation?.phone_number
   || conversation?.guest?.phone_number
   || conversation?.reservation?.guest_phone
   || null
-);
+  );
+  return phone?.startsWith('synthetic-only:') ? null : phone;
+};
 
 const getConversationInitials = guestInitials;
 
@@ -485,7 +490,7 @@ const getConversationPriorityScore = (conversation, readState) => {
 
 export const InboxClient = ({ conversations }) => {
   const searchParams = useSearchParams();
-  const { language, t } = useDashboardLanguage();
+  const { language, t, tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const sortedConversations = useMemo(() => normalizeInboxConversations(conversations), [conversations]);
@@ -507,8 +512,16 @@ export const InboxClient = ({ conversations }) => {
   const [hiddenTranslations, setHiddenTranslations] = useState({});
   const [readState, setReadState] = useState({});
   const [readStateLoaded, setReadStateLoaded] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const stageFilter = Object.hasOwn(STAY_STAGES, searchParams.get('stage')) ? searchParams.get('stage') : 'all';
+  const originFilter = ['simulated','other'].includes(searchParams.get('origin')) ? searchParams.get('origin') : 'all';
+  const activeFilter = ['unread','human','urgent','vip','ai'].includes(searchParams.get('filter')) ? searchParams.get('filter') : 'all';
+  const searchQuery = searchParams.get('q') || '';
+  const updateFilter = (key, value, replace = false) => {
+    window.history[replace ? 'replaceState' : 'pushState'](null,'',inboxFilterUrl(document.URL,key,value));
+  };
+  const setSearchQuery = value => updateFilter('q',value,true);
+  const setActiveFilter = value => updateFilter('filter',value);
+  const scopedItems = useMemo(()=>items.filter(c=>matchesInboxScope(c,stageFilter,originFilter)),[items,stageFilter,originFilter]);
   const [currentHotel, setCurrentHotel] = useState(null);
   const [pilotAiSafety, setPilotAiSafety] = useState(null);
   const [staffLanguage, setStaffLanguage] = useState(normalizeTranslationLanguage(language || 'es'));
@@ -592,36 +605,10 @@ export const InboxClient = ({ conversations }) => {
     selectedRoomNumber ? `Habitación ${selectedRoomNumber}` : null,
     selectedPhoneNumber
   ].filter(Boolean).join(' · ') || t('inbox.noPhone');
-  const visibleItems = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return items
-      .filter((conversation) => {
-        const unreadCount = getUnreadCount(conversation, readState);
-        const language = getConversationLanguage(conversation);
-        const searchable = [
-          getConversationGuestLabel(conversation),
-          getConversationPhoneNumber(conversation),
-          getConversationRoomNumber(conversation),
-          conversation.lastMessage?.content,
-          conversation.aiState?.current_intent,
-          language
-        ].filter(Boolean).join(' ').toLowerCase();
-
-        if (query && !searchable.includes(query)) {
-          return false;
-        }
-
-        if (activeFilter === 'unread') return unreadCount > 0;
-        if (activeFilter === 'human') return isHumanTakeoverActive(conversation);
-        if (activeFilter === 'urgent') return isUrgentConversation(conversation, unreadCount);
-        if (activeFilter === 'vip') return isVipConversation(conversation);
-        if (activeFilter === 'ai') return !isHumanTakeoverActive(conversation);
-
-        return true;
-      })
-      .sort((a, b) => getConversationPriorityScore(b, readState) - getConversationPriorityScore(a, readState));
-  }, [activeFilter, items, readState, searchQuery]);
+  const visibleItems = useMemo(() => filterInboxConversations({items,stage:stageFilter,origin:originFilter,query:searchQuery,filter:activeFilter,
+    unread:c=>getUnreadCount(c,readState),human:isHumanTakeoverActive,urgent:c=>isUrgentConversation(c,getUnreadCount(c,readState)),vip:isVipConversation,
+    searchText:c=>[getConversationGuestLabel(c),getConversationPhoneNumber(c),getConversationRoomNumber(c),...(c.messages||[]).map(m=>m.content),c.aiState?.current_intent,getConversationLanguage(c)].filter(Boolean).join(' ')
+  }).sort((a,b)=>getConversationPriorityScore(b,readState)-getConversationPriorityScore(a,readState)),[items,stageFilter,originFilter,searchQuery,activeFilter,readState]);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -1445,18 +1432,19 @@ export const InboxClient = ({ conversations }) => {
     || [...(selectedConversation?.messages || [])].reverse().find((item) => item.sender_type === 'guest')?.original_language
     || null;
   const sendingLanguage = sendLanguagePresentation(selectedConversation, language);
-  const humanTakeoverTotal = items.filter((conversation) => isHumanTakeoverActive(conversation)).length;
+  const visibleUnreadTotal = getTotalUnread(visibleItems, readState);
+  const humanTakeoverTotal = visibleItems.filter((conversation) => isHumanTakeoverActive(conversation)).length;
   const hotelAiReplyPresentation = getHotelAiReplyPresentation({ pilotAiSafety, hotel: currentHotel });
   const selectedControlBadge = selectedConversation
     ? getConversationControlBadge({ conversation: selectedConversation, hotelAiReplyPresentation })
     : null;
   const filterItems = [
-    { key: 'all', label: 'Todas', count: items.length },
-    { key: 'unread', label: 'Sin leer', count: items.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
-    { key: 'human', label: 'Control humano', count: humanTakeoverTotal },
-    { key: 'urgent', label: 'Urgentes', count: items.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
-    { key: 'vip', label: 'VIP', count: items.filter((conversation) => isVipConversation(conversation)).length },
-    { key: 'ai', label: 'Sin control humano', count: items.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
+    { key: 'all', label: 'Todas', count: scopedItems.length },
+    { key: 'unread', label: 'Sin leer', count: scopedItems.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
+    { key: 'human', label: 'Control humano', count: scopedItems.filter(isHumanTakeoverActive).length },
+    { key: 'urgent', label: 'Urgentes', count: scopedItems.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
+    { key: 'vip', label: 'VIP', count: scopedItems.filter((conversation) => isVipConversation(conversation)).length },
+    { key: 'ai', label: 'Sin control humano', count: scopedItems.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
   ];
   return (
     <MessageAttentionProvider key={`${currentHotel?.id || ''}:${selectedConversation?.id || ''}`} hotelId={currentHotel?.id} conversation={selectedConversation}>
@@ -1520,10 +1508,22 @@ export const InboxClient = ({ conversations }) => {
             </div>
           </div>
               <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
-                {items.length} conversaciones
-                {unreadTotal > 0 ? ` · ${unreadTotal} mensajes sin leer` : ''}
-                {humanTakeoverTotal > 0 ? ` · ${humanTakeoverTotal} en control humano` : ''}
+                {tx('{count} conversaciones', {count:visibleItems.length})} · {tx(STAY_STAGES[stageFilter])}
+                {visibleUnreadTotal > 0 ? ` · ${tx('{count} mensajes sin leer', {count:visibleUnreadTotal})}` : ''}
+                {humanTakeoverTotal > 0 ? ` · ${tx('{count} en control humano', {count:humanTakeoverTotal})}` : ''}
               </p>
+          <div className="mt-2 grid grid-cols-1 gap-2 text-xs">
+            <label>{tx('Etapa de los mensajes del huésped')}
+              <select aria-label={tx('Etapa de los mensajes del huésped')} className="mt-1 w-full rounded border bg-transparent p-2" value={stageFilter} onChange={event=>updateFilter('stage',event.target.value)}>
+                {Object.entries(STAY_STAGES).map(([key,label])=><option key={key} value={key}>{tx(label)}</option>)}
+              </select>
+            </label>
+            <label>{tx('Origen de las conversaciones')}
+              <select aria-label={tx('Origen de las conversaciones')} className="mt-1 w-full rounded border bg-transparent p-2" value={originFilter} onChange={event=>updateFilter('origin',event.target.value)}>
+                <option value="all">{tx('Todos los orígenes')}</option><option value="simulated">SIMULADO</option><option value="other">{tx('Otros mensajes')}</option>
+              </select>
+            </label>
+          </div>
           <div className={cn(
             'mt-3 flex items-center gap-2 rounded-lg border px-3 py-2',
             isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-black/15 text-slate-200'
@@ -1556,7 +1556,7 @@ export const InboxClient = ({ conversations }) => {
                 key={filter.key}
                 type="button"
                 onClick={() => setActiveFilter(filter.key)}
-                aria-label={`${filter.label}: ${filter.count} conversaciones`}
+                aria-label={`${filter.label}: ${tx('{count} conversaciones', {count:filter.count})}`}
                 aria-pressed={active}
                 className={[
                   'inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition',
@@ -1696,6 +1696,7 @@ export const InboxClient = ({ conversations }) => {
                       {lastMessage?.content || t('inbox.noMessages')}
                     </p>
                     <div className={ergonomics.listBadges}>
+                      {conversationStages(conversation).map(stage=><span key={stage} className={ui.badge(isLight,'slate',true)}>{tx(STAY_STAGES[stage])}</span>)}
                       {badgeItems.map((badge) => {
                         const Icon = badge.icon;
                         return (
@@ -1868,6 +1869,7 @@ export const InboxClient = ({ conversations }) => {
               isTranslating
             });
             const isAi = item.sender_type === 'ai';
+            const demoLabel = demoReplyLabel(item);
 
             return (
               <div
@@ -1883,6 +1885,8 @@ export const InboxClient = ({ conversations }) => {
                   senderStyles[theme][item.sender_type] || senderStyles[theme].guest
                 ].join(' ')}
                 >
+                  {demoLabel ? <p className="mb-2 text-xs font-semibold">{tx(demoLabel)}<br />{tx('Ejemplo previamente generado; no es una generación en directo.')}</p> : null}
+                  {item.sender_type === 'guest' ? <p className="mb-1 text-xs">{tx(STAY_STAGES[item.stayStage || 'unknown'])}</p> : null}
                   <div className={ergonomics.messageMeta}>
                     <p className={[
                       'flex items-center gap-2 text-xs font-semibold',

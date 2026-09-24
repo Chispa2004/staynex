@@ -9,7 +9,7 @@ const rowsSQL=rows=>Object.entries(rows).flatMap(([table,items])=>items.map(row=
 
 // A fresh dependency scan runs under locks. Even a new FK consumer, cross-hotel
 // reference, or ON DELETE SET NULL must fail rather than lose another row's link.
-const guardedDelete=rows=>`
+export const guardedDelete=rows=>`
 create temporary table demo_delete_targets(rel regclass,key text,data jsonb) on commit drop;
 ${rowsSQL(rows)?'insert into demo_delete_targets values '+rowsSQL(rows)+';':''}
 do $guard$

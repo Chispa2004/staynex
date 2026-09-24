@@ -1,3 +1,4 @@
+import {messageStayStage,readAllInboxRows,filterInboxConversations} from '../shared/inbox/stay-stage.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sanitizeInboxMessageTranslations } from '../dashboard/lib/inbox-message-presentation.js';
@@ -10,6 +11,8 @@ import {
 
 const loadInboxModuleForTest = () => {
   const source = readFileSync(new URL('../dashboard/lib/inbox.js', import.meta.url), 'utf8')
+    .replace(/\r\n/g, '\n')
+    .replace("import { messageStayStage, readAllInboxRows } from '../../shared/inbox/stay-stage.js';\n", '')
     .replace("import { getSupabaseAdmin } from './supabase';\n", '')
     .replace("import { buildConversationCopilot } from './ai-copilot';\n", '')
     .replace("import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';\n", '')
@@ -17,12 +20,13 @@ const loadInboxModuleForTest = () => {
     .replace('export const getInboxConversations', 'const getInboxConversations');
 
   return new Function(
-    'getSupabaseAdmin',
+    'messageStayStage','readAllInboxRows','getSupabaseAdmin',
     'buildConversationCopilot',
     'isGuestMemoryEnabled',
     'sanitizeInboxMessageTranslations',
     `${source}\nreturn { getInboxConversations };`
   )(
+    messageStayStage,readAllInboxRows,
     () => {
       throw new Error('Unexpected default Supabase admin access in inbox test');
     },
@@ -75,6 +79,8 @@ class FakeSupabaseQuery {
     return this;
   }
 
+  range(start,end) { this.rangeBounds=[start,end]; return this; }
+
   limit(count) {
     this.limitCount = count;
     return this;
@@ -118,6 +124,7 @@ class FakeSupabaseQuery {
       data = data.slice(0, this.limitCount);
     }
 
+    if (this.rangeBounds) data=data.slice(this.rangeBounds[0],this.rangeBounds[1]+1);
     return { data, error: null };
   }
 }
@@ -453,7 +460,8 @@ assert.equal(automaticReplyPresentation(aiContext(true, false)).state, 'off');
 assert.equal(automaticReplyPresentation(aiContext(undefined, true)).state, 'unknown', 'Missing global evidence cannot promise an automatic response');
 assert.equal(automaticReplyPresentation().state, 'unknown');
 assert.match(inboxComponentSource, /key: 'ai', label: 'Sin control humano'/, 'Filter label describes its unchanged control predicate');
-assert.match(inboxComponentSource, /activeFilter === 'ai'[^\n]*!isHumanTakeoverActive\(conversation\)/);
+assert.match(inboxComponentSource, /human:isHumanTakeoverActive/);
+assert.deepEqual(filterInboxConversations({items:[{id:'human',messages:[]},{id:'ai',messages:[]}],filter:'ai',human:c=>c.id==='human'}).map(c=>c.id),['ai'],'Sin control humano continues to exclude human takeover');
 assert.equal(guestInitials({ guest: { name: 'Ana López', phone_number: '+34 600 000 001' } }), 'AL');
 assert.equal(guestInitials({ guestName: '+34 600 000 001', guest: { phone_number: '+34 600 000 001' } }), null, 'A phone-only identity must use the person icon');
 assert.equal(guestInitials({}), null);
@@ -501,7 +509,7 @@ const chatHeaderSource = inboxComponentSource.slice(inboxComponentSource.indexOf
 assert.doesNotMatch(chatHeaderSource, /truncate/, 'Chat header identity must not be ellipsized');
 assert.match(chatHeaderSource, /ergonomics\.identityRow[\s\S]*?selectedSecondaryLine[\s\S]*?ergonomics\.effectiveState[\s\S]*?ergonomics\.secondaryControls/, 'Identity and effective status must precede secondary controls');
 assert.match(inboxComponentSource, /mensajes sin leer/, 'Unread total must name its message unit');
-assert.match(inboxComponentSource, /aria-label=\{`\$\{filter\.label\}: \$\{filter\.count\} conversaciones`\}/, 'Filter counts must name their conversation unit');
+assert.ok(inboxComponentSource.includes("aria-label={`${filter.label}: ${tx('{count} conversaciones', {count:filter.count})}`}"), 'Filter counts must name their translated conversation unit');
 assert.doesNotMatch(inboxComponentSource, /overflow-x-auto/, 'Filters and quick actions must wrap instead of requiring horizontal scrolling');
 console.log('Inbox human takeover and focused ergonomics checks passed');
 
@@ -582,3 +590,24 @@ elements(presentation.AttentionToolbar()).find(n => n.type === 'button').props.o
 assert.equal(refreshed, 1, 'Refresh attention calls only the existing attention refresh');
 assert.ok(inboxComponentSource.indexOf('<AttentionToolbar />') < inboxComponentSource.indexOf('</header>'), 'Attention controls belong to the conversation header');
 console.log('Inbox attention disclosure permissions, busy state and operation scope passed');
+
+// Real loader, well beyond both historical truncation limits and with tenant B.
+const bulk={conversations:[],guests:[],messages:[],reservations:[]};
+for(let i=0;i<121;i++){
+ const id='bulk-'+String(i).padStart(4,'0'),gid='guest-'+id;
+ bulk.conversations.push({id,hotel_id:hotelA,guest_id:gid,created_at:'2026-09-01T10:00:00Z'});
+ bulk.guests.push({id:gid,hotel_id:hotelA,name:'Synthetic '+i});
+ bulk.reservations.push({id:'res-'+id,hotel_id:hotelA,guest_id:gid,arrival_date:'2026-09-02',departure_date:'2026-09-05'});
+ for(let n=0;n<(i===120?3001:1);n++)bulk.messages.push({id:id+'-'+String(n).padStart(5,'0'),hotel_id:hotelA,conversation_id:id,sender_type:'guest',content:'Synthetic',created_at:'2026-09-01T10:00:00Z'});
+}
+bulk.conversations.push({id:'foreign',hotel_id:hotelB,guest_id:'foreign'});
+const complete=await getInboxConversations({supabase:createFakeSupabase(bulk),hotelId:hotelA,hotel:{id:hotelA,timezone:'Europe/Madrid'}});
+assert.equal(complete.length,121);assert.equal(complete.find(c=>c.id==='bulk-0120').messages.length,3001);
+assert.ok(complete.every(c=>c.hotel_id===hotelA&&c.messages.every(m=>m.stayStage==='pre')));
+console.log('PASS Inbox complete pagination: 121 conversations, 3121 messages; tenant isolation and historical stage');
+
+// Same-millisecond demo turns retain their recorded sequence across conversations.
+const ties={...bulk,messages:bulk.conversations.filter(c=>c.hotel_id===hotelA).slice(0,3).flatMap(c=>[3,0,2,1].map(n=>({id:String(9-n)+c.id,hotel_id:hotelA,conversation_id:c.id,sender_type:n%2?'ai':'guest',content:'tie',created_at:'2026-09-01T10:00:00Z',metadata:{demo_sequence:n}})))};
+const tied=await getInboxConversations({supabase:createFakeSupabase(ties),hotelId:hotelA});
+for(const c of tied.filter(c=>c.messages.length))assert.deepEqual(c.messages.map(m=>m.metadata.demo_sequence),[0,1,2,3]);
+console.log('PASS demo same-millisecond chronology without modifying timestamps');

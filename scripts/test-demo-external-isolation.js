@@ -22,6 +22,8 @@ const load = (file, supplied, names) => {
 };
 const H='11111111-1111-4111-8111-111111111111', B='22222222-2222-4222-8222-222222222222';
 const fixture=demoMessageStages({hotelId:H,actorId:B,referenceDate:'2026-09-14'});
+assert.equal(fixture.cases.length,9);
+fixture.cases.push(...provenance.DEMO_AI_SLOTS.map(slot=>({slot,guestId:provenance.demoMessageStageId(H,slot,'guest'),reservationId:provenance.demoMessageStageId(H,slot,'reservation'),conversationId:provenance.demoMessageStageId(H,slot,'conversation'),messageId:provenance.demoMessageStageId(H,slot,'message'),phone:'synthetic-only:'+slot,name:'Synthetic new case',text:'Synthetic question',status:'confirmed',arrival:1,departure:3})));
 const ordinary={id:'ordinary',hotel_id:H,guest_id:'ordinary-guest',guest_name:'Ordinary synthetic guest',status:'confirmed',arrival_date:'2026-09-15',departure_date:'2026-09-18'};
 const day=offset=>new Date(Date.UTC(2026,8,14+offset)).toISOString().slice(0,10);
 const reservations=fixture.cases.map(c=>({id:c.reservationId,hotel_id:H,guest_id:c.guestId,pms_provider:'checkin_demo_mock',guest_name:c.name,status:c.status,arrival_date:day(c.arrival),departure_date:day(c.departure)}));
@@ -45,7 +47,7 @@ const test=async(name,fn)=>{await fn();tests.push(name);console.log('PASS '+name
 const calls={whatsapp:0,translation:0,automationAi:0,folio:0,sheets:0};
 
 await test('Reserved server identities match generator, not mutable labels, browser flags or another hotel',()=>{
-  assert.equal(fixture.cases.length,9);
+  assert.equal(fixture.cases.length,15);
   for(const slot of ['ana','carlos','lucia'])for(const entity of ['guest','reservation','conversation','message']){
     assert.ok(provenance.isDemoMessageStagesContext({hotelId:H,[entity+'Id']:provenance.demoMessageStageId(H,slot,entity)}),'Legacy identity remains blocked during replacement/recovery');
   }
