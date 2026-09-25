@@ -1,4 +1,4 @@
-import { GUEST_SERVICE_POLICY, sameHotelRows, serviceContext } from '../../shared/guest-service/quality.js';
+import { GUEST_SERVICE_POLICY, sameHotelRows, serviceContext, buildArrivalBookingContext, arrivalBookingTopic, guestFacingKnowledge } from '../../shared/guest-service/quality.js';
 import { formatGuestMemoryForPrompt } from '../services/guest-memory.service.js';
 
 export const STAYNEX_SYSTEM_PROMPT = `
@@ -83,7 +83,7 @@ export const buildStaynexUserPrompt = ({
   hotelKnowledge = [],
   conversationContext = {}
 }) => {
-  hotelKnowledge = sameHotelRows(hotelKnowledge, hotel?.id);
+  hotelKnowledge = arrivalBookingTopic(message,conversationContext.recentMessages) ? guestFacingKnowledge(hotelKnowledge,hotel?.id) : sameHotelRows(hotelKnowledge, hotel?.id);
   const service = serviceContext({hotel, guest, conversationContext});
   const knowledgeText = hotelKnowledge.length > 0
     ? hotelKnowledge.map((item) => `- ${item.key}: ${item.value}`).join('\n')
@@ -155,6 +155,9 @@ export const buildStaynexUserPrompt = ({
   const guestMemoryText = formatGuestMemoryForPrompt(guestMemory);
 
   return `
+ARRIVAL_BOOKING (server projection, no tool grant):
+${JSON.stringify(buildArrivalBookingContext({hotel,guest,message,hotelKnowledge,conversationContext}))}
+
 SERVICE_CAPABILITIES (server supplied):
 ${JSON.stringify(service)}
 

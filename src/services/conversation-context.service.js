@@ -411,6 +411,7 @@ export const buildConversationContext = async ({
   });
 
   const context = {
+    referenceTime: new Date().toISOString(),
     knownRoom: guest.current_room || null,
     recentMessages,
     openTickets,

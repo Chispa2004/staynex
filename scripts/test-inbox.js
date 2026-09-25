@@ -1,3 +1,4 @@
+import { guestFacingKnowledge } from '../shared/guest-service/arrival-booking.js';
 import {messageStayStage,readAllInboxRows,filterInboxConversations} from '../shared/inbox/stay-stage.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -13,6 +14,7 @@ const loadInboxModuleForTest = () => {
   const source = readFileSync(new URL('../dashboard/lib/inbox.js', import.meta.url), 'utf8')
     .replace(/\r\n/g, '\n')
     .replace("import { messageStayStage, readAllInboxRows } from '../../shared/inbox/stay-stage.js';\n", '')
+    .replace("import { guestFacingKnowledge } from '../../shared/guest-service/arrival-booking.js';\n", '')
     .replace("import { getSupabaseAdmin } from './supabase';\n", '')
     .replace("import { buildConversationCopilot } from './ai-copilot';\n", '')
     .replace("import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';\n", '')
@@ -20,13 +22,13 @@ const loadInboxModuleForTest = () => {
     .replace('export const getInboxConversations', 'const getInboxConversations');
 
   return new Function(
-    'messageStayStage','readAllInboxRows','getSupabaseAdmin',
+    'guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
     'buildConversationCopilot',
     'isGuestMemoryEnabled',
     'sanitizeInboxMessageTranslations',
     `${source}\nreturn { getInboxConversations };`
   )(
-    messageStayStage,readAllInboxRows,
+    guestFacingKnowledge,messageStayStage,readAllInboxRows,
     () => {
       throw new Error('Unexpected default Supabase admin access in inbox test');
     },

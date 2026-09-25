@@ -1,4 +1,5 @@
 import { messageStayStage, readAllInboxRows } from '../../shared/inbox/stay-stage.js';
+import { guestFacingKnowledge } from '../../shared/guest-service/arrival-booking.js';
 import { getSupabaseAdmin } from './supabase';
 import { buildConversationCopilot } from './ai-copilot';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
@@ -545,15 +546,20 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   if (!hotelId) return [];
   const conversations = await readAllInboxRows(() => supabase.from('conversations')
     .select('id, hotel_id, guest_id, status, last_message_at, created_at').eq('hotel_id', hotelId).order('id', {ascending:true}));
+  let hotelKnowledge = [];
+  try {
+    hotelKnowledge = guestFacingKnowledge(await readAllInboxRows(() => supabase.from('hotel_knowledge')
+      .select('id,hotel_id,key,title,category,value,is_active').eq('hotel_id',hotelId).eq('is_active',true).order('id',{ascending:true})),hotelId);
+  } catch (error) { console.warn('Inbox guest-facing Knowledge unavailable',error.message); }
   const result = [];
   // Bound each IN clause; every authorized page is loaded before filtering.
   for (let start = 0; start < conversations.length; start += 100) {
-    result.push(...await getInboxBatch({supabase, resolvedHotelId:hotelId, hotel, conversations:conversations.slice(start,start+100)}));
+    result.push(...await getInboxBatch({supabase, resolvedHotelId:hotelId, hotel, hotelKnowledge, conversations:conversations.slice(start,start+100)}));
   }
   return result.sort((a,b)=>Date.parse(b.last_message_at || b.created_at)-Date.parse(a.last_message_at || a.created_at));
 };
 
-const getInboxBatch = async ({supabase, resolvedHotelId, hotel, conversations}) => {
+const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, conversations}) => {
   const guestMemoryEnabled = isGuestMemoryEnabled();
   const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id).filter(Boolean))];
   const conversationIds = conversations.map((conversation) => conversation.id).filter(Boolean);
@@ -624,6 +630,9 @@ const getInboxBatch = async ({supabase, resolvedHotelId, hotel, conversations}) 
     const guestPhone = resolvedGuest?.phone_number || reservation?.guest_phone || null;
     const enrichedConversation = {
       ...conversation,
+      hotelProfile:hotel?.id === resolvedHotelId ? {id:hotel.id,name:hotel.name,timezone:hotel.timezone,phone:hotel.phone,check_in_time:hotel.check_in_time} : {id:resolvedHotelId},
+      hotelKnowledge,
+      contextReadAt:new Date().toISOString(),
       guestName,
       guest_name: guestName,
       roomNumber,
