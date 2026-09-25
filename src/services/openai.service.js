@@ -1,3 +1,4 @@
+import { applyServiceCapabilities } from '../../shared/guest-service/quality.js';
 import OpenAI from 'openai';
 import {
   aiResponseJsonSchema,
@@ -80,7 +81,7 @@ const analyzeWithMockAi = async ({
     recentMessages: conversationContext?.recentMessages || []
   });
 
-  return withAiMetadata(aiResponse, {
+  return withAiMetadata(applyServiceCapabilities(aiResponse, conversationContext), {
     provider: 'mock',
     model: 'mock-ai',
     fallbackUsed
@@ -133,7 +134,7 @@ export const analyzeGuestMessage = async ({
     }
 
     if (fallbackAiResponse) {
-      return withAiMetadata(fallbackAiResponse, {
+      return withAiMetadata(applyServiceCapabilities(fallbackAiResponse, conversationContext), {
         provider: fallbackMetadata?.provider || 'mock',
         model: fallbackMetadata?.model || 'knowledge-base',
         fallbackUsed: true
@@ -194,7 +195,7 @@ export const analyzeGuestMessage = async ({
     });
     recordAiSuccess();
 
-    return withAiMetadata(aiResponse, {
+    return withAiMetadata(applyServiceCapabilities(aiResponse, conversationContext), {
       provider: 'openai',
       model,
       fallbackUsed: false
@@ -223,7 +224,7 @@ export const analyzeGuestMessage = async ({
     });
 
     if (fallbackAiResponse) {
-      return withAiMetadata(fallbackAiResponse, {
+      return withAiMetadata(applyServiceCapabilities(fallbackAiResponse, conversationContext), {
         provider: fallbackMetadata?.provider || 'mock',
         model: fallbackMetadata?.model || 'knowledge-base',
         fallbackUsed: true

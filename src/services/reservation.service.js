@@ -662,27 +662,29 @@ export const findReservationByAccessToken = async (token) => {
   return data;
 };
 
-export const getLatestReservationForGuest = async ({ guestId }) => {
+export const getLatestReservationForGuest = async ({ guestId, hotelId = null, requireUnambiguous = false }) => {
   if (!guestId) {
     return null;
   }
 
   const client = getSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('reservations')
     .select('*')
     .eq('guest_id', guestId)
     .order('arrival_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(requireUnambiguous ? 2 : 1);
+  if(hotelId) query = query.eq('hotel_id', hotelId);
+  if(requireUnambiguous && !hotelId) return null;
+  const {data,error} = requireUnambiguous ? await query : await query.maybeSingle();
 
   if (error) {
     throw error;
   }
 
-  return data;
+  return requireUnambiguous ? (data?.length === 1 ? data[0] : null) : data;
 };
 
 export const linkReservationToGuest = async ({ reservation, guest, message }) => {

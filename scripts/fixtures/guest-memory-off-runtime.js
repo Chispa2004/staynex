@@ -1,3 +1,4 @@
+import * as serviceQuality from '../../shared/guest-service/quality.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
@@ -67,7 +68,7 @@ export const assertMemoryOffBoundaries = async () => {
     captured = JSON.parse(request.messages[1].content);
     return { choices: [{ message: { content: JSON.stringify({ primary_intent: 'information' }) } }] };
   } } }; }
-  const concierge = load('src/services/openai-concierge.service.js', { OpenAI: SimulatedOpenAI, logger, isGuestMemoryEnabled,
+  const concierge = load('src/services/openai-concierge.service.js', { ...serviceQuality, OpenAI: SimulatedOpenAI, logger, isGuestMemoryEnabled,
     process: { env: { AI_CONCIERGE_ENABLED: 'true', OPENAI_API_KEY: 'synthetic-not-a-key' } }, getAiTimeoutMs: () => 100,
     isAiCircuitBreakerOpen: () => false, recordAiSuccess() {}, recordAiFailure() {}
   }, ['enhanceConciergeIntelligence']);

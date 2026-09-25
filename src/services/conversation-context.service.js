@@ -392,15 +392,17 @@ export const buildConversationContext = async ({
     }),
     getOpenTicketsForGuest({
       guestId: guest.id,
+      hotelId: hotel?.id,
       limit: 5
     }),
     hotel?.id ? getHotelProfileForPrompt(hotel.id) : Promise.resolve(null),
     hotel?.id && guest?.id ? getGuestMemory(hotel.id, guest.id) : Promise.resolve([])
   ]);
 
-  const activeReservation = reservation || await getLatestReservationForGuest({
-    guestId: guest.id
-  });
+  const explicitReservation = reservation?.hotel_id === hotel?.id && reservation?.guest_id === guest.id ? reservation : null;
+  const activeReservation = explicitReservation || (reservation ? null : await getLatestReservationForGuest({
+    guestId: guest.id, hotelId:hotel?.id, requireUnambiguous:true
+  }));
   const language = detectGuestLanguage(message, guest.preferred_language || 'es');
 
   logger.info('language detected', {
@@ -418,6 +420,8 @@ export const buildConversationContext = async ({
     reservation: activeReservation
       ? {
         id: activeReservation.id,
+        hotel_id: hotel?.id,
+        guest_id: guest.id,
         guest_name: activeReservation.guest_name,
         arrival_date: activeReservation.arrival_date,
         departure_date: activeReservation.departure_date,

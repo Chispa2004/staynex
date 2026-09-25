@@ -1,3 +1,4 @@
+import { finalizeServiceReply } from '../../shared/guest-service/quality.js';
 import {
   createConversation,
   findMessageByIdForHotel,
@@ -1004,6 +1005,7 @@ export const processGuestMessage = async ({
     state: conversationState
   };
 
+  conversationContext.serviceCapabilities = {requestRecording:true, mode:'guest_reply'};
   const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled());
   let rawAiResponse = null;
 
@@ -1728,6 +1730,12 @@ export const processGuestMessage = async ({
     });
   }
 
+  aiResponseWithUpsell = finalizeServiceReply({primary:rawAiResponse, processed:aiResponseWithUpsell, ticket,
+    hotel:activeHotel, hotelId:activeHotel.id, guestId:guest.id, conversationId:conversation.id, language:conversationContext.language,
+    providerOwned:Boolean(providerExperienceOwnsResponse || experienceBookingIntent.detected || experienceBookingRequest),
+    preferPrimary:!finalOfferSuppression.suppress && humanEscalation.humanReason !== 'human_requested' && !smarterResponse.metadata.repair_mode_activated,
+    emergency:aiResponseWithUpsell.emergency, knownRoom:guest.current_room || conversationContext.knownRoom, context:conversationContext, message});
+
   const aiMessage = await createMessage({
     conversationId: conversation.id,
     hotelId: activeHotel.id,
@@ -1735,6 +1743,7 @@ export const processGuestMessage = async ({
     content: aiResponseWithUpsell.reply,
     originalLanguage: conversationContext.language,
     metadata: {
+      service_quality: aiResponseWithUpsell.service_quality || null,
       translation_direction: 'ai_to_guest',
       response_language: conversationContext.language
     }
