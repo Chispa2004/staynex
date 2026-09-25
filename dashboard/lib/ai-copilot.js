@@ -271,7 +271,7 @@ const suggestedActionFor = ({ priority, sentiment, revenueOpportunity, conversat
     return { title: 'Escalate immediately', detail: 'Notify reception or the duty manager before sending a guest-facing promise.', tone: 'red' };
   }
 
-  if (hasAny(text, ['ac', 'air conditioning', 'maintenance', 'broken', 'no funciona', 'averia', 'kaputt'])) {
+  if (/\bac\b/.test(text) || hasAny(text, ['air conditioning', 'maintenance', 'broken', 'no funciona', 'averia', 'kaputt'])) {
     return { title: 'Send maintenance', detail: 'Create or update the maintenance ticket and follow up with the guest after inspection.', tone: 'orange' };
   }
 
