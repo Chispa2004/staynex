@@ -1,3 +1,4 @@
+import { copilotPhrases } from './copilot-phrases.js';
 import { inboxStagePhrases } from './inbox-stage-phrases.js';
 import { onboardingPhrases, onboardingEnglishPhrases, readinessSpanishPhrases } from './onboarding-phrases.js';
 import { healthPhrases } from './health-phrases.js';
@@ -2952,6 +2953,12 @@ for (const phrase of receptionMessagePhrases) { ['es', 'en', 'fr', 'de'].forEach
 for (const [es, en] of onboardingPhrases) { phraseTranslations.es[es] = es; phraseTranslations.en[es] = en; }
 Object.assign(phraseTranslations.es, onboardingEnglishPhrases, readinessSpanishPhrases);
 for (const phrase of [...healthPhrases, ...inboxStagePhrases]) { ['es', 'en', 'fr', 'de'].forEach((language, index) => { phraseTranslations[language][phrase[0]] = phrase[index]; }); }
+
+// Both the Spanish presentation labels and stable English engine values resolve through tx.
+for (const [es, en] of copilotPhrases) {
+  phraseTranslations.es[es] = es; phraseTranslations.es[en] = es;
+  phraseTranslations.en[es] = en; phraseTranslations.en[en] = en;
+}
 
 const phrasePatterns = {
   es: [

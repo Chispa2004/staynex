@@ -1,0 +1,1767 @@
+{
+  "kind": "Offline reconstruction, not original end-to-end provider traces",
+  "originalEvidence": "arrival-booking-quality.json",
+  "providerCalls": 0,
+  "limitations": [
+    "Independent Concierge generations require the documented primary companion; original intervening runtime state was not recorded.",
+    "Analytics and external-provider workflows are excluded. Human-controlled samples are counterfactual boundary probes, not eligible automatic sends.",
+    "Receipt success uses scoped synthetic persistence, not production records."
+  ],
+  "outputs": [
+    {
+      "index": 0,
+      "id": "a-breakfast",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "4f5e2963a33bd05602e137d1a5e1d4ccb530f07c117d1d2f1a7406734554f4ad",
+      "original": "Sí, puede bajar a desayunar a las 10:15, aún estará dentro del horario de desayuno en el comedor Azul.",
+      "companionIndex": null,
+      "final": "Sí, puede bajar a desayunar a las 10:15, aún estará dentro del horario de desayuno en el comedor Azul.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Respuesta útil; horario propio conservado, sin derivación."
+    },
+    {
+      "index": 1,
+      "id": "a-breakfast",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "4f5e2963a33bd05602e137d1a5e1d4ccb530f07c117d1d2f1a7406734554f4ad",
+      "original": "Sí, a las 10:15 todavía puedes desayunar sin problema, el comedor Azul sirve desayuno hasta las 10:30.",
+      "companionIndex": null,
+      "final": "Sí, a las 10:15 todavía puedes desayunar sin problema, el comedor Azul sirve desayuno hasta las 10:30.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Respuesta útil; horario propio conservado, sin derivación."
+    },
+    {
+      "index": 2,
+      "id": "a-night",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "7b6cfa327cf123e5b4c7e311bb9cdfaca60eae94240fb48943976a51915036a7",
+      "original": "La habitación generalmente estará lista a partir de las 15:00. Puede acceder al hotel y a la recepción, que está abierta 24 horas, pero el acceso a la habitación antes de esa hora no está garantizado.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La presentación separa recepción/acceso/habitación y pide fecha; la salida literal no lo garantiza."
+    },
+    {
+      "index": 3,
+      "id": "a-night",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "7b6cfa327cf123e5b4c7e311bb9cdfaca60eae94240fb48943976a51915036a7",
+      "original": "La recepción está abierta las 24 horas y la entrada principal disponible, pero la habitación generalmente no está lista antes de las 15:00, por lo que podría no estar disponible a las 00:30.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La presentación separa recepción/acceso/habitación y pide fecha; la salida literal no lo garantiza."
+    },
+    {
+      "index": 4,
+      "id": "a-cot",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "069397950d153ae17759b34e8a849d993632aebca39996db75aa1024b261418a",
+      "original": "Podemos gestionar la cuna para su bebé, ¿podría indicarnos la edad del bebé para confirmar la disponibilidad?",
+      "companionIndex": null,
+      "final": "Podemos gestionar la cuna para su bebé, ¿podría indicarnos la edad del bebé para confirmar la disponibilidad?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Problema de claridad o idioma.",
+      "reviewNote": "Pide edad ausente, pero «para confirmar» puede hacer pensar que la edad basta. No confirma disponibilidad; ambigüedad residual."
+    },
+    {
+      "index": 5,
+      "id": "a-cot",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "069397950d153ae17759b34e8a849d993632aebca39996db75aa1024b261418a",
+      "original": "Para confirmar la cuna, por favor indíquenos la edad del bebé.",
+      "companionIndex": null,
+      "final": "Para confirmar la cuna, por favor indíquenos la edad del bebé.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Problema de claridad o idioma.",
+      "reviewNote": "Pide edad ausente, pero «para confirmar» puede hacer pensar que la edad basta. No confirma disponibilidad; ambigüedad residual."
+    },
+    {
+      "index": 6,
+      "id": "a-towels",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "77e5f6f141307b70bde7c68c6586381c87a04b6a9a63805a05fec57155f29715",
+      "original": "He registrado la solicitud para que le lleven dos toallas más a su habitación A-204.",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Propuesta con habitación conocida. Acuse solo tras ticket sintético guardado."
+    },
+    {
+      "index": 7,
+      "id": "a-towels",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "77e5f6f141307b70bde7c68c6586381c87a04b6a9a63805a05fec57155f29715",
+      "original": "Claro, hemos solicitado que le lleven dos toallas más a su habitación A-204.",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Propuesta con habitación conocida. Acuse solo tras ticket sintético guardado."
+    },
+    {
+      "index": 8,
+      "id": "a-noise",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "6953b5d3fc911d0b9c936524ca3f1715fe620b718fab19008e80e9444bd8ff82",
+      "original": "Lamento mucho el ruido que les impide descansar. Informaré al equipo para que pueda solucionarlo lo antes posible.",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Mantiene incidencia previa. No se acredita notificación ni resolución."
+    },
+    {
+      "index": 9,
+      "id": "a-noise",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "6953b5d3fc911d0b9c936524ca3f1715fe620b718fab19008e80e9444bd8ff82",
+      "original": "Lamento mucho el ruido que está afectando su descanso. Ya informo al equipo de recepción para que puedan atenderlo lo antes posible.",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Mantiene incidencia previa. No se acredita notificación ni resolución."
+    },
+    {
+      "index": 10,
+      "id": "a-lost",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "a74f46b7f3628316dbe2485dd9597d5b739173f44ab5e39bec5e42623f5e8fe3",
+      "original": "Para ayudarte a localizar tu bufanda verde, necesitamos que nos confirmes la fecha de tu salida y cualquier detalle adicional que recuerdes del armario.",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Usa el objeto conocido; la salida literal promete revisión. El acuse no confirma hallazgo."
+    },
+    {
+      "index": 11,
+      "id": "a-lost",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "a74f46b7f3628316dbe2485dd9597d5b739173f44ab5e39bec5e42623f5e8fe3",
+      "original": "He registrado tu consulta sobre la bufanda verde dejada en la habitación. Nuestro equipo revisará y te informará lo antes posible.",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Usa el objeto conocido; la salida literal promete revisión. El acuse no confirma hallazgo."
+    },
+    {
+      "index": 12,
+      "id": "a-invoice",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "5353e2718f5b093911a14d49332153c45b1b1a463c22b8210f875cfa1dd7f1d7",
+      "original": "Para enviarle la factura de su estancia, por favor confirme si desea que se la enviemos al correo electrónico registrado en su reserva o si prefiere otro medio.",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La pregunta redundante de permiso sobrevivía al acuse. Se elimina después de persistir; ni el acuse ni el ticket prueban emisión o envío de factura."
+    },
+    {
+      "index": 13,
+      "id": "a-discount",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "0ee587bce3130421a534d5529cc723ff14ac3dd949bf5b359c6779e11ab7a537",
+      "original": "No dispongo de información sobre descuentos para noviembre. Para detalles concretos, por favor contacte recepción.",
+      "companionIndex": null,
+      "final": "No tengo información de descuentos para esa estancia; puede haber ofertas que no consten aquí. Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada. ¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Sin condiciones acreditadas: ahora ofrece recogida útil para revisión interna, sin inventar oferta."
+    },
+    {
+      "index": 14,
+      "id": "a-invoice",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "5353e2718f5b093911a14d49332153c45b1b1a463c22b8210f875cfa1dd7f1d7",
+      "original": "Para solicitar la factura de su estancia le facilitaremos la gestión desde recepción. ¿Desea que prepare un ticket para que se la envíen?",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La pregunta redundante de permiso sobrevivía al acuse. Se elimina después de persistir; ni el acuse ni el ticket prueban emisión o envío de factura."
+    },
+    {
+      "index": 15,
+      "id": "a-discount",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "0ee587bce3130421a534d5529cc723ff14ac3dd949bf5b359c6779e11ab7a537",
+      "original": "No disponemos de información sobre descuentos para noviembre. Para verificar disponibilidad y promociones te recomiendo contactar directamente con recepción.",
+      "companionIndex": null,
+      "final": "No tengo información de descuentos para esa estancia; puede haber ofertas que no consten aquí. Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada. ¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Sin condiciones acreditadas: ahora ofrece recogida útil para revisión interna, sin inventar oferta."
+    },
+    {
+      "index": 16,
+      "id": "b-breakfast",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "6343d950883b31f7c0e3a7663edc9c743623091117024d13dc3eb7057eaeed04",
+      "original": "Breakfast ends at 09:00, so 10:15 would be too late for it.",
+      "companionIndex": null,
+      "final": "Breakfast ends at 09:00, so 10:15 would be too late for it.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Política opuesta conservada; no se mezcla el desayuno de A."
+    },
+    {
+      "index": 17,
+      "id": "b-breakfast",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "6343d950883b31f7c0e3a7663edc9c743623091117024d13dc3eb7057eaeed04",
+      "original": "Breakfast ends at 09:00, so 10:15 would be too late to have breakfast here.",
+      "companionIndex": null,
+      "final": "Breakfast ends at 09:00, so 10:15 would be too late to have breakfast here.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Política opuesta conservada; no se mezcla el desayuno de A."
+    },
+    {
+      "index": 18,
+      "id": "b-night",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "942484180ac16f2591bf02e476bc0b32d693b31245fca31848254766c1efcac6",
+      "original": "The standard check-in time is from 16:00. Early access at 00:30 before your arrival date cannot be guaranteed or confirmed in advance.",
+      "companionIndex": null,
+      "final": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. Which calendar date is that arrival after midnight? The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Recupera cierre de recepción y procedimiento previo; habitación pendiente."
+    },
+    {
+      "index": 19,
+      "id": "b-cot",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "4b04884987c38a12c214b92bccc3ea0f1c2d31e9e61eb0687fef14275333c424",
+      "original": "This hotel does not offer cots for babies, so we cannot confirm one for your stay.",
+      "companionIndex": null,
+      "final": "This hotel does not offer cots for babies, so we cannot confirm one for your stay.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "No inventa cunas en el hotel que no las ofrece."
+    },
+    {
+      "index": 20,
+      "id": "b-night",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "942484180ac16f2591bf02e476bc0b32d693b31245fca31848254766c1efcac6",
+      "original": "Reception closes at 22:00. For your 00:30 arrival, late access must be arranged with the hotel beforehand, and rooms are available from 16:00 on arrival day.",
+      "companionIndex": null,
+      "final": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. Which calendar date is that arrival after midnight? The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Recupera cierre de recepción y procedimiento previo; habitación pendiente."
+    },
+    {
+      "index": 21,
+      "id": "b-towels",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "2bb521f863b157077adc931412c86e3f21b5bd7f0c67619aaa30fe7bb9e50fca",
+      "original": "I will arrange for two extra towels to be sent to your room shortly.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La frase literal afirma ejecución indebidamente; se reemplaza por acuse condicionado al guardado."
+    },
+    {
+      "index": 22,
+      "id": "b-cot",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "4b04884987c38a12c214b92bccc3ea0f1c2d31e9e61eb0687fef14275333c424",
+      "original": "Sorry, this hotel does not provide cots for babies. Let us know if we can assist with anything else for your stay.",
+      "companionIndex": null,
+      "final": "Sorry, this hotel does not provide cots for babies. Let us know if we can assist with anything else for your stay.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "No inventa cunas en el hotel que no las ofrece."
+    },
+    {
+      "index": 23,
+      "id": "b-noise",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "91759c96e529bc1222275b82c66b48b14eb2ba57d18ddcd9c6d23ab94e299a67",
+      "original": "I'm sorry for the disturbance caused by the noise. I'll notify the team immediately to resolve this issue for you.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Salida literal cambia indebidamente a ES; el acuse de aplicación respeta EN. No se presenta el modelo como correcto."
+    },
+    {
+      "index": 24,
+      "id": "b-towels",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "2bb521f863b157077adc931412c86e3f21b5bd7f0c67619aaa30fe7bb9e50fca",
+      "original": "I've arranged for two extra towels to be sent to your room B-309 shortly.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La frase literal afirma ejecución indebidamente; se reemplaza por acuse condicionado al guardado."
+    },
+    {
+      "index": 25,
+      "id": "b-noise",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "91759c96e529bc1222275b82c66b48b14eb2ba57d18ddcd9c6d23ab94e299a67",
+      "original": "Lamento mucho la molestia causada por el ruido en el pasillo. Ya he informado al equipo de recepción para que puedan atenderlo cuanto antes.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Salida literal cambia indebidamente a ES; el acuse de aplicación respeta EN. No se presenta el modelo como correcto."
+    },
+    {
+      "index": 26,
+      "id": "b-lost",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "5b2d2ba47d16af14aec56caaa7b5644bb5840229279c3c19ed2a6d44b30d1bf4",
+      "original": "I will check if your green scarf was found in your room's wardrobe and get back to you shortly.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Solicitud de búsqueda, no objeto encontrado ni equipo notificado."
+    },
+    {
+      "index": 27,
+      "id": "b-lost",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "5b2d2ba47d16af14aec56caaa7b5644bb5840229279c3c19ed2a6d44b30d1bf4",
+      "original": "I'll inform reception about your green scarf left in the wardrobe to check if it was found.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Solicitud de búsqueda, no objeto encontrado ni equipo notificado."
+    },
+    {
+      "index": 28,
+      "id": "b-invoice",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "42445ff284cda95c4d641233d3d5f51b260aaa3b93547378b8f99a3657fc1d84",
+      "original": "Please allow me to create the invoice request for your stay and our reception will assist you shortly.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Registra solicitud sintética; no acredita emisión o envío de factura."
+    },
+    {
+      "index": 29,
+      "id": "b-discount",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "6a78a52e83f8507f40911c6b2c6d583afe39492e758aa63912fcd942f6727e7e",
+      "original": "Currently, I don't have information on room availability or discounts for November. Please contact our reception closer to your travel dates for assistance.",
+      "companionIndex": null,
+      "final": "I do not have discount information for that stay; the hotel may have offers that are not listed here. The new stay details allow a request for the hotel to review availability and terms; no reservation is confirmed yet. What arrival and departure dates and party size would you like included in that request?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "No confunde ausencia de información con ausencia de descuentos; pregunta para un flujo existente."
+    },
+    {
+      "index": 30,
+      "id": "b-invoice",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "42445ff284cda95c4d641233d3d5f51b260aaa3b93547378b8f99a3657fc1d84",
+      "original": "I will create your invoice request for your stay from October 10 to 14. Please allow the reception team to prepare and send it to you shortly.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Registra solicitud sintética; no acredita emisión o envío de factura."
+    },
+    {
+      "index": 31,
+      "id": "b-discount",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "6a78a52e83f8507f40911c6b2c6d583afe39492e758aa63912fcd942f6727e7e",
+      "original": "Currently, I don't have information about discounts or room availability for November. Please contact our reception closer to your desired dates for updated details.",
+      "companionIndex": null,
+      "final": "I do not have discount information for that stay; the hotel may have offers that are not listed here. The new stay details allow a request for the hotel to review availability and terms; no reservation is confirmed yet. What arrival and departure dates and party size would you like included in that request?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "No confunde ausencia de información con ausencia de descuentos; pregunta para un flujo existente."
+    },
+    {
+      "index": 32,
+      "id": "arrival-known-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "4d8cd354ae94d407ed9dcc164b9c27b75ae80c6d19bef466d6998b647ce230f0",
+      "original": "La entrada principal está abierta 24 horas. El check-in es a partir de las 15:00, no garantizamos la habitación antes de esa hora. Puede esperar en recepción hasta entonces.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La garantía literal de habitación se descarta; quedan procedimiento y disponibilidad separada."
+    },
+    {
+      "index": 33,
+      "id": "arrival-known-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "4d8cd354ae94d407ed9dcc164b9c27b75ae80c6d19bef466d6998b647ce230f0",
+      "original": "La recepción está abierta 24 horas con entrada principal; sin embargo, la habitación estará disponible a partir de las 15:00. Podrá acceder al hotel por la entrada principal en su llegada nocturna.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La garantía literal de habitación se descarta; quedan procedimiento y disponibilidad separada."
+    },
+    {
+      "index": 34,
+      "id": "arrival-limited-b",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "bde41bdefe5bc01c5daa8cbd822f74bac436a7536f3c55ee89d7fbbeb9d43c9f",
+      "original": "Reception closes at 22:00 and late access must be arranged in advance. Please contact the hotel reception before 21:00 on your arrival day to arrange your entrance at 00:30.",
+      "companionIndex": null,
+      "final": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. For late arrival, telephone reception before 21:00 with the arrival time. Use the signed north entrance only after hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. An arrival just after midnight is at the start of 2026-10-10; any advance notice must happen before that arrival, not that same afternoon. The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Corrige la cronología nocturna en presentación. Concierge final usa 2026-10-09, pero sigue prometiendo habitación: no PASS del modelo."
+    },
+    {
+      "index": 35,
+      "id": "arrival-limited-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "bde41bdefe5bc01c5daa8cbd822f74bac436a7536f3c55ee89d7fbbeb9d43c9f",
+      "original": "Reception closes at 22:00. Please call reception before 21:00 to arrange your late arrival; entry is only possible after confirmation and using the north entrance. Rooms are available from 16:00 on your arrival day.",
+      "companionIndex": null,
+      "final": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. For late arrival, telephone reception before 21:00 with the arrival time. Use the signed north entrance only after hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. An arrival just after midnight is at the start of 2026-10-10; any advance notice must happen before that arrival, not that same afternoon. The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Corrige la cronología nocturna en presentación. Concierge final usa 2026-10-09, pero sigue prometiendo habitación: no PASS del modelo."
+    },
+    {
+      "index": 36,
+      "id": "arrival-unknown-b",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "251429334dd5a27f92cf59c379a47bc2440e214df94917d557355d550ad0c9e5",
+      "original": "Our reception closes at 22:00. For arrivals after midnight, please contact us in advance for access instructions.",
+      "companionIndex": null,
+      "final": "Hotel information: Reception closes at 22:00. There is no confirmed access procedure for that time here; the hotel needs to confirm how to enter before arrival. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. Which calendar date is that arrival after midnight? The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Explicita procedimiento desconocido y necesidad de confirmarlo antes de llegar."
+    },
+    {
+      "index": 37,
+      "id": "arrival-unknown-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "251429334dd5a27f92cf59c379a47bc2440e214df94917d557355d550ad0c9e5",
+      "original": "Reception closes at 22:00; for arrivals after midnight, please contact reception in advance to get instructions for building access.",
+      "companionIndex": null,
+      "final": "Hotel information: Reception closes at 22:00. There is no confirmed access procedure for that time here; the hotel needs to confirm how to enter before arrival. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. Which calendar date is that arrival after midnight? The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Explicita procedimiento desconocido y necesidad de confirmarlo antes de llegar."
+    },
+    {
+      "index": 38,
+      "id": "arrival-ambiguous-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "f185681dad28fc360975062d7d5223cc4e65f2e1ef8ad3808128aabbbffb1593",
+      "original": "La recepción está abierta 24 horas, pero el acceso a la habitación es a partir de las 15:00. Si llegan a las 00:30 podrían esperar en la zona común o en recepción hasta que su habitación esté disponible.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Pregunta fecha y elimina zona común inventada y garantía de habitación."
+    },
+    {
+      "index": 39,
+      "id": "arrival-ambiguous-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "f185681dad28fc360975062d7d5223cc4e65f2e1ef8ad3808128aabbbffb1593",
+      "original": "La recepción está abierta 24 horas, pueden acceder al edificio en cualquier momento, pero la habitación estará lista a partir de las 15:00.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Pregunta fecha y elimina zona común inventada y garantía de habitación."
+    },
+    {
+      "index": 40,
+      "id": "arrival-followup-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "7dd13b753d37972127c6d7ef9f84db2b3c2d37fb6c45a487c06f372e8dd0b434",
+      "original": "La recepción está abierta 24 horas y la entrada principal estará disponible para ti. Ten en cuenta que el acceso a la habitación no está garantizado antes de las 15:00 del día 10. ¿Quieres que te ayude con alguna otra cosa para tu llegada?",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Conserva fecha explícita del seguimiento; no la vuelve a pedir."
+    },
+    {
+      "index": 41,
+      "id": "arrival-followup-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "7dd13b753d37972127c6d7ef9f84db2b3c2d37fb6c45a487c06f372e8dd0b434",
+      "original": "La entrada al hotel será por la puerta principal, con recepción abierta las 24 horas. Sin embargo, la habitación estará disponible a partir de las 15:00 del día 10 de octubre.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Conserva fecha explícita del seguimiento; no la vuelve a pedir."
+    },
+    {
+      "index": 42,
+      "id": "promo-current-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "f12c4b6fdfa20d8cd747371d91758c9ca5d58efc9178bb804dc4fb818ab83f94",
+      "original": "Sí, hay una oferta de otoño con un 10% de descuento para estancias entre el 1 y el 30 de noviembre, válida para reservas directas.",
+      "companionIndex": null,
+      "final": "Información del hotel: Oferta de otoño: 10% sobre tarifa flexible, solo reservas directas. Reservar desde 2026-09-01 hasta 2026-10-31 para estancias del 2026-11-01 al 2026-11-30. No acumulable, sujeto a disponibilidad. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Presentación retiene ventana de reserva, ventana de estancia, canal directo, no acumulable y disponibilidad; modelo principal sigue omitiendo condiciones."
+    },
+    {
+      "index": 43,
+      "id": "promo-current-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "f12c4b6fdfa20d8cd747371d91758c9ca5d58efc9178bb804dc4fb818ab83f94",
+      "original": "Hay una oferta de otoño con 10% de descuento para estancias entre el 1 y 30 de noviembre, válida solo con reserva directa y sujeta a disponibilidad.",
+      "companionIndex": null,
+      "final": "Información del hotel: Oferta de otoño: 10% sobre tarifa flexible, solo reservas directas. Reservar desde 2026-09-01 hasta 2026-10-31 para estancias del 2026-11-01 al 2026-11-30. No acumulable, sujeto a disponibilidad. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Presentación retiene ventana de reserva, ventana de estancia, canal directo, no acumulable y disponibilidad; modelo principal sigue omitiendo condiciones."
+    },
+    {
+      "index": 44,
+      "id": "promo-expired-b",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "f141bbd97c037780b95041f5aa968281c2f5e7c428f5a6810af07014ea39e747",
+      "original": "There is no discount available for November as per current information. The summer discount ended on September 10th.",
+      "companionIndex": null,
+      "final": "The documented offer has expired or has not started yet. I do not have discount information for that stay; the hotel may have offers that are not listed here. The new stay details allow a request for the hotel to review availability and terms; no reservation is confirmed yet. What arrival and departure dates and party size would you like included in that request?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Oferta caducada no equivale a ningún descuento existente; presentación corrige esa inferencia literal."
+    },
+    {
+      "index": 45,
+      "id": "promo-expired-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "f141bbd97c037780b95041f5aa968281c2f5e7c428f5a6810af07014ea39e747",
+      "original": "Currently, there is no discount available for November at our hotel.",
+      "companionIndex": null,
+      "final": "The documented offer has expired or has not started yet. I do not have discount information for that stay; the hotel may have offers that are not listed here. The new stay details allow a request for the hotel to review availability and terms; no reservation is confirmed yet. What arrival and departure dates and party size would you like included in that request?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Oferta caducada no equivale a ningún descuento existente; presentación corrige esa inferencia literal."
+    },
+    {
+      "index": 46,
+      "id": "promo-conditional-b",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "e70b76cd6ac38337ef39db6e92d7b3ce6f55283bff3df9e582830a73f6520297",
+      "original": "Members can request a 5% discount on flexible direct bookings until 31 December 2026, subject to verification and approval by the hotel.",
+      "companionIndex": null,
+      "final": "Hotel information: Members may request 5% off flexible direct bookings until 2026-12-31. Membership must be verified by the hotel; availability and approval required. Validity and the conditions applicable to your stay need checking before applying an offer.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Conserva verificación de pertenencia, aprobación y disponibilidad; no certifica elegibilidad."
+    },
+    {
+      "index": 47,
+      "id": "promo-conditional-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "e70b76cd6ac38337ef39db6e92d7b3ce6f55283bff3df9e582830a73f6520297",
+      "original": "As a member, you may request a 5% discount on flexible direct bookings until the end of 2026. Membership verification and availability approval are required by the hotel.",
+      "companionIndex": null,
+      "final": "Hotel information: Members may request 5% off flexible direct bookings until 2026-12-31. Membership must be verified by the hotel; availability and approval required. Validity and the conditions applicable to your stay need checking before applying an offer.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Conserva verificación de pertenencia, aprobación y disponibilidad; no certifica elegibilidad."
+    },
+    {
+      "index": 48,
+      "id": "promo-unknown-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "a2a5153c8bb80a1fd65a65b73adc10a3fca3afb9f43ddf38e964e1a9ca6c1ca9",
+      "original": "Actualmente no disponemos de información sobre descuentos para noviembre.",
+      "companionIndex": null,
+      "final": "No tengo información de descuentos para esa estancia; puede haber ofertas que no consten aquí. Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada. ¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Falta de información explícita. Se ofrece solo solicitud interna disponible, no una oferta inventada."
+    },
+    {
+      "index": 49,
+      "id": "promo-unknown-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "a2a5153c8bb80a1fd65a65b73adc10a3fca3afb9f43ddf38e964e1a9ca6c1ca9",
+      "original": "Actualmente no disponemos de información sobre descuentos para noviembre. ¿Le puedo ayudar con algo más?",
+      "companionIndex": null,
+      "final": "No tengo información de descuentos para esa estancia; puede haber ofertas que no consten aquí. Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada. ¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Falta de información explícita. Se ofrece solo solicitud interna disponible, no una oferta inventada."
+    },
+    {
+      "index": 50,
+      "id": "promo-offers-page-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "a49204c457207be5dc2383ad84f255b55faf13bc235c31748b49933809895e44",
+      "original": "Las promociones oficiales se publican en https://hotel-a.example/ofertas .",
+      "companionIndex": null,
+      "final": "Información del hotel: Las condiciones de las promociones oficiales se publican en https://hotel-a.example/ofertas . La página no es un motor de reservas. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Enlace exacto y finalidad de ofertas; no se transforma en motor de reservas."
+    },
+    {
+      "index": 51,
+      "id": "promo-offers-page-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "a49204c457207be5dc2383ad84f255b55faf13bc235c31748b49933809895e44",
+      "original": "Puedes consultar las condiciones de nuestras promociones oficiales en https://hotel-a.example/ofertas. Esta página no es un motor de reservas, solo muestra las condiciones.",
+      "companionIndex": null,
+      "final": "Información del hotel: Las condiciones de las promociones oficiales se publican en https://hotel-a.example/ofertas . La página no es un motor de reservas. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Enlace exacto y finalidad de ofertas; no se transforma en motor de reservas."
+    },
+    {
+      "index": 52,
+      "id": "booking-link-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "0d90afcf48fdaba2410bb3353a9acd63b8ddd51e2cf4d3642867e789d8e2a101",
+      "original": "Puede reservar una nueva estancia en nuestro canal oficial: https://hotel-a.example/reservar. Si necesita ayuda con fechas o condiciones, estoy a su disposición.",
+      "companionIndex": null,
+      "final": "Puede reservar una nueva estancia en nuestro canal oficial: https://hotel-a.example/reservar. Si necesita ayuda con fechas o condiciones, estoy a su disposición.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Enlace oficial del Knowledge exacto; no pregunta datos que se completan allí."
+    },
+    {
+      "index": 53,
+      "id": "booking-link-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "0d90afcf48fdaba2410bb3353a9acd63b8ddd51e2cf4d3642867e789d8e2a101",
+      "original": "Para reservar una nueva estancia, puedes consultar fechas, ocupación y condiciones en nuestro canal oficial: https://hotel-a.example/reservar .",
+      "companionIndex": null,
+      "final": "Para reservar una nueva estancia, puedes consultar fechas, ocupación y condiciones en nuestro canal oficial: https://hotel-a.example/reservar .",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Enlace oficial del Knowledge exacto; no pregunta datos que se completan allí."
+    },
+    {
+      "index": 54,
+      "id": "booking-request-b",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "4742d2746484c4ec46bde761734e0d4927c990b19fd9cc7643f4cbacd0538be5",
+      "original": "I've noted your request to review a booking for two adults from 2026-11-05 to 2026-11-08. Let me know if you'd like any assistance with it later.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Ticket propuesto con fechas/ocupación conocidas; solo recibo tras guardado sintético, sin reserva confirmada."
+    },
+    {
+      "index": 55,
+      "id": "booking-request-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "4742d2746484c4ec46bde761734e0d4927c990b19fd9cc7643f4cbacd0538be5",
+      "original": "He registrado su solicitud para que el hotel revise una posible reserva del 5 al 8 de noviembre para dos adultos, sin realizar la reserva aún. El equipo de recepción le contactará para confirmar detalles si procede.",
+      "companionIndex": null,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Ticket propuesto con fechas/ocupación conocidas; solo recibo tras guardado sintético, sin reserva confirmada."
+    },
+    {
+      "index": 56,
+      "id": "booking-missing-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "9bdcd33ab38cb122d7dc272f6b3757bd02caf914318561a2632a648c5816a2c8",
+      "original": "Para gestionar una nueva reserva, por favor indíquenos fechas, tipo de habitación y número de huéspedes.",
+      "companionIndex": null,
+      "final": "Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada. ¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Presentación corrige tipo de habitación innecesario y explica finalidad; modelo principal sigue pidiéndolo."
+    },
+    {
+      "index": 57,
+      "id": "booking-missing-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "9bdcd33ab38cb122d7dc272f6b3757bd02caf914318561a2632a648c5816a2c8",
+      "original": "Para reservar necesitaríamos fechas, número de huéspedes y tipo de habitación. ¿Me puede facilitar esos datos, por favor?",
+      "companionIndex": null,
+      "final": "Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada. ¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Presentación corrige tipo de habitación innecesario y explica finalidad; modelo principal sigue pidiéndolo."
+    },
+    {
+      "index": 58,
+      "id": "booking-followup-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "6e22f5f3fea4bfa67a6b15be170ae1744868df4f52c76f61bc7fca2349dad5d9",
+      "original": "Perfecto, dos adultos para la nueva reserva del 5 al 8 de noviembre. ¿Desea que le ayude con algo más para esta reserva?",
+      "companionIndex": null,
+      "final": "Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada. ",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Usa dos adultos y fechas del turno previo y propone ticket; no repite datos."
+    },
+    {
+      "index": 59,
+      "id": "booking-followup-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "6e22f5f3fea4bfa67a6b15be170ae1744868df4f52c76f61bc7fca2349dad5d9",
+      "original": "Perfecto, dos adultos. Para gestionar tu nueva reserva del 5 al 8 de noviembre, prepararé la solicitud para el equipo de recepción y te confirmarán disponibilidad y detalles.",
+      "companionIndex": null,
+      "final": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Usa dos adultos y fechas del turno previo y propone ticket; no repite datos."
+    },
+    {
+      "index": 60,
+      "id": "booking-no-capability-b",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "2a0ba9f2ffc1fef6648739107666b6bca5403791d8704f64d759089236ced29b",
+      "original": "Please provide the exact dates and number of guests for your November stay request so we can check availability for you.",
+      "companionIndex": null,
+      "final": "I cannot check availability or confirm a booking here. The hotel needs to confirm how you can book.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "No solicita fechas sin uso; explica límite y canal pendiente."
+    },
+    {
+      "index": 61,
+      "id": "booking-no-capability-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "2a0ba9f2ffc1fef6648739107666b6bca5403791d8704f64d759089236ced29b",
+      "original": "I can't make new bookings for November. Please contact the hotel directly to check availability and book your stay.",
+      "companionIndex": null,
+      "final": "I cannot check availability or confirm a booking here. The hotel needs to confirm how you can book.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "No solicita fechas sin uso; explica límite y canal pendiente."
+    },
+    {
+      "index": 62,
+      "id": "booking-contact-b",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "b1b6b8a332e0619d7663dd611813f4819a72ada8422534588718b407501ad520",
+      "original": "Please provide the exact dates in November you want to book the room for, so we can check availability for you.",
+      "companionIndex": null,
+      "final": "The next step is to check the procedure and terms with the hotel at +44 20 7946 0100.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Contacto documentado; borrador sin llamadas ni registro."
+    },
+    {
+      "index": 63,
+      "id": "booking-contact-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "b1b6b8a332e0619d7663dd611813f4819a72ada8422534588718b407501ad520",
+      "original": "Por ahora no gestionamos reservas directamente por aquí, pero puede contactar al hotel al +44 20 7946 0100 para consultar disponibilidad en noviembre.",
+      "companionIndex": null,
+      "final": "The next step is to check the procedure and terms with the hotel at +44 20 7946 0100.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Contacto documentado; borrador sin llamadas ni registro."
+    },
+    {
+      "index": 64,
+      "id": "booking-human-draft-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "2425cdef651d5d025b2d75483e4cf6517462c0e6966fed73b3b95ad492f17a81",
+      "original": "Para gestionar una nueva reserva, por favor indíquenos las fechas y el tipo de habitación que desea. Estamos aquí para ayudarle.",
+      "companionIndex": null,
+      "final": "Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "counterfactual-boundary-only; automatic entry is blocked",
+      "reviewStatus": "Evidencia insuficiente.",
+      "reviewNote": "El ensayo original generó texto con modo humano, pero no conserva traza de un envío. La captura de la frontera es contrafactual; no acredita envío ni habilita automatización."
+    },
+    {
+      "index": 65,
+      "id": "booking-human-draft-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "2425cdef651d5d025b2d75483e4cf6517462c0e6966fed73b3b95ad492f17a81",
+      "original": "Actualmente no puedo gestionar nuevas reservas. Te recomiendo contactar directamente con recepción o el canal oficial del hotel para hacerlo.",
+      "companionIndex": null,
+      "final": "Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "counterfactual-boundary-only; automatic entry is blocked",
+      "reviewStatus": "Evidencia insuficiente.",
+      "reviewNote": "El ensayo original generó texto con modo humano, pero no conserva traza de un envío. La captura de la frontera es contrafactual; no acredita envío ni habilita automatización."
+    },
+    {
+      "index": 66,
+      "id": "booking-contradiction-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "66d4e6904aeb54a1e8b5869eee4cac5da850ce084c6b4772726033cc3107f408",
+      "original": "This hotel does not have a 10% November discount. Rates and availability are confirmed only through our official site.",
+      "companionIndex": null,
+      "final": "Hotel information: This hotel has no advertised November discount. Rates and availability are confirmed only through https://hotel-b.example/rooms . Do not use another hotel’s offers. Validity and the conditions applicable to your stay need checking before applying an offer.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Problema de claridad o idioma.",
+      "reviewNote": "Aislamiento correcto y política B conservada. La cita literal incluye una instrucción interna de Knowledge; queda un problema de claridad."
+    },
+    {
+      "index": 67,
+      "id": "booking-contradiction-b",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "66d4e6904aeb54a1e8b5869eee4cac5da850ce084c6b4772726033cc3107f408",
+      "original": "This hotel does not have a November discount available. Rates and availability are confirmed only through the official website.",
+      "companionIndex": null,
+      "final": "Hotel information: This hotel has no advertised November discount. Rates and availability are confirmed only through https://hotel-b.example/rooms . Do not use another hotel’s offers. Validity and the conditions applicable to your stay need checking before applying an offer.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Problema de claridad o idioma.",
+      "reviewNote": "Aislamiento correcto y política B conservada. La cita literal incluye una instrucción interna de Knowledge; queda un problema de claridad."
+    },
+    {
+      "index": 68,
+      "id": "restricted-access-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "ac75314ee499c1f919dac16a3cada756e2e3177692fd4252c0b19686a0f06ad4",
+      "original": "El acceso a la entrada principal está disponible 24 horas, pero no compartimos códigos de acceso para seguridad.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Código restringido excluido; no se revela ni se modifica identificación."
+    },
+    {
+      "index": 69,
+      "id": "restricted-access-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "ac75314ee499c1f919dac16a3cada756e2e3177692fd4252c0b19686a0f06ad4",
+      "original": "La recepción está abierta las 24 horas por la entrada principal, pero no ofrecemos códigos de acceso para medianoche. Para entrar, puedes dirigirte directamente a recepción.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Código restringido excluido; no se revela ni se modifica identificación."
+    },
+    {
+      "index": 70,
+      "id": "arrival-date-timezone-a",
+      "phase": "before",
+      "path": "primary",
+      "inputHash": "2287d5b98b276acef8f340c7a3342e3833339ac3d26585a4adccebac6b32c94a",
+      "original": "La entrada a la habitación está disponible a partir de las 15:00, aunque la recepción está abierta 24 horas si necesitas ayuda al llegar a las 00:30.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Si te refieres a mañana, hay que interpretarlo según la fecha local del hotel, no la del dispositivo. 2026-10-10 (Europe/Madrid). ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Expone fecha local de Madrid y solicita confirmar la fecha de madrugada; no asume fecha del dispositivo."
+    },
+    {
+      "index": 71,
+      "id": "arrival-date-timezone-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "2287d5b98b276acef8f340c7a3342e3833339ac3d26585a4adccebac6b32c94a",
+      "original": "La recepción está abierta 24 horas para su entrada y acceso al edificio a cualquier hora, pero la habitación estará disponible a partir de las 15:00 del día de llegada.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Si te refieres a mañana, hay que interpretarlo según la fecha local del hotel, no la del dispositivo. 2026-10-10 (Europe/Madrid). ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Expone fecha local de Madrid y solicita confirmar la fecha de madrugada; no asume fecha del dispositivo."
+    },
+    {
+      "index": 72,
+      "id": "arrival-known-a",
+      "phase": "before",
+      "path": "concierge",
+      "inputHash": "4d8cd354ae94d407ed9dcc164b9c27b75ae80c6d19bef466d6998b647ce230f0",
+      "original": "La recepción está abierta 24 horas y la entrada principal es el acceso correcto. Sin embargo, la habitación no se puede garantizar antes de las 15:00, que es la hora oficial de check-in.",
+      "companionIndex": 32,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "La garantía literal de habitación se descarta; quedan procedimiento y disponibilidad separada."
+    },
+    {
+      "index": 73,
+      "id": "arrival-known-a",
+      "phase": "after",
+      "path": "concierge",
+      "inputHash": "4d8cd354ae94d407ed9dcc164b9c27b75ae80c6d19bef466d6998b647ce230f0",
+      "original": "La recepción está abierta 24 horas y la entrada es por la puerta principal. Sin embargo, aunque la recepción está abierta a las 00:30 del 10 de octubre, la habitación no estará garantizada antes de las 15:00 del mismo día.",
+      "companionIndex": 33,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "La garantía literal de habitación se descarta; quedan procedimiento y disponibilidad separada."
+    },
+    {
+      "index": 74,
+      "id": "arrival-limited-b",
+      "phase": "before",
+      "path": "concierge",
+      "inputHash": "bde41bdefe5bc01c5daa8cbd822f74bac436a7536f3c55ee89d7fbbeb9d43c9f",
+      "original": "Reception closes at 22:00. For your late arrival at 00:30 on 2026-10-10, please call reception before 21:00 on that day to arrange access through the signed north entrance.",
+      "companionIndex": 34,
+      "final": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. For late arrival, telephone reception before 21:00 with the arrival time. Use the signed north entrance only after hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. An arrival just after midnight is at the start of 2026-10-10; any advance notice must happen before that arrival, not that same afternoon. The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Corrige la cronología nocturna en presentación. Concierge final usa 2026-10-09, pero sigue prometiendo habitación: no PASS del modelo."
+    },
+    {
+      "index": 75,
+      "id": "arrival-limited-b",
+      "phase": "after",
+      "path": "concierge",
+      "inputHash": "bde41bdefe5bc01c5daa8cbd822f74bac436a7536f3c55ee89d7fbbeb9d43c9f",
+      "original": "Reception closes at 22:00. Since your arrival at 00:30 is after that, please call reception before 21:00 on your arrival day to confirm your late arrival time. Entry to the building is through the signed north entrance only after hotel confirmation. Rooms are available after the official check-in time of 16:00.",
+      "companionIndex": 35,
+      "final": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. For late arrival, telephone reception before 21:00 with the arrival time. Use the signed north entrance only after hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. An arrival just after midnight is at the start of 2026-10-10; any advance notice must happen before that arrival, not that same afternoon. The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Corrige la cronología nocturna en presentación. Concierge final usa 2026-10-09, pero sigue prometiendo habitación: no PASS del modelo."
+    },
+    {
+      "index": 76,
+      "id": "promo-current-a",
+      "phase": "before",
+      "path": "concierge",
+      "inputHash": "f12c4b6fdfa20d8cd747371d91758c9ca5d58efc9178bb804dc4fb818ab83f94",
+      "original": "Para su estancia del 2026-11-05 al 2026-11-08, no aplicaría la oferta de otoño, ya que la promoción es válida solo para reservas realizadas hasta el 2026-10-31 y estancias hasta el 2026-11-30. Si desea, puedo verificar otras opciones o tarifas.",
+      "companionIndex": 42,
+      "final": "Información del hotel: Oferta de otoño: 10% sobre tarifa flexible, solo reservas directas. Reservar desde 2026-09-01 hasta 2026-10-31 para estancias del 2026-11-01 al 2026-11-30. No acumulable, sujeto a disponibilidad. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Presentación retiene ventana de reserva, ventana de estancia, canal directo, no acumulable y disponibilidad; modelo principal sigue omitiendo condiciones."
+    },
+    {
+      "index": 77,
+      "id": "promo-current-a",
+      "phase": "after",
+      "path": "concierge",
+      "inputHash": "f12c4b6fdfa20d8cd747371d91758c9ca5d58efc9178bb804dc4fb818ab83f94",
+      "original": "Para una reserva de dos adultos del 2026-11-05 al 2026-11-08, puede aplicar la Oferta de otoño: 10% de descuento sobre la tarifa flexible, válida solo para reservas directas hechas entre el 2026-09-01 y el 2026-10-31, y para estancias del 2026-11-01 al 2026-11-30. Este descuento no es acumulable y está sujeto a disponibilidad.",
+      "companionIndex": 43,
+      "final": "Información del hotel: Oferta de otoño: 10% sobre tarifa flexible, solo reservas directas. Reservar desde 2026-09-01 hasta 2026-10-31 para estancias del 2026-11-01 al 2026-11-30. No acumulable, sujeto a disponibilidad. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Presentación retiene ventana de reserva, ventana de estancia, canal directo, no acumulable y disponibilidad; modelo principal sigue omitiendo condiciones."
+    },
+    {
+      "index": 78,
+      "id": "booking-request-b",
+      "phase": "before",
+      "path": "concierge",
+      "inputHash": "4742d2746484c4ec46bde761734e0d4927c990b19fd9cc7643f4cbacd0538be5",
+      "original": "I will review the possibility of a booking from November 5 to November 8, 2026, for two adults and inform you without making any reservation yet. If you have any other details or preferences, please let me know.",
+      "companionIndex": 54,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Ticket propuesto con fechas/ocupación conocidas; solo recibo tras guardado sintético, sin reserva confirmada."
+    },
+    {
+      "index": 79,
+      "id": "booking-request-b",
+      "phase": "after",
+      "path": "concierge",
+      "inputHash": "4742d2746484c4ec46bde761734e0d4927c990b19fd9cc7643f4cbacd0538be5",
+      "original": "I have noted your request to review a new booking for two adults from 5th to 8th November 2026. I will prepare a review without booking yet. If you need anything else, please let me know.",
+      "companionIndex": 55,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Ticket propuesto con fechas/ocupación conocidas; solo recibo tras guardado sintético, sin reserva confirmada."
+    },
+    {
+      "index": 80,
+      "id": "arrival-known-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "4d8cd354ae94d407ed9dcc164b9c27b75ae80c6d19bef466d6998b647ce230f0",
+      "original": "Puede entrar por la entrada principal, ya que recepción está abierta 24 horas. La habitación estará disponible a partir de las 15:00, no antes.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La garantía literal de habitación se descarta; quedan procedimiento y disponibilidad separada."
+    },
+    {
+      "index": 81,
+      "id": "arrival-limited-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "bde41bdefe5bc01c5daa8cbd822f74bac436a7536f3c55ee89d7fbbeb9d43c9f",
+      "original": "Reception closes at 22:00, so to enter at 00:30 you must call reception before 21:00 on your arrival day to arrange late access and use the north entrance after confirmation.",
+      "companionIndex": null,
+      "final": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. For late arrival, telephone reception before 21:00 with the arrival time. Use the signed north entrance only after hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. An arrival just after midnight is at the start of 2026-10-10; any advance notice must happen before that arrival, not that same afternoon. The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Corrige la cronología nocturna en presentación. Concierge final usa 2026-10-09, pero sigue prometiendo habitación: no PASS del modelo."
+    },
+    {
+      "index": 82,
+      "id": "promo-current-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "f12c4b6fdfa20d8cd747371d91758c9ca5d58efc9178bb804dc4fb818ab83f94",
+      "original": "Para estancias del 5 al 8 de noviembre de 2026, nuestra oferta de otoño aplica un 10% de descuento sobre la tarifa flexible, con reserva directa y sujeta a disponibilidad.",
+      "companionIndex": null,
+      "final": "Información del hotel: Oferta de otoño: 10% sobre tarifa flexible, solo reservas directas. Reservar desde 2026-09-01 hasta 2026-10-31 para estancias del 2026-11-01 al 2026-11-30. No acumulable, sujeto a disponibilidad. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Presentación retiene ventana de reserva, ventana de estancia, canal directo, no acumulable y disponibilidad; modelo principal sigue omitiendo condiciones."
+    },
+    {
+      "index": 83,
+      "id": "arrival-ambiguous-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "f185681dad28fc360975062d7d5223cc4e65f2e1ef8ad3808128aabbbffb1593",
+      "original": "La recepción está abierta 24 horas y tiene acceso por la entrada principal, pero la habitación estará lista a partir de las 15:00. Puede esperar en el área común si llega antes.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Pregunta fecha y elimina zona común inventada y garantía de habitación."
+    },
+    {
+      "index": 84,
+      "id": "promo-conditional-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "e70b76cd6ac38337ef39db6e92d7b3ce6f55283bff3df9e582830a73f6520297",
+      "original": "You may request a 5% member discount on flexible direct bookings until December 31, 2026, subject to verification and availability.",
+      "companionIndex": null,
+      "final": "Hotel information: Members may request 5% off flexible direct bookings until 2026-12-31. Membership must be verified by the hotel; availability and approval required. Validity and the conditions applicable to your stay need checking before applying an offer.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Conserva verificación de pertenencia, aprobación y disponibilidad; no certifica elegibilidad."
+    },
+    {
+      "index": 85,
+      "id": "promo-expired-b",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "f141bbd97c037780b95041f5aa968281c2f5e7c428f5a6810af07014ea39e747",
+      "original": "No discounts are available for November; the last promotion ended in August for stays until early September.",
+      "companionIndex": null,
+      "final": "The documented offer has expired or has not started yet. I do not have discount information for that stay; the hotel may have offers that are not listed here. The new stay details allow a request for the hotel to review availability and terms; no reservation is confirmed yet. What arrival and departure dates and party size would you like included in that request?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Oferta caducada no equivale a ningún descuento existente; presentación corrige esa inferencia literal."
+    },
+    {
+      "index": 86,
+      "id": "booking-missing-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "9bdcd33ab38cb122d7dc272f6b3757bd02caf914318561a2632a648c5816a2c8",
+      "original": "Para reservar, por favor indique fechas, número de personas y tipo de habitación deseada. Así podemos ayudarle mejor.",
+      "companionIndex": null,
+      "final": "Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada. ¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Presentación corrige tipo de habitación innecesario y explica finalidad; modelo principal sigue pidiéndolo."
+    },
+    {
+      "index": 87,
+      "id": "arrival-date-timezone-a",
+      "phase": "after",
+      "path": "primary",
+      "inputHash": "2287d5b98b276acef8f340c7a3342e3833339ac3d26585a4adccebac6b32c94a",
+      "original": "La recepción está abierta 24 horas y podrás entrar por la entrada principal a esa hora, pero la habitación se entrega a partir de las 15:00.",
+      "companionIndex": null,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Si te refieres a mañana, hay que interpretarlo según la fecha local del hotel, no la del dispositivo. 2026-10-10 (Europe/Madrid). ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Expone fecha local de Madrid y solicita confirmar la fecha de madrugada; no asume fecha del dispositivo."
+    },
+    {
+      "index": 88,
+      "id": "arrival-known-a",
+      "phase": "after",
+      "path": "concierge",
+      "inputHash": "4d8cd354ae94d407ed9dcc164b9c27b75ae80c6d19bef466d6998b647ce230f0",
+      "original": "La recepción está abierta las 24 horas y se accede por la entrada principal. Sin embargo, la habitación estará disponible a partir de las 15:00 del 10 de octubre; la recepción abierta no garantiza acceso a la habitación antes de esa hora.",
+      "companionIndex": 33,
+      "final": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "La garantía literal de habitación se descarta; quedan procedimiento y disponibilidad separada."
+    },
+    {
+      "index": 89,
+      "id": "arrival-limited-b",
+      "phase": "after",
+      "path": "concierge",
+      "inputHash": "bde41bdefe5bc01c5daa8cbd822f74bac436a7536f3c55ee89d7fbbeb9d43c9f",
+      "original": "Reception closes at 22:00. Since you arrive at 00:30 on 2026-10-10, please call reception before 21:00 on 2026-10-09 to confirm your late arrival time. Entry to the building is only possible through the signed north entrance after hotel confirmation. Your room will be available from 16:00 on 2026-10-10.",
+      "companionIndex": 35,
+      "final": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. For late arrival, telephone reception before 21:00 with the arrival time. Use the signed north entrance only after hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. An arrival just after midnight is at the start of 2026-10-10; any advance notice must happen before that arrival, not that same afternoon. The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Error corregido antes de la salida final.",
+      "reviewNote": "Corrige la cronología nocturna en presentación. Concierge final usa 2026-10-09, pero sigue prometiendo habitación: no PASS del modelo."
+    },
+    {
+      "index": 90,
+      "id": "promo-current-a",
+      "phase": "after",
+      "path": "concierge",
+      "inputHash": "f12c4b6fdfa20d8cd747371d91758c9ca5d58efc9178bb804dc4fb818ab83f94",
+      "original": "Sí, hay una oferta de otoño con un 10% de descuento sobre la tarifa flexible válida para reservas directas hechas entre el 1 de septiembre y el 31 de octubre de 2026, para estancias entre el 1 y el 30 de noviembre de 2026. Su reserva del 5 al 8 de noviembre cumple con estas condiciones, sujeta a disponibilidad y no acumulable con otras promociones.",
+      "companionIndex": 43,
+      "final": "Información del hotel: Oferta de otoño: 10% sobre tarifa flexible, solo reservas directas. Reservar desde 2026-09-01 hasta 2026-10-31 para estancias del 2026-11-01 al 2026-11-30. No acumulable, sujeto a disponibilidad. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "receipt": {
+        "version": 1,
+        "request_status": "not_recorded",
+        "ticket_id": null,
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Presentación retiene ventana de reserva, ventana de estancia, canal directo, no acumulable y disponibilidad; modelo principal sigue omitiendo condiciones."
+    },
+    {
+      "index": 91,
+      "id": "booking-request-b",
+      "phase": "after",
+      "path": "concierge",
+      "inputHash": "4742d2746484c4ec46bde761734e0d4927c990b19fd9cc7643f4cbacd0538be5",
+      "original": "I can prepare a request for the hotel to review your interest in a new booking from 2026-11-05 to 2026-11-08 for two adults. No booking will be made yet.",
+      "companionIndex": 55,
+      "final": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+      "receipt": {
+        "version": 1,
+        "request_status": "recorded",
+        "ticket_id": "synthetic-ticket",
+        "notification_confirmed": false
+      },
+      "scope": "isolated-final-boundary",
+      "reviewStatus": "Sin incidencia identificada en esta revisión.",
+      "reviewNote": "Ticket propuesto con fechas/ocupación conocidas; solo recibo tras guardado sintético, sin reserva confirmada."
+    }
+  ],
+  "counts": {
+    "corrected": 69,
+    "remains": 0,
+    "clarity": 4,
+    "insufficient": 2,
+    "none": 17
+  }
+}

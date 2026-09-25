@@ -1,0 +1,317 @@
+{
+  "kind": "Deterministic staff drafts, not LLM generations or sends",
+  "rows": [
+    {
+      "id": "a-breakfast",
+      "hotel": "Hotel sintético A",
+      "text": "No tengo ese dato confirmado para este hotel. ¿Qué detalle necesitas confirmar?",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "a-night",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "a-cot",
+      "hotel": "Hotel sintético A",
+      "text": "¿Qué edad tiene el bebé? La petición necesita revisión del equipo del hotel; todavía no hay una actuación confirmada.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "a-towels",
+      "hotel": "Hotel sintético A",
+      "text": "La petición necesita revisión del equipo del hotel; todavía no hay una actuación confirmada.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "a-noise",
+      "hotel": "Hotel sintético A",
+      "text": "La petición necesita revisión del equipo del hotel; todavía no hay una actuación confirmada.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "a-lost",
+      "hotel": "Hotel sintético A",
+      "text": "No tengo ese dato confirmado para este hotel. ¿Qué detalle necesitas confirmar?",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "a-invoice",
+      "hotel": "Hotel sintético A",
+      "text": "La petición necesita revisión del equipo del hotel; todavía no hay una actuación confirmada.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "a-discount",
+      "hotel": "Hotel sintético A",
+      "text": "No tengo información de descuentos para esa estancia; puede haber ofertas que no consten aquí. Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "b-breakfast",
+      "hotel": "Hotel sintético B",
+      "text": "I do not have that detail confirmed for this hotel. Which detail would you like to confirm?",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "b-night",
+      "hotel": "Hotel sintético B",
+      "text": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. Which calendar date is that arrival after midnight? The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "b-cot",
+      "hotel": "Hotel sintético B",
+      "text": "How old is the baby? This request needs the hotel team’s review; no action has been confirmed yet.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "b-towels",
+      "hotel": "Hotel sintético B",
+      "text": "This request needs the hotel team’s review; no action has been confirmed yet.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "b-noise",
+      "hotel": "Hotel sintético B",
+      "text": "This request needs the hotel team’s review; no action has been confirmed yet.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "b-lost",
+      "hotel": "Hotel sintético B",
+      "text": "This request needs the hotel team’s review; no action has been confirmed yet.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "b-invoice",
+      "hotel": "Hotel sintético B",
+      "text": "This request needs the hotel team’s review; no action has been confirmed yet.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6
+    },
+    {
+      "id": "b-discount",
+      "hotel": "Hotel sintético B",
+      "text": "I do not have discount information for that stay; the hotel may have offers that are not listed here. I cannot check availability or confirm a booking here. The hotel needs to confirm how you can book.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "arrival-known-a",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "arrival-limited-b",
+      "hotel": "Hotel sintético B",
+      "text": "Hotel information: Reception closes at 22:00. Late access must be arranged with the hotel before arrival; no access code is available here. Rooms are available only after confirmed check-in, normally 16:00. For late arrival, telephone reception before 21:00 with the arrival time. Use the signed north entrance only after hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. An arrival just after midnight is at the start of 2026-10-10; any advance notice must happen before that arrival, not that same afternoon. The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "arrival-unknown-b",
+      "hotel": "Hotel sintético B",
+      "text": "Hotel information: Reception closes at 22:00. There is no confirmed access procedure for that time here; the hotel needs to confirm how to enter before arrival. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. Which calendar date is that arrival after midnight? The recorded stay starts on 2026-10-10; an earlier arrival needs separate confirmation.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "arrival-ambiguous-a",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "arrival-followup-a",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Una llegada después de medianoche corresponde al inicio del 2026-10-10; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día. La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "promo-current-a",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Oferta de otoño: 10% sobre tarifa flexible, solo reservas directas. Reservar desde 2026-09-01 hasta 2026-10-31 para estancias del 2026-11-01 al 2026-11-30. No acumulable, sujeto a disponibilidad. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "promo-expired-b",
+      "hotel": "Hotel sintético B",
+      "text": "The documented offer has expired or has not started yet. I do not have discount information for that stay; the hotel may have offers that are not listed here. I cannot check availability or confirm a booking here. The hotel needs to confirm how you can book.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "promo-conditional-b",
+      "hotel": "Hotel sintético B",
+      "text": "Hotel information: Members may request 5% off flexible direct bookings until 2026-12-31. Membership must be verified by the hotel; availability and approval required. Validity and the conditions applicable to your stay need checking before applying an offer.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "promo-unknown-a",
+      "hotel": "Hotel sintético A",
+      "text": "No tengo información de descuentos para esa estancia; puede haber ofertas que no consten aquí. Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "promo-offers-page-a",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Las condiciones de las promociones oficiales se publican en https://hotel-a.example/ofertas . La página no es un motor de reservas. La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "booking-link-a",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Canal oficial de reservas: https://hotel-a.example/reservar . El huésped consulta fechas, ocupación y condiciones en esa página. Puedes consultar disponibilidad, condiciones y reservar en la web del hotel: https://hotel-a.example/reservar",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "booking-request-b",
+      "hotel": "Hotel sintético B",
+      "text": "I cannot check availability or confirm a booking here. The hotel needs to confirm how you can book.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "booking-missing-a",
+      "hotel": "Hotel sintético A",
+      "text": "Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "booking-followup-a",
+      "hotel": "Hotel sintético A",
+      "text": "Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "booking-no-capability-b",
+      "hotel": "Hotel sintético B",
+      "text": "I cannot check availability or confirm a booking here. The hotel needs to confirm how you can book.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "booking-contact-b",
+      "hotel": "Hotel sintético B",
+      "text": "The next step is to check the procedure and terms with the hotel at +44 20 7946 0100.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "booking-human-draft-a",
+      "hotel": "Hotel sintético A",
+      "text": "Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "booking-contradiction-b",
+      "hotel": "Hotel sintético B",
+      "text": "Hotel information: This hotel has no advertised November discount. Rates and availability are confirmed only through https://hotel-b.example/rooms . Do not use another hotel’s offers. Validity and the conditions applicable to your stay need checking before applying an offer.",
+      "language": "en",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "restricted-access-a",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    },
+    {
+      "id": "arrival-date-timezone-a",
+      "hotel": "Hotel sintético A",
+      "text": "Información del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel. Si te refieres a mañana, hay que interpretarlo según la fecha local del hotel, no la del dispositivo. 2026-10-10 (Europe/Madrid). ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+      "language": "es",
+      "draft": true,
+      "confidence": 0.6,
+      "source": "documented_hotel_context"
+    }
+  ]
+}

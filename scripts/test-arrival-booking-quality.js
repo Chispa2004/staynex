@@ -50,7 +50,7 @@ await test('Inbox staff drafts give a real next step and never collect dead-end 
   const original=structuredClone(conversation);const result=buildConversationCopilot(conversation);assert.deepEqual(conversation,original);assert.equal(result.suggestedReply.draft,true);assert.ok(!quality.hasUnverifiedActionClaim(result.suggestedReply.text));
   if(id==='booking-link-a')assert.ok(result.suggestedReply.text.includes('https://hotel-a.example/reservar'));
   if(id==='booking-contact-b')assert.ok(result.suggestedReply.text.includes('+44 20 7946 0100'));
-  if(id==='booking-human-draft-a'){assert.ok(result.suggestedReply.text.includes('canal autorizado'));assert.ok(!result.suggestedReply.text.includes('¿Qué fechas'));}
+  if(id==='booking-human-draft-a'){assert.ok(result.suggestedReply.text.includes('confirmar cómo puedes reservar'));assert.ok(!result.suggestedReply.text.includes('¿Qué fechas'));}
  }
 });
 await test('Follow-ups retain guest details without reusing past reservation dates or changing topics',()=>{
@@ -81,7 +81,7 @@ await test('Observed midnight and promotion failures retain complete facts and t
  for(const [id,raw,expected,absent] of [
   ['arrival-ambiguous-a','La recepción está abierta y la habitación estará lista.','¿A qué fecha','estará lista'],
   ['arrival-limited-b','Call before 21:00 on your arrival day.','not that same afternoon','on your arrival day'],
-  ['promo-expired-b','There is no discount available for November.','does not mean the hotel offers no discounts','no discount available'],
+  ['promo-expired-b','There is no discount available for November.','may have offers that are not listed here','no discount available'],
   ['promo-current-a','Hay un 10% de descuento para noviembre.','No acumulable','Hay un 10%']
  ]) {
   const a=c(id);const r=quality.finalizeServiceReply({primary:{reply:raw,confidence:.99,ai_provider:'openai'},hotel:a.hotel,guestId:a.guest.id,message:a.message,context:{...a.conversationContext,hotelKnowledge:a.hotelKnowledge},language:a.conversationContext.language});

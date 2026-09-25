@@ -66,12 +66,13 @@ export function hasKnownChildAge(text = '') {
 
 // This is a conservative guard for known unsupported commitment patterns, not a
 // semantic proof of arbitrary natural language. Prompt/evaluation remain necessary.
-export const hasUnverifiedActionClaim = text => /\b(he|hemos|ya hemos)\s+(registrado|avisado|enviado|reservado|confirmado|emitido|pasado|informado|organizado)|\b(voy a|vamos a)\s+(derivar|avisar|informar|enviar|pasar|registrar|coordinar|organizar)|\b(enviamos|enviaremos)\b|\b(avis[oó]|avisar[eé]|derivo|enviar[eé]|notificar[eé]|informar[eé]|informo|organizo)\b|\b(i(?:’|')?(?:ve|m)|i have|we have|we(?:’|')ve)\s+(registered|notified|sent|booked|confirmed|issued|alerting|forwarding|arranged|reported|reporting)|\b(i will|we will)\s+(notify|send|book|alert|forward|check|arrange|deliver)|\b(je transmets|je pr[eé]viens|nous avons (envoy[eé]|confirm[eé])|ich leite|ich informiere|wir haben .*best[aä]tigt)\b/i.test(text || '');
+export const hasUnverifiedActionClaim = text => /\b(he|hemos|ya hemos)\s+(registrado|solicitado|avisado|enviado|reservado|confirmado|emitido|pasado|informado|organizado)|\b(voy a|vamos a)\s+(derivar|avisar|informar|enviar|pasar|registrar|coordinar|organizar)|\b(enviamos|enviaremos)\b|\b(avis[oó]|avisar[eé]|derivo|enviar[eé]|notificar[eé]|informar[eé]|informo|organizo)\b|\b(i(?:’|')?(?:ve|m)|i have|we have|we(?:’|')ve)\s+(registered|noted|notified|sent|booked|confirmed|issued|alerting|forwarding|arranged|reported|reporting)|\b(i will|we will|i[’']ll|we[’']ll)\s+(notify|inform|create|prepare|review|send|book|alert|forward|check|arrange|deliver)|\b(je transmets|je pr[eé]viens|nous avons (envoy[eé]|confirm[eé])|ich leite|ich informiere|wir haben .*best[aä]tigt)\b/i.test(text || '');
 
-export function missingServiceQuestion(reply = '', {knownRoom = null, reservation = null, recentMessages = [], message = ''} = {}) {
+export function missingServiceQuestion(reply = '', {knownRoom = null, reservation = null, recentMessages = [], message = '', requestRecorded = false} = {}) {
   const questions=reply.match(/¿[^?]+\?|(?:^|[.!]\s+)([^.!?]+\?)/g) || [];
   const facts=[message,...recentMessages.filter(m=>m.sender_type==='guest').map(m=>m.content)].join(' ');
   return questions.map(q=>q.replace(/^[.!]\s*/, '').trim()).find(q=>!hasUnverifiedActionClaim(q)
+    && !(requestRecorded && /(?:prepar|cre[ae]|registr|abr|open|record|submit).{0,35}(?:ticket|solicitud|petici[oó]n|request)/i.test(q))
     && !/datos completos|complete (?:personal )?details|document|passport|pasaporte|credit card|tarjeta|fiscales|fiscal|tax details|tax information|email|e-mail/i.test(q)
     && !(knownRoom && /habitaci[oó]n|room|chambre|zimmer/i.test(q))
     && !(arrivalBookingTopic(message,recentMessages)!=='booking' && reservation?.arrival_date && reservation?.departure_date && /fechas|dates|arrival|departure|llegada|salida/i.test(q))
@@ -89,7 +90,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     // Only the persisted, scoped record authorizes this acknowledgement. Discard
     // pre-execution operational prose: a model cannot certify its own actions.
     reply=t.saved;
-    const question=missingServiceQuestion(primary?.reply,{knownRoom,...context,message});
+    const question=missingServiceQuestion(primary?.reply,{knownRoom,...context,message,requestRecorded:true});
     if(question)reply+=' '+question;
     if(!knownRoom && !question && ['maintenance','housekeeping','complaint'].includes(ticket.category))reply+=' '+t.room;
   } else if(hasUnverifiedActionClaim(reply)) reply = t?.pending || '';
