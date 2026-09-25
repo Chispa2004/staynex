@@ -120,6 +120,16 @@ for(staffLanguage of ['es','en'])for(const supplied of [false,true]) {
 }
 assert.deepEqual(uiConversation,before);
 console.log('PASS actual panel renders ES/EN, supplied and fallback copilot, guest EN independent of reading translation, memory OFF and unchanged human control');
+const detailSource=fs.readFileSync(new URL('../dashboard/components/InboxDetailPanel.js',import.meta.url),'utf8');
+const detailCode=await swc.transform(detailSource,{filename:'InboxDetailPanel.js',jsc:{parser:{syntax:'ecmascript',jsx:true},transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
+const detailModule={exports:{}};
+new Function('require','module','exports',detailCode.code)(id=>id.endsWith('.module.css')?{}:require(id),detailModule,detailModule.exports);
+for(const lang of ['es','en']) {
+  const title=translatePhrase(lang,'Asistencia IA'),closeLabel=translatePhrase(lang,'Cerrar asistencia IA');
+  const html=renderToStaticMarkup(React.createElement(detailModule.exports.InboxDetailPanel,{title,closeLabel,onClose(){}}));
+  assert.ok(html.includes('>'+title+'</h2>'));assert.ok(html.includes('aria-label="'+closeLabel+'"'));
+}
+console.log('PASS actual outer dialog title and close name follow ES/EN presentation language');
 const processSource=fs.readFileSync(new URL('../src/services/staynex.service.js',import.meta.url),'utf8');
 const gateStart=processSource.indexOf('  if (!aiAutoResponseGate.allowed) {');
 const gateEnd=processSource.indexOf('  if (!rateLimit.allowed)',gateStart);

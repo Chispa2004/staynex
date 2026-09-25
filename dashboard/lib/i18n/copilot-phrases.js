@@ -1,6 +1,6 @@
 // Staff presentation only: never translate or rewrite suggestedReply here.
 export const copilotPhrases = [
-  ['Sin estado', 'Sin Estado'], ['Control humano', 'Human Takeover'], ['Abierto', 'Open'], ['Cerrado', 'Closed'], ['Pendiente', 'Pending'],
+  ['Sin estado', 'Sin Estado'], ['Control humano activo', 'Human Takeover Active'], ['Control humano', 'Human Takeover'], ['Abierto', 'Open'], ['Cerrado', 'Closed'], ['Pendiente', 'Pending'],
   ['Confirmada', 'Confirmed'], ['Cancelada', 'Cancelled'], ['Revisión manual', 'Revisión Manual'],
   ['Proveedor partner', 'Partner provider'], ['experiencia partner', 'partner experience'], ['Concierge interno', 'Internal Concierge'],
   [

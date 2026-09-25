@@ -47,3 +47,7 @@ Antes del ajuste se comprobó por lectura la demo: 42 mensajes, 15 conversacione
 Publicación autorizada mediante PR y merge normal tras CI y revisión. No requiere migración ni variables. Vercel/Railway por el mecanismo habitual; comprobar SHA activo, salud, `SEND_AUTOMATIONS=false`, Guest Memory OFF y comparar el inventario posterior. Comprobar panel público autenticado ES/EN y móvil sin enviar, tomar control ni preparar ofertas.
 
 Estado al preparar la PR: validación pública y versiones finales pendientes; no se confunden con el laboratorio. El cierre de publicación se añadirá con los identificadores observados.
+
+## Ajuste observado tras PR #24
+
+La publicación inicial `8e5235de4917f5bb8d4c960a44554414f697c4bd` permitió comprobar el panel real ES/EN. El contenido era correcto, pero el disparador y título del contenedor exterior seguían en español. Se aplican las mismas traducciones exclusivamente a ese disparador/título y al nombre accesible de cierre. Se añade render del diálogo real ES/EN (10 grupos en total). Sin cambio de acciones, datos ni políticas.

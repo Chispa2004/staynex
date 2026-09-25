@@ -2077,7 +2077,7 @@ export const InboxClient = ({ conversations }) => {
                 )}
               >
                 <Bot className="h-4 w-4" aria-hidden="true" />
-                Asistencia IA
+                {tx('Asistencia IA')}
                 {copilotSignals > 0 ? (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-emerald-300 px-1.5 text-[10px] font-black text-slate-950">
                     {copilotSignals}
@@ -2156,7 +2156,7 @@ export const InboxClient = ({ conversations }) => {
         <span>Los mensajes sin leer y las situaciones que requieren atención están en la lista.</span>
       </div> : null}
       {selectedConversation && (copilotOpen || guestPanelOpen) ? (
-        <InboxDetailPanel title={guestPanelOpen ? 'Ficha del huésped' : 'Asistencia IA'} onClose={() => { setCopilotOpen(false); setGuestPanelOpen(false); }}>
+        <InboxDetailPanel title={guestPanelOpen ? 'Ficha del huésped' : tx('Asistencia IA')} closeLabel={guestPanelOpen ? undefined : tx('Cerrar asistencia IA')} onClose={() => { setCopilotOpen(false); setGuestPanelOpen(false); }}>
           {guestPanelOpen ? <div className={ergonomics.guestInfo}>
             <span className={ergonomics.guestAvatar}>{getConversationInitials(selectedConversation) || <UserRound size={24} aria-hidden="true" />}</span>
             <h3>{selectedDisplayName}</h3>
