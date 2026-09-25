@@ -88,6 +88,8 @@ await test('Observed midnight and promotion failures retain complete facts and t
   assert.ok(r.reply.includes(expected),r.reply);assert.ok(!r.reply.includes(absent));
  }
  const a=c('arrival-date-timezone-a');assert.ok(travel.buildArrivalBookingDraft(a).text.includes('2026-10-10 (Europe/Madrid)'));
+ const morning=travel.buildArrivalBookingDraft({...a,message:'Será sobre las 00:30. ¿Tengo que esperar hasta la mañana?'});
+ assert.ok(!morning.text.includes('Si te refieres a mañana'));assert.ok(morning.text.includes('¿A qué fecha'));
  assert.ok(travel.buildArrivalBookingDraft(c('arrival-unknown-b')).text.includes('no confirmed access procedure'));
 });
 await test('Grounding cannot override an explicit human handoff, repair or suppressed offer',()=>{
@@ -105,5 +107,10 @@ await test('New booking questions have a concrete request workflow and ask only 
 await test('Urgent Inbox safety guidance takes precedence over arrival or promotion drafts',()=>{
  const a=c('arrival-known-a');const result=buildConversationCopilot({hotel_id:a.hotel.id,hotelProfile:a.hotel,guest:a.guest,hotelKnowledge:a.hotelKnowledge,messages:[{sender_type:'guest',content:'Llego a medianoche y hay fuego en la entrada.',original_language:'es'}]});
  assert.ok(result.suggestedReply.text.startsWith(quality.serviceCopy('es').urgent));assert.equal(result.suggestedReply.draft,true);
+});
+await test('Booking thanks does not imply an AC maintenance request; actual AC remains recognized',()=>{
+ const a=c('booking-missing-a'),make=content=>buildConversationCopilot({hotel_id:a.hotel.id,hotelProfile:a.hotel,guest:a.guest,hotelKnowledge:a.hotelKnowledge,messages:[{sender_type:'guest',content,original_language:'es'}]});
+ assert.equal(make('Muchas gracias por la estancia. ¿Cómo consulto una próxima visita?').suggestedAction.title,'Reply normally');
+ assert.equal(make('Tengo una consulta sobre el AC.').suggestedAction.title,'Send maintenance');
 });
 console.log(`${passed} arrival/booking behavior groups passed; simulated SDK, no database/provider writes`);
