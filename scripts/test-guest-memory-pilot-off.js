@@ -250,8 +250,12 @@ try {
   await assertExecutiveMemoryOff();
   assertIncludes(appShell, 'filterPilotNavigation', 'App navigation must hide Guest Memory while OFF');
   assertIncludes(appShell, "item.href !== '/dashboard/guest-memory' || guestMemoryEnabled === true", 'Guest Memory nav item must require explicit ON');
-  // The current panel only exposes a memory count, behind explicit server ON.
-  assertIncludes(inboxCopilotPanel, 'conversation?.guestMemoryEnabled === true ? (conversation?.guestMemory || []).length : 0', 'Inbox copilot UI must hide memory data while OFF');
+  // The panel now reuses this builder. Verify behavior, not the deleted duplicate fallback.
+  for (const enabled of [undefined, false, true]) {
+    const copilot = buildConversationCopilot({guestMemoryEnabled:enabled,guestMemory:[{memory_key:'private-memory-marker'}]});
+    assert.equal(copilot.guestSnapshot.memoryCount,enabled === true ? 1 : 0);
+    assert.equal(JSON.stringify(copilot.summary).includes('private-memory-marker'),enabled === true);
+  }
   assertIncludes(guestMemoryPage, 'Guest Memory is disabled for this pilot.', 'Direct Guest Memory page must show disabled pilot state');
   assertIncludes(guestMemoryDetailPage, 'Guest Memory is disabled for this pilot.', 'Direct Guest Memory detail page must show disabled pilot state');
 

@@ -16,6 +16,9 @@ import {
   UserRound,
   XCircle
 } from 'lucide-react';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
+import { buildConversationCopilot } from '@/lib/ai-copilot';
+import { localizeCopilotText } from '@/lib/i18n/copilot-phrases';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const formatCurrency = (value, currency = 'EUR') => new Intl.NumberFormat(undefined, {
@@ -37,7 +40,10 @@ const sentimentLabels = {
   negative: 'Negativo',
   positive: 'Positivo',
   happy: 'Contento',
-  neutral: 'Neutral'
+  neutral: 'Neutral',
+  calm: 'Tranquilo',
+  confused: 'Confundido',
+  urgent: 'Urgente'
 };
 
 const priorityLabels = {
@@ -126,45 +132,6 @@ const ActionButton = ({ children, onClick, disabled = false, tone = 'slate', tit
   );
 };
 
-const safeCopilot = (conversation, humanEscalation) => {
-  const lastGuest = [...(conversation?.messages || [])].reverse().find((message) => message.sender_type === 'guest');
-  const language = lastGuest?.original_language || conversation?.guest?.preferred_language || 'es';
-
-  return {
-    sentiment: { label: conversation?.aiState?.sentiment || 'neutral', tone: 'slate', confidence: 0.55, reasons: ['Señal básica de conversación'] },
-    priority: { level: humanEscalation?.needsHuman ? 'high' : 'low', tone: humanEscalation?.needsHuman ? 'orange' : 'slate', confidence: 0.55, reasons: [humanEscalation?.reason || 'Sin urgencia visible'] },
-    suggestedAction: {
-      title: humanEscalation?.needsHuman ? 'Revisar personalmente' : 'Responder con normalidad',
-      detail: humanEscalation?.needsHuman ? 'Recepción debe revisar la conversación antes de prometer una solución.' : 'No hay bloqueo operativo crítico visible.',
-      tone: humanEscalation?.needsHuman ? 'orange' : 'slate'
-    },
-    suggestedReply: {
-      text: humanEscalation?.needsHuman
-        ? 'Gracias por avisarnos. Voy a pedir a recepción que lo revise personalmente y te contestamos en breve.'
-        : 'Claro, te ayudo con eso. Reviso la mejor opción para tu estancia.',
-      language,
-      confidence: 0.55
-    },
-    summary: {
-      bullets: [
-        conversation?.guest?.current_room ? `Habitación ${conversation.guest.current_room}` : null,
-        lastGuest?.content ? `Último mensaje del huésped: ${lastGuest.content}` : 'Sin mensaje reciente del huésped'
-      ].filter(Boolean)
-    },
-    revenueOpportunity: { label: 'Sin oportunidad comercial activa', amount: 0, currency: 'EUR', confidence: 0.3, tone: 'slate', source: 'none' },
-    vip: { probability: 0.12, label: 'Huésped estándar', tone: 'slate', reasons: ['Sin señal VIP'] },
-    escalationRisk: { level: humanEscalation?.needsHuman ? 'medium' : 'low', tone: humanEscalation?.needsHuman ? 'orange' : 'emerald', reasons: [humanEscalation?.reason || 'Sin patrón de escalación'] },
-    language,
-    guestSnapshot: {
-      room: conversation?.guest?.current_room || null,
-      phone: conversation?.guest?.phone_number || null,
-      memoryCount: conversation?.guestMemoryEnabled === true ? (conversation?.guestMemory || []).length : 0,
-      bookingsCount: (conversation?.experienceBookings || []).length,
-      lastIntent: conversation?.aiState?.current_intent || conversation?.aiLog?.detected_intent || null
-    }
-  };
-};
-
 export const InboxAiCopilotPanel = ({
   conversation,
   humanEscalation,
@@ -174,13 +141,15 @@ export const InboxAiCopilotPanel = ({
 }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
+  const { tx } = useDashboardLanguage();
+  const staffText = value => localizeCopilotText(value, tx);
   const [copied, setCopied] = useState(false);
   const offers = conversation?.offers || [];
   const upsells = conversation?.upsells || [];
   const experienceBookings = conversation?.experienceBookings || [];
   const activeOffer = offers[0] || null;
   const revenuePotential = offers.reduce((total, offer) => total + Number(offer.suggested_price || 0), 0);
-  const copilot = conversation?.copilot || safeCopilot(conversation, humanEscalation);
+  const copilot = conversation?.copilot || buildConversationCopilot(conversation || {});
   const summaryBullets = copilot.summary?.bullets || [];
 
   const copySuggestedReply = async () => {
@@ -195,7 +164,7 @@ export const InboxAiCopilotPanel = ({
 
   return (
     <aside className={[
-      'flex h-full max-h-full min-h-0 flex-col overflow-hidden',
+      'flex h-full max-h-full min-h-0 min-w-0 flex-col overflow-hidden break-words',
       isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#080c14] text-slate-100'
     ].join(' ')}
     >
@@ -205,12 +174,12 @@ export const InboxAiCopilotPanel = ({
             <Sparkles className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
-            <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>Asistencia IA</p>
-            <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>Contexto operativo para recepción</p>
+            <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>{tx("Asistencia IA")}</p>
+            <p className={isLight ? 'text-xs text-slate-500' : 'text-xs text-slate-500'}>{tx("Contexto operativo para recepción")}</p>
           </div>
         </div>
         {onClose ? (
-          <button type="button" onClick={onClose} className={isLight ? 'rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] p-2 text-slate-400 hover:bg-white/[0.08]'}>
+          <button type="button" onClick={onClose} aria-label={tx('Cerrar asistencia IA')} className={isLight ? 'rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] p-2 text-slate-400 hover:bg-white/[0.08]'}>
             <XCircle className="h-4 w-4" />
           </button>
         ) : null}
@@ -219,180 +188,180 @@ export const InboxAiCopilotPanel = ({
       <div className="executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Sentimiento</p>
-            <div className="mt-2"><Pill tone={copilot.sentiment?.tone}>{translateSignal(copilot.sentiment?.label || 'neutral', sentimentLabels)}</Pill></div>
-            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.sentiment?.confidence)} fiabilidad</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Sentimiento")}</p>
+            <div className="mt-2"><Pill tone={copilot.sentiment?.tone}>{tx(translateSignal(copilot.sentiment?.label || 'neutral', sentimentLabels))}</Pill></div>
+            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.sentiment?.confidence)} {tx('fiabilidad')}</p>
           </div>
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Prioridad</p>
-            <div className="mt-2"><Pill tone={copilot.priority?.tone}>{translateSignal(copilot.priority?.level || 'low', priorityLabels)}</Pill></div>
-            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.priority?.confidence)} fiabilidad</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Prioridad")}</p>
+            <div className="mt-2"><Pill tone={copilot.priority?.tone}>{tx(translateSignal(copilot.priority?.level || 'low', priorityLabels))}</Pill></div>
+            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.priority?.confidence)} {tx('fiabilidad')}</p>
           </div>
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Riesgo de escalación</p>
-            <div className="mt-2"><Pill tone={copilot.escalationRisk?.tone}>{translateSignal(copilot.escalationRisk?.level || 'low', priorityLabels)}</Pill></div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Riesgo de escalación")}</p>
+            <div className="mt-2"><Pill tone={copilot.escalationRisk?.tone}>{tx(translateSignal(copilot.escalationRisk?.level || 'low', priorityLabels))}</Pill></div>
           </div>
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Perfil huésped</p>
-            <div className="mt-2"><Pill tone={copilot.vip?.tone}>{vipLabels[copilot.vip?.label] || copilot.vip?.label || 'Huésped estándar'}</Pill></div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Perfil huésped")}</p>
+            <div className="mt-2"><Pill tone={copilot.vip?.tone}>{staffText(vipLabels[copilot.vip?.label] || copilot.vip?.label || 'Huésped estándar')}</Pill></div>
             <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.vip?.probability)}</p>
           </div>
         </div>
 
-        <Section title="Siguiente paso recomendado" icon={ShieldAlert}>
+        <Section title={tx("Siguiente paso recomendado")} icon={ShieldAlert}>
           <div className="flex flex-wrap gap-2">
-            <Pill tone={copilot.suggestedAction?.tone}>{actionLabels[copilot.suggestedAction?.title] || copilot.suggestedAction?.title || 'Responder con normalidad'}</Pill>
-            <Pill tone="sky">Idioma {String(copilot.language || 'es').toUpperCase()}</Pill>
+            <Pill tone={copilot.suggestedAction?.tone}>{staffText(actionLabels[copilot.suggestedAction?.title] || copilot.suggestedAction?.title || 'Responder con normalidad')}</Pill>
+            <Pill tone="sky">{tx('Idioma del huésped')} {String(copilot.language || 'es').toUpperCase()}</Pill>
           </div>
           <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
-            {copilot.suggestedAction?.detail || 'Sin recomendación operativa todavía.'}
+            {staffText(copilot.suggestedAction?.detail || 'Sin recomendación operativa todavía.')}
           </p>
         </Section>
 
-        <Section title="Respuesta sugerida" icon={MessageSquareText}>
+        <Section title={tx("Respuesta sugerida")} icon={MessageSquareText}>
           <p className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm leading-6 text-slate-700' : 'rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3 py-3 text-sm leading-6 text-slate-200'}>
             {copilot.suggestedReply?.text}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Pill tone="emerald">Lista para revisar</Pill>
+            <Pill tone="emerald">{tx("Lista para revisar")}</Pill>
             <Pill tone="sky">{String(copilot.suggestedReply?.language || copilot.language || 'es').toUpperCase()}</Pill>
             <ActionButton onClick={copySuggestedReply} tone="emerald">
               <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-              {copied ? 'Copiada' : 'Copiar respuesta'}
+              {tx(copied ? 'Copiada' : 'Copiar respuesta')}
             </ActionButton>
           </div>
         </Section>
 
-        <Section title="Resumen de conversación" icon={BrainCircuit}>
+        <Section title={tx("Resumen de conversación")} icon={BrainCircuit}>
           {summaryBullets.length ? (
             <ul className={isLight ? 'space-y-2 text-sm leading-6 text-slate-600' : 'space-y-2 text-sm leading-6 text-slate-400'}>
               {summaryBullets.slice(0, 5).map((item) => (
                 <li key={item} className="flex gap-2">
                   <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
-                  <span>{item}</span>
+                  <span>{staffText(item)}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>Todavía no hay resumen de conversación.</p>
+            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>{tx("Todavía no hay resumen de conversación.")}</p>
           )}
         </Section>
 
-        <Section title="Oportunidad comercial" icon={BadgeEuro}>
+        <Section title={tx("Oportunidad comercial")} icon={BadgeEuro}>
           <div className="flex flex-wrap gap-2">
-            <Pill tone={copilot.revenueOpportunity?.tone}>{copilot.revenueOpportunity?.label || 'Sin oportunidad comercial activa'}</Pill>
+            <Pill tone={copilot.revenueOpportunity?.tone}>{staffText(copilot.revenueOpportunity?.label || 'Sin oportunidad comercial activa')}</Pill>
             {Number(copilot.revenueOpportunity?.amount || 0) > 0 ? (
               <Pill tone="emerald">{formatCurrency(copilot.revenueOpportunity.amount, copilot.revenueOpportunity.currency)}</Pill>
             ) : null}
             {upsells.slice(0, 3).map((upsell) => (
-              <Pill key={upsell.id} tone="violet">{formatLabel(upsell.upsell_type)}</Pill>
+              <Pill key={upsell.id} tone="violet">{staffText(formatLabel(upsell.upsell_type))}</Pill>
             ))}
           </div>
         </Section>
 
-        <Section title="Contexto del huésped" icon={UserRound}>
+        <Section title={tx("Contexto del huésped")} icon={UserRound}>
           <div className="flex flex-wrap gap-2">
-            <Pill tone="slate">Habitación {copilot.guestSnapshot?.room || '-'}</Pill>
-            <Pill tone="sky">{copilot.guestSnapshot?.bookingsCount || 0} reservas de experiencias</Pill>
-            {copilot.guestSnapshot?.lastIntent ? <Pill tone="emerald">{formatLabel(copilot.guestSnapshot.lastIntent)}</Pill> : null}
+            <Pill tone="slate">{tx('Habitación')} {copilot.guestSnapshot?.room || '-'}</Pill>
+            <Pill tone="sky">{copilot.guestSnapshot?.bookingsCount || 0} {tx('reservas de experiencias')}</Pill>
+            {copilot.guestSnapshot?.lastIntent ? <Pill tone="emerald">{staffText(formatLabel(copilot.guestSnapshot.lastIntent))}</Pill> : null}
           </div>
         </Section>
 
-        <Section title="Contexto PMS de la estancia" icon={CalendarCheck}>
+        <Section title={tx("Contexto PMS de la estancia")} icon={CalendarCheck}>
           <div className="flex flex-wrap gap-2">
             <Pill tone={copilot.pmsContext?.stayPhase === 'pre_checkout' ? 'orange' : 'slate'}>
-              Estancia {translateSignal(copilot.pmsContext?.stayPhase || 'unknown', stayPhaseLabels)}
+              {tx('Estancia')} {tx(translateSignal(copilot.pmsContext?.stayPhase || 'unknown', stayPhaseLabels))}
             </Pill>
             <Pill tone={copilot.pmsContext?.roomStatus?.housekeepingStatus === 'dirty' ? 'orange' : 'slate'}>
-              Habitación {translateSignal(copilot.pmsContext?.roomStatus?.housekeepingStatus || 'unknown', roomStatusLabels)}
+              {tx('Habitación')} {tx(translateSignal(copilot.pmsContext?.roomStatus?.housekeepingStatus || 'unknown', roomStatusLabels))}
             </Pill>
             <Pill tone={copilot.pmsContext?.roomStatus?.maintenanceStatus === 'maintenance' ? 'red' : 'slate'}>
-              Mantenimiento {translateSignal(copilot.pmsContext?.roomStatus?.maintenanceStatus || 'unknown', roomStatusLabels)}
+              {tx('Mantenimiento')} {tx(translateSignal(copilot.pmsContext?.roomStatus?.maintenanceStatus || 'unknown', roomStatusLabels))}
             </Pill>
-            {copilot.pmsContext?.upgradeEligible ? <Pill tone="emerald">Upgrade elegible</Pill> : null}
-            {copilot.pmsContext?.lateCheckoutEligible ? <Pill tone="emerald">Late check-out elegible</Pill> : null}
+            {copilot.pmsContext?.upgradeEligible ? <Pill tone="emerald">{tx("Upgrade elegible")}</Pill> : null}
+            {copilot.pmsContext?.lateCheckoutEligible ? <Pill tone="emerald">{tx("Late check-out elegible")}</Pill> : null}
             {Number(copilot.pmsContext?.revenuePotential || 0) > 0 ? (
-              <Pill tone="emerald">Revenue PMS {formatCurrency(copilot.pmsContext.revenuePotential)}</Pill>
+              <Pill tone="emerald">{tx('Ingresos PMS')} {formatCurrency(copilot.pmsContext.revenuePotential)}</Pill>
             ) : null}
           </div>
           {copilot.pmsContext?.warnings?.length ? (
             <p className={isLight ? 'mt-3 text-xs leading-5 text-slate-500' : 'mt-3 text-xs leading-5 text-slate-500'}>
-              {copilot.pmsContext.warnings.join(' / ')}
+              {copilot.pmsContext.warnings.map(staffText).join(' / ')}
             </p>
           ) : null}
         </Section>
 
         {humanEscalation?.needsHuman ? (
-          <Section title="Atención de recepción" icon={AlertTriangle}>
-            <Pill tone="orange">Requiere humano</Pill>
+          <Section title={tx("Atención de recepción")} icon={AlertTriangle}>
+            <Pill tone="orange">{tx("Requiere humano")}</Pill>
             <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
-              Motivo: {formatLabel(humanEscalation.reason || 'revisión manual')}
+              {tx('Motivo')}: {staffText(formatLabel(humanEscalation.reason || 'revisión manual'))}
             </p>
           </Section>
         ) : null}
 
-        <Section title="Oferta sugerida" icon={BadgeEuro}>
+        <Section title={tx("Oferta sugerida")} icon={BadgeEuro}>
           {activeOffer ? (
             <div className="space-y-3">
               <div>
                 <div className="flex items-center justify-between gap-3">
-                  <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>{formatLabel(activeOffer.offer_type)}</p>
+                  <p className={isLight ? 'text-sm font-semibold text-slate-950' : 'text-sm font-semibold text-white'}>{staffText(formatLabel(activeOffer.offer_type))}</p>
                   <Pill tone="emerald">{formatCurrency(activeOffer.suggested_price, activeOffer.currency)}</Pill>
                 </div>
                 <p className={isLight ? 'mt-2 text-sm leading-6 text-slate-600' : 'mt-2 text-sm leading-6 text-slate-400'}>
-                  {activeOffer.ai_reason || 'Detectado por Staynex como posible oportunidad comercial.'}
+                  {activeOffer.ai_reason || tx('Detectado por Staynex como posible oportunidad comercial.')}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <ActionButton tone="emerald" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'send' })}>Preparar envío</ActionButton>
-                <ActionButton onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'accept' })}>Marcar aceptada</ActionButton>
-                <ActionButton tone="red" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'reject' })}>Descartar</ActionButton>
-                <ActionButton tone="orange" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'escalate' })}>Pasar a recepción</ActionButton>
+                <ActionButton tone="emerald" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'send' })}>{tx("Preparar envío")}</ActionButton>
+                <ActionButton onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'accept' })}>{tx("Marcar aceptada")}</ActionButton>
+                <ActionButton tone="red" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'reject' })}>{tx("Descartar")}</ActionButton>
+                <ActionButton tone="orange" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'escalate' })}>{tx("Pasar a recepción")}</ActionButton>
               </div>
             </div>
           ) : (
-            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>Sin oferta activa.</p>
+            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>{tx("Sin oferta activa.")}</p>
           )}
         </Section>
 
-        <Section title="Revenue y upsells" icon={Sparkles}>
+        <Section title={tx("Revenue y upsells")} icon={Sparkles}>
           <div className="flex flex-wrap gap-2">
-            <Pill tone={revenuePotential > 0 ? 'emerald' : 'slate'}>Potencial {formatCurrency(revenuePotential)}</Pill>
+            <Pill tone={revenuePotential > 0 ? 'emerald' : 'slate'}>{tx('Potencial')} {formatCurrency(revenuePotential)}</Pill>
             {upsells.slice(0, 3).map((upsell) => (
-              <Pill key={upsell.id} tone="violet">{formatLabel(upsell.upsell_type)}</Pill>
+              <Pill key={upsell.id} tone="violet">{staffText(formatLabel(upsell.upsell_type))}</Pill>
             ))}
           </div>
         </Section>
 
-        <Section title="Reservas de experiencias" icon={CalendarCheck}>
+        <Section title={tx("Reservas de experiencias")} icon={CalendarCheck}>
           {experienceBookings.length ? (
             <div className="space-y-2">
               {experienceBookings.slice(0, 4).map((booking) => (
                 <div key={booking.id} className={isLight ? 'rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700' : 'rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-sm text-slate-300'}>
                   <div className="flex items-center justify-between gap-3">
                     <span className="font-semibold">{booking.experience_title}</span>
-                    <Pill tone={booking.status === 'confirmed' ? 'emerald' : 'amber'}>{formatLabel(booking.status)}</Pill>
+                    <Pill tone={booking.status === 'confirmed' ? 'emerald' : 'amber'}>{staffText(formatLabel(booking.status))}</Pill>
                   </div>
                   <p className="mt-1 text-xs opacity-75">
                     {booking.metadata?.revenue_owner === 'staynex' || booking.metadata?.revenue_type === 'partner_marketplace'
-                      ? `${booking.partner_name || 'Proveedor partner'} / experiencia partner`
-                      : `${booking.partner_name || 'Concierge interno'} / potencial ${formatCurrency(booking.estimated_revenue)}`}
+                      ? `${booking.partner_name || tx('Proveedor partner')} / ${tx('experiencia partner')}`
+                      : `${booking.partner_name || tx('Concierge interno')} / ${tx('Potencial')} ${formatCurrency(booking.estimated_revenue)}`}
                   </p>
                 </div>
               ))}
               <Link href="/dashboard/experience-bookings" className={isLight ? 'inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50' : 'inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/[0.08]'}>
-                Abrir reservas de experiencias
+                {tx('Abrir reservas de experiencias')}
               </Link>
             </div>
           ) : (
-            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>No hay solicitudes de experiencias activas.</p>
+            <p className={isLight ? 'text-sm text-slate-500' : 'text-sm text-slate-500'}>{tx("No hay solicitudes de experiencias activas.")}</p>
           )}
         </Section>
 
-        <Section title="Contexto operativo" icon={Clock3}>
+        <Section title={tx("Contexto operativo")} icon={Clock3}>
           <div className="space-y-2">
-            <Pill tone="slate">Habitación {conversation?.guest?.current_room || '-'}</Pill>
-            <Pill tone="slate">Estado {formatLabel(conversation?.status || 'sin estado')}</Pill>
+            <Pill tone="slate">{tx('Habitación')} {conversation?.guest?.current_room || '-'}</Pill>
+            <Pill tone="slate">{tx('Estado')} {staffText(formatLabel(conversation?.status || 'sin estado'))}</Pill>
           </div>
         </Section>
       </div>
