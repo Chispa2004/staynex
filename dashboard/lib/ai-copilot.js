@@ -342,10 +342,10 @@ export const buildConversationCopilot = (conversation = {}) => {
   const priority = priorityFromSignals({ sentiment, conversation, vip });
   const suggestedAction = suggestedActionFor({ priority, sentiment, revenueOpportunity, conversation });
   const escalationRisk = escalationRiskFor({ priority, sentiment, conversation });
-  const suggestedReply = buildArrivalBookingDraft({hotel:conversation.hotelProfile || {id:conversation.hotel_id},
+  const suggestedReply = (priority.level !== 'urgent' && buildArrivalBookingDraft({hotel:conversation.hotelProfile || {id:conversation.hotel_id},
     guest:conversation.guest || {},message:lastGuestMessage(conversation.messages || [])?.content,
     hotelKnowledge:conversation.hotelKnowledge || [],conversationContext:{language,recentMessages:conversation.messages || [],
-      reservation:conversation.reservation,referenceTime:conversation.contextReadAt,serviceCapabilities:{requestRecording:false,mode:'staff_draft'}}}) || buildServiceDraft({message:lastGuestMessage(conversation.messages || [])?.content, language,
+      reservation:conversation.reservation,referenceTime:conversation.contextReadAt,serviceCapabilities:{requestRecording:false,mode:'staff_draft'}}})) || buildServiceDraft({message:lastGuestMessage(conversation.messages || [])?.content, language,
     room:conversation.guest?.current_room, history:conversation.messages || [], urgent:priority.level==='urgent'})
     || {text:'',language,draft:true,confidence:0};
   const summary = summaryForConversation(conversation);

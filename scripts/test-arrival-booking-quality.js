@@ -102,4 +102,8 @@ await test('New booking questions have a concrete request workflow and ask only 
  assert.ok(!travel.buildArrivalBookingDraft(c('booking-no-capability-b')).text.includes('?'));
  assert.ok(!travel.buildArrivalBookingDraft(c('promo-current-a')).text.includes('solicitud'));
 });
+await test('Urgent Inbox safety guidance takes precedence over arrival or promotion drafts',()=>{
+ const a=c('arrival-known-a');const result=buildConversationCopilot({hotel_id:a.hotel.id,hotelProfile:a.hotel,guest:a.guest,hotelKnowledge:a.hotelKnowledge,messages:[{sender_type:'guest',content:'Llego a medianoche y hay fuego en la entrada.',original_language:'es'}]});
+ assert.ok(result.suggestedReply.text.startsWith(quality.serviceCopy('es').urgent));assert.equal(result.suggestedReply.draft,true);
+});
 console.log(`${passed} arrival/booking behavior groups passed; simulated SDK, no database/provider writes`);

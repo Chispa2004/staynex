@@ -28,7 +28,7 @@ Generación principal y Concierge comparten el contrato de instrucciones y la pr
 
 ## Comprobaciones
 
-- 14 grupos nuevos `test:arrival-booking-quality`: recuperación compuesta real, fechas/zona horaria, aislamiento, información restringida, URLs, ofertas, capacidades, borradores, seguimiento, garantías de habitación, adaptadores principal/Concierge con SDK simulado, decisiones humanas y datos faltantes.
+- 15 grupos nuevos `test:arrival-booking-quality`: recuperación compuesta real, fechas/zona horaria, aislamiento, información restringida, URLs, ofertas, capacidades, borradores, seguimiento, garantías de habitación, adaptadores principal/Concierge con SDK simulado, decisiones humanas datos faltantes y prioridad de instrucciones de emergencia.
 - 15 grupos existentes `test:guest-service-quality`: desayuno, cuna/edad en palabras, habitación conocida, persistencia antes del acuse, fallo de escritura sin respuesta, recuperación, control humano, proveedores independientes y aislamiento.
 - `test:inbox`: cargador real, paginación de 121 conversaciones/3121 mensajes y Knowledge activo/permitido por hotel.
 - Suite crítica, sintaxis y build; comprobaciones adicionales `test:mock-ai`, `test:natural-conversation`, `test:contextual-revenue` y `test:pms-intelligence` con proveedores bloqueados.
