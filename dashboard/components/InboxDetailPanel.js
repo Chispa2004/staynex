@@ -32,7 +32,7 @@ export function InboxActionMenu({ label, icon, children, inline = false, placeme
 
 // Modal on smaller screens: native focus containment, Escape and focus restoration.
 // A docked, non-modal dialog on wide desktops leaves list and history independent.
-export function InboxDetailPanel({ title, onClose, children }) {
+export function InboxDetailPanel({ title, onClose, children, closeLabel }) {
   const dialog = useRef(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -55,7 +55,7 @@ export function InboxDetailPanel({ title, onClose, children }) {
   }, []);
   return <dialog id="inbox-detail-panel" ref={dialog} className={styles.detailPanel}
     aria-labelledby="inbox-detail-title" onCancel={event => { event.preventDefault(); close.current(); }}>
-    <header><h2 id="inbox-detail-title">{title}</h2><button type="button" onClick={onClose} aria-label={`Cerrar ${title.toLowerCase()}`}><X size={18} aria-hidden="true" /></button></header>
+    <header><h2 id="inbox-detail-title">{title}</h2><button type="button" onClick={onClose} aria-label={closeLabel || `Cerrar ${title.toLowerCase()}`}><X size={18} aria-hidden="true" /></button></header>
     <div className={styles.detailBody}>{children}</div>
   </dialog>;
 }
