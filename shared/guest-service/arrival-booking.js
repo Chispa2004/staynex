@@ -95,6 +95,17 @@ const midnightCopy = {
  es: {date: date => `Una llegada después de medianoche corresponde al inicio del ${date}; cualquier comunicación previa debe realizarse antes de esa llegada, no por la tarde de ese mismo día.`, relative:'Si te refieres a mañana, hay que interpretarlo según la fecha local del hotel, no la del dispositivo.', stay:date=>`La estancia registrada comienza el ${date}; una llegada anterior requiere confirmación independiente.`},
  en: {date: date => `An arrival just after midnight is at the start of ${date}; any advance notice must happen before that arrival, not that same afternoon.`, relative:'Tomorrow must be interpreted using the hotel-local date, not the device date.', stay:date=>`The recorded stay starts on ${date}; an earlier arrival needs separate confirmation.`}
 };
+const missingBookingDetails = (plan, language) => {
+  // Only guest-supplied details, never dates from a current/past PMS reservation.
+  const facts=normalize(plan.guest_details.join(' '));
+  const hasDates=(facts.match(/\d{4}-\d{2}-\d{2}/g)||[]).length>=2
+    || /(?:del|from)\s+\d{1,2}.{0,24}(?:al|to|until|through)\s+\d{1,2}/.test(facts);
+  const hasParty=/\b(?:\d+|un|uno|una|dos|tres|cuatro|cinco|seis|one|two|three|four|five|six)\s+(?:adult|person|guest|nino|child)/.test(facts);
+  if(!hasDates && !hasParty)return copy[language].details;
+  if(!hasDates)return language==='es'?'¿Qué fechas de llegada y salida incluyo en la solicitud?':'What arrival and departure dates should the request include?';
+  if(!hasParty)return language==='es'?'¿Cuántas personas incluyo en la solicitud?':'How many guests should the request include?';
+  return '';
+};
 
 // Inbox is a deterministic staff draft, not another LLM or a booking action.
 // Quote hotel facts as facts; explicitly label what still requires verification.
@@ -107,7 +118,8 @@ export const buildArrivalBookingDraft = (args = {}) => {
   const facts=plan.knowledge.filter(r=>!['expired','not_started'].includes(r.promotion_status));
   if (facts.length) parts.push(t.policy+' '+facts.map(r=>r.value).join(' '));
   if(plan.topic==='arrival') {
-    if(!facts.length)parts.push(t.unknownArrival);
+    const accessDocumented=facts.some(row=>/entrance|entrada|late access|late arrival|llegada tardia|acceso/.test(normalize(row.value)));
+    if(!accessDocumented)parts.push(t.unknownArrival);
     parts.push(t.room);
     if(/medianoche|midnight|0[0-5]:[0-5]\d/.test(normalize(args.message))) {
       const dates=[...new Set((String(args.message).match(/\d{4}-\d{2}-\d{2}/g)||[]))];
@@ -124,10 +136,10 @@ export const buildArrivalBookingDraft = (args = {}) => {
       if(!facts.some(r=>r.promotion_status))parts.push(t.unknownOffer);
       else parts.push(t.terms);
     }
-    const asksForBooking = /reserv|book|disponib|availability|habitacion|rooms|proxima|next/.test(normalize(args.message));
+    const asksForBooking = /quiero.{0,35}reserv|(?:como|puedes|podeis).{0,35}reserv|please.{0,35}(book|review)|can you.{0,25}book|how.{0,20}book/.test(normalize(args.message));
     if(facts.some(r=>r.promotion_status) && !asksForBooking)return {text:parts.join(' '),language,draft:true,confidence:.6,source:'documented_hotel_context'};
     if(plan.booking_route==='official_link')parts.push(t.link+' '+plan.official_urls.join(' '));
-    else if(plan.booking_route==='internal_request')parts.push(t.request); // the model asks only missing details from guest_details
+    else if(plan.booking_route==='internal_request')parts.push(t.request,missingBookingDetails(plan,language));
     else if(plan.contact_phone)parts.push(t.contact+' '+plan.contact_phone+'.');
     else parts.push(t.none);
   }

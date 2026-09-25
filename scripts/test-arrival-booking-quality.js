@@ -88,5 +88,18 @@ await test('Observed midnight and promotion failures retain complete facts and t
   assert.ok(r.reply.includes(expected),r.reply);assert.ok(!r.reply.includes(absent));
  }
  const a=c('arrival-date-timezone-a');assert.ok(travel.buildArrivalBookingDraft(a).text.includes('2026-10-10 (Europe/Madrid)'));
+ assert.ok(travel.buildArrivalBookingDraft(c('arrival-unknown-b')).text.includes('no confirmed access procedure'));
+});
+await test('Grounding cannot override an explicit human handoff, repair or suppressed offer',()=>{
+ const a=c('promo-current-a'),processed={reply:'La petición necesita revisión humana.',escalate_to_human:true};
+ const r=quality.finalizeServiceReply({primary:{reply:'Oferta 10%',confidence:.99,ai_provider:'openai'},processed,preferPrimary:false,hotel:a.hotel,guestId:a.guest.id,message:a.message,context:{...a.conversationContext,hotelKnowledge:a.hotelKnowledge},language:'es'});
+ assert.equal(r.reply,processed.reply);assert.equal(r.escalate_to_human,true);
+});
+await test('New booking questions have a concrete request workflow and ask only missing future details',()=>{
+ const a=travel.buildArrivalBookingDraft(c('booking-missing-a'));assert.ok(a.text.includes('solicitud'));assert.ok(a.text.includes('llegada y salida'));assert.ok(!a.text.includes('tipo de habitación'));
+ const b=travel.buildArrivalBookingDraft(c('booking-followup-a'));assert.ok(!b.text.includes('¿'));
+ const d=travel.buildArrivalBookingDraft({...c('booking-followup-a'),message:'Quiero una nueva reserva del 2026-11-05 al 2026-11-08.',conversationContext:{...c('booking-followup-a').conversationContext,recentMessages:[]}});assert.ok(d.text.includes('¿Cuántas personas'));assert.ok(!d.text.includes('¿Qué fechas'));
+ assert.ok(!travel.buildArrivalBookingDraft(c('booking-no-capability-b')).text.includes('?'));
+ assert.ok(!travel.buildArrivalBookingDraft(c('promo-current-a')).text.includes('solicitud'));
 });
 console.log(`${passed} arrival/booking behavior groups passed; simulated SDK, no database/provider writes`);

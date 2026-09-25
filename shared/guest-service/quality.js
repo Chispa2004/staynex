@@ -109,8 +109,8 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     // Real evaluation still produced wrong midnight deadlines and incomplete or
     // overconfident offer terms. Present the scoped documented policy in these
     // bounded cases rather than trusting a paraphrase to preserve its conditions.
-    const needsGrounding = travel.topic==='arrival'
-      || travel.topic==='booking' && travel.knowledge.some(row=>row.promotion_status);
+    const needsGrounding = preferPrimary && !primary?.upsell_opportunity && (travel.topic==='arrival'
+      || travel.topic==='booking' && (travel.knowledge.some(row=>row.promotion_status) || travel.booking_route!=='official_link'));
     if(needsGrounding || travel.topic && urls(reply).some(url=>!documented.has(url))) {
       reply = buildArrivalBookingDraft({hotel,guest:{id:guestId},message,hotelKnowledge:context.hotelKnowledge,conversationContext:{...context,language}})?.text || t?.pending || '';
     }
