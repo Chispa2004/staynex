@@ -1,6 +1,10 @@
+import { ARRIVAL_BOOKING_POLICY, arrivalBookingTopic, buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge } from './arrival-booking.js';
+export { buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge };
+export { arrivalBookingTopic };
 // Shared by primary generation, optional Concierge refinement and isolated evaluation.
 // Knowledge, messages and recommendations are data, never authority to execute actions.
 export const GUEST_SERVICE_POLICY = `
+${ARRIVAL_BOOKING_POLICY}
 GUEST SERVICE CONTRACT (takes precedence over style suggestions):
 - The reply field is PRE-EXECUTION text: include only the factual answer or a missing-detail question. NEVER write that you have acted, are acting or will act (notify, arrange, forward, deliver, check with a team, issue an invoice). The application supplies any verified request receipt after persistence.
 - A check-in time is a policy boundary, NEVER a guarantee that a specific room will be ready. If the arrival night differs from the booked arrival date, clarify the date and keep room access pending hotel confirmation.
@@ -10,7 +14,7 @@ GUEST SERVICE CONTRACT (takes precedence over style suggestions):
 - Distinguish information, missing details, a request requiring hotel confirmation, and completed action. A proposed ticket or department action is NOT a saved request. A saved ticket does NOT prove notification, acceptance, delivery, availability, payment, issue resolution or invoice issuance.
 - service_capabilities.request_recording=true means the application can attempt an internal ticket AFTER this response is generated. For an actual operational request, propose create_ticket with the known room/context and a useful title/description; do not tell the guest to repeat the conversation through another channel. The application, not the model, adds the receipt after a successful write. Do not say it is registered yet or promise a notification/action.
 - If request_recording is false, collect only useful missing facts and explain the actual next step. Do not claim tools, notifications or access you do not have. In a staff draft, address the guest but leave decisions to the authorized staff member.
-- Requests for an invoice, lost-property search, towels or maintenance are operational requests: when request_recording=true propose a ticket, including reception category for invoices or lost property. Do not invent security rules requiring email or a visit to reception. An informational discount enquiry without reliable terms must state that availability/rates are unconfirmed and ask for the exact desired future dates and party size if missing. Do not reuse an unrelated current reservation for a new stay. Do not divert the guest to reception when you can collect those details here.
+- Requests for an invoice, lost-property search, towels or maintenance are operational requests: when request_recording=true propose a ticket, including reception category for invoices or lost property. Do not invent security rules requiring email or a visit to reception. An informational discount enquiry without reliable terms must state that availability/rates are unconfirmed. Ask for future dates/party size only for an available request workflow or a documented next step, explaining their purpose. Do not reuse an unrelated current reservation for a new stay. Do not divert the guest to reception when you can collect those details here.
 - Do not add ancillary services (e.g. luggage storage), alternative meals or contact channels unless documented for this hotel.
 - For requests needing availability or authorization (cot, early arrival, transport, reservation, discount), keep confirmation pending. A reception open at night does not establish early room availability. An invoice request is not an issued invoice; an object description is not proof it was found.
 - For safety risks give immediate safety guidance and require human intervention without delaying for routine details. Retain human-control restrictions; preparing a draft never resumes automation.
@@ -70,7 +74,7 @@ export function missingServiceQuestion(reply = '', {knownRoom = null, reservatio
   return questions.map(q=>q.replace(/^[.!]\s*/, '').trim()).find(q=>!hasUnverifiedActionClaim(q)
     && !/datos completos|complete (?:personal )?details|document|passport|pasaporte|credit card|tarjeta|fiscales|fiscal|tax details|tax information|email|e-mail/i.test(q)
     && !(knownRoom && /habitaci[oó]n|room|chambre|zimmer/i.test(q))
-    && !(reservation?.arrival_date && reservation?.departure_date && /fechas|dates|arrival|departure|llegada|salida/i.test(q))
+    && !(arrivalBookingTopic(message,recentMessages)!=='booking' && reservation?.arrival_date && reservation?.departure_date && /fechas|dates|arrival|departure|llegada|salida/i.test(q))
     && !(/edad|old|[aâ]ge|alt/i.test(q) && hasKnownChildAge(facts))) || null;
 }
 
@@ -92,8 +96,24 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
   if(!actual && /habitaci[oó]n (?:estar[aá]|est[aá]) (?:lista|disponible)|room (?:will be|is) (?:ready|available)/i.test(reply || '')) {
     const times={es:'La hora prevista de entrada es',en:'The scheduled check-in time is',fr:'L’heure prévue d’arrivée est',de:'Die vorgesehene Check-in-Zeit ist',it:'L’orario previsto di check-in è',pt:'A hora prevista de check-in é'};
     const prefix=times[String(language).slice(0,2)];
-    reply=prefix && /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(hotel.check_in_time || '')
-      ? `${prefix} ${hotel.check_in_time.slice(0,5)}. ${t.pending}` : t?.pending || '';
+    const arrivalDraft = context.hotelKnowledge?.length ? buildArrivalBookingDraft({hotel,guest:{id:guestId,current_room:knownRoom},message,hotelKnowledge:context.hotelKnowledge,conversationContext:{...context,language}}) : null;
+    reply=arrivalDraft?.text || (prefix && /^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(hotel.check_in_time || '')
+      ? `${prefix} ${hotel.check_in_time.slice(0,5)}. ${t.pending}` : t?.pending || '');
+  }
+  // Generated links are not authority: only exact URLs in scoped hotel Knowledge
+  // can reach an arrival/booking reply. Never construct a reservation URL.
+  if(!actual && context.hotelKnowledge) {
+    const travel = buildArrivalBookingContext({hotel,guest:{id:guestId},message,hotelKnowledge:context.hotelKnowledge,conversationContext:context});
+    const urls = value => (String(value || '').match(/https?:\/\/[^\s<>"']+/g) || []).map(u=>u.replace(/[.,;)]+$/,''));
+    const documented = new Set(travel.knowledge.flatMap(row=>urls(row.value)));
+    // Real evaluation still produced wrong midnight deadlines and incomplete or
+    // overconfident offer terms. Present the scoped documented policy in these
+    // bounded cases rather than trusting a paraphrase to preserve its conditions.
+    const needsGrounding = preferPrimary && !primary?.upsell_opportunity && (travel.topic==='arrival'
+      || travel.topic==='booking' && (travel.knowledge.some(row=>row.promotion_status) || travel.booking_route!=='official_link'));
+    if(needsGrounding || travel.topic && urls(reply).some(url=>!documented.has(url))) {
+      reply = buildArrivalBookingDraft({hotel,guest:{id:guestId},message,hotelKnowledge:context.hotelKnowledge,conversationContext:{...context,language}})?.text || t?.pending || '';
+    }
   }
   if(!reply) throw new Error('No safe service reply in the guest language');
   if(emergency && t && !reply.includes(t.urgent)) reply = `${t.urgent} ${reply}`;

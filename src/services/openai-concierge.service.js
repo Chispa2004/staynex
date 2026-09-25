@@ -1,4 +1,4 @@
-import { GUEST_SERVICE_POLICY, sameHotelRows, serviceContext } from '../../shared/guest-service/quality.js';
+import { GUEST_SERVICE_POLICY, sameHotelRows, serviceContext, buildArrivalBookingContext, arrivalBookingTopic, guestFacingKnowledge } from '../../shared/guest-service/quality.js';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';
 import {
@@ -131,9 +131,11 @@ const buildPromptPayload = ({
   conversationState = {},
   heuristic = {}
 }) => {
+  hotelKnowledge = arrivalBookingTopic(message,conversationContext.recentMessages) ? guestFacingKnowledge(hotelKnowledge,hotel?.id) : hotelKnowledge;
   const guestMemory = isGuestMemoryEnabled() ? conversationContext.guestMemory || [] : [];
 
   return {
+  arrival_booking: buildArrivalBookingContext({hotel,guest,message,hotelKnowledge,conversationContext}),
   service_capabilities: serviceContext({hotel, guest, conversationContext}),
   hotel: {
     id: hotel?.id,

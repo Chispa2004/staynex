@@ -1,4 +1,4 @@
-import { finalizeServiceReply } from '../../shared/guest-service/quality.js';
+import { finalizeServiceReply, arrivalBookingTopic, guestFacingKnowledge } from '../../shared/guest-service/quality.js';
 import {
   createConversation,
   findMessageByIdForHotel,
@@ -742,12 +742,14 @@ export const processGuestMessage = async ({
     message,
     conversationContext.language
   );
-  const hotelKnowledge = knowledgeResult
-    ? [{
-      key: knowledgeResult.metadata.knowledgeKey,
-      value: knowledgeResult.metadata.knowledgeValue
-    }]
-    : await getKnowledgeForHotel(activeHotel.id);
+  const travelTopic = arrivalBookingTopic(message, conversationContext.recentMessages);
+  // Compound arrival/booking questions need the full set of related hotel policies.
+  const hotelKnowledge = travelTopic
+    ? guestFacingKnowledge(await getKnowledgeForHotel(activeHotel.id), activeHotel.id)
+    : knowledgeResult
+      ? [{key:knowledgeResult.metadata.knowledgeKey,value:knowledgeResult.metadata.knowledgeValue}]
+      : await getKnowledgeForHotel(activeHotel.id);
+  conversationContext.hotelKnowledge = hotelKnowledge;
   const rawHotelExperiences = await getHotelExperiences({
     hotelId: activeHotel.id,
     activeOnly: true,
@@ -1006,7 +1008,7 @@ export const processGuestMessage = async ({
   };
 
   conversationContext.serviceCapabilities = {requestRecording:true, mode:'guest_reply'};
-  const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled());
+  const shouldUseDirectKnowledgeResponse = Boolean(knowledgeResult && isMockAiEnabled() && !travelTopic);
   let rawAiResponse = null;
 
   try {
