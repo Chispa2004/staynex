@@ -1,0 +1,1874 @@
+[
+  {
+    "id": "a-breakfast",
+    "phase": "before",
+    "inputHash": "4f5e2963a33bd05602e137d1a5e1d4ccb530f07c117d1d2f1a7406734554f4ad",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "Sí, estás a tiempo para bajar a desayunar, el comedor Azul está abierto hasta las 10:30.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Sí, estás a tiempo para bajar a desayunar, el comedor Azul está abierto hasta las 10:30.",
+    "simulatedTicket": false,
+    "durationMs": 2639,
+    "generatedAt": "2026-09-25T07:47:37.451Z"
+  },
+  {
+    "id": "a-breakfast",
+    "phase": "after",
+    "inputHash": "4f5e2963a33bd05602e137d1a5e1d4ccb530f07c117d1d2f1a7406734554f4ad",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "Sí, a las 10:15 aún puedes bajar a desayunar, el servicio es hasta las 10:30 en el comedor Azul.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Sí, a las 10:15 aún puedes bajar a desayunar, el servicio es hasta las 10:30 en el comedor Azul.",
+    "simulatedTicket": false,
+    "durationMs": 1313,
+    "generatedAt": "2026-09-25T07:47:38.768Z"
+  },
+  {
+    "id": "a-night",
+    "phase": "before",
+    "inputHash": "7b6cfa327cf123e5b4c7e311bb9cdfaca60eae94240fb48943976a51915036a7",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "La recepción está abierta 24 horas para tu llegada, pero la habitación estará lista a partir de las 15:00 según la política del hotel.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "La recepción está abierta 24 horas para tu llegada, pero la habitación estará lista a partir de las 15:00 según la política del hotel.",
+    "simulatedTicket": false,
+    "durationMs": 1046,
+    "generatedAt": "2026-09-25T07:47:39.815Z"
+  },
+  {
+    "id": "a-night",
+    "phase": "after",
+    "inputHash": "7b6cfa327cf123e5b4c7e311bb9cdfaca60eae94240fb48943976a51915036a7",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "La habitación estará lista a partir de las 15:00, aunque la recepción está abierta 24 horas para recibirle y guardar su equipaje si llega antes.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La habitación estará lista a partir de las 15:00, aunque la recepción está abierta 24 horas para recibirle y guardar su equipaje si llega antes.",
+    "simulatedTicket": false,
+    "durationMs": 1320,
+    "generatedAt": "2026-09-25T07:47:41.136Z"
+  },
+  {
+    "id": "a-cot",
+    "phase": "before",
+    "inputHash": "069397950d153ae17759b34e8a849d993632aebca39996db75aa1024b261418a",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Para confirmar la cuna, por favor indíquenos la edad del bebé para verificar disponibilidad.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Para confirmar la cuna, por favor indíquenos la edad del bebé para verificar disponibilidad.",
+    "simulatedTicket": false,
+    "durationMs": 1248,
+    "generatedAt": "2026-09-25T07:47:42.385Z"
+  },
+  {
+    "id": "a-cot",
+    "phase": "after",
+    "inputHash": "069397950d153ae17759b34e8a849d993632aebca39996db75aa1024b261418a",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Para confirmar la cuna, ¿podría indicarnos la edad exacta de su bebé? Así podemos gestionar la solicitud correctamente.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Para confirmar la cuna, ¿podría indicarnos la edad exacta de su bebé? Así podemos gestionar la solicitud correctamente.",
+    "simulatedTicket": false,
+    "durationMs": 1227,
+    "generatedAt": "2026-09-25T07:47:43.613Z"
+  },
+  {
+    "id": "a-towels",
+    "phase": "before",
+    "inputHash": "77e5f6f141307b70bde7c68c6586381c87a04b6a9a63805a05fec57155f29715",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Le enviaremos dos toallas adicionales a su habitación A-204 en breve.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Solicitud de toallas adicionales",
+        "description": "Solicitan dos toallas más para la habitación A-204.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Le enviaremos dos toallas adicionales a su habitación A-204 en breve.",
+    "simulatedTicket": true,
+    "durationMs": 1298,
+    "generatedAt": "2026-09-25T07:47:44.912Z"
+  },
+  {
+    "id": "a-towels",
+    "phase": "after",
+    "inputHash": "77e5f6f141307b70bde7c68c6586381c87a04b6a9a63805a05fec57155f29715",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Claro, ya organizo que suban dos toallas más a su habitación A-204 lo antes posible.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Solicitud de dos toallas adicionales",
+        "description": "Por favor, entregar dos toallas adicionales a la habitación A-204 del huésped Persona ficticia.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Claro, ya organizo que suban dos toallas más a su habitación A-204 lo antes posible. La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1740,
+    "generatedAt": "2026-09-25T07:47:46.653Z"
+  },
+  {
+    "id": "a-noise",
+    "phase": "before",
+    "inputHash": "6953b5d3fc911d0b9c936524ca3f1715fe620b718fab19008e80e9444bd8ff82",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "Lamento mucho que estén molestando por el ruido. Informo a recepción para que lo revisen y le den una solución lo antes posible.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "complaint",
+        "title": "Ruido en pasillo junto a habitación A-204",
+        "description": "El huésped reporta ruido persistente en el pasillo junto a su habitación que no le permite dormir.",
+        "priority": "normal"
+      },
+      "escalate_to_human": true,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Lamento mucho que estén molestando por el ruido. Informo a recepción para que lo revisen y le den una solución lo antes posible.",
+    "simulatedTicket": true,
+    "durationMs": 1123,
+    "generatedAt": "2026-09-25T07:47:47.777Z"
+  },
+  {
+    "id": "a-noise",
+    "phase": "after",
+    "inputHash": "6953b5d3fc911d0b9c936524ca3f1715fe620b718fab19008e80e9444bd8ff82",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "Lamento mucho las molestias por el ruido. Ya informaré al equipo de mantenimiento para que revisen y solucionen el problema cuanto antes.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "maintenance",
+        "title": "Ruido en el pasillo junto a habitación A-204",
+        "description": "El huésped en A-204 reporta ruido constante en el pasillo que impide dormir.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Lamento mucho las molestias por el ruido. Ya informaré al equipo de mantenimiento para que revisen y solucionen el problema cuanto antes. La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1285,
+    "generatedAt": "2026-09-25T07:47:49.063Z"
+  },
+  {
+    "id": "a-lost",
+    "phase": "before",
+    "inputHash": "a74f46b7f3628316dbe2485dd9597d5b739173f44ab5e39bec5e42623f5e8fe3",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "He informado a recepción sobre tu bufanda verde. Nos pondremos en contacto contigo si la encontramos.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Objeto perdido: bufanda verde",
+        "description": "El huésped reporta una bufanda verde dejada en el armario al salir. Revisar y confirmar si está disponible.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "He informado a recepción sobre tu bufanda verde. Nos pondremos en contacto contigo si la encontramos.",
+    "simulatedTicket": true,
+    "durationMs": 1277,
+    "generatedAt": "2026-09-25T07:47:50.341Z"
+  },
+  {
+    "id": "a-lost",
+    "phase": "after",
+    "inputHash": "a74f46b7f3628316dbe2485dd9597d5b739173f44ab5e39bec5e42623f5e8fe3",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.9,
+      "reply": "He pasado tu consulta al equipo de limpieza para verificar si encontraron la bufanda verde en el armario y te responderemos pronto.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Consulta por bufanda verde olvidada en habitación A-204",
+        "description": "El huésped indica que dejó una bufanda verde en el armario y solicita confirmación de si fue encontrada.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "He pasado tu consulta al equipo de limpieza para verificar si encontraron la bufanda verde en el armario y te responderemos pronto. La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1803,
+    "generatedAt": "2026-09-25T07:47:52.145Z"
+  },
+  {
+    "id": "a-invoice",
+    "phase": "before",
+    "inputHash": "5353e2718f5b093911a14d49332153c45b1b1a463c22b8210f875cfa1dd7f1d7",
+    "output": {
+      "intent": "human_escalation",
+      "confidence": 0.95,
+      "reply": "Ya aviso a recepción para que te envíen la factura de tu estancia por correo electrónico. ¿Prefieres que te la envíen a algún email en particular?",
+      "create_ticket": true,
+      "ticket": {
+        "category": "reception",
+        "title": "Solicitud de envío de factura",
+        "description": "Huésped solicita envío de factura de estancia. Confirmar email de destino.",
+        "priority": "normal"
+      },
+      "escalate_to_human": true,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Ya aviso a recepción para que te envíen la factura de tu estancia por correo electrónico. ¿Prefieres que te la envíen a algún email en particular?",
+    "simulatedTicket": true,
+    "durationMs": 1274,
+    "generatedAt": "2026-09-25T07:47:53.420Z"
+  },
+  {
+    "id": "a-invoice",
+    "phase": "after",
+    "inputHash": "5353e2718f5b093911a14d49332153c45b1b1a463c22b8210f875cfa1dd7f1d7",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "Para recibir la factura de su estancia, por favor contacte con la recepción, que estará encantada de tramitarla para usted.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Para recibir la factura de su estancia, por favor contacte con la recepción, que estará encantada de tramitarla para usted.",
+    "simulatedTicket": false,
+    "durationMs": 1143,
+    "generatedAt": "2026-09-25T07:47:54.565Z"
+  },
+  {
+    "id": "a-discount",
+    "phase": "before",
+    "inputHash": "0ee587bce3130421a534d5529cc723ff14ac3dd949bf5b359c6779e11ab7a537",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "No contamos con información específica sobre descuentos para noviembre. Si desea, puedo avisar a recepción para que le informe directamente.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "No contamos con información específica sobre descuentos para noviembre. Si desea, puedo avisar a recepción para que le informe directamente.",
+    "simulatedTicket": false,
+    "durationMs": 988,
+    "generatedAt": "2026-09-25T07:47:55.554Z"
+  },
+  {
+    "id": "a-discount",
+    "phase": "after",
+    "inputHash": "0ee587bce3130421a534d5529cc723ff14ac3dd949bf5b359c6779e11ab7a537",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "Para información sobre disponibilidad y descuentos en noviembre, te recomiendo contactar directamente con recepción, que podrá darte detalles actualizados y ayudarte con tu solicitud.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Para información sobre disponibilidad y descuentos en noviembre, te recomiendo contactar directamente con recepción, que podrá darte detalles actualizados y ayudarte con tu solicitud.",
+    "simulatedTicket": false,
+    "durationMs": 1096,
+    "generatedAt": "2026-09-25T07:47:56.651Z"
+  },
+  {
+    "id": "b-breakfast",
+    "phase": "before",
+    "inputHash": "6343d950883b31f7c0e3a7663edc9c743623091117024d13dc3eb7057eaeed04",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "Breakfast ends at 09:00, so 10:15 would be too late. I can inform reception if you need alternative options.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Breakfast ends at 09:00, so 10:15 would be too late. I can inform reception if you need alternative options.",
+    "simulatedTicket": false,
+    "durationMs": 977,
+    "generatedAt": "2026-09-25T07:47:57.629Z"
+  },
+  {
+    "id": "b-breakfast",
+    "phase": "after",
+    "inputHash": "6343d950883b31f7c0e3a7663edc9c743623091117024d13dc3eb7057eaeed04",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "Breakfast ends at 09:00, so 10:15 would be too late for breakfast service.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Breakfast ends at 09:00, so 10:15 would be too late for breakfast service.",
+    "simulatedTicket": false,
+    "durationMs": 1269,
+    "generatedAt": "2026-09-25T07:47:58.900Z"
+  },
+  {
+    "id": "b-night",
+    "phase": "before",
+    "inputHash": "942484180ac16f2591bf02e476bc0b32d693b31245fca31848254766c1efcac6",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "La entrada a la habitación es posible desde las 16:00 el día de llegada. Si llega a las 00:30 de la noche anterior, le recomiendo contactar directamente con recepción para valorar opciones.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "La entrada a la habitación es posible desde las 16:00 el día de llegada. Si llega a las 00:30 de la noche anterior, le recomiendo contactar directamente con recepción para valorar opciones.",
+    "simulatedTicket": false,
+    "durationMs": 1083,
+    "generatedAt": "2026-09-25T07:47:59.985Z"
+  },
+  {
+    "id": "b-night",
+    "phase": "after",
+    "inputHash": "942484180ac16f2591bf02e476bc0b32d693b31245fca31848254766c1efcac6",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "The hotel typically allows check-in from 16:00, and reception closes at 22:00. Since you're arriving at 00:30 before your arrival date, early access isn't guaranteed and must be arranged with us in advance.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "The hotel typically allows check-in from 16:00, and reception closes at 22:00. Since you're arriving at 00:30 before your arrival date, early access isn't guaranteed and must be arranged with us in advance.",
+    "simulatedTicket": false,
+    "durationMs": 1153,
+    "generatedAt": "2026-09-25T07:48:01.139Z"
+  },
+  {
+    "id": "b-cot",
+    "phase": "before",
+    "inputHash": "4b04884987c38a12c214b92bccc3ea0f1c2d31e9e61eb0687fef14275333c424",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "Lamentablemente, nuestro hotel no ofrece cunas para bebés. Avísame si quieres que le comunique algo a recepción.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Lamentablemente, nuestro hotel no ofrece cunas para bebés. Avísame si quieres que le comunique algo a recepción.",
+    "simulatedTicket": false,
+    "durationMs": 975,
+    "generatedAt": "2026-09-25T07:48:02.116Z"
+  },
+  {
+    "id": "b-cot",
+    "phase": "after",
+    "inputHash": "4b04884987c38a12c214b92bccc3ea0f1c2d31e9e61eb0687fef14275333c424",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.99,
+      "reply": "Unfortunately, our hotel does not offer cots for babies. Please let us know if we can assist you with anything else during your stay.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Unfortunately, our hotel does not offer cots for babies. Please let us know if we can assist you with anything else during your stay.",
+    "simulatedTicket": false,
+    "durationMs": 1175,
+    "generatedAt": "2026-09-25T07:48:03.292Z"
+  },
+  {
+    "id": "b-towels",
+    "phase": "before",
+    "inputHash": "2bb521f863b157077adc931412c86e3f21b5bd7f0c67619aaa30fe7bb9e50fca",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Claro, aviso a recepción para que le envíen dos toallas extra a su habitación B-309.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Toallas extra en habitación B-309",
+        "description": "Solicitud de dos toallas adicionales en la habitación B-309 del huésped Persona ficticia.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Claro, aviso a recepción para que le envíen dos toallas extra a su habitación B-309.",
+    "simulatedTicket": true,
+    "durationMs": 1132,
+    "generatedAt": "2026-09-25T07:48:04.425Z"
+  },
+  {
+    "id": "b-towels",
+    "phase": "after",
+    "inputHash": "2bb521f863b157077adc931412c86e3f21b5bd7f0c67619aaa30fe7bb9e50fca",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "I have arranged for two extra towels to be sent to your room shortly.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Extra towels request for room B-309",
+        "description": "Guest in room B-309 requests two extra towels.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "I have arranged for two extra towels to be sent to your room shortly. Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1142,
+    "generatedAt": "2026-09-25T07:48:05.569Z"
+  },
+  {
+    "id": "b-noise",
+    "phase": "before",
+    "inputHash": "91759c96e529bc1222275b82c66b48b14eb2ba57d18ddcd9c6d23ab94e299a67",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "Lamento mucho las molestias por el ruido. Aviso al equipo de recepción para que puedan atenderlo cuanto antes.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "complaint",
+        "title": "Ruido persistente en el pasillo junto a habitación B-309",
+        "description": "El huésped reporta que el ruido en el pasillo continúa y no puede dormir.",
+        "priority": "high"
+      },
+      "escalate_to_human": true,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Lamento mucho las molestias por el ruido. Aviso al equipo de recepción para que puedan atenderlo cuanto antes.",
+    "simulatedTicket": true,
+    "durationMs": 2312,
+    "generatedAt": "2026-09-25T07:48:07.883Z"
+  },
+  {
+    "id": "b-noise",
+    "phase": "after",
+    "inputHash": "91759c96e529bc1222275b82c66b48b14eb2ba57d18ddcd9c6d23ab94e299a67",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "I apologize for the noise disturbance. I am reporting this immediately to the team so they can address it and help you rest.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "complaint",
+        "title": "Noise disturbance near room B-309",
+        "description": "Guest reports ongoing noise in corridor preventing sleep.",
+        "priority": "high"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "I apologize for the noise disturbance. I am reporting this immediately to the team so they can address it and help you rest. Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1178,
+    "generatedAt": "2026-09-25T07:48:09.063Z"
+  },
+  {
+    "id": "b-lost",
+    "phase": "before",
+    "inputHash": "5b2d2ba47d16af14aec56caaa7b5644bb5840229279c3c19ed2a6d44b30d1bf4",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Voy a informar a recepción para que revisen y te confirmen si encontraron la bufanda verde.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "reception",
+        "title": "Objeto perdido: bufanda verde",
+        "description": "Huésped informa que dejó una bufanda verde en el armario tras el check-out.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Voy a informar a recepción para que revisen y te confirmen si encontraron la bufanda verde.",
+    "simulatedTicket": true,
+    "durationMs": 1240,
+    "generatedAt": "2026-09-25T07:48:10.305Z"
+  },
+  {
+    "id": "b-lost",
+    "phase": "after",
+    "inputHash": "5b2d2ba47d16af14aec56caaa7b5644bb5840229279c3c19ed2a6d44b30d1bf4",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "I will check with the team regarding your green scarf left in the wardrobe and get back to you shortly.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Lost green scarf in room B-309",
+        "description": "Guest left a green scarf in the wardrobe after checkout, please verify if found.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "I will check with the team regarding your green scarf left in the wardrobe and get back to you shortly. Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1315,
+    "generatedAt": "2026-09-25T07:48:11.621Z"
+  },
+  {
+    "id": "b-invoice",
+    "phase": "before",
+    "inputHash": "42445ff284cda95c4d641233d3d5f51b260aaa3b93547378b8f99a3657fc1d84",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "Para la factura de su estancia, puedo avisar a recepción para que se la preparen y envíen.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "reception",
+        "title": "Solicitud de factura para habitación B-309",
+        "description": "Huésped solicita factura de su estancia para enviar por email.",
+        "priority": "normal"
+      },
+      "escalate_to_human": true,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "Para la factura de su estancia, puedo avisar a recepción para que se la preparen y envíen.",
+    "simulatedTicket": true,
+    "durationMs": 1045,
+    "generatedAt": "2026-09-25T07:48:12.667Z"
+  },
+  {
+    "id": "b-invoice",
+    "phase": "after",
+    "inputHash": "42445ff284cda95c4d641233d3d5f51b260aaa3b93547378b8f99a3657fc1d84",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 1,
+      "reply": "I can help you with the invoice. For security and privacy, please request it directly at reception or by email once checked out.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "I can help you with the invoice. For security and privacy, please request it directly at reception or by email once checked out.",
+    "simulatedTicket": false,
+    "durationMs": 1084,
+    "generatedAt": "2026-09-25T07:48:13.752Z"
+  },
+  {
+    "id": "b-discount",
+    "phase": "before",
+    "inputHash": "6a78a52e83f8507f40911c6b2c6d583afe39492e758aa63912fcd942f6727e7e",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "No contamos con información sobre descuentos para noviembre. Le recomiendo contactar directamente con recepción para consultas específicas sobre disponibilidad y tarifas.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini-2025-04-14",
+      "fallback_used": false
+    },
+    "presentedReply": "No contamos con información sobre descuentos para noviembre. Le recomiendo contactar directamente con recepción para consultas específicas sobre disponibilidad y tarifas.",
+    "simulatedTicket": false,
+    "durationMs": 992,
+    "generatedAt": "2026-09-25T07:48:14.746Z"
+  },
+  {
+    "id": "b-discount",
+    "phase": "after",
+    "inputHash": "6a78a52e83f8507f40911c6b2c6d583afe39492e758aa63912fcd942f6727e7e",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "For November room availability and discounts, please contact our reception directly as we don't have current discount info available here. We will be happy to assist you with your booking details.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "For November room availability and discounts, please contact our reception directly as we don't have current discount info available here. We will be happy to assist you with your booking details.",
+    "simulatedTicket": false,
+    "durationMs": 1223,
+    "generatedAt": "2026-09-25T07:48:15.970Z"
+  },
+  {
+    "id": "a-breakfast",
+    "phase": "after-v2",
+    "inputHash": "4f5e2963a33bd05602e137d1a5e1d4ccb530f07c117d1d2f1a7406734554f4ad",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "Sí, a las 10:15 aún puede disfrutar del desayuno en el comedor Azul.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Sí, a las 10:15 aún puede disfrutar del desayuno en el comedor Azul.",
+    "simulatedTicket": false,
+    "durationMs": 1311,
+    "generatedAt": "2026-09-25T07:50:43.802Z"
+  },
+  {
+    "id": "a-night",
+    "phase": "after-v2",
+    "inputHash": "7b6cfa327cf123e5b4c7e311bb9cdfaca60eae94240fb48943976a51915036a7",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "La habitación estará disponible a partir de las 15:00, aunque la recepción está abierta 24 horas para recibirte y ayudarte con lo que necesites hasta entonces.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La habitación estará disponible a partir de las 15:00, aunque la recepción está abierta 24 horas para recibirte y ayudarte con lo que necesites hasta entonces.",
+    "simulatedTicket": false,
+    "durationMs": 1144,
+    "generatedAt": "2026-09-25T07:50:44.949Z"
+  },
+  {
+    "id": "a-cot",
+    "phase": "after-v2",
+    "inputHash": "069397950d153ae17759b34e8a849d993632aebca39996db75aa1024b261418a",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Para confirmar la cuna, ¿podría indicarnos la edad del bebé, por favor? Así gestionamos la disponibilidad y confirmación.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Solicitud de cuna para bebé en habitación A-204",
+        "description": "El huésped solicita confirmación de cuna para bebé. Necesita confirmar la edad del bebé para gestionar disponibilidad.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1317,
+    "generatedAt": "2026-09-25T07:50:46.269Z"
+  },
+  {
+    "id": "a-towels",
+    "phase": "after-v2",
+    "inputHash": "77e5f6f141307b70bde7c68c6586381c87a04b6a9a63805a05fec57155f29715",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.99,
+      "reply": "Claro, ya hemos registrado la solicitud para que le lleven dos toallas más a su habitación A-204.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Solicitud de toallas adicionales en habitación A-204",
+        "description": "El huésped ha pedido dos toallas adicionales para la habitación A-204.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1161,
+    "generatedAt": "2026-09-25T07:50:47.432Z"
+  },
+  {
+    "id": "a-noise",
+    "phase": "after-v2",
+    "inputHash": "6953b5d3fc911d0b9c936524ca3f1715fe620b718fab19008e80e9444bd8ff82",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "Lamento mucho el inconveniente con el ruido. Voy a notificar inmediatamente para que tomen medidas y le contacten pronto.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "complaint",
+        "title": "Ruido en pasillo junto a habitación A-204",
+        "description": "Huésped reporta ruido persistente en el pasillo cerca de su habitación A-204 que dificulta su descanso.",
+        "priority": "high"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1633,
+    "generatedAt": "2026-09-25T07:50:49.066Z"
+  },
+  {
+    "id": "a-lost",
+    "phase": "after-v2",
+    "inputHash": "a74f46b7f3628316dbe2485dd9597d5b739173f44ab5e39bec5e42623f5e8fe3",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Hemos registrado su consulta sobre la bufanda verde. Para gestionar la búsqueda, dejo constancia al equipo de objetos perdidos. Le informaremos lo antes posible.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Búsqueda de bufanda verde en armario",
+        "description": "El huésped dejó una bufanda verde en el armario de la habitación A-204. Solicita localizarla.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1291,
+    "generatedAt": "2026-09-25T07:50:50.360Z"
+  },
+  {
+    "id": "a-invoice",
+    "phase": "after-v2",
+    "inputHash": "5353e2718f5b093911a14d49332153c45b1b1a463c22b8210f875cfa1dd7f1d7",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "Voy a gestionar el envío de la factura de su estancia. Un momento, por favor.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "reception",
+        "title": "Solicitud de factura para estancia de Persona ficticia",
+        "description": "El huésped en la habitación A-204 solicita la factura de su estancia del 2026-10-10 al 2026-10-14.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1205,
+    "generatedAt": "2026-09-25T07:50:51.567Z"
+  },
+  {
+    "id": "a-discount",
+    "phase": "after-v2",
+    "inputHash": "0ee587bce3130421a534d5529cc723ff14ac3dd949bf5b359c6779e11ab7a537",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "Para noviembre no tenemos información específica sobre descuentos en las habitaciones. Si desea, puedo pasar su consulta a recepción para que le informen en detalle.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Para noviembre no tenemos información específica sobre descuentos en las habitaciones. Si desea, puedo pasar su consulta a recepción para que le informen en detalle.",
+    "simulatedTicket": false,
+    "durationMs": 1045,
+    "generatedAt": "2026-09-25T07:50:52.615Z"
+  },
+  {
+    "id": "b-breakfast",
+    "phase": "after-v2",
+    "inputHash": "6343d950883b31f7c0e3a7663edc9c743623091117024d13dc3eb7057eaeed04",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "Breakfast ends at 09:00, so 10:15 would be too late to have breakfast at the hotel.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Breakfast ends at 09:00, so 10:15 would be too late to have breakfast at the hotel.",
+    "simulatedTicket": false,
+    "durationMs": 1056,
+    "generatedAt": "2026-09-25T07:50:53.672Z"
+  },
+  {
+    "id": "b-night",
+    "phase": "after-v2",
+    "inputHash": "942484180ac16f2591bf02e476bc0b32d693b31245fca31848254766c1efcac6",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "Check-in is at 16:00, so arriving at 00:30 before your arrival date means the room won't be available yet. For late arrivals after reception closes at 22:00, please arrange with us in advance.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Check-in is at 16:00, so arriving at 00:30 before your arrival date means the room won't be available yet. For late arrivals after reception closes at 22:00, please arrange with us in advance.",
+    "simulatedTicket": false,
+    "durationMs": 1301,
+    "generatedAt": "2026-09-25T07:50:54.975Z"
+  },
+  {
+    "id": "b-cot",
+    "phase": "after-v2",
+    "inputHash": "4b04884987c38a12c214b92bccc3ea0f1c2d31e9e61eb0687fef14275333c424",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "We do not offer cots at this hotel, so unfortunately we cannot provide one for your baby.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "We do not offer cots at this hotel, so unfortunately we cannot provide one for your baby.",
+    "simulatedTicket": false,
+    "durationMs": 1049,
+    "generatedAt": "2026-09-25T07:50:56.025Z"
+  },
+  {
+    "id": "b-towels",
+    "phase": "after-v2",
+    "inputHash": "2bb521f863b157077adc931412c86e3f21b5bd7f0c67619aaa30fe7bb9e50fca",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "I have arranged for two extra towels to be sent to your room shortly.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Request for two extra towels in room B-309",
+        "description": "Guest in room B-309 requests two extra towels to be delivered to the room.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1069,
+    "generatedAt": "2026-09-25T07:50:57.096Z"
+  },
+  {
+    "id": "b-noise",
+    "phase": "after-v2",
+    "inputHash": "91759c96e529bc1222275b82c66b48b14eb2ba57d18ddcd9c6d23ab94e299a67",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "Lamento mucho que el ruido continúe y afecte su descanso. He informado al equipo de recepción para que tomen medidas inmediatas y mejoren la situación.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "complaint",
+        "title": "Noise complaint in corridor near room B-309",
+        "description": "Guest reports ongoing noise next to room B-309 preventing sleep.",
+        "priority": "high"
+      },
+      "escalate_to_human": true,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1359,
+    "generatedAt": "2026-09-25T07:50:58.456Z"
+  },
+  {
+    "id": "b-lost",
+    "phase": "after-v2",
+    "inputHash": "5b2d2ba47d16af14aec56caaa7b5644bb5840229279c3c19ed2a6d44b30d1bf4",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "I will check with lost and found for your green scarf and get back to you shortly.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Lost green scarf in room B-309",
+        "description": "Guest Persona ficticia reported leaving a green scarf in the wardrobe after check-out from room B-309. Please verify if found.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1221,
+    "generatedAt": "2026-09-25T07:50:59.680Z"
+  },
+  {
+    "id": "b-invoice",
+    "phase": "after-v2",
+    "inputHash": "42445ff284cda95c4d641233d3d5f51b260aaa3b93547378b8f99a3657fc1d84",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "I will request the invoice for your stay from reception and send it to you as soon as possible.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "reception",
+        "title": "Invoice request for room B-309",
+        "description": "Guest 'Persona ficticia' in room B-309 requests the invoice for their stay from 2026-10-10 to 2026-10-14.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1237,
+    "generatedAt": "2026-09-25T07:51:00.919Z"
+  },
+  {
+    "id": "b-discount",
+    "phase": "after-v2",
+    "inputHash": "6a78a52e83f8507f40911c6b2c6d583afe39492e758aa63912fcd942f6727e7e",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "I don't have information on discounts for November at the moment. Please contact reception closer to your stay for the best rates and availability.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "I don't have information on discounts for November at the moment. Please contact reception closer to your stay for the best rates and availability.",
+    "simulatedTicket": false,
+    "durationMs": 1036,
+    "generatedAt": "2026-09-25T07:51:01.958Z"
+  },
+  {
+    "id": "a-breakfast",
+    "phase": "after-v3",
+    "inputHash": "4f5e2963a33bd05602e137d1a5e1d4ccb530f07c117d1d2f1a7406734554f4ad",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "Sí, a las 10:15 aún puede disfrutar del desayuno en el comedor Azul.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Sí, a las 10:15 aún puede disfrutar del desayuno en el comedor Azul.",
+    "simulatedTicket": false,
+    "durationMs": 1320,
+    "generatedAt": "2026-09-25T07:55:29.055Z"
+  },
+  {
+    "id": "a-night",
+    "phase": "after-v3",
+    "inputHash": "7b6cfa327cf123e5b4c7e311bb9cdfaca60eae94240fb48943976a51915036a7",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "La recepción está abierta 24 horas, pero la habitación estará lista a partir de las 15:00. Puede acceder al hotel y esperar en las áreas comunes.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La recepción está abierta 24 horas, pero la habitación estará lista a partir de las 15:00. Puede acceder al hotel y esperar en las áreas comunes.",
+    "simulatedTicket": false,
+    "durationMs": 1005,
+    "generatedAt": "2026-09-25T07:55:30.064Z"
+  },
+  {
+    "id": "a-cot",
+    "phase": "after-v3",
+    "inputHash": "069397950d153ae17759b34e8a849d993632aebca39996db75aa1024b261418a",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 1,
+      "reply": "Para confirmar la cuna necesitamos saber la edad del bebé. ¿Puede proporcionarla, por favor?",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Para confirmar la cuna necesitamos saber la edad del bebé. ¿Puede proporcionarla, por favor?",
+    "simulatedTicket": false,
+    "durationMs": 938,
+    "generatedAt": "2026-09-25T07:55:31.004Z"
+  },
+  {
+    "id": "a-towels",
+    "phase": "after-v3",
+    "inputHash": "77e5f6f141307b70bde7c68c6586381c87a04b6a9a63805a05fec57155f29715",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.99,
+      "reply": "Claro, enviamos dos toallas más a su habitación enseguida.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Solicitud de dos toallas adicionales en A-204",
+        "description": "El huésped solicita que le lleven dos toallas más a la habitación A-204.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1192,
+    "generatedAt": "2026-09-25T07:55:32.199Z"
+  },
+  {
+    "id": "a-noise",
+    "phase": "after-v3",
+    "inputHash": "6953b5d3fc911d0b9c936524ca3f1715fe620b718fab19008e80e9444bd8ff82",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.95,
+      "reply": "Lamento mucho las molestias por el ruido; informo al equipo para que pueda atenderlo cuanto antes.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "complaint",
+        "title": "Ruido persistente en pasillo junto a habitación A-204",
+        "description": "El huésped reporta ruido constante en el pasillo adyacente a su habitación que le impide dormir.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1365,
+    "generatedAt": "2026-09-25T07:55:33.567Z"
+  },
+  {
+    "id": "a-lost",
+    "phase": "after-v3",
+    "inputHash": "a74f46b7f3628316dbe2485dd9597d5b739173f44ab5e39bec5e42623f5e8fe3",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.9,
+      "reply": "Informaré al equipo de housekeeping para que verifiquen si encontraron su bufanda verde en el armario.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Objeto perdido: bufanda verde en habitación A-204",
+        "description": "El huésped informó que dejó una bufanda verde en el armario al salir, solicita verificación.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.",
+    "simulatedTicket": true,
+    "durationMs": 1279,
+    "generatedAt": "2026-09-25T07:55:34.849Z"
+  },
+  {
+    "id": "a-invoice",
+    "phase": "after-v3",
+    "inputHash": "5353e2718f5b093911a14d49332153c45b1b1a463c22b8210f875cfa1dd7f1d7",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Para emitir la factura, ¿podría confirmarme los datos fiscales que desea incluir?",
+      "create_ticket": true,
+      "ticket": {
+        "category": "reception",
+        "title": "Solicitud de factura para la reserva de Persona ficticia",
+        "description": "El huésped solicita la factura de su estancia. Se requiere confirmación de datos fiscales para emisión.",
+        "priority": "normal"
+      },
+      "escalate_to_human": true,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación. Para emitir la factura, ¿podría confirmarme los datos fiscales que desea incluir?",
+    "simulatedTicket": true,
+    "durationMs": 1274,
+    "generatedAt": "2026-09-25T07:55:36.126Z"
+  },
+  {
+    "id": "a-discount",
+    "phase": "after-v3",
+    "inputHash": "0ee587bce3130421a534d5529cc723ff14ac3dd949bf5b359c6779e11ab7a537",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "No tengo información sobre descuentos para noviembre. Para detalles y disponibilidad, por favor contacte directamente con recepción.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "No tengo información sobre descuentos para noviembre. Para detalles y disponibilidad, por favor contacte directamente con recepción.",
+    "simulatedTicket": false,
+    "durationMs": 988,
+    "generatedAt": "2026-09-25T07:55:37.117Z"
+  },
+  {
+    "id": "b-breakfast",
+    "phase": "after-v3",
+    "inputHash": "6343d950883b31f7c0e3a7663edc9c743623091117024d13dc3eb7057eaeed04",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "Breakfast ends at 09:00, so 10:15 would be too late to have it.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Breakfast ends at 09:00, so 10:15 would be too late to have it.",
+    "simulatedTicket": false,
+    "durationMs": 950,
+    "generatedAt": "2026-09-25T07:55:38.070Z"
+  },
+  {
+    "id": "b-night",
+    "phase": "after-v3",
+    "inputHash": "942484180ac16f2591bf02e476bc0b32d693b31245fca31848254766c1efcac6",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "Check-in is from 16:00. Arrival at 00:30 means early entry before your booking date; please contact reception to explore options.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Check-in is from 16:00. Arrival at 00:30 means early entry before your booking date; please contact reception to explore options.",
+    "simulatedTicket": false,
+    "durationMs": 1322,
+    "generatedAt": "2026-09-25T07:55:39.394Z"
+  },
+  {
+    "id": "b-cot",
+    "phase": "after-v3",
+    "inputHash": "4b04884987c38a12c214b92bccc3ea0f1c2d31e9e61eb0687fef14275333c424",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.95,
+      "reply": "This hotel does not offer cots for babies. Please let us know if you need assistance with anything else.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "This hotel does not offer cots for babies. Please let us know if you need assistance with anything else.",
+    "simulatedTicket": false,
+    "durationMs": 925,
+    "generatedAt": "2026-09-25T07:55:40.321Z"
+  },
+  {
+    "id": "b-towels",
+    "phase": "after-v3",
+    "inputHash": "2bb521f863b157077adc931412c86e3f21b5bd7f0c67619aaa30fe7bb9e50fca",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "I will arrange for two extra towels to be sent to your room shortly.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Request for two extra towels in room B-309",
+        "description": "Guest in room B-309 requests two extra towels.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1130,
+    "generatedAt": "2026-09-25T07:55:41.454Z"
+  },
+  {
+    "id": "b-noise",
+    "phase": "after-v3",
+    "inputHash": "91759c96e529bc1222275b82c66b48b14eb2ba57d18ddcd9c6d23ab94e299a67",
+    "output": {
+      "intent": "complaint",
+      "confidence": 0.9,
+      "reply": "Lamento mucho el ruido que le impide dormir, ya he notificado al equipo para que lo revisen de inmediato.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "complaint",
+        "title": "Noise complaint in corridor near room B-309",
+        "description": "Guest reports continuous noise in corridor next to room B-309 preventing sleep.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1313,
+    "generatedAt": "2026-09-25T07:55:42.769Z"
+  },
+  {
+    "id": "b-lost",
+    "phase": "after-v3",
+    "inputHash": "5b2d2ba47d16af14aec56caaa7b5644bb5840229279c3c19ed2a6d44b30d1bf4",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Please allow us to check if your green scarf was found in the wardrobe and we will get back to you shortly.",
+      "create_ticket": true,
+      "ticket": {
+        "category": "housekeeping",
+        "title": "Lost green scarf in wardrobe",
+        "description": "Guest left a green scarf in the wardrobe upon checkout, room B-309. Please check lost and found.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1107,
+    "generatedAt": "2026-09-25T07:55:43.879Z"
+  },
+  {
+    "id": "b-invoice",
+    "phase": "after-v3",
+    "inputHash": "42445ff284cda95c4d641233d3d5f51b260aaa3b93547378b8f99a3657fc1d84",
+    "output": {
+      "intent": "housekeeping_request",
+      "confidence": 0.95,
+      "reply": "Could you please confirm the dates and the name under which the invoice should be issued?",
+      "create_ticket": true,
+      "ticket": {
+        "category": "reception",
+        "title": "Invoice request for stay",
+        "description": "Guest requests invoice for stay with details pending confirmation of dates and name.",
+        "priority": "normal"
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "Your request has been recorded for hotel review; action or availability still needs confirmation.",
+    "simulatedTicket": true,
+    "durationMs": 1117,
+    "generatedAt": "2026-09-25T07:55:44.999Z"
+  },
+  {
+    "id": "b-discount",
+    "phase": "after-v3",
+    "inputHash": "6a78a52e83f8507f40911c6b2c6d583afe39492e758aa63912fcd942f6727e7e",
+    "output": {
+      "intent": "hotel_info",
+      "confidence": 0.9,
+      "reply": "I don't have information about room discounts for November. Please contact the reception closer to your stay for availability and possible offers.",
+      "create_ticket": false,
+      "ticket": {
+        "category": null,
+        "title": null,
+        "description": null,
+        "priority": null
+      },
+      "escalate_to_human": false,
+      "emergency": false,
+      "upsell_opportunity": false,
+      "aiProvider": "openai",
+      "aiModel": "gpt-4.1-mini",
+      "fallbackUsed": false,
+      "ai_provider": "openai",
+      "ai_model": "gpt-4.1-mini",
+      "fallback_used": false
+    },
+    "presentedReply": "I don't have information about room discounts for November. Please contact the reception closer to your stay for availability and possible offers.",
+    "simulatedTicket": false,
+    "durationMs": 967,
+    "generatedAt": "2026-09-25T07:55:45.969Z"
+  }
+]

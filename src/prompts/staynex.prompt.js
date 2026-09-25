@@ -1,3 +1,4 @@
+import { GUEST_SERVICE_POLICY, sameHotelRows, serviceContext } from '../../shared/guest-service/quality.js';
 import { formatGuestMemoryForPrompt } from '../services/guest-memory.service.js';
 
 export const STAYNEX_SYSTEM_PROMPT = `
@@ -17,7 +18,7 @@ REGLAS PRINCIPALES:
 - Usa la Knowledge Base como contexto, no como una respuesta literal seca.
 - Usa solo la Knowledge Base del hotel actual. Nunca mezcles informacion de otros hoteles.
 - Si hay un dato confirmado, puedes explicarlo con tono humano y util.
-- Si falta informacion, ofrece avisar a recepcion o al equipo del hotel.
+- Si falta informacion, pide solo el dato imprescindible o explica el siguiente paso que realmente este disponible.
 - No prometas tiempos exactos salvo que el hotel los haya proporcionado.
 - Detecta frustracion, enfado o emociones negativas y responde con empatia.
 - Detecta inmediatamente situaciones urgentes o de emergencia.
@@ -29,7 +30,7 @@ REGLAS PRINCIPALES:
 KNOWLEDGE BASE Y RECOMENDACIONES:
 - Para preguntas informativas simples, responde sin crear ticket.
 - Si el huesped pide una recomendacion, responde de forma natural usando los datos disponibles.
-- Si pide algo como una cena romantica, una recomendacion local o ayuda personalizada, puedes ofrecer avisar a recepcion para ayudar a recomendar o reservar.
+- Si pide algo como una cena romantica, una recomendacion local o ayuda personalizada, prepara una solicitud interna si el contrato de capacidades lo permite; no afirmes un aviso o reserva.
 - No te limites a repetir un horario. Convierte el dato en una respuesta util y hotelera.
 - Si existe una oportunidad de upselling en el contexto, puedes sugerirla solo si encaja naturalmente con el mensaje actual y no esta suprimida por cooldown.
 - No vendas agresivamente, no insistas y no inventes precios ni disponibilidad.
@@ -71,6 +72,8 @@ ESTILO:
 Devuelve siempre un JSON valido que cumpla exactamente el esquema indicado.
 No anadas texto fuera del JSON.
 El JSON debe usar estas claves exactas: intent, confidence, reply, create_ticket, ticket, escalate_to_human, emergency, upsell_opportunity.
+
+${GUEST_SERVICE_POLICY}
 `.trim();
 
 export const buildStaynexUserPrompt = ({
@@ -80,22 +83,24 @@ export const buildStaynexUserPrompt = ({
   hotelKnowledge = [],
   conversationContext = {}
 }) => {
+  hotelKnowledge = sameHotelRows(hotelKnowledge, hotel?.id);
+  const service = serviceContext({hotel, guest, conversationContext});
   const knowledgeText = hotelKnowledge.length > 0
     ? hotelKnowledge.map((item) => `- ${item.key}: ${item.value}`).join('\n')
     : 'No hay informacion adicional del hotel disponible.';
 
-  const reservation = conversationContext.reservation;
-  const recentMessages = conversationContext.recentMessages || [];
-  const openTickets = conversationContext.openTickets || [];
+  const reservation = service.reservation;
+  const recentMessages = sameHotelRows(conversationContext.recentMessages, hotel?.id);
+  const openTickets = sameHotelRows(conversationContext.openTickets, hotel?.id);
   const upsellOpportunities = conversationContext.upsellOpportunities || [];
   const responseGuidance = conversationContext.responseGuidance || {};
   const contextualRevenue = conversationContext.concierge?.contextualRevenue || {};
   const experienceIntelligence = conversationContext.concierge?.experienceIntelligence || {};
-  const hotelExperiences = conversationContext.hotelExperiences || [];
-  const localKnowledge = conversationContext.localKnowledge || [];
+  const hotelExperiences = sameHotelRows(conversationContext.hotelExperiences, hotel?.id);
+  const localKnowledge = sameHotelRows(conversationContext.localKnowledge, hotel?.id);
   const guestMemory = conversationContext.guestMemory || [];
-  const language = conversationContext.language || guest?.preferred_language || 'es';
-  const hotelProfile = conversationContext.hotelProfile || hotel || {};
+  const language = service.language;
+  const hotelProfile = hotel?.id && conversationContext.hotelProfile?.id === hotel.id ? conversationContext.hotelProfile : hotel || {};
   const reservationText = reservation
     ? [
       `- Nombre reserva: ${reservation.guest_name || 'No disponible'}`,
@@ -150,6 +155,9 @@ export const buildStaynexUserPrompt = ({
   const guestMemoryText = formatGuestMemoryForPrompt(guestMemory);
 
   return `
+SERVICE_CAPABILITIES (server supplied):
+${JSON.stringify(service)}
+
 HOTEL:
 - Nombre: ${hotelProfile.name || hotel?.name || 'Hotel no identificado'}
 - Marca: ${hotelProfile.brand_name || 'No disponible'}
@@ -164,7 +172,7 @@ HOTEL:
 
 HUESPED:
 - Telefono: ${guest?.phone_number || 'No disponible'}
-- Habitacion actual: ${guest?.current_room || 'No detectada'}
+- Habitacion actual: ${service.known_room || 'No detectada'}
 - Idioma detectado/preferido: ${language}
 
 MEMORIA DEL HUESPED:

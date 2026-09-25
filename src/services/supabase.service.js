@@ -463,16 +463,18 @@ export const getRecentMessages = async ({ conversationId, hotelId = null, limit 
   return (data || []).reverse();
 };
 
-export const getOpenTicketsForGuest = async ({ guestId, limit = 5 }) => {
+export const getOpenTicketsForGuest = async ({ guestId, hotelId = null, limit = 5 }) => {
   const client = getSupabase();
 
-  const { data, error } = await client
+  let query = client
     .from('tickets')
-    .select('id, room_number, category, title, description, priority, status, created_at')
+    .select('id, hotel_id, guest_id, conversation_id, room_number, category, title, description, priority, status, created_at')
     .eq('guest_id', guestId)
     .in('status', ['open', 'in_progress'])
     .order('created_at', { ascending: false })
     .limit(limit);
+  if(hotelId) query=query.eq('hotel_id',hotelId);
+  const {data,error}=await query;
 
   if (error) {
     throw error;

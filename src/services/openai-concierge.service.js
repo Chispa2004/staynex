@@ -1,3 +1,4 @@
+import { GUEST_SERVICE_POLICY, sameHotelRows, serviceContext } from '../../shared/guest-service/quality.js';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';
 import {
@@ -133,6 +134,7 @@ const buildPromptPayload = ({
   const guestMemory = isGuestMemoryEnabled() ? conversationContext.guestMemory || [] : [];
 
   return {
+  service_capabilities: serviceContext({hotel, guest, conversationContext}),
   hotel: {
     id: hotel?.id,
     name: hotel?.name,
@@ -151,15 +153,15 @@ const buildPromptPayload = ({
   },
   current_message: message,
   language: conversationContext.language || guest?.preferred_language || hotel?.default_language || 'es',
-  recent_messages: compactRows(conversationContext.recentMessages || [], ['sender_type', 'content', 'created_at']),
-  reservation: conversationContext.reservation || null,
+  recent_messages: compactRows(sameHotelRows(conversationContext.recentMessages, hotel?.id), ['sender_type', 'content', 'created_at']),
+  reservation: serviceContext({hotel, guest, conversationContext}).reservation,
   pms_intelligence_context: conversationContext.pmsIntelligenceContext || conversationContext.pms_intelligence_context || null,
   guest_intelligence: conversationContext.guestIntelligence || null,
   guest_memory: compactRows(guestMemory, ['memory_type', 'memory_key', 'memory_value', 'confidence']),
-  open_tickets: compactRows(conversationContext.openTickets || [], ['category', 'priority', 'status', 'title']),
-  hotel_knowledge: compactRows(hotelKnowledge, ['key', 'value', 'category', 'title']),
-  local_knowledge: compactRows(conversationContext.localKnowledge || [], ['title', 'short_description', 'description', 'category', 'tags', 'audience_tags', 'recommendation_contexts', 'weather_tags', 'featured', 'priority']),
-  hotel_experiences: compactTopRows(conversationContext.hotelExperiences || [], ['title', 'description', 'category', 'tags', 'target_guest_types', 'price', 'currency', 'partner_name', 'provider_source', 'provider_slug']),
+  open_tickets: compactRows(sameHotelRows(conversationContext.openTickets, hotel?.id), ['category', 'priority', 'status', 'title']),
+  hotel_knowledge: sameHotelRows(hotelKnowledge, hotel?.id).slice(0, 40).map(({key,value,category,title})=>({key,value,category,title})),
+  local_knowledge: compactRows(sameHotelRows(conversationContext.localKnowledge, hotel?.id), ['title', 'short_description', 'description', 'category', 'tags', 'audience_tags', 'recommendation_contexts', 'weather_tags', 'featured', 'priority']),
+  hotel_experiences: compactTopRows(sameHotelRows(conversationContext.hotelExperiences, hotel?.id), ['title', 'description', 'category', 'tags', 'target_guest_types', 'price', 'currency', 'partner_name', 'provider_source', 'provider_slug']),
   conversation_state: {
     current_intent: conversationState.currentIntent || conversationState.current_intent || null,
     previous_intent: conversationState.previousIntent || conversationState.previous_intent || null,
@@ -176,10 +178,11 @@ const buildPromptPayload = ({
   };
 };
 
-const systemPrompt = `You are Staynex, a luxury hotel AI concierge intelligence layer.
+export const CONCIERGE_SYSTEM_PROMPT = `${GUEST_SERVICE_POLICY}
+You are Staynex, a luxury hotel AI concierge intelligence layer.
 You improve a deterministic heuristic engine, but you must not invent hotel facts, prices, availability, policies, or PMS data.
 Use the provided hotel knowledge and reservation context. Keep WhatsApp replies short, warm, premium, and operationally useful.
-Use pms_intelligence_context as the operational truth for stay phase, room status, occupancy, VIP score and eligibility signals. If PMS context is unknown, say you will check rather than inventing room or availability facts.
+Use pms_intelligence_context as the operational truth for stay phase, room status, occupancy, VIP score and eligibility signals. If PMS context is unknown, ask only the necessary clarification rather than promise a check you cannot perform.
 Use guest_intelligence to personalize tone, recommendations and optional revenue suggestions. Treat it as inferred operational context, not as a fact to reveal to the guest. Never say "we profiled you" or mention internal scores.
 Always respond in the language of current_message as provided in payload.language. Do not switch to English unless the guest wrote in English.
 Always answer the guest's current question first. Memory is passive context, not the main topic.
@@ -271,7 +274,7 @@ export const enhanceConciergeIntelligence = async ({
     const completion = await getClient().chat.completions.create({
       model,
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: CONCIERGE_SYSTEM_PROMPT },
         { role: 'user', content: JSON.stringify(payload) }
       ],
       response_format: {

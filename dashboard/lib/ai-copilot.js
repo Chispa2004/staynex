@@ -1,3 +1,4 @@
+import { buildServiceDraft } from '../../shared/guest-service/quality.js';
 const normalizeText = (value = '') => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -30,42 +31,6 @@ const languageFromConversation = (conversation = {}) => {
     || conversation.aiState?.state_metadata?.conversation_language
     || conversation.aiState?.state_metadata?.language
     || 'en';
-};
-
-const replyTemplates = {
-  es: {
-    urgent: 'Gracias por avisarnos. Voy a priorizarlo con el equipo para revisarlo cuanto antes.',
-    maintenance: 'Gracias por avisarnos. Lo revisamos con mantenimiento y os mantenemos informados.',
-    revenue: 'Sí, puedo ayudarte con esa opción. Si quieres, reviso disponibilidad y preparo la solicitud.',
-    clarify: 'Claro. Para ayudarte bien, ¿me puedes confirmar si necesitas información, una reserva o asistencia de recepción?',
-    default: 'Claro, te ayudo. Revisaré el contexto y te responderé con la mejor opción para tu estancia.'
-  },
-  en: {
-    urgent: 'Thank you for letting us know. I will prioritize this with the team so it can be reviewed as soon as possible.',
-    maintenance: 'Thank you for telling us. We will check this with maintenance and keep you updated.',
-    revenue: 'Yes, I can help with that option. If you like, I can check availability and prepare the request.',
-    clarify: 'Of course. To help you properly, could you confirm whether you need information, a booking, or reception assistance?',
-    default: 'Of course, I can help. I will review the context and reply with the best option for your stay.'
-  },
-  fr: {
-    urgent: 'Merci de nous avoir prevenus. Je vais prioriser cela avec l equipe afin que ce soit verifie rapidement.',
-    maintenance: 'Merci de nous l avoir signale. Nous allons verifier avec la maintenance et vous tenir informes.',
-    revenue: 'Oui, je peux vous aider avec cette option. Si vous le souhaitez, je peux verifier la disponibilite et preparer la demande.',
-    clarify: 'Bien sur. Pour bien vous aider, pouvez-vous confirmer si vous souhaitez une information, une reservation ou l aide de la reception ?',
-    default: 'Bien sur, je peux vous aider. Je vais verifier le contexte et vous repondre avec la meilleure option pour votre sejour.'
-  },
-  de: {
-    urgent: 'Vielen Dank fur den Hinweis. Ich priorisiere das mit dem Team, damit es schnell gepruft wird.',
-    maintenance: 'Vielen Dank fur den Hinweis. Wir prufen das mit der Technik und halten Sie auf dem Laufenden.',
-    revenue: 'Ja, ich kann Ihnen dabei helfen. Wenn Sie mochten, prufe ich die Verfugbarkeit und bereite die Anfrage vor.',
-    clarify: 'Gerne. Damit ich richtig helfen kann: Geht es um Informationen, eine Buchung oder Hilfe von der Rezeption?',
-    default: 'Gerne, ich helfe Ihnen. Ich prufe den Kontext und antworte mit der besten Option fur Ihren Aufenthalt.'
-  }
-};
-
-const getTemplateLanguage = (language) => {
-  const normalized = normalizeText(language).slice(0, 2);
-  return replyTemplates[normalized] ? normalized : 'en';
 };
 
 const classifySentiment = ({ conversation = {}, ticket = null } = {}) => {
@@ -364,28 +329,6 @@ const summaryForConversation = (conversation = {}) => {
   };
 };
 
-const suggestedReplyFor = ({ language, priority, suggestedAction, revenueOpportunity, sentiment }) => {
-  const templates = replyTemplates[getTemplateLanguage(language)];
-
-  if (priority.level === 'urgent') {
-    return { text: templates.urgent, language: getTemplateLanguage(language), confidence: 0.76 };
-  }
-
-  if (suggestedAction.title.toLowerCase().includes('maintenance')) {
-    return { text: templates.maintenance, language: getTemplateLanguage(language), confidence: 0.74 };
-  }
-
-  if (revenueOpportunity?.source && revenueOpportunity.source !== 'none') {
-    return { text: templates.revenue, language: getTemplateLanguage(language), confidence: 0.7 };
-  }
-
-  if (sentiment.label === 'confused') {
-    return { text: templates.clarify, language: getTemplateLanguage(language), confidence: 0.68 };
-  }
-
-  return { text: templates.default, language: getTemplateLanguage(language), confidence: 0.62 };
-};
-
 export const buildConversationCopilot = (conversation = {}) => {
   const language = languageFromConversation(conversation);
   const pmsContext = conversation.pmsIntelligenceContext || null;
@@ -399,7 +342,9 @@ export const buildConversationCopilot = (conversation = {}) => {
   const priority = priorityFromSignals({ sentiment, conversation, vip });
   const suggestedAction = suggestedActionFor({ priority, sentiment, revenueOpportunity, conversation });
   const escalationRisk = escalationRiskFor({ priority, sentiment, conversation });
-  const suggestedReply = suggestedReplyFor({ language, priority, suggestedAction, revenueOpportunity, sentiment });
+  const suggestedReply = buildServiceDraft({message:lastGuestMessage(conversation.messages || [])?.content, language,
+    room:conversation.guest?.current_room, history:conversation.messages || [], urgent:priority.level==='urgent'})
+    || {text:'',language,draft:true,confidence:0};
   const summary = summaryForConversation(conversation);
   const guestMemory = getEnabledGuestMemory(conversation);
 
