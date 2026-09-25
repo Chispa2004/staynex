@@ -1,6 +1,6 @@
 {
   "baseline": "5237113b98f84116fed39a72a477ab613180e079",
-  "applicationSha": "6e0534a756b502017b5194a91805a4f40f2af407",
+  "applicationSha": "5b044c282062ee93638bf6f033e5cb7ff5379338",
   "initialManifest": {
     "base": "5237113b98f84116fed39a72a477ab613180e079",
     "codeSha": "2a572d13dc5c1cbf04b73c7ee79354ecfd2633d4",
@@ -9113,14 +9113,14 @@
         "failedPersistence": "The real production-body test throws before createMessage; no reply is saved or sent on a failed ticket write."
       },
       "afterApplication": {
-        "reply": "Información documentada del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. La hora de check-in es una política; la disponibilidad de habitación, especialmente antes del inicio de la estancia, necesita confirmación del hotel. Si te refieres a mañana, hay que interpretarlo según la fecha local del hotel, no la del dispositivo. 2026-09-26 (Europe/Madrid). ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+        "reply": "Información documentada del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. La hora de check-in es una política; la disponibilidad de habitación, especialmente antes del inicio de la estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
         "receiptSimulation": false,
         "noDatabaseWrites": true,
         "humanDraft": false,
         "failedPersistence": "The real production-body test throws before createMessage; no reply is saved or sent on a failed ticket write."
       },
       "inboxDraft": {
-        "text": "Información documentada del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. La hora de check-in es una política; la disponibilidad de habitación, especialmente antes del inicio de la estancia, necesita confirmación del hotel. Si te refieres a mañana, hay que interpretarlo según la fecha local del hotel, no la del dispositivo. 2026-09-26 (Europe/Madrid). ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
+        "text": "Información documentada del hotel: Recepción abierta 24 horas, entrada principal. Recepción abierta no garantiza habitación antes de las 15:00. La hora de check-in es una política; la disponibilidad de habitación, especialmente antes del inicio de la estancia, necesita confirmación del hotel. ¿A qué fecha corresponde esa llegada después de medianoche? La estancia registrada comienza el 2026-10-10; una llegada anterior requiere confirmación independiente.",
         "language": "es",
         "draft": true,
         "confidence": 0.6,
