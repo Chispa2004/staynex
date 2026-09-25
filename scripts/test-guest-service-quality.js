@@ -89,4 +89,12 @@ await test('Optional Concierge uses the same scoped capabilities and facts; hand
   const output=quality.finalizeServiceReply({primary:{reply},language:'es'});assert.equal(output.reply,quality.serviceCopy('es').pending);
  }
 });
+await test('Publicly observed cot follow-up: written age is used without editing the historical conversation',()=>{
+ const conversation={guest:{preferred_language:'es'},messages:[{sender_type:'guest',content:'Viajamos con un bebé y necesitamos una cuna.'},{sender_type:'guest',content:'Tiene nueve meses. ¿La cuna ya está confirmada?',original_language:'es'}]};
+ const original=structuredClone(conversation);const result=buildConversationCopilot(conversation);
+ assert.equal(result.suggestedReply.text,quality.serviceCopy('es').pending);assert.deepEqual(conversation,original);
+ for(const age of ['9 meses','nueve meses','nine months','neuf mois','neun Monate','nove mesi','nove meses'])assert.equal(quality.hasKnownChildAge(age),true,age);
+ for(const missing of ['¿Cuántos meses tiene?','a baby','necesito una cuna'])assert.equal(quality.hasKnownChildAge(missing),false,missing);
+ assert.equal(quality.missingServiceQuestion('¿Qué edad tiene el bebé?',{message:'Tiene nueve meses.'}),null);
+});
 console.log(`${passed} guest service quality behavior groups passed; no remote/provider calls`);

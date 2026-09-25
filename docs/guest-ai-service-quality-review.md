@@ -57,7 +57,7 @@ La presentación final conserva el idioma solicitado en los 16 casos; la generac
 
 ## Pruebas y límites locales
 
-- `test:guest-service-quality`: 14 grupos de comportamiento, dos hoteles; ejecuta el tramo real posterior a generación y `createTicketFromAiResponse` con almacenamiento simulado, fallo y recuperación. Prueba contexto ambiguo, hotel ajeno, capacidad inexistente, idioma, emergencia, borradores humanos, ofertas bloqueadas y Knowledge ausente. Incorporado a `ci:critical`.
+- `test:guest-service-quality`: 15 grupos de comportamiento, dos hoteles; ejecuta el tramo real posterior a generación y `createTicketFromAiResponse` con almacenamiento simulado, fallo y recuperación. Prueba contexto ambiguo, hotel ajeno, capacidad inexistente, idioma, emergencia, borradores humanos, ofertas bloqueadas y Knowledge ausente. Incorporado a `ci:critical`.
 - PASS: `test:natural-conversation`, `test:contextual-revenue`, `test:guest-memory-pilot-off`, `test:guest-memory-off-boundaries`, `test:pms-intelligence`, `test:checkin-ai-conversations`, `test:inbox` y las guardas críticas ejecutadas. Build de Dashboard PASS.
 - `ci:critical` local alcanza `test:http-security`, que falla en una búsqueda literal LF de `dashboard/lib/demo.js` por checkout CRLF. La misma prueba PASS al normalizar temporalmente solo ese archivo a LF; bytes originales restaurados, sin cambio Git. El conjunto completo `ci:critical` también terminó PASS con ese ajuste temporal de finales de línea. CI Linux debe confirmar el SHA publicado.
 - Fallo adicional heredado: `test:guest-ai-tenant-isolation`, aserción estática de `withHotel(supabase.from('ai_logs'))` en dashboard ejecutivo, línea 640. Reproducido en el código de base (`64cc38d` solo añade informe a `d09b66d`). No se debilita ni se declara PASS.
@@ -69,4 +69,6 @@ Puede responder a hechos documentados, utilizar contexto autorizado y preparar e
 
 Publicación autorizada: push de esta rama, PR y merge normal únicamente con CI final aprobado y sin bloqueos de revisión. Sin migración ni cambio de configuración. Después: CI de main, SHA de Vercel/Railway, flags efectivos y lectura de Inbox; ningún envío ni regeneración de historia. La demo y sus trazas anteriores permanecen intactas. Organizaciones, Ubikos y auditoría de Daniel fuera del diff.
 
-Estado de publicación: pendiente de ejecutar y acreditar en el cierre de este informe.
+Primera publicación: PR #20, rama `bfd5670457e6b495cc9ec2c2378969be72996ec5`, merge normal `3c199058d78d22e2a66831c108e61ffffa263ecc`. CI de PR y push PASS; logs del run `36111744295` acreditan los 14 grupos iniciales, build y PostgreSQL. Vercel Production `GsuPPH951SVcnz6tTZ6EGCYzGKRr` Ready y dominio público en ese SHA.
+
+La comprobación pública de Inbox detectó una omisión concreta: el borrador repetía la edad ante «nueve meses», mientras el ensayo usaba «9 meses». Se amplía el reconocimiento de cantidades explícitas con palabras y se añade el grupo 15 usando el copilot real. No se edita el mensaje histórico ni se generan llamadas adicionales. El ajuste necesita una PR complementaria, al estar #20 ya integrada. La verificación final se registra después de su publicación.

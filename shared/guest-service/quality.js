@@ -53,6 +53,13 @@ const copy = {
 };
 export const serviceCopy = language => copy[String(language).slice(0,2)] || null;
 
+export function hasKnownChildAge(text = '') {
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  // Guest details often use words ("nueve meses"), not only digits. Keep this a
+  // bounded recognition of an explicit quantity + age unit, not an age inference.
+  return /\b(?:\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|deux|trois|quatre|cinq|sept|huit|neuf|dix|onze|douze|ein|eins|zwei|drei|vier|funf|sechs|sieben|acht|neun|zehn|elf|zwolf|due|tre|quattro|sei|sette|otto|nove|dieci|undici|dodici|um|uma|dois|duas|quatro|oito|dez|onze)\s+(?:mes|meses|ano|anos|month|months|year|years|mois|an|ans|monat|monate|monaten|jahr|jahre|jahren|mese|mesi|anno|anni)\b/.test(normalized);
+}
+
 // This is a conservative guard for known unsupported commitment patterns, not a
 // semantic proof of arbitrary natural language. Prompt/evaluation remain necessary.
 export const hasUnverifiedActionClaim = text => /\b(he|hemos|ya hemos)\s+(registrado|avisado|enviado|reservado|confirmado|emitido|pasado|informado|organizado)|\b(voy a|vamos a)\s+(derivar|avisar|informar|enviar|pasar|registrar|coordinar|organizar)|\b(enviamos|enviaremos)\b|\b(avis[oó]|avisar[eé]|derivo|enviar[eé]|notificar[eé]|informar[eé]|informo|organizo)\b|\b(i(?:’|')?(?:ve|m)|i have|we have|we(?:’|')ve)\s+(registered|notified|sent|booked|confirmed|issued|alerting|forwarding|arranged|reported|reporting)|\b(i will|we will)\s+(notify|send|book|alert|forward|check|arrange|deliver)|\b(je transmets|je pr[eé]viens|nous avons (envoy[eé]|confirm[eé])|ich leite|ich informiere|wir haben .*best[aä]tigt)\b/i.test(text || '');
@@ -64,7 +71,7 @@ export function missingServiceQuestion(reply = '', {knownRoom = null, reservatio
     && !/datos completos|complete (?:personal )?details|document|passport|pasaporte|credit card|tarjeta|fiscales|fiscal|tax details|tax information|email|e-mail/i.test(q)
     && !(knownRoom && /habitaci[oó]n|room|chambre|zimmer/i.test(q))
     && !(reservation?.arrival_date && reservation?.departure_date && /fechas|dates|arrival|departure|llegada|salida/i.test(q))
-    && !(/edad|old|[aâ]ge|alt/i.test(q) && /\b\d+\s*(meses|months|years|a[nñ]os|mois|monate|jahre)\b/i.test(facts))) || null;
+    && !(/edad|old|[aâ]ge|alt/i.test(q) && hasKnownChildAge(facts))) || null;
 }
 
 export function finalizeServiceReply({primary, processed = primary, ticket = null, hotelId, guestId, conversationId, language = 'es', providerOwned = false, preferPrimary = true, emergency = false, knownRoom = null, context = {}, message = '', hotel = {}}) {
@@ -102,7 +109,7 @@ export function buildServiceDraft({message = '', language = 'es', room = null, u
   const facts=text+' '+prior;
   let reply=t.pending;
   if(urgent)reply=t.urgent+' '+t.pending;
-  else if(/cuna|cot|crib|lit bebe|babybett/.test(text))reply=/\b\d+\s*(meses|months|years|anos|mois|monate|jahre)\b/.test(facts)?t.pending:t.cot+' '+t.pending;
+  else if(/cuna|cot|crib|lit bebe|babybett/.test(text))reply=hasKnownChildAge(facts)?t.pending:t.cot+' '+t.pending;
   else if(/olvid|lost|left|oublie|verlor/.test(text))reply=/bufanda|scarf|cargador|charger|pasaporte|passport|scharf|schal|echarpe/.test(facts)?t.pending:t.lost;
   else if(/factura|invoice|rechnung|facture/.test(text))reply=/necesito|need|solicit|request|besoin|brauche/.test(text)?t.pending:t.invoice;
   else if(/toalla|towel|ruido|noise|aire acondicionado|air condition|serviette|handtuch|larm/.test(text))reply=room?t.pending:t.room;
