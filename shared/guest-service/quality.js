@@ -106,7 +106,12 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     const travel = buildArrivalBookingContext({hotel,guest:{id:guestId},message,hotelKnowledge:context.hotelKnowledge,conversationContext:context});
     const urls = value => (String(value || '').match(/https?:\/\/[^\s<>"']+/g) || []).map(u=>u.replace(/[.,;)]+$/,''));
     const documented = new Set(travel.knowledge.flatMap(row=>urls(row.value)));
-    if(travel.topic && urls(reply).some(url=>!documented.has(url))) {
+    // Real evaluation still produced wrong midnight deadlines and incomplete or
+    // overconfident offer terms. Present the scoped documented policy in these
+    // bounded cases rather than trusting a paraphrase to preserve its conditions.
+    const needsGrounding = travel.topic==='arrival'
+      || travel.topic==='booking' && travel.knowledge.some(row=>row.promotion_status);
+    if(needsGrounding || travel.topic && urls(reply).some(url=>!documented.has(url))) {
       reply = buildArrivalBookingDraft({hotel,guest:{id:guestId},message,hotelKnowledge:context.hotelKnowledge,conversationContext:{...context,language}})?.text || t?.pending || '';
     }
   }

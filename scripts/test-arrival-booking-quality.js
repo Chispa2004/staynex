@@ -77,4 +77,16 @@ await test('Final presentation rejects invented booking URLs and preserves exact
  assert.ok(!bad.reply.includes('invented.example'));assert.ok(bad.reply.includes('https://hotel-a.example/reservar'));
  const good=quality.finalizeServiceReply({...args,primary:{reply:'Consulta https://hotel-a.example/reservar',confidence:.95,ai_provider:'openai'}});assert.equal(good.reply,'Consulta https://hotel-a.example/reservar');
 });
+await test('Observed midnight and promotion failures retain complete facts and the necessary clarification',()=>{
+ for(const [id,raw,expected,absent] of [
+  ['arrival-ambiguous-a','La recepción está abierta y la habitación estará lista.','¿A qué fecha','estará lista'],
+  ['arrival-limited-b','Call before 21:00 on your arrival day.','not that same afternoon','on your arrival day'],
+  ['promo-expired-b','There is no discount available for November.','does not mean the hotel offers no discounts','no discount available'],
+  ['promo-current-a','Hay un 10% de descuento para noviembre.','No acumulable','Hay un 10%']
+ ]) {
+  const a=c(id);const r=quality.finalizeServiceReply({primary:{reply:raw,confidence:.99,ai_provider:'openai'},hotel:a.hotel,guestId:a.guest.id,message:a.message,context:{...a.conversationContext,hotelKnowledge:a.hotelKnowledge},language:a.conversationContext.language});
+  assert.ok(r.reply.includes(expected),r.reply);assert.ok(!r.reply.includes(absent));
+ }
+ const a=c('arrival-date-timezone-a');assert.ok(travel.buildArrivalBookingDraft(a).text.includes('2026-10-10 (Europe/Madrid)'));
+});
 console.log(`${passed} arrival/booking behavior groups passed; simulated SDK, no database/provider writes`);

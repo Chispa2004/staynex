@@ -613,3 +613,14 @@ const ties={...bulk,messages:bulk.conversations.filter(c=>c.hotel_id===hotelA).s
 const tied=await getInboxConversations({supabase:createFakeSupabase(ties),hotelId:hotelA});
 for(const c of tied.filter(c=>c.messages.length))assert.deepEqual(c.messages.map(m=>m.metadata.demo_sequence),[0,1,2,3]);
 console.log('PASS demo same-millisecond chronology without modifying timestamps');
+const knowledgeFixture={...ties,hotel_knowledge:[
+ {id:'ka',hotel_id:hotelA,key:'late_arrival',value:'Entrada norte previa confirmación.',is_active:true},
+ {id:'kb',hotel_id:hotelB,key:'late_arrival',value:'FOREIGN',is_active:true},
+ {id:'ki',hotel_id:hotelA,key:'booking',value:'INACTIVE',is_active:false},
+ {id:'ks',hotel_id:hotelA,key:'security',category:'security',value:'PRIVATE',is_active:true}
+]};
+const safeKnowledgeInbox=await getInboxConversations({supabase:createFakeSupabase(knowledgeFixture),hotelId:hotelA,hotel:{id:hotelA,timezone:'Europe/Madrid',phone:'+34 910 000 000'}});
+assert.ok(safeKnowledgeInbox.every(c=>c.hotelKnowledge.length===1 && c.hotelKnowledge[0].id==='ka'));
+assert.ok(safeKnowledgeInbox.every(c=>c.hotelProfile.id===hotelA && c.hotelProfile.timezone==='Europe/Madrid'));
+assert.ok(safeKnowledgeInbox.every(c=>Number.isFinite(Date.parse(c.contextReadAt))));
+console.log('PASS Inbox production loader includes only active guest-facing Knowledge from the authorized hotel');
