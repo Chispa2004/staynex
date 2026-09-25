@@ -125,7 +125,9 @@ export const buildArrivalBookingDraft = (args = {}) => {
       const dates=[...new Set((String(args.message).match(/\d{4}-\d{2}-\d{2}/g)||[]))];
       if(dates.length===1)parts.push(midnightCopy[language].date(dates[0]));
       else {
-        if(/manana|tomorrow/.test(normalize(args.message)) && plan.clock.date)parts.push(midnightCopy[language].relative+' '+plan.clock.date+' ('+plan.clock.timezone+').');
+        const arrivalText=normalize(args.message);
+        const nextDay=/\bmanana\b|\btomorrow\b/.test(arrivalText) && !/\b(?:la|esta|esa) manana\b/.test(arrivalText);
+        if(nextDay && plan.clock.date)parts.push(midnightCopy[language].relative+' '+plan.clock.date+' ('+plan.clock.timezone+').');
         parts.push(t.date);
       }
       if(plan.stay?.arrival_date)parts.push(midnightCopy[language].stay(plan.stay.arrival_date));

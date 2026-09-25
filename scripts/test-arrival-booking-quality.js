@@ -88,6 +88,8 @@ await test('Observed midnight and promotion failures retain complete facts and t
   assert.ok(r.reply.includes(expected),r.reply);assert.ok(!r.reply.includes(absent));
  }
  const a=c('arrival-date-timezone-a');assert.ok(travel.buildArrivalBookingDraft(a).text.includes('2026-10-10 (Europe/Madrid)'));
+ const morning=travel.buildArrivalBookingDraft({...a,message:'Será sobre las 00:30. ¿Tengo que esperar hasta la mañana?'});
+ assert.ok(!morning.text.includes('Si te refieres a mañana'));assert.ok(morning.text.includes('¿A qué fecha'));
  assert.ok(travel.buildArrivalBookingDraft(c('arrival-unknown-b')).text.includes('no confirmed access procedure'));
 });
 await test('Grounding cannot override an explicit human handoff, repair or suppressed offer',()=>{
