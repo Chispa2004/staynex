@@ -1,3 +1,4 @@
+import * as trackingState from '../dashboard/lib/inbox-tracking-state.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
@@ -98,11 +99,12 @@ const {code}=await swc.transform(uiSource,{filename:'InboxAiCopilotPanel.js',jsc
 const mocks={
   '@/lib/i18n/useDashboardLanguage':{useDashboardLanguage:()=>({tx:(v,r)=>translatePhrase(staffLanguage,v,r)})},
   '@/lib/theme/useDashboardTheme':{useDashboardTheme:()=>({theme:'light'})},
+  '@/lib/inbox-tracking-state':trackingState,
   '@/lib/ai-copilot':{buildConversationCopilot},'@/lib/i18n/copilot-phrases':{localizeCopilotText}
 };
 const module={exports:{}};
 new Function('require','module','exports',code)(id=>mocks[id]||require(id),module,module.exports);
-const uiConversation={hotel_id:'synthetic-a',guest:{preferred_language:'en',current_room:'A-204'},
+const uiConversation={control:{status:'confirmed',mode:'human_takeover'},hotel_id:'synthetic-a',guest:{preferred_language:'en',current_room:'A-204'},
   guestMemoryEnabled:false,guestMemory:[{memory_key:'private-marker',memory_value:'not-for-display'}],
   aiState:{state_metadata:{conversation_ai_mode:'human_takeover'}},
   messages:[{sender_type:'guest',content:'Thanks. Is the cot confirmed? My baby is nine months old.',original_language:'en',translated_content:'Gracias, traducción para lectura.',translated_language:'es'}]};
@@ -110,10 +112,10 @@ const before=structuredClone(uiConversation),guestReply=buildConversationCopilot
 for(staffLanguage of ['es','en'])for(const supplied of [false,true]) {
   const markup=renderToStaticMarkup(React.createElement(module.exports.InboxAiCopilotPanel,{
     conversation:{...uiConversation,...(supplied?{copilot:buildConversationCopilot(uiConversation)}:{})},
-    humanEscalation:{needsHuman:true,reason:'human_takeover'},onClose(){} }));
+    canReply:true,humanEscalation:{needsHuman:true,reason:'human_takeover'},onClose(){} }));
   assert.ok(markup.includes(guestReply));
   assert.ok(markup.includes(staffLanguage==='es'?'Tranquilo':'Calm'));
-  assert.ok(markup.includes(staffLanguage==='es'?'Basta con una respuesta breve':'A concise hospitality reply'));
+  assert.ok(markup.includes(staffLanguage==='es'?'Revisar y responder manualmente':'Review and reply manually'));
   assert.ok(!markup.includes('Voy a pedir a recepción'));
   assert.ok(!markup.includes('private-marker'));assert.ok(!markup.includes('not-for-display'));
   assert.ok(markup.includes(staffLanguage==='es'?'Cerrar asistencia IA':'Close AI assistance'));

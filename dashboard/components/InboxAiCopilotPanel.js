@@ -19,6 +19,7 @@ import {
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { buildConversationCopilot } from '@/lib/ai-copilot';
 import { localizeCopilotText } from '@/lib/i18n/copilot-phrases';
+import { copilotControlAction } from '@/lib/inbox-tracking-state';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
 const formatCurrency = (value, currency = 'EUR') => new Intl.NumberFormat(undefined, {
@@ -135,6 +136,7 @@ const ActionButton = ({ children, onClick, disabled = false, tone = 'slate', tit
 export const InboxAiCopilotPanel = ({
   conversation,
   humanEscalation,
+  canReply = false,
   onOfferAction,
   onClose,
   compact = false
@@ -150,6 +152,10 @@ export const InboxAiCopilotPanel = ({
   const activeOffer = offers[0] || null;
   const revenuePotential = offers.reduce((total, offer) => total + Number(offer.suggested_price || 0), 0);
   const copilot = conversation?.copilot || buildConversationCopilot(conversation || {});
+  const controlAction = copilotControlAction(conversation, canReply);
+  const urgentAlert = conversation?.aiState?.escalation_level === 'urgent';
+  const suggestedAction = controlAction || (urgentAlert ? {title:'Revisar personalmente',detail:'Alerta urgente activa. Revisa la incidencia aunque el control sea humano.',tone:'red'} : copilot.suggestedAction);
+  const priority = urgentAlert ? { level:'urgent', tone:'red', confidence:null } : copilot.priority;
   const summaryBullets = copilot.summary?.bullets || [];
 
   const copySuggestedReply = async () => {
@@ -194,8 +200,8 @@ export const InboxAiCopilotPanel = ({
           </div>
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Prioridad")}</p>
-            <div className="mt-2"><Pill tone={copilot.priority?.tone}>{tx(translateSignal(copilot.priority?.level || 'low', priorityLabels))}</Pill></div>
-            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.priority?.confidence)} {tx('fiabilidad')}</p>
+            <div className="mt-2"><Pill tone={priority?.tone}>{tx(translateSignal(priority?.level || 'low', priorityLabels))}</Pill></div>
+            {priority?.confidence != null ? <p className="mt-2 text-xs text-slate-500">{formatPercent(priority.confidence)} {tx('fiabilidad')}</p> : null}
           </div>
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Riesgo de escalación")}</p>
@@ -209,12 +215,13 @@ export const InboxAiCopilotPanel = ({
         </div>
 
         <Section title={tx("Siguiente paso recomendado")} icon={ShieldAlert}>
+          {urgentAlert ? <p role="alert" className="mb-3 font-semibold text-red-700">{tx('Alerta urgente activa. Revisa la incidencia aunque el control sea humano.')}</p> : null}
           <div className="flex flex-wrap gap-2">
-            <Pill tone={copilot.suggestedAction?.tone}>{staffText(actionLabels[copilot.suggestedAction?.title] || copilot.suggestedAction?.title || 'Responder con normalidad')}</Pill>
+            <Pill tone={suggestedAction?.tone}>{staffText(actionLabels[suggestedAction?.title] || suggestedAction?.title || 'Responder con normalidad')}</Pill>
             <Pill tone="sky">{tx('Idioma del huésped')} {String(copilot.language || 'es').toUpperCase()}</Pill>
           </div>
           <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
-            {staffText(copilot.suggestedAction?.detail || 'Sin recomendación operativa todavía.')}
+            {staffText(suggestedAction?.detail || 'Sin recomendación operativa todavía.')}
           </p>
         </Section>
 
@@ -223,7 +230,7 @@ export const InboxAiCopilotPanel = ({
             {copilot.suggestedReply?.text}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Pill tone="emerald">{tx("Lista para revisar")}</Pill>
+            <Pill tone="emerald">{tx('Borrador para revisión · no enviado')}</Pill>
             <Pill tone="sky">{String(copilot.suggestedReply?.language || copilot.language || 'es').toUpperCase()}</Pill>
             <ActionButton onClick={copySuggestedReply} tone="emerald">
               <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
@@ -295,7 +302,8 @@ export const InboxAiCopilotPanel = ({
           <Section title={tx("Atención de recepción")} icon={AlertTriangle}>
             <Pill tone="orange">{tx("Requiere humano")}</Pill>
             <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
-              {tx('Motivo')}: {staffText(formatLabel(humanEscalation.reason || 'revisión manual'))}
+              {tx('Motivo')}: {conversation?.control?.status === 'unknown' && humanEscalation.reason === 'human_takeover_active'
+                ? tx('Control no confirmado') : staffText(formatLabel(humanEscalation.reason || 'revisión manual'))}
             </p>
           </Section>
         ) : null}
@@ -313,10 +321,10 @@ export const InboxAiCopilotPanel = ({
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <ActionButton tone="emerald" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'send' })}>{tx("Preparar envío")}</ActionButton>
-                <ActionButton onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'accept' })}>{tx("Marcar aceptada")}</ActionButton>
-                <ActionButton tone="red" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'reject' })}>{tx("Descartar")}</ActionButton>
-                <ActionButton tone="orange" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'escalate' })}>{tx("Pasar a recepción")}</ActionButton>
+                <ActionButton disabled={!onOfferAction} tone="emerald" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'send' })}>{tx("Preparar envío")}</ActionButton>
+                <ActionButton disabled={!onOfferAction} onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'accept' })}>{tx("Marcar aceptada")}</ActionButton>
+                <ActionButton disabled={!onOfferAction} tone="red" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'reject' })}>{tx("Descartar")}</ActionButton>
+                <ActionButton disabled={!onOfferAction} tone="orange" onClick={() => onOfferAction?.({ offerId: activeOffer.id, action: 'escalate' })}>{tx("Pasar a recepción")}</ActionButton>
               </div>
             </div>
           ) : (

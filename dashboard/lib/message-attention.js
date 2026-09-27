@@ -28,10 +28,10 @@ export const handleAttentionRequest = async ({ request, getContext }) => {
         p_operation:body.operationId,p_target:body.action,p_items:body.items});
     if (error) throw rpcError(error);
     if (!validAttentionSnapshot(data,context.hotel.id,body.conversationId,body.action==='read'?body.messageIds:body.items.map(item=>item.messageId)))
-      throw attentionError('Seguimiento no disponible. Actualiza antes de continuar.',503);
+      throw Object.assign(attentionError('Seguimiento no disponible. Actualiza antes de continuar.',503),{kind:'incompatible'});
     return { status:200, body:{...data,canManage} };
   } catch (error) {
-    return {status:error.status || error.statusCode || 503,body:{error: error.status ? error.message : 'Seguimiento no disponible. No se ha confirmado el cambio.'}};
+    return {status:error.status || error.statusCode || 503,body:{kind:error.kind, error: error.status ? error.message : 'Seguimiento no disponible. No se ha confirmado el cambio.'}};
   }
 };
 export const loadAttentionDashboard = async ({ supabase, hotelId, origin='traced', urgentOnly=false, cursor=null }) => {

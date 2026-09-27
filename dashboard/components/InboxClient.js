@@ -16,7 +16,9 @@ import { automaticReplyPresentation, guestInitials, languageName, sendLanguagePr
 import { InboxActionMenu, InboxDetailPanel } from './InboxDetailPanel';
 import { shouldCompactOriginalMessage, getVerifiedMessageTranslation } from '@/lib/inbox-message-presentation';
 import { cn, ui } from '@/lib/ui/styles';
-import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { controlFromState, conversationControl } from '@/lib/inbox-tracking-state';
+import { WORKSPACE_SELECTION_EVENT } from '@/lib/workspace-context';
+import { shouldAcceptTenantPayload, getActiveTenantId } from '@/lib/tenant-client';
 import { MessageAttentionProvider, AttentionToolbar, AttentionMessage } from './MessageAttentionControls';
 import { MANUAL_MESSAGE_MAX_LENGTH, manualDeliveryText, normalizeManualDelivery } from '../../shared/manual-send/contract.js';
 import { readManualRecovery, blocksSameManualSend, runManualAttempt, getManualSessionStorage, getManualMessageDelivery } from '@/lib/manual-send-client';
@@ -392,7 +394,8 @@ const updateConversationAiState = ({ conversations, conversationId, aiState }) =
 
     const nextConversation = {
       ...conversation,
-      aiState
+      aiState,
+      control: controlFromState(aiState)
     };
 
     return {
@@ -470,6 +473,7 @@ const isUrgentConversation = (conversation, unreadCount) => (
 const getHotelAiReplyPresentation = automaticReplyPresentation;
 
 const getConversationControlBadge = ({ conversation, hotelAiReplyPresentation }) => {
+  if (conversation?.control?.status === 'unknown') return {label:'Control no confirmado',tone:'amber',icon:AlertTriangle};
   if (isHumanTakeoverActive(conversation)) return { label: 'Control humano', tone: 'orange', icon: PauseCircle };
   if (hotelAiReplyPresentation.state !== 'on') return { label: hotelAiReplyPresentation.label, tone: 'slate', icon: Bot };
   return { label: 'Sin control humano', tone: 'emerald', icon: Bot };
@@ -509,6 +513,9 @@ export const InboxClient = ({ conversations }) => {
   const [manualHistoryReview, setManualHistoryReview] = useState(null);
   const manualSendLock = useRef(new Set());
   const [takeoverUpdating, setTakeoverUpdating] = useState(false);
+  const [controlError,setControlError] = useState('');
+  const [capabilities,setCapabilities] = useState({});
+  const controlMutationRef = useRef(false);
   const [hiddenTranslations, setHiddenTranslations] = useState({});
   const [readState, setReadState] = useState({});
   const [readStateLoaded, setReadStateLoaded] = useState(false);
@@ -549,11 +556,13 @@ export const InboxClient = ({ conversations }) => {
   const selectedConversation = items.find((conversation) => conversation.id === selectedId) || null;
   const unreadTotal = useMemo(() => getTotalUnread(items, readState), [items, readState]);
   const humanTotal = useMemo(() => getHumanTotal(items), [items]);
+  const controlCoverageComplete = items.every(c=>c.control?.status !== 'unknown');
   const selectedHumanEscalation = selectedConversation
     ? getHumanEscalation(selectedConversation)
     : { needsHuman: false, reason: null };
   const selectedAiMode = getConversationAiMode(selectedConversation);
-  const selectedHumanTakeoverActive = isHumanTakeoverActive(selectedConversation);
+  const selectedControl = conversationControl(selectedConversation);
+  const selectedHumanTakeoverActive = selectedControl.human;
   const selectedTakeoverMetadata = getHumanTakeoverMetadata(selectedConversation);
   const selectedDisplayName = selectedConversation ? getConversationGuestLabel(selectedConversation) : 'Huésped';
   const selectedRoomNumber = getConversationRoomNumber(selectedConversation);
@@ -608,7 +617,7 @@ export const InboxClient = ({ conversations }) => {
   const visibleItems = useMemo(() => filterInboxConversations({items,stage:stageFilter,origin:originFilter,query:searchQuery,filter:activeFilter,
     unread:c=>getUnreadCount(c,readState),human:isHumanTakeoverActive,urgent:c=>isUrgentConversation(c,getUnreadCount(c,readState)),vip:isVipConversation,
     searchText:c=>[getConversationGuestLabel(c),getConversationPhoneNumber(c),getConversationRoomNumber(c),...(c.messages||[]).map(m=>m.content),c.aiState?.current_intent,getConversationLanguage(c)].filter(Boolean).join(' ')
-  }).sort((a,b)=>getConversationPriorityScore(b,readState)-getConversationPriorityScore(a,readState)),[items,stageFilter,originFilter,searchQuery,activeFilter,readState]);
+  }).filter(c=>!['human','ai'].includes(activeFilter) || c.control?.status!=='unknown').sort((a,b)=>getConversationPriorityScore(b,readState)-getConversationPriorityScore(a,readState)),[items,stageFilter,originFilter,searchQuery,activeFilter,readState]);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -625,6 +634,19 @@ export const InboxClient = ({ conversations }) => {
   useEffect(() => {
     selectedIdRef.current = selectedId;
   }, [selectedId]);
+
+  useEffect(() => {
+    let userId;
+    const subscription = getSupabaseBrowser()?.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || (userId !== undefined && userId !== session?.user?.id)) {
+        loadRequestIdRef.current++;
+        setItems([]); setSelectedId(null); setCapabilities({});
+        setMessage(''); setDraftsByConversation({}); setCopilotOpen(false); setGuestPanelOpen(false);
+      }
+      userId = session?.user?.id;
+    });
+    return () => subscription?.data?.subscription?.unsubscribe();
+  }, []);
 
   useEffect(() => {
     staffLanguageRef.current = staffLanguage;
@@ -663,12 +685,13 @@ export const InboxClient = ({ conversations }) => {
   }, [currentHotel?.id, readStateLoaded, unreadTotal]);
 
   useEffect(() => {
-    if (currentHotel?.id) {
+    if (currentHotel?.id && controlCoverageComplete) {
       dispatchHumanTotal(humanTotal, currentHotel.id);
     }
-  }, [currentHotel?.id, humanTotal]);
+  }, [currentHotel?.id, humanTotal, controlCoverageComplete]);
 
   const loadInbox = useCallback(async ({ silent = false, preserveSelection = true, force = false } = {}) => {
+    if (controlMutationRef.current) return null;
     if (loadInFlightRef.current && silent && !force) {
       return null;
     }
@@ -685,8 +708,9 @@ export const InboxClient = ({ conversations }) => {
     }
 
     try {
+      const headers=await getAuthHeaders();
       const response = await fetch('/api/inbox', {
-        headers: await getAuthHeaders(),
+        headers,
         cache: 'no-store'
       });
       const body = await response.json();
@@ -695,6 +719,8 @@ export const InboxClient = ({ conversations }) => {
         throw new Error(body.error || 'Could not refresh inbox');
       }
 
+      const latestHeaders=await getAuthHeaders();
+      if (headers.Authorization!==latestHeaders.Authorization) return null;
       if (!shouldAcceptTenantPayload(body, 'inbox')) {
         return null;
       }
@@ -728,6 +754,8 @@ export const InboxClient = ({ conversations }) => {
       setCurrentHotel(body.hotel || null);
       setDraftOwnerId(body.actorId || null);
       setPilotAiSafety(body.pilotAiSafety || null);
+      setCapabilities(body.capabilities || {});
+      setControlError('');
       setStaffLanguage(normalizeTranslationLanguage(
         readStoredTranslationLanguage(nextHotelId)
         || staffLanguageRef.current
@@ -761,6 +789,11 @@ export const InboxClient = ({ conversations }) => {
       return nextItems;
     } catch (error) {
       console.warn('Inbox refresh failed', error);
+      if (requestId === loadRequestIdRef.current) {
+        setItems(current=>current.map(c=>({...c,control:controlFromState(null,false)})));
+        setCapabilities({});
+        setControlError('No se pudo actualizar el control. Actualiza antes de actuar.');
+      }
       return null;
     } finally {
       if (requestId === loadRequestIdRef.current) {
@@ -786,6 +819,8 @@ export const InboxClient = ({ conversations }) => {
       }
 
       debugInbox('tenant changed, resetting state', { surface: 'inbox', hotelId: nextHotelId });
+      loadRequestIdRef.current++;
+      setCapabilities({});setControlError('');
       setItems([]);
       setSelectedId(null);
       setMessage('');
@@ -803,8 +838,12 @@ export const InboxClient = ({ conversations }) => {
     };
 
     window.addEventListener('staynex:tenant-changed', handleTenantChanged);
+    window.addEventListener(WORKSPACE_SELECTION_EVENT, handleTenantChanged);
 
-    return () => window.removeEventListener('staynex:tenant-changed', handleTenantChanged);
+    return () => {
+      window.removeEventListener('staynex:tenant-changed', handleTenantChanged);
+      window.removeEventListener(WORKSPACE_SELECTION_EVENT, handleTenantChanged);
+    };
   }, [currentHotel?.id]);
 
   const markConversationAsRead = useCallback((conversationId) => {
@@ -1085,6 +1124,7 @@ export const InboxClient = ({ conversations }) => {
 
   const sendMessage = async (event) => {
     event.preventDefault();
+    if (!capabilities.canReply) return;
     if (manualSendLock.current.size || sending || !selectedConversation || !message.trim() || !recoveryKey
       || message.trim().length > MANUAL_MESSAGE_MAX_LENGTH
       || blocksSameManualSend(selectedRecovery || readManualRecovery(getManualSessionStorage(), recoveryKey), message)) {
@@ -1130,47 +1170,35 @@ export const InboxClient = ({ conversations }) => {
   };
 
   const updateHumanTakeover = async (action) => {
-    if (!selectedConversation?.id || takeoverUpdating) {
-      return;
-    }
-
-    setTakeoverUpdating(true);
-
+    if (!selectedConversation?.id || controlMutationRef.current || !capabilities.canManageControl || !selectedControl.confirmed) return;
+    const hotelId=currentHotel?.id, conversationId=selectedConversation.id;
+    controlMutationRef.current=true;loadRequestIdRef.current++;loadInFlightRef.current=false;
+    setTakeoverUpdating(true);setControlError('');
+    setItems(current=>current.map(c=>c.id===conversationId ? {...c,control:controlFromState(null,false)} : c));
     try {
-      const response = await fetch('/api/inbox/takeover', {
-        method: 'POST',
-        headers: {
-          ...(await getAuthHeaders()),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          conversationId: selectedConversation.id,
-          action
-        })
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not update AI control mode');
+      const headers=await getAuthHeaders({hotelId});
+      const response=await fetch('/api/inbox/takeover', {method:'POST',headers:{...headers,'Content-Type':'application/json'},
+        body:JSON.stringify({conversationId,action}),signal:AbortSignal.timeout(15000)});
+      const body=await response.json();
+      const currentHeaders=await getAuthHeaders({hotelId});
+      if ((getActiveTenantId() && getActiveTenantId()!==hotelId) || headers.Authorization!==currentHeaders.Authorization) return;
+      if (!response.ok || body.hotelId!==hotelId || body.conversationId!==conversationId
+        || body.aiState?.hotel_id!==hotelId || body.aiState?.conversation_id!==conversationId
+        || body.aiState?.state_metadata?.conversation_ai_mode!==(action==='resume'?'ai_active':'human_takeover')) throw new Error('Control not confirmed');
+      setItems(current=>updateConversationAiState({conversations:current,conversationId,aiState:body.aiState}));
+    } catch {
+      if (!getActiveTenantId() || getActiveTenantId()===hotelId) {
+        setItems(current=>current.map(c=>c.id===conversationId ? {...c,control:controlFromState(null,false)} : c));
+        setControlError('No se ha confirmado el cambio de control. Actualiza antes de reintentar.');
       }
-
-      if (body.aiState) {
-        setItems((current) => updateConversationAiState({
-          conversations: current,
-          conversationId: selectedConversation.id,
-          aiState: body.aiState
-        }));
-      }
-
-      await refreshInboxSilently({ reason: `human_takeover_${action}` });
-    } catch (error) {
-      console.error('Human takeover update failed', error);
     } finally {
-      setTakeoverUpdating(false);
+      controlMutationRef.current=false;setTakeoverUpdating(false);
+      loadRequestIdRef.current++;
     }
   };
 
   const updateOfferAction = async ({ offerId, action }) => {
+    if (!capabilities.canManageOffers) return;
     try {
       const response = await fetch('/api/ai-offers', {
         method: 'PATCH',
@@ -1441,10 +1469,10 @@ export const InboxClient = ({ conversations }) => {
   const filterItems = [
     { key: 'all', label: 'Todas', count: scopedItems.length },
     { key: 'unread', label: 'Sin leer', count: scopedItems.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
-    { key: 'human', label: 'Control humano', count: scopedItems.filter(isHumanTakeoverActive).length },
+    { key: 'human', label: 'Control humano', count: controlCoverageComplete ? scopedItems.filter(isHumanTakeoverActive).length : null },
     { key: 'urgent', label: 'Urgentes', count: scopedItems.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
     { key: 'vip', label: 'VIP', count: scopedItems.filter((conversation) => isVipConversation(conversation)).length },
-    { key: 'ai', label: 'Sin control humano', count: scopedItems.filter((conversation) => !isHumanTakeoverActive(conversation)).length }
+    { key: 'ai', label: 'Sin control humano', count: controlCoverageComplete ? scopedItems.filter((conversation) => !isHumanTakeoverActive(conversation)).length : null }
   ];
   return (
     <MessageAttentionProvider key={`${currentHotel?.id || ''}:${selectedConversation?.id || ''}`} hotelId={currentHotel?.id} conversation={selectedConversation}>
@@ -1510,7 +1538,7 @@ export const InboxClient = ({ conversations }) => {
               <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
                 {tx('{count} conversaciones', {count:visibleItems.length})} · {tx(STAY_STAGES[stageFilter])}
                 {visibleUnreadTotal > 0 ? ` · ${tx('{count} mensajes sin leer', {count:visibleUnreadTotal})}` : ''}
-                {humanTakeoverTotal > 0 ? ` · ${tx('{count} en control humano', {count:humanTakeoverTotal})}` : ''}
+                {!controlCoverageComplete ? ` · ${tx('Control no confirmado')}` : humanTakeoverTotal > 0 ? ` · ${tx('{count} en control humano', {count:humanTakeoverTotal})}` : ''}
               </p>
           <div className="mt-2 grid grid-cols-1 gap-2 text-xs">
             <label>{tx('Etapa de los mensajes del huésped')}
@@ -1556,7 +1584,7 @@ export const InboxClient = ({ conversations }) => {
                 key={filter.key}
                 type="button"
                 onClick={() => setActiveFilter(filter.key)}
-                aria-label={`${filter.label}: ${tx('{count} conversaciones', {count:filter.count})}`}
+                aria-label={`${filter.label}: ${filter.count === null ? tx('Control no confirmado') : tx('{count} conversaciones', {count:filter.count})}`}
                 aria-pressed={active}
                 className={[
                   'inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition',
@@ -1702,7 +1730,7 @@ export const InboxClient = ({ conversations }) => {
                         return (
                           <span key={badge.label} className={ui.badge(isLight, badge.tone, true)}>
                             {Icon ? <Icon className="h-3 w-3" aria-hidden="true" /> : null}
-                            {badge.label}
+                            {tx(badge.label)}
                           </span>
                         );
                       })}
@@ -1790,12 +1818,14 @@ export const InboxClient = ({ conversations }) => {
                 ) : (
                   <Bot className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
-                {selectedHumanTakeoverActive ? 'Recepción al mando' : 'Sin control humano'}
+                {tx(!selectedControl.confirmed ? 'Control no confirmado' : selectedHumanTakeoverActive ? 'Recepción al mando' : 'Sin control humano')}
               </span>
               <span title="Configuración disponible; no acredita la disponibilidad del proveedor ni una respuesta enviada." data-auto-replies={hotelAiReplyPresentation.state}>
-                {selectedHumanTakeoverActive && hotelAiReplyPresentation.state === 'on' ? 'Respuestas automáticas en pausa por control humano' : hotelAiReplyPresentation.label}
+                {tx(!selectedControl.confirmed ? 'Estado de respuestas automáticas no confirmado' : selectedHumanTakeoverActive ? 'Respuestas automáticas en pausa por control humano' : hotelAiReplyPresentation.label)}
               </span>
               <AttentionToolbar />
+              {controlError ? <span role="alert">{tx(controlError)}</span> : null}
+              {!capabilities.canReply ? <span>{tx('Sesión de solo lectura. Un usuario autorizado debe responder.')}</span> : null}
             </div>
             </div>
             <div className={ergonomics.secondaryControls}>
@@ -1803,7 +1833,7 @@ export const InboxClient = ({ conversations }) => {
               <button
                 type="button"
                 onClick={() => updateHumanTakeover(selectedHumanTakeoverActive ? 'resume' : 'takeover')}
-                disabled={takeoverUpdating || !selectedConversation?.id}
+                disabled={takeoverUpdating || !selectedConversation?.id || !selectedControl.confirmed || !capabilities.canManageControl}
                 className={cn(
                   'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
                   selectedHumanTakeoverActive
@@ -1820,7 +1850,7 @@ export const InboxClient = ({ conversations }) => {
                 ) : (
                   <PauseCircle className="h-4 w-4" aria-hidden="true" />
                 )}
-                {selectedHumanTakeoverActive ? 'Devolver a IA' : 'Tomar control'}
+                {tx(selectedHumanTakeoverActive ? 'Devolver a IA' : 'Tomar control')}
               </button>
               <button
                 type="button"
@@ -2122,6 +2152,7 @@ export const InboxClient = ({ conversations }) => {
           >
             <textarea
               aria-label="Respuesta al huésped"
+              disabled={!capabilities.canReply}
               maxLength={MANUAL_MESSAGE_MAX_LENGTH}
               value={message}
               onChange={(event) => updateComposerDraft(event.target.value)}
@@ -2138,7 +2169,7 @@ export const InboxClient = ({ conversations }) => {
             <button
               type="submit"
               aria-label={sendingSelectedConversation ? 'Enviando respuesta' : selectedRecovery?.delivery.retryable && selectedRecovery.text === message.trim() ? 'Reintentar envío' : 'Enviar respuesta'}
-              disabled={sending || !message.trim() || !recoveryKey || manualSendBlocked || message.trim().length > MANUAL_MESSAGE_MAX_LENGTH}
+              disabled={!capabilities.canReply || sending || !message.trim() || !recoveryKey || manualSendBlocked || message.trim().length > MANUAL_MESSAGE_MAX_LENGTH}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-200/50 bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
             >
               <Send className="h-4 w-4" aria-hidden="true" />
@@ -2167,8 +2198,8 @@ export const InboxClient = ({ conversations }) => {
               <dt>Llegada</dt><dd>{selectedConversation.pmsIntelligenceContext?.reservation?.arrivalDate || 'No disponible'}</dd>
               <dt>Salida</dt><dd>{selectedConversation.pmsIntelligenceContext?.reservation?.departureDate || 'No disponible'}</dd>
               <dt>Hotel activo</dt><dd>{currentHotel?.name || 'No disponible'}</dd>
-              <dt>Control de la conversación</dt><dd>{selectedHumanTakeoverActive ? 'Recepción al mando' : 'Sin control humano'}</dd>
-              <dt>Respuestas automáticas</dt><dd>{selectedHumanTakeoverActive && hotelAiReplyPresentation.state === 'on' ? 'En pausa por control humano' : hotelAiReplyPresentation.label}</dd>
+              <dt>Control de la conversación</dt><dd>{tx(!selectedControl.confirmed ? 'Control no confirmado' : selectedHumanTakeoverActive ? 'Recepción al mando' : 'Sin control humano')}</dd>
+              <dt>Respuestas automáticas</dt><dd>{tx(!selectedControl.confirmed ? 'Estado de respuestas automáticas no confirmado' : selectedHumanTakeoverActive ? 'Respuestas automáticas en pausa por control humano' : hotelAiReplyPresentation.label)}</dd>
               <dt>Estado</dt><dd>{t(`status.${selectedConversation.status || 'unknown'}`)}</dd>
             </dl>
             {selectedHumanTakeoverActive ? <div className={ergonomics.controlNote}>
@@ -2178,7 +2209,7 @@ export const InboxClient = ({ conversations }) => {
               {selectedTakeoverMetadata?.activated_by?.role ? <p>Por {selectedTakeoverMetadata.activated_by.role}</p> : null}
             </div> : null}
             <button className={ergonomics.detailToggle} type="button" onClick={() => { setGuestPanelOpen(false); setCopilotOpen(true); }}><Bot size={16} aria-hidden="true" /> Ver asistencia y acciones IA</button>
-          </div> : <InboxAiCopilotPanel conversation={selectedConversation} humanEscalation={selectedHumanEscalation} onOfferAction={updateOfferAction} onClose={() => setCopilotOpen(false)} compact />}
+          </div> : <InboxAiCopilotPanel conversation={selectedConversation} canReply={capabilities.canReply===true} humanEscalation={selectedHumanEscalation} onOfferAction={capabilities.canManageOffers ? updateOfferAction : undefined} onClose={() => setCopilotOpen(false)} compact />}
         </InboxDetailPanel>
       ) : null}
       </div>

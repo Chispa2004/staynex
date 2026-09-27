@@ -145,9 +145,10 @@ await test('Actual composer clears only the submitted draft after acceptance, pr
   const source=readFileSync(new URL('../dashboard/components/InboxClient.js',import.meta.url),'utf8');
   const start=source.indexOf('const sendMessage = async (event) => {');
   const body=source.slice(source.indexOf('{',start)+1,source.indexOf('\n  const updateHumanTakeover',start)).replace(/\n  };\s*$/,'');
+  await new Function('capabilities','return async event=>{'+body+'}')({canReply:false})({preventDefault(){}});
   for(const status of ['accepted','unknown','failed'])for(const edited of [false,true]){
     const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)},key='synthetic:A:ca';let drafts={'A:ca':input.message},receipt,calls=0;const pendingKeys=[];
-    const bindings={manualSendLock:{current:new Set()},sending:false,selectedConversation:{id:'ca'},message:input.message,recoveryKey:key,MANUAL_MESSAGE_MAX_LENGTH:1600,
+    const bindings={capabilities:{canReply:true},manualSendLock:{current:new Set()},sending:false,selectedConversation:{id:'ca'},message:input.message,recoveryKey:key,MANUAL_MESSAGE_MAX_LENGTH:1600,
       blocksSameManualSend,readManualRecovery,getManualSessionStorage:()=>storage,selectedRecovery:null,currentHotel:{id:A},crypto:{randomUUID:()=>ID},draftKey:'A:ca',runManualAttempt,
       setSending(){},setPendingSendKey:key=>pendingKeys.push(key),setManualReceipts(){},getAuthHeaders:async()=>({authorization:'Bearer synthetic'}),staffLanguage:'es',
       fetch:async()=>{calls++;if(edited)drafts['A:ca']='New draft while waiting';return {json:async()=>({delivery:contract.manualDelivery(status,'synthetic',status==='failed')})};},

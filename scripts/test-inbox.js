@@ -1,3 +1,4 @@
+import { controlFromState, attentionReadText } from '../dashboard/lib/inbox-tracking-state.js';
 import { guestFacingKnowledge } from '../shared/guest-service/arrival-booking.js';
 import {messageStayStage,readAllInboxRows,filterInboxConversations} from '../shared/inbox/stay-stage.js';
 import assert from 'node:assert/strict';
@@ -19,16 +20,17 @@ const loadInboxModuleForTest = () => {
     .replace("import { buildConversationCopilot } from './ai-copilot';\n", '')
     .replace("import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';\n", '')
     .replace("import { sanitizeInboxMessageTranslations } from './inbox-message-presentation.js';\n", '')
-    .replace('export const getInboxConversations', 'const getInboxConversations');
+    .replace("import { controlFromState } from './inbox-tracking-state.js';\n", '')
+    .replaceAll('export const ', 'const ');
 
   return new Function(
-    'guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
+    'controlFromState','guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
     'buildConversationCopilot',
     'isGuestMemoryEnabled',
     'sanitizeInboxMessageTranslations',
     `${source}\nreturn { getInboxConversations };`
   )(
-    guestFacingKnowledge,messageStayStage,readAllInboxRows,
+    controlFromState,guestFacingKnowledge,messageStayStage,readAllInboxRows,
     () => {
       throw new Error('Unexpected default Supabase admin access in inbox test');
     },
@@ -511,7 +513,7 @@ const chatHeaderSource = inboxComponentSource.slice(inboxComponentSource.indexOf
 assert.doesNotMatch(chatHeaderSource, /truncate/, 'Chat header identity must not be ellipsized');
 assert.match(chatHeaderSource, /ergonomics\.identityRow[\s\S]*?selectedSecondaryLine[\s\S]*?ergonomics\.effectiveState[\s\S]*?ergonomics\.secondaryControls/, 'Identity and effective status must precede secondary controls');
 assert.match(inboxComponentSource, /mensajes sin leer/, 'Unread total must name its message unit');
-assert.ok(inboxComponentSource.includes("aria-label={`${filter.label}: ${tx('{count} conversaciones', {count:filter.count})}`}"), 'Filter counts must name their translated conversation unit');
+assert.ok(inboxComponentSource.includes("aria-label={`${filter.label}: ${filter.count === null ? tx('Control no confirmado') : tx('{count} conversaciones', {count:filter.count})}`}"), 'Filter counts must name their translated conversation unit');
 assert.doesNotMatch(inboxComponentSource, /overflow-x-auto/, 'Filters and quick actions must wrap instead of requiring horizontal scrolling');
 console.log('Inbox human takeover and focused ergonomics checks passed');
 
@@ -559,15 +561,15 @@ const attentionPresentation = attentionSource.slice(attentionSource.indexOf('exp
 const compiledAttention = ts.transpileModule(attentionPresentation, { compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2020 } }).outputText;
 const { isAttentionMessage: eligibleAttentionMessage } = await import('../shared/message-attention/contract.js');
 let attentionView, prepared = [], toggled = [], refreshed = 0;
-const presentation = new Function('React', 'useContext', 'AttentionContext', 'InboxActionMenu', 'styles', 'isAttentionMessage', 'labels',
+const presentation = new Function('React', 'useContext', 'AttentionContext', 'InboxActionMenu', 'styles', 'isAttentionMessage', 'labels', 'useDashboardLanguage', 'attentionReadText',
   compiledAttention+';return {AttentionMessage, AttentionToolbar};')(
   attentionReact, () => attentionView, {}, 'disclosure', {}, eligibleAttentionMessage,
-  { pending: 'Pendiente', resolved: 'Resuelto', untracked: 'Sin seguimiento anterior' });
+  { pending: 'Pendiente', resolved: 'Resuelto', untracked: 'Sin seguimiento anterior' },()=>({tx:x=>x}),attentionReadText);
 const attentionExample = { id: '00000000-0000-4000-8000-000000000099', sender_type: 'guest', content: 'Solicitud sintética' };
 const elements = node => Array.isArray(node) ? node.flatMap(elements) : node && typeof node === 'object'
   ? [node, ...elements(node.props?.children)] : [];
 const presentMessage = () => elements(presentation.AttentionMessage({ message: attentionExample }));
-attentionView = { available: true, canManage: true, busy: false, selected: [], rows: new Map([[attentionExample.id,
+attentionView = { readState:{status:'ready',snapshot:{items:[{status:'pending'}]}}, available: true, canManage: true, busy: false, selected: [], rows: new Map([[attentionExample.id,
   { status: 'pending', changedAt: '2026-09-11T08:00:00Z', actorKind: 'inbound' }]]),
   prepare: (...args) => prepared.push(args), toggle: id => toggled.push(id), refresh: () => refreshed++ };
 let attentionNodes = presentMessage();

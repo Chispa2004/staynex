@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from './supabase';
 import { buildConversationCopilot } from './ai-copilot';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import { sanitizeInboxMessageTranslations } from './inbox-message-presentation.js';
+import { controlFromState } from './inbox-tracking-state.js';
 
 
 const groupMessagesByConversation = (messages) => messages.reduce((groups, message) => {
@@ -204,7 +205,7 @@ const getExperienceBookingsByConversation = async ({ supabase, conversationIds, 
   }
 };
 
-const getAiStateByConversation = async ({ supabase, conversationIds, hotelId }) => {
+export const getAiStateByConversation = async ({ supabase, conversationIds, hotelId }) => {
   if (!conversationIds.length || !hotelId) {
     return new Map();
   }
@@ -212,7 +213,7 @@ const getAiStateByConversation = async ({ supabase, conversationIds, hotelId }) 
   try {
     const { data, error } = await supabase
       .from('conversation_ai_state')
-      .select('conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, last_ai_response, ai_summary, ai_reasoning, openai_enhanced, state_metadata, updated_at')
+      .select('hotel_id, conversation_id, current_intent, previous_intent, intent_confidence, last_offer_type, last_offer_sent_at, sentiment, escalation_level, last_ai_response, ai_summary, ai_reasoning, openai_enhanced, state_metadata, updated_at')
       .eq('hotel_id', hotelId)
       .in('conversation_id', conversationIds)
       .limit(500);
@@ -221,13 +222,14 @@ const getAiStateByConversation = async ({ supabase, conversationIds, hotelId }) 
       throw error;
     }
 
-    return (data || []).reduce((stateByConversation, state) => {
+    if (!Array.isArray(data) || data.some(row=>row.hotel_id!==hotelId || !conversationIds.includes(row.conversation_id)) || new Set(data.map(row=>row.conversation_id)).size!==data.length) throw new Error('Incomplete control scope');
+    return data.reduce((stateByConversation, state) => {
       stateByConversation.set(state.conversation_id, state);
       return stateByConversation;
     }, new Map());
   } catch (error) {
     console.warn('Inbox AI conversation state unavailable', error.message);
-    return new Map();
+    return null;
   }
 };
 
@@ -649,7 +651,8 @@ const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, 
       upsells: upsellsByConversation.get(conversation.id) || [],
       offers: offersByConversation.get(conversation.id) || [],
       experienceBookings: experienceBookingsByConversation.get(conversation.id) || [],
-      aiState: aiStateByConversation.get(conversation.id) || null,
+      aiState: aiStateByConversation?.get(conversation.id) || null,
+      control: controlFromState(aiStateByConversation?.get(conversation.id), aiStateByConversation !== null),
       guestIntelligence: intelligenceByGuest.get(conversation.guest_id) || null,
       pmsIntelligenceContext: {
         stayPhase: guestStayContext?.stay_phase || null,
