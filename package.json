@@ -49,6 +49,7 @@
     "test:checkin-demo": "node scripts/test-checkin-demo.js",
     "test:http-security": "node scripts/test-http-security.js",
     "test:post-login-routing": "node scripts/test-post-login-routing.js",
+    "test:inbox-tracking-control": "node scripts/test-inbox-tracking-control.js",
     "test:inbox": "node scripts/test-inbox.js",
     "test:messages-tenant-isolation": "node scripts/test-messages-tenant-isolation.js",
     "test:dashboard-i18n": "node scripts/test-dashboard-i18n.js",

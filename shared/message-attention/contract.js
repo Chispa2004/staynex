@@ -35,8 +35,8 @@ export const freezeAttentionOperation = ({ conversationId, selected, action, ope
 
 export const validAttentionSnapshot = (data,hotelId,conversationId,ids) => data?.contract === 1 && data.hotelId === hotelId
   && data.conversationId === conversationId && Array.isArray(data.items) && data.items.length === ids.length
-  && new Set(data.items.map(item=>item.messageId)).size === ids.length
-  && data.items.every(item=>ids.includes(item.messageId) && ['untracked','pending','resolved'].includes(item.status)
+  && new Set(data.items.map(item=>item?.messageId)).size === ids.length
+  && data.items.every(item=>item && ids.includes(item.messageId) && ['untracked','pending','resolved'].includes(item.status)
     && Number.isSafeInteger(item.version) && item.version>=0 && (item.status==='untracked')===(item.version===0)
     && (item.status==='untracked' ? item.changedAt===null : Number.isFinite(Date.parse(item.changedAt))));
 

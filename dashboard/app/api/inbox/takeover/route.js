@@ -166,6 +166,7 @@ export async function POST(request) {
     });
 
     return NextResponse.json({
+      hotelId: hotel.id,
       conversationId,
       conversation_ai_mode: nextMode,
       aiState: savedState

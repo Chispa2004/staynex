@@ -4,6 +4,8 @@ import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { getActiveTenantId, shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { WORKSPACE_SELECTION_EVENT } from '@/lib/workspace-context';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
+import { createAttentionReader, validateAttentionPayload, attentionReadText } from '@/lib/inbox-tracking-state';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { isAttentionMessage, freezeAttentionOperation, acceptsAttentionResponse } from '../../shared/message-attention/contract.js';
 import { InboxActionMenu } from './InboxDetailPanel';
@@ -14,6 +16,7 @@ const labels = {pending:'Pendiente',resolved:'Resuelto',untracked:'Sin seguimien
 export function MessageAttentionProvider({hotelId,conversation,children}) {
   const {theme} = useDashboardTheme();
   const [snapshot,setSnapshot] = useState(null);
+  const [readState,setReadState] = useState({status:'loading',snapshot:null});
   const [selected,setSelected] = useState([]);
   const [operation,setOperation] = useState(null);
   const [busy,setBusy] = useState(false);
@@ -21,7 +24,7 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
   const [conflict,setConflict] = useState(false);
   const [notice,setNotice] = useState('');
   const generation = useRef(0);
-  const readSequence = useRef(0);
+  const readerRef = useRef(null);
   const latestRefresh = useRef(null);
   const busyRef = useRef(false);
   const dialog = useRef(null);
@@ -29,35 +32,36 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
   const idsKey = eligible.map(m=>m.id).sort().join(',');
   const conversationId = conversation?.id;
   const invalidate = useCallback(() => {
-    generation.current++; setSnapshot(null);setSelected([]);setOperation(null);setError('');setNotice('');setBusy(false);busyRef.current=false;
+    generation.current++; readerRef.current?.cancel(); setReadState({status:'context',snapshot:null}); setSnapshot(null);setSelected([]);setOperation(null);setError('');setNotice('');setBusy(false);busyRef.current=false;
   },[]);
-  const exchange = useCallback(async body => {
+  const exchange = useCallback(async (body, signal) => {
     const version = generation.current;
     if (!hotelId || (getActiveTenantId() && getActiveTenantId()!==hotelId)) throw new Error('El contexto cambió. Vuelve a abrir la conversación.');
     const headers = await getAuthHeaders({hotelId});
-    const response = await fetch('/api/inbox/attention',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const payload = await response.json();
+    const response = await fetch('/api/inbox/attention',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body),signal});
+    let payload;
+    try { payload = await response.json(); } catch { throw Object.assign(new Error('Respuesta incompatible'),{status:response.status,kind:'incompatible'}); }
     const currentHeaders = await getAuthHeaders({hotelId});
     if (!acceptsAttentionResponse({generation:version,hotelId,authorization:headers.Authorization},
       {generation:generation.current,hotelId:getActiveTenantId()||hotelId,authorization:currentHeaders.Authorization})) return null;
-    if (!response.ok) throw Object.assign(new Error(payload.error || 'Seguimiento no disponible'),{status:response.status});
+    if (!response.ok) throw Object.assign(new Error(payload.error || 'Seguimiento no disponible'),{status:response.status,kind:payload.kind});
     if (!shouldAcceptTenantPayload(payload,'message-attention') || payload.hotelId!==hotelId || payload.conversationId!==conversationId) return null;
-    return payload;
+    return validateAttentionPayload(payload,hotelId,conversationId,body.action==='read'?body.messageIds:body.items.map(item=>item.messageId));
   },[hotelId,conversationId]);
-  const refresh = useCallback(async () => {
-    if (!conversationId || !hotelId) return;
-    const sequence=++readSequence.current;
-    const version=generation.current;
-    try {
-      const data = await exchange({action:'read',conversationId,messageIds:idsKey ? idsKey.split(',') : []});
-      if (data && sequence===readSequence.current && !busyRef.current) setSnapshot(data);
-    } catch (caught) {if(version===generation.current && sequence===readSequence.current){setSnapshot(null);setError(caught.message);}}
-  },[exchange,idsKey,conversationId,hotelId]);
+  const reader = useMemo(() => createAttentionReader(signal => exchange({action:'read',conversationId,messageIds:idsKey ? idsKey.split(',') : []},signal), state => {
+    setReadState(state); setSnapshot(state.snapshot); setSelected([]);
+
+  }),[exchange,idsKey,conversationId]);
+  readerRef.current=reader;
+  const refresh = useCallback(() => {
+    if (conversationId && hotelId && !busyRef.current) return reader.refresh();
+  },[reader,conversationId,hotelId]);
   latestRefresh.current=refresh;
   useEffect(() => {
     refresh();
-  },[refresh]);
-  useEffect(() => () => {generation.current++;readSequence.current++;},[]);
+    return () => reader.cancel();
+  },[refresh,reader]);
+  useEffect(() => () => {generation.current++;readerRef.current?.cancel();},[]);
   useEffect(() => {
     const clear = () => invalidate();
     window.addEventListener(WORKSPACE_SELECTION_EVENT,clear);
@@ -82,7 +86,7 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
   };
   const confirm = async () => {
     if (!operation || conflict || busyRef.current) return;
-    busyRef.current=true;readSequence.current++;setBusy(true);setError('');
+    busyRef.current=true;reader.cancel();setBusy(true);setError('');
     const version=generation.current;
     try {
       const data=await exchange(operation.request);
@@ -97,7 +101,7 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
       if (caught.status===409) {setConflict(true);await refresh();}
     } finally {if(version===generation.current){busyRef.current=false;setBusy(false);latestRefresh.current?.();}}
   };
-  const value={rows,selected,available:Boolean(snapshot),canManage:snapshot?.canManage===true,busy,prepare,
+  const value={rows,selected,readState,available:Boolean(snapshot),canManage:readState.status==='ready' && snapshot?.canManage===true,busy,prepare,
     toggle:id=>setSelected(current=>current.includes(id)?current.filter(item=>item!==id):current.length<50?[...current,id]:current),
     error,notice,refresh};
   return <AttentionContext.Provider value={value}>
@@ -120,34 +124,37 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
 }
 export function AttentionToolbar() {
   const value=useContext(AttentionContext);
+  const {tx}=useDashboardLanguage();
   if(!value)return null;
   return <div className={styles.attentionToolbar} aria-label="Atención por mensaje">
     <InboxActionMenu label={value.selected.length ? `Atención · ${value.selected.length} seleccionados` : 'Atención'} ariaLabel="Controles de atención por mensaje" placement="below">
-    <p>{value.available?'Atención por mensaje':'Seguimiento no disponible'}</p>
-    <button type="button" onClick={value.refresh} disabled={value.busy} className="rounded border px-2 py-1">Actualizar atención</button>
+    <p>{tx(attentionReadText(value.readState))}</p>
+    <button type="button" onClick={value.refresh} disabled={value.busy} className="rounded border px-2 py-1">{tx('Actualizar atención')}</button>
     {value.canManage && value.selected.length ? <>
       <span>{value.selected.length} seleccionados</span>
       <button type="button" disabled={value.busy} onClick={()=>value.prepare('resolved')} className="rounded border px-2 py-1">Marcar como resueltos ({value.selected.length})</button>
       <button type="button" disabled={value.busy} onClick={()=>value.prepare('pending')} className="rounded border px-2 py-1">Volver a pendiente ({value.selected.length})</button>
     </>:null}
     </InboxActionMenu>
-    {!value.available ? <span>Seguimiento no disponible</span>:null}
+    {value.readState.status!=='ready' || value.readState.snapshot?.items.every(row=>row.status==='untracked') ? <span role={['loading','ready'].includes(value.readState.status)?'status':'alert'}>{tx(attentionReadText(value.readState))}</span>:null}
+    {!['loading','ready','forbidden','session','context'].includes(value.readState.status) ? <button type="button" onClick={value.refresh} disabled={value.busy}>{tx('Reintentar seguimiento')}</button>:null}
     <span role="status">{value.notice}</span>
     {value.error ? <span role="alert">{value.error}</span>:null}
   </div>;
 }
 export function AttentionMessage({message}) {
   const value=useContext(AttentionContext);
+  const {tx}=useDashboardLanguage();
   if(!value || !isAttentionMessage(message))return null;
   const state=value.rows.get(message.id);
   return <div className={styles.messageAttention} data-message-attention={message.id}>
-    <span>{value.available && state?labels[state.status]:'Estado de atención no disponible'}</span>
+    <span>{tx(value.available && state?labels[state.status]:value.readState.status==='loading'?'Cargando seguimiento…':'Estado de atención no confirmado')}</span>
     {(value.canManage && state) || state?.changedAt ? <InboxActionMenu inline label={value.selected.includes(message.id)?'Seleccionado · Opciones':'Opciones'} ariaLabel="Opciones de atención de este mensaje">
     {value.canManage && state ? <label className="flex items-center gap-2"><input type="checkbox" checked={value.selected.includes(message.id)} disabled={value.busy}
       onChange={()=>value.toggle(message.id)} aria-label={'Seleccionar mensaje: '+(message.content?.slice(0,70)||'Adjunto')} />Seleccionar para acción conjunta</label>:null}
     {value.canManage && state ? <>
-      <button type="button" disabled={value.busy} onClick={()=>value.prepare(state.status==='resolved'?'pending':'resolved',[message.id])} className="rounded border px-2 py-1">{state.status==='resolved'?'Volver a pendiente':'Marcar como resuelto'}</button>
-      {state.status==='untracked'?<button type="button" disabled={value.busy} onClick={()=>value.prepare('pending',[message.id])} className="rounded border px-2 py-1">Marcar pendiente</button>:null}
+      <button type="button" disabled={value.busy} onClick={()=>value.prepare(state.status==='resolved'?'pending':'resolved',[message.id])} className="rounded border px-2 py-1">{tx(state.status==='resolved'?'Volver a pendiente':'Marcar como resuelto')}</button>
+      {state.status==='untracked'?<button type="button" disabled={value.busy} onClick={()=>value.prepare('pending',[message.id])} className="rounded border px-2 py-1">{tx('Marcar pendiente')}</button>:null}
     </>:null}
     {state?.changedAt?<div><p className="font-medium">Quién y cuándo</p><p className="break-all">{state.actorKind==='inbound'?'Registro de entrada':state.changedBy} · {new Date(state.changedAt).toLocaleString()}</p></div>:null}
     </InboxActionMenu>:null}
