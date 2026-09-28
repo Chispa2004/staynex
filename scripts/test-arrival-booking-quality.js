@@ -1,3 +1,4 @@
+import * as boundary from '../shared/guest-memory/personalization-boundary.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as travel from '../shared/guest-service/arrival-booking.js';
@@ -66,7 +67,7 @@ await test('Room-claim recovery retains grounded night instructions instead of r
 await test('Primary and Concierge real generation adapters receive the same travel contract with simulated SDK only',async()=>{
  const captured=[];const output={intent:'hotel_info',confidence:.9,reply:'Synthetic provider reply',create_ticket:false,ticket:{category:null,title:null,description:null,priority:null},escalate_to_human:false,emergency:false,upsell_opportunity:false};
  class SDK {chat={completions:{create:async request=>{captured.push(request);return {choices:[{message:{content:JSON.stringify(request.response_format.json_schema.name==='staynex_ai_response'?output:{primary_intent:'information',suggested_response:'Synthetic'})}}]};}}};}
- const bindings={...quality,OpenAI:SDK,logger,aiResponseJsonSchema,validateAiResponse,buildStaynexUserPrompt,STAYNEX_SYSTEM_PROMPT:'Test policy',getAiTimeoutMs:()=>1000,isAiCircuitBreakerOpen:()=>false,recordAiSuccess(){},recordAiFailure(){},process:{env:{OPENAI_API_KEY:'synthetic',AI_CONCIERGE_ENABLED:'true'}},isGuestMemoryEnabled:()=>false,analyzeGuestMessageWithMockAi:()=>{throw Error('Unexpected mock fallback');}};
+ const bindings={...quality,...boundary,OpenAI:SDK,logger,aiResponseJsonSchema,validateAiResponse,buildStaynexUserPrompt,STAYNEX_SYSTEM_PROMPT:'Test policy',getAiTimeoutMs:()=>1000,isAiCircuitBreakerOpen:()=>false,recordAiSuccess(){},recordAiFailure(){},process:{env:{OPENAI_API_KEY:'synthetic',AI_CONCIERGE_ENABLED:'true'}},isGuestMemoryEnabled:()=>false,analyzeGuestMessageWithMockAi:()=>{throw Error('Unexpected mock fallback');}};
  const primary=load('src/services/openai.service.js',bindings,['analyzeGuestMessage']);await primary.analyzeGuestMessage(c('booking-link-a'));
  const concierge=load('src/services/openai-concierge.service.js',bindings,['enhanceConciergeIntelligence']);const enhanced=await concierge.enhanceConciergeIntelligence(c('booking-link-a'));assert.equal(enhanced.ok,true);
  assert.ok(captured[0].messages[1].content.includes('https://hotel-a.example/reservar'));const payload=JSON.parse(captured[1].messages[1].content);assert.equal(payload.arrival_booking.booking_route,'official_link');assert.equal(payload.arrival_booking.availability_lookup,false);

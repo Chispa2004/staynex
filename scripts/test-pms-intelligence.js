@@ -38,6 +38,9 @@ const assert = (condition, message) => {
   }
 };
 
+// Explicit ON only for synthetic personalization regressions.
+process.env.GUEST_MEMORY_ENABLED = 'true';
+
 const now = new Date('2026-05-19T10:00:00.000Z');
 const baseReservation = {
   id: 'reservation-1',

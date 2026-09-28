@@ -1,3 +1,4 @@
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import { detectLanguage } from './translation.service.js';
 import {
   detectGuestIntent,
@@ -671,7 +672,7 @@ const simulateOneConversation = ({ index, hotelType, scenario }) => {
     recentMessages,
     guestMemory: []
   });
-  const guestIntelligence = buildGuestIntelligenceProfile({
+  const guestIntelligence = isGuestMemoryEnabled() ? buildGuestIntelligenceProfile({
     hotelId: hotel.id,
     guestId: guest.id,
     reservationId: reservation.id,
@@ -681,22 +682,22 @@ const simulateOneConversation = ({ index, hotelType, scenario }) => {
     language: detectedLanguage,
     country: reservation.country,
     source: 'simulation'
-  });
-  const revenuePrediction = predictLikelyConversions({
+  }) : null;
+  const revenuePrediction = isGuestMemoryEnabled() ? predictLikelyConversions({
     guestIntelligence,
     pmsIntelligenceContext
-  });
-  const revenueActions = generateRevenueActions({
+  }) : null;
+  const revenueActions = isGuestMemoryEnabled() ? generateRevenueActions({
     guestIntelligence,
     revenuePrediction,
     pmsIntelligenceContext
-  });
-  const automationSuggestions = generateAutomationSuggestions({
+  }) : [];
+  const automationSuggestions = isGuestMemoryEnabled() ? generateAutomationSuggestions({
     guestIntelligence,
     revenuePrediction,
     pmsIntelligenceContext,
     risk: normalizedRisk
-  });
+  }) : [];
   const departmentAction = generateDepartmentAction({
     intentResult: conciergeIntent,
     opportunity: revenueOpportunity,

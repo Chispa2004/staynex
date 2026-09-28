@@ -1,3 +1,4 @@
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 
@@ -249,6 +250,7 @@ export const persistRevenuePrediction = async ({
   prediction,
   metadata = {}
 } = {}) => {
+  if (!isGuestMemoryEnabled()) return null;
   if (!hotelId || !guestId || !prediction) return null;
   const supabase = getSupabase();
   return safeDb(() => supabase

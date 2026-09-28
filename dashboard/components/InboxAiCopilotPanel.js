@@ -210,7 +210,7 @@ export const InboxAiCopilotPanel = ({
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Perfil huésped")}</p>
             <div className="mt-2"><Pill tone={copilot.vip?.tone}>{staffText(vipLabels[copilot.vip?.label] || copilot.vip?.label || 'Huésped estándar')}</Pill></div>
-            <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.vip?.probability)}</p>
+            <p className="mt-2 text-xs text-slate-500">{copilot.vip?.probability == null ? null : formatPercent(copilot.vip.probability)}</p>
           </div>
         </div>
 

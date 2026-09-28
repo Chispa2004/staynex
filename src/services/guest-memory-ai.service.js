@@ -142,6 +142,7 @@ export const generateGuestInsights = ({ memories = [], reservations = [], ticket
 };
 
 export const generateGuestProfile = async ({ hotelId, guestId }) => {
+  if (!isGuestMemoryEnabled()) return { disabled: true, status: 'feature_disabled', memories: [] };
   const supabase = getSupabase();
   const guestMemoryEnabled = isGuestMemoryEnabled();
 

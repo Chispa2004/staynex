@@ -1,3 +1,5 @@
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
+import { operationalStayContext } from '../../shared/guest-memory/personalization-boundary.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 
@@ -88,18 +90,24 @@ export const upsertGuestStayContext = async ({
     return null;
   }
 
+  const memoryEnabled = isGuestMemoryEnabled();
+  const writableContext = { ...operationalStayContext(context, memoryEnabled) };
+  // This mixed historical blob is not an authorized cleanup target. OFF only
+  // updates explicit operational columns; reads still project safe fields.
+  if (!memoryEnabled) delete writableContext.raw_payload;
+
   return safeDb(async () => {
     const { data, error } = await supabase
       .from('guest_stay_context')
       .upsert({
-        ...context,
+        ...writableContext,
         last_updated_at: new Date().toISOString()
       }, { onConflict: 'reservation_id' })
       .select('*')
       .single();
 
     if (error) throw error;
-    return data;
+    return operationalStayContext(data, isGuestMemoryEnabled());
   }, null, 'upsert_guest_stay_context');
 };
 
@@ -218,7 +226,7 @@ export const getOperationalContextForGuest = async ({
       .maybeSingle();
   }
 
-  return maybeSingleData(query, 'get_operational_context_for_guest');
+  return operationalStayContext(await maybeSingleData(query, 'get_operational_context_for_guest'), isGuestMemoryEnabled());
 };
 
 export const getOperationalContextForRoom = async ({
@@ -313,7 +321,7 @@ export const getHotelOperationalSummary = async ({
       maintenance: rooms.filter((room) => ['maintenance', 'out_of_order'].includes(room.maintenance_status)).length,
       occupied: rooms.filter((room) => room.occupancy_status === 'occupied').length
     },
-    vipGuests: stayContexts.filter((context) => Number(context.vip_score || 0) >= 70).length,
+    vipGuests: isGuestMemoryEnabled() ? stayContexts.filter((context) => Number(context.vip_score || 0) >= 70).length : null,
     upgradeOpportunities: stayContexts.filter((context) => context.upgrade_eligible).length,
     lateCheckoutEligible: stayContexts.filter((context) => context.late_checkout_eligible).length
   };

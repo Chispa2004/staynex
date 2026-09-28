@@ -19,6 +19,9 @@ import {
   classifyAiAssistanceFeedback
 } from '../src/services/post-stay-review-intelligence.service.js';
 
+// Synthetic ON regression; never enable a deployed process.
+process.env.GUEST_MEMORY_ENABLED = 'true';
+
 const baseInput = {
   hotelId: 'hotel-1',
   guestId: 'guest-1',

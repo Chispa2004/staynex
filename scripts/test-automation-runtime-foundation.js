@@ -773,6 +773,7 @@ const reviewSupabase = createMockSupabase({
   }],
   messages: [{
     id: 'review-message',
+    hotel_id: hotelA.id,
     guest_id: 'review-guest',
     content: 'Thank you, everything was excellent and perfect.'
   }]

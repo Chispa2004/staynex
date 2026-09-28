@@ -1,9 +1,11 @@
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import { daysBetweenDates, determineStayPhase } from './pms-checkin.service.js';
 import { detectLowOccupancy, detectHighOccupancy } from './pms-occupancy.service.js';
 
 const normalize = (value) => String(value || '').trim().toLowerCase();
 
 export const detectVipGuest = ({ reservation = {}, guestMemory = [] } = {}) => {
+  if (!isGuestMemoryEnabled()) return null;
   const text = normalize([
     reservation.room_type,
     reservation.rate_plan,
@@ -56,6 +58,7 @@ export const calculateGuestRevenuePotential = ({
   guestMemory = [],
   now = new Date()
 } = {}) => {
+  if (!isGuestMemoryEnabled()) return null;
   let potential = 0;
   const vipScore = detectVipGuest({ reservation, guestMemory });
 
@@ -77,7 +80,7 @@ export const detectRevenueSignals = ({
   const vipScore = detectVipGuest({ reservation, guestMemory });
   const upgradeEligible = detectUpgradeOpportunity({ reservation, occupancy });
   const lateCheckoutEligible = detectLateCheckoutEligibility({ reservation, occupancy, now });
-  const memoryText = normalize(guestMemory.map((item) => `${item.memory_key} ${item.memory_value}`).join(' '));
+  const memoryText = normalize((isGuestMemoryEnabled() ? guestMemory : []).map((item) => `${item.memory_key} ${item.memory_value}`).join(' '));
 
   return {
     stayPhase,
@@ -85,7 +88,7 @@ export const detectRevenueSignals = ({
     revenuePotential: calculateGuestRevenuePotential({ reservation, occupancy, guestMemory, now }),
     upgradeEligible,
     lateCheckoutEligible,
-    transferLikely: stayPhase === 'pre_arrival' || /transfer|airport|taxi|traslado|aeropuerto/.test(memoryText),
-    experienceLikely: /experience|tour|excursion|actividad|spa|hammam|restaurant/.test(memoryText) || vipScore >= 60
+    transferLikely: isGuestMemoryEnabled() ? stayPhase === 'pre_arrival' || /transfer|airport|taxi|traslado|aeropuerto/.test(memoryText) : null,
+    experienceLikely: isGuestMemoryEnabled() ? /experience|tour|excursion|actividad|spa|hammam|restaurant/.test(memoryText) || vipScore >= 60 : null
   };
 };

@@ -23,6 +23,7 @@
     "test:guest-memory": "node scripts/test-guest-memory.js",
     "test:guest-memory-pilot-off": "node scripts/test-guest-memory-pilot-off.js",
     "test:guest-memory-off-boundaries": "node scripts/test-guest-memory-off-boundaries.js",
+    "test:guest-memory-personalization-boundary": "node scripts/test-guest-memory-personalization-boundary.js",
     "test:guest-memory-retention": "node scripts/test-guest-memory-retention.js",
     "test:guest-memory-retention-postgres": "node scripts/test-guest-memory-retention-postgres.js",
     "test:guest-ai-tenant-isolation": "node scripts/test-guest-ai-tenant-isolation.js",

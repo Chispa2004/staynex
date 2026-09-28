@@ -1,3 +1,4 @@
+import { operationalStayContext } from '../shared/guest-memory/personalization-boundary.js';
 import { controlFromState, attentionReadText } from '../dashboard/lib/inbox-tracking-state.js';
 import { guestFacingKnowledge } from '../shared/guest-service/arrival-booking.js';
 import {messageStayStage,readAllInboxRows,filterInboxConversations} from '../shared/inbox/stay-stage.js';
@@ -14,6 +15,7 @@ import {
 const loadInboxModuleForTest = () => {
   const source = readFileSync(new URL('../dashboard/lib/inbox.js', import.meta.url), 'utf8')
     .replace(/\r\n/g, '\n')
+    .replace("import { operationalStayContext } from '../../shared/guest-memory/personalization-boundary.js';\n", '')
     .replace("import { messageStayStage, readAllInboxRows } from '../../shared/inbox/stay-stage.js';\n", '')
     .replace("import { guestFacingKnowledge } from '../../shared/guest-service/arrival-booking.js';\n", '')
     .replace("import { getSupabaseAdmin } from './supabase';\n", '')
@@ -24,13 +26,13 @@ const loadInboxModuleForTest = () => {
     .replaceAll('export const ', 'const ');
 
   return new Function(
-    'controlFromState','guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
+    'operationalStayContext','controlFromState','guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
     'buildConversationCopilot',
     'isGuestMemoryEnabled',
     'sanitizeInboxMessageTranslations',
     `${source}\nreturn { getInboxConversations };`
   )(
-    controlFromState,guestFacingKnowledge,messageStayStage,readAllInboxRows,
+    operationalStayContext,controlFromState,guestFacingKnowledge,messageStayStage,readAllInboxRows,
     () => {
       throw new Error('Unexpected default Supabase admin access in inbox test');
     },

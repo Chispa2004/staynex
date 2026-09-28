@@ -20,7 +20,11 @@ While disabled:
 
 Existing `guest_memory` rows are retained by the feature flag itself. They are not deleted or migrated by switching OFF. The separate, explicitly invoked retention job can sanitize rows already eligible under the hotel's existing checkout policy, including their semantic keys and copied AI-log references. OFF does not disable that administrative cleanup; no production schedule or execution is introduced here.
 
-These guarantees refer specifically to the `guest_memory` circuit. OFF is **not** a promise that no guest information is persisted elsewhere or sent to a provider. Operational messages, reservation/PMS context, phone/room, independent Guest Intelligence profiles, affinities, behavior signals, sentiment and conversation summaries follow separate paths. With its own feature/key configuration, OpenAI Concierge still receives operational and independent profile context; its optional debug logger can also record that payload. Mixed-purpose profiles and external logs need explicit retention decisions, rather than silently inheriting the memory policy.
+The flag also gates reusable personal profiles: Guest Intelligence, affinities, behavior signals, longitudinal sentiment and revenue predictions. Main generation, Concierge, Inbox, the independent profile builder, automation evaluation, post-stay consumers and the optional demo seed honor it. OFF also removes personal PMS scores and interests from new operational snapshots and prompt projections. Existing rows are not erased. Concierge does not request `guest_insights` extraction with OFF; a dedicated insight-only request returns disabled without calling the provider.
+
+OFF is **not** a promise that no guest information is persisted or sent to a provider. Current messages, authorized reservation/room/phone, hotel Knowledge and current incident context remain operational inputs. Conversation sentiment, summaries, reasoning, takeover, escalation, tickets and tracking remain operational records. Historic personal summaries/profiles are not supplied as personalization; the normal message history is not deleted or suppressed. Independent operational text and external logs still need explicit retention decisions.
+
+See [the OFF boundary review](guest-memory-off-boundary-review.md) for the field-level classification, behavioral evidence and historical-data proposal.
 
 See [the local retention review](guest-memory-retention-review.md) for tested boundaries, remaining decisions, execution safeguards and production verification still pending.
 

@@ -1,3 +1,4 @@
+import { operationalPmsContext } from '../../shared/guest-memory/personalization-boundary.js';
 import { buildServiceDraft, buildArrivalBookingDraft } from '../../shared/guest-service/quality.js';
 const normalizeText = (value = '') => String(value || '')
   .normalize('NFD')
@@ -156,6 +157,7 @@ const detectRevenueOpportunity = (conversation = {}) => {
 };
 
 const detectVip = (conversation = {}) => {
+  if (conversation.guestMemoryEnabled !== true) return { probability: null, label: 'Personal memory disabled', tone: 'slate', reasons: [] };
   const intelligenceProfile = conversation.guestIntelligence?.profile || conversation.guestIntelligence || {};
   if (Number(intelligenceProfile.vip_score || intelligenceProfile.vipScore || 0) >= 70) {
     const probability = clamp(Number(intelligenceProfile.vip_score || intelligenceProfile.vipScore || 0) / 100);
@@ -330,6 +332,11 @@ const summaryForConversation = (conversation = {}) => {
 };
 
 export const buildConversationCopilot = (conversation = {}) => {
+  // DTO proof comes from the server flag, never from a historical profile.
+  if (conversation.guestMemoryEnabled !== true) conversation = {
+    ...conversation, guestIntelligence: null, guestMemory: [],
+    pmsIntelligenceContext: operationalPmsContext(conversation.pmsIntelligenceContext)
+  };
   const language = languageFromConversation(conversation);
   const pmsContext = conversation.pmsIntelligenceContext || null;
   const guestIntelligence = conversation.guestIntelligence || null;

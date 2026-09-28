@@ -675,67 +675,70 @@ export const processGuestMessage = async ({
     roomNumber: guest.current_room || conversationContext.reservation?.room_number || null,
     reservation: conversationContext.reservation || reservation || null
   });
-  const guestIntelligenceProfile = buildGuestIntelligenceProfile({
-    hotelId: activeHotel.id,
-    guestId: guest.id,
-    reservationId: conversationContext.reservation?.id || reservation?.id || null,
-    message,
-    recentMessages: conversationContext.recentMessages,
-    guestMemory: conversationContext.guestMemory,
-    tickets: conversationContext.openTickets || [],
-    aiLogs: conversationContext.aiLogs || [],
-    bookings: conversationContext.experienceBookings || [],
-    pmsIntelligenceContext: conversationContext.pmsIntelligenceContext,
-    language: conversationContext.language,
-    country: conversationContext.reservation?.country || conversationContext.pmsIntelligenceContext?.guestStayContext?.country || null,
-    source: 'whatsapp_conversation'
-  });
-  const revenuePrediction = predictLikelyConversions({
-    guestIntelligence: guestIntelligenceProfile,
-    pmsIntelligenceContext: conversationContext.pmsIntelligenceContext
-  });
-  conversationContext.guestIntelligence = {
-    profile: guestIntelligenceProfile,
-    affinities: guestIntelligenceProfile.affinities,
-    signals: guestIntelligenceProfile.signals,
-    revenuePrediction,
-    upsellRecommendations: generateUpsellRecommendations({
-      guestIntelligence: guestIntelligenceProfile,
-      revenuePrediction,
-      pmsIntelligenceContext: conversationContext.pmsIntelligenceContext
-    }),
-    revenueActions: generateRevenueActions({
-      guestIntelligence: guestIntelligenceProfile,
-      revenuePrediction,
-      pmsIntelligenceContext: conversationContext.pmsIntelligenceContext
-    }),
-    automationSuggestions: generateAutomationSuggestions({
-      guestIntelligence: guestIntelligenceProfile,
-      revenuePrediction,
-      pmsIntelligenceContext: conversationContext.pmsIntelligenceContext
-    })
-  };
-
-  await Promise.all([
-    persistGuestIntelligenceProfile({
-      ...guestIntelligenceProfile,
-      metadata: {
-        ...guestIntelligenceProfile.metadata,
-        conversation_id: conversation.id,
-        detected_from: message
-      }
-    }),
-    persistRevenuePrediction({
+  conversationContext.guestIntelligence = null;
+  if (guestMemoryEnabled) {
+    const guestIntelligenceProfile = buildGuestIntelligenceProfile({
       hotelId: activeHotel.id,
       guestId: guest.id,
       reservationId: conversationContext.reservation?.id || reservation?.id || null,
-      prediction: revenuePrediction,
-      metadata: {
-        source: 'whatsapp_conversation',
-        profile_type: guestIntelligenceProfile.profileType
-      }
-    })
-  ]);
+      message,
+      recentMessages: conversationContext.recentMessages,
+      guestMemory: conversationContext.guestMemory,
+      tickets: conversationContext.openTickets || [],
+      aiLogs: conversationContext.aiLogs || [],
+      bookings: conversationContext.experienceBookings || [],
+      pmsIntelligenceContext: conversationContext.pmsIntelligenceContext,
+      language: conversationContext.language,
+      country: conversationContext.reservation?.country || conversationContext.pmsIntelligenceContext?.guestStayContext?.country || null,
+      source: 'whatsapp_conversation'
+    });
+    const revenuePrediction = predictLikelyConversions({
+      guestIntelligence: guestIntelligenceProfile,
+      pmsIntelligenceContext: conversationContext.pmsIntelligenceContext
+    });
+    conversationContext.guestIntelligence = {
+      profile: guestIntelligenceProfile,
+      affinities: guestIntelligenceProfile.affinities,
+      signals: guestIntelligenceProfile.signals,
+      revenuePrediction,
+      upsellRecommendations: generateUpsellRecommendations({
+        guestIntelligence: guestIntelligenceProfile,
+        revenuePrediction,
+        pmsIntelligenceContext: conversationContext.pmsIntelligenceContext
+      }),
+      revenueActions: generateRevenueActions({
+        guestIntelligence: guestIntelligenceProfile,
+        revenuePrediction,
+        pmsIntelligenceContext: conversationContext.pmsIntelligenceContext
+      }),
+      automationSuggestions: generateAutomationSuggestions({
+        guestIntelligence: guestIntelligenceProfile,
+        revenuePrediction,
+        pmsIntelligenceContext: conversationContext.pmsIntelligenceContext
+      })
+    };
+
+    await Promise.all([
+      persistGuestIntelligenceProfile({
+        ...guestIntelligenceProfile,
+        metadata: {
+          ...guestIntelligenceProfile.metadata,
+          conversation_id: conversation.id,
+          detected_from: message
+        }
+      }),
+      persistRevenuePrediction({
+        hotelId: activeHotel.id,
+        guestId: guest.id,
+        reservationId: conversationContext.reservation?.id || reservation?.id || null,
+        prediction: revenuePrediction,
+        metadata: {
+          source: 'whatsapp_conversation',
+          profile_type: guestIntelligenceProfile.profileType
+        }
+      })
+    ]);
+  }
 
   const knowledgeResult = await findKnowledgeAnswerWithMetadata(
     activeHotel.id,
