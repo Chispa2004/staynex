@@ -160,7 +160,9 @@ const buildWorkspaceSelectionRequiredContext = async ({
   multiPropertyAccess: tenantAccess.multiPropertyAccess,
   canSwitchWorkspaces: tenantAccess.canSwitchWorkspaces,
   canCreateWorkspaces: tenantAccess.canCreateWorkspaces,
-  availableHotels: (await getAllHotelWorkspaces(supabase)).map((workspaceHotel) => {
+  availableHotels: (tenantAccess.platformRole !== 'none'
+    ? await getAllHotelWorkspaces(supabase)
+    : assignments.filter(item => item.hotel).map(item => item.hotel)).map((workspaceHotel) => {
     const assignment = assignments.find((item) => item.hotel_id === workspaceHotel.id);
       return {
         hotel: workspaceHotel,
@@ -317,10 +319,12 @@ const resolveCurrentHotelForRequest = async (request) => {
     if (Array.isArray(assignments) && assignments.length > 0) {
       const tenantAccess = resolveTenantAccess(assignments);
       if (
-        tenantAccess.canSwitchWorkspaces
-        && tenantAccess.platformRole !== 'none'
-        && !requestedHotelId
-        && isHotelWorkspacePath(requestedWorkspacePath)
+        !requestedHotelId && (
+          request?.headers?.get('x-staynex-workspace-unselected') === '1'
+          || request?.cookies?.get?.('staynex_workspace_unselected')?.value === '1'
+          || (tenantAccess.canSwitchWorkspaces && tenantAccess.platformRole !== 'none'
+            && (isHotelWorkspacePath(requestedWorkspacePath) || requestedWorkspacePath.startsWith('/platform')))
+        )
       ) {
         return buildWorkspaceSelectionRequiredContext({
           supabase,
@@ -545,6 +549,6 @@ const resolveCurrentHotelForRequest = async (request) => {
 export const getCurrentHotelForRequest = async (request) => {
   const context = await resolveCurrentHotelForRequest(request);
   context.availableHotels = (context.availableHotels || []).filter(item => !isArchivedHotel(item.hotel));
-  if (isArchivedHotel(context.hotel)) return {...context,hotel:null,hotelUser:null,role:'blocked',permissions:[],accessDenied:true,accessDeniedReason:'hotel_archived'};
+  if (isArchivedHotel(context.hotel)) return {...context,hotel:null,hotelUser:null,role:'blocked',permissions:[],accessDenied:true,accessDeniedReason:'hotel_archived',archivedHotelId:context.hotel.id};
   return context;
 };

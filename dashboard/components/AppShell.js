@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -53,7 +53,11 @@ import {
   getWorkspaceRequestHeaders,
   persistWorkspaceSelection,
   switchWorkspace,
-  WORKSPACE_SELECTION_EVENT
+  WORKSPACE_SELECTION_EVENT,
+  WORKSPACE_ARCHIVED_EVENT,
+  WORKSPACE_INVALIDATION_KEY,
+  getWorkspaceRevision,
+  invalidateArchivedWorkspace
 } from '@/lib/workspace-context';
 import {
   canAccess,
@@ -180,6 +184,8 @@ const AppShellContent = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [sessionAccessToken, setSessionAccessToken] = useState(null);
   const [sessionActorId, setSessionActorId] = useState(null);
+  const workspaceGeneration = useRef(0);
+  const [archiveNotice, setArchiveNotice] = useState(false);
   const [currentHotel, setCurrentHotel] = useState(null);
   const [hotelContext, setHotelContext] = useState({
     role: 'blocked',
@@ -251,6 +257,8 @@ const AppShellContent = ({ children }) => {
     [activeRole, hotelContext.platformRole, pilotNavigationGroups]
   );
   const canAccessPlatformConsole = INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole);
+  const platformWithoutHotel = canAccessPlatformConsole && pathname.startsWith('/platform')
+    && ['workspace_required', 'hotel_archived'].includes(hotelContext.accessDeniedReason);
   const primaryDashboardPrefetchRoutes = useMemo(() => (
     allowedNavigationGroups
       .flatMap((group) => group.items)
@@ -346,12 +354,15 @@ const AppShellContent = ({ children }) => {
     }
 
     let active = true;
+    const generation = ++workspaceGeneration.current;
+    const revision = getWorkspaceRevision();
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
       if (!active) {
         return;
       }
 
+      if (generation !== workspaceGeneration.current || revision !== getWorkspaceRevision()) return;
       console.warn('workspace timeout', { phase: 'workspace' });
       controller.abort();
       setWorkspaceError(getWorkspaceResolutionErrorCopy('timeout'));
@@ -374,13 +385,14 @@ const AppShellContent = ({ children }) => {
         });
         const body = await response.json();
         window.clearTimeout(timeoutId);
+        if (!active || controller.signal.aborted || generation !== workspaceGeneration.current || revision !== getWorkspaceRevision()) return;
 
         if (active && (response.status === 401 || SESSION_DENIED_REASONS.has(body.accessDeniedReason))) {
           setIsAuthenticated(false);
           setSessionAccessToken(null);
           setSessionActorId(null);
           setCurrentHotel(null);
-          clearWorkspaceSelection();
+          clearWorkspaceSelection({ resetRequirement: true });
           setWorkspaceError(null);
           setHotelContextLoaded(false);
           router.replace('/login');
@@ -388,6 +400,7 @@ const AppShellContent = ({ children }) => {
         }
 
         if (active && response.ok) {
+          if (body.hotel?.id) setArchiveNotice(false);
           setCurrentHotel(body.hotel || null);
           if (body.hotel?.id) {
             persistWorkspaceSelection({
@@ -422,6 +435,9 @@ const AppShellContent = ({ children }) => {
             });
           }
           setHotelContextLoaded(true);
+          if (body.accessDeniedReason === 'hotel_archived' && body.archivedHotelId) {
+            invalidateArchivedWorkspace(body.archivedHotelId);
+          }
         } else if (active) {
           setCurrentHotel(null);
           setHotelContext({
@@ -446,7 +462,7 @@ const AppShellContent = ({ children }) => {
         if (error.name !== 'AbortError') {
           console.error('Current hotel lookup failed', error);
         }
-        if (active) {
+        if (active && generation === workspaceGeneration.current && revision === getWorkspaceRevision()) {
           setWorkspaceError(error.name === 'AbortError'
             ? getWorkspaceResolutionErrorCopy('timeout')
             : getWorkspaceResolutionErrorCopy('workspace_context_unavailable'));
@@ -478,6 +494,8 @@ const AppShellContent = ({ children }) => {
         return;
       }
 
+      workspaceGeneration.current += 1;
+      setArchiveNotice(false);
       setHotelContextLoaded(false);
       setWorkspaceError(null);
       setCurrentHotel(null);
@@ -495,6 +513,43 @@ const AppShellContent = ({ children }) => {
       window.removeEventListener(WORKSPACE_SELECTION_EVENT, handleWorkspaceSelection);
     };
   }, [currentHotel?.id, isLoginPage]);
+
+  useEffect(() => {
+    if (isLoginPage) return;
+    const archived = (event) => {
+      const hotelId = event.detail?.hotelId;
+      // Ignore unrelated archives, but invalidate every in-flight resolution.
+      workspaceGeneration.current += 1;
+      if (currentHotel?.id && currentHotel.id !== hotelId) { setWorkspaceRetryNonce(value => value + 1); return; }
+      setCurrentHotel(null);
+      setSupportSession(null);
+      setUrgentCount(0); setInboxUnreadCount(0); setInboxHumanCount(0);
+      setOnboardingChecked(false); setOnboardingCompleted(true);
+      setWorkspaceError(null);
+      setArchiveNotice(true);
+      setHotelContext(previous => ({...previous, role:'blocked', permissions:[], hotelUser:null,
+        accessDenied:true, accessDeniedReason:'hotel_archived',
+        availableHotels:(previous.availableHotels || []).filter(item => item.hotel?.id !== hotelId)}));
+      setHotelContextLoaded(true);
+      if (canAccessPlatformConsole) router.replace('/platform');
+    };
+    const storage = event => {
+      if (event.key !== WORKSPACE_INVALIDATION_KEY || !event.newValue) return;
+      try { archived({detail:JSON.parse(event.newValue)}); } catch { /* Not archive evidence. */ }
+    };
+    // Returning to a stale tab revalidates authorization; errors stay errors.
+    const revalidate = () => { workspaceGeneration.current += 1; setHotelContextLoaded(false); setWorkspaceRetryNonce(value => value + 1); };
+    window.addEventListener(WORKSPACE_ARCHIVED_EVENT, archived);
+    window.addEventListener('storage', storage);
+    window.addEventListener('pageshow', revalidate);
+    window.addEventListener('focus', revalidate);
+    return () => {
+      window.removeEventListener(WORKSPACE_ARCHIVED_EVENT, archived);
+      window.removeEventListener('storage', storage);
+      window.removeEventListener('pageshow', revalidate);
+      window.removeEventListener('focus', revalidate);
+    };
+  }, [currentHotel?.id, canAccessPlatformConsole, isLoginPage, router]);
 
   useEffect(() => {
     if (isLoginPage || authLoading || !isAuthenticated) {
@@ -614,7 +669,7 @@ const AppShellContent = ({ children }) => {
       || !isAuthenticated
       || !hotelContextLoaded
       || !hotelContext.accessDenied
-      || hotelContext.accessDeniedReason !== 'workspace_required'
+      || !['workspace_required','hotel_archived'].includes(hotelContext.accessDeniedReason)
       || !INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole)
       || pathname.startsWith('/platform')
     ) {
@@ -652,7 +707,7 @@ const AppShellContent = ({ children }) => {
     setSessionAccessToken(null);
     setSessionActorId(null);
     setCurrentHotel(null);
-    clearWorkspaceSelection();
+    clearWorkspaceSelection({ resetRequirement: true });
     setWorkspaceError(null);
     setUrgentCount(0);
     setInboxUnreadCount(0);
@@ -669,6 +724,7 @@ const AppShellContent = ({ children }) => {
       return;
     }
 
+    const generation = ++workspaceGeneration.current;
     setSwitchingHotel(true);
     setHotelContextLoaded(false);
     setWorkspaceError(null);
@@ -688,6 +744,8 @@ const AppShellContent = ({ children }) => {
         accessToken: sessionAccessToken
       });
 
+      if (generation !== workspaceGeneration.current) return;
+      setArchiveNotice(false);
       setCurrentHotel(body.hotel || null);
       setOnboardingChecked(false);
       setHotelContext({
@@ -708,7 +766,9 @@ const AppShellContent = ({ children }) => {
       setHotelContextLoaded(true);
       router.replace(getFirstAllowedRoute(body.role || 'blocked'));
     } catch (error) {
+      if (generation !== workspaceGeneration.current) return;
       console.error('Hotel switch failed', error);
+      setWorkspaceError(getWorkspaceResolutionErrorCopy('workspace_context_unavailable'));
       setHotelContextLoaded(true);
     } finally {
       setSwitchingHotel(false);
@@ -932,7 +992,7 @@ const AppShellContent = ({ children }) => {
     );
   }
 
-  if (hotelContext.accessDenied) {
+  if (hotelContext.accessDenied && !platformWithoutHotel) {
     if (
       hotelContext.accessDeniedReason === 'workspace_required'
       && INTERNAL_PLATFORM_ROLES.includes(hotelContext.platformRole)
@@ -951,7 +1011,8 @@ const AppShellContent = ({ children }) => {
       disabled: tx('Your Staynex access is disabled. Please contact your hotel administrator.'),
       invitation_pending: tx('Your invitation is still pending. Log in with the invited email or contact your administrator.'),
       no_active_assignment: tx('Your account does not have a hotel assigned yet. Contact the Staynex administrator.'),
-      workspace_required: tx('Choose a hotel workspace from Platform Hotels before opening hotel operations.')
+      hotel_archived: tx('Este hotel está archivado. Sus datos se conservan y las operaciones están suspendidas. Contacta con tu administrador o elige otro hotel autorizado.'),
+      workspace_required: tx('Selecciona expresamente un hotel autorizado para continuar.')
     };
 
     return (
@@ -964,14 +1025,15 @@ const AppShellContent = ({ children }) => {
           <p className={isLight ? 'mt-3 text-sm leading-6 text-slate-600' : 'mt-3 text-sm leading-6 text-slate-400'}>
             {reasonCopy[hotelContext.accessDeniedReason] || tx('No active hotel assignment is available for your user.')}
           </p>
+          {!canAccessPlatformConsole && hotelContext.canSwitchWorkspaces && ['hotel_archived','workspace_required'].includes(hotelContext.accessDeniedReason) ? <div className="mt-4 flex flex-wrap gap-3">{hotelContext.availableHotels.map(item => <button type="button" key={item.hotel.id} onClick={() => handleHotelSwitch(item.hotel.id)}>{tx('Abrir hotel autorizado')}: {item.hotel.name}</button>)}</div> : null}
           <button
             type="button"
-            onClick={hotelContext.accessDeniedReason === 'workspace_required'
+            onClick={canAccessPlatformConsole && ['workspace_required','hotel_archived'].includes(hotelContext.accessDeniedReason)
               ? () => router.replace('/platform/hotels')
               : handleLogout}
             className={isLight ? 'mt-6 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'mt-6 inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}
           >
-            {hotelContext.accessDeniedReason === 'workspace_required'
+            {canAccessPlatformConsole && ['workspace_required','hotel_archived'].includes(hotelContext.accessDeniedReason)
               ? tx('Go to Platform Hotels')
               : logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}
           </button>
@@ -980,7 +1042,7 @@ const AppShellContent = ({ children }) => {
     );
   }
 
-  if (!currentHotel?.id) {
+  if (!currentHotel?.id && !platformWithoutHotel) {
     return (
       <div className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} flex h-dvh items-center justify-center overflow-hidden bg-midnight text-slate-100`}>
         <div className={isLight ? 'rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-700 shadow-xl shadow-slate-200/70' : 'rounded-lg border border-white/10 bg-[#0b1019] px-5 py-4 text-sm font-medium text-slate-300 shadow-xl shadow-black/25'}>
@@ -1435,7 +1497,7 @@ const AppShellContent = ({ children }) => {
               </div>
             ) : null}
             <div
-              key={`${currentHotel.id}:${supportSession ? 'support' : 'hotel'}`}
+              key={isPlatformContext ? 'platform' : `${currentHotel?.id}:${supportSession ? 'support' : 'hotel'}`}
               className={isInboxRoute ? 'min-h-0 flex-1' : undefined}
             >
               {onboardingNotice === currentHotel?.id && pathname === '/dashboard/health' ? <div role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">{tx('Configuración guardada y completada. No se han activado proveedores ni envíos.')}</div> : null}
@@ -1445,6 +1507,7 @@ const AppShellContent = ({ children }) => {
                   <p className="mt-1">{tx('Guarda los cambios y vuelve al asistente para actualizar los requisitos. Abrir esta pantalla no los completa.')}</p>
                 </nav>
               ) : null}
+              {archiveNotice ? <p role="status" tabIndex={-1} data-lifecycle-focus className="mb-4 rounded-xl border p-4">{tx('Hotel archivado. Los datos se conservan y la actividad automática permanece suspendida. Selecciona un hotel para abrir sus operaciones.')}</p> : null}
               {children}
             </div>
           </div>

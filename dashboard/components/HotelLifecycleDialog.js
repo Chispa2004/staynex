@@ -6,7 +6,7 @@ import {ui} from '@/lib/ui/styles';
 export function HotelLifecycleDialog({hotel,action='archive',isLight,onClose,onSaved}) {
   const {tx}=useDashboardLanguage(); const dialog=useRef(null); const cancel=useRef(null); const opener=useRef(null);
   const [busy,setBusy]=useState(false); const [error,setError]=useState(null); const working=useRef(false);
-  useEffect(()=>{opener.current ||= document.activeElement; const element=dialog.current; element.showModal();cancel.current.focus();return ()=>{element.close();opener.current?.focus();};},[]);
+  useEffect(()=>{opener.current ||= document.activeElement; const element=dialog.current; element.showModal();cancel.current.focus();return ()=>{element.close();if(opener.current?.isConnected&&!opener.current.disabled)opener.current.focus();else document.querySelector('[data-lifecycle-focus]')?.focus();};},[]);
   useEffect(()=>{if(error)cancel.current?.focus();},[error]);
   const restore=action==='restore';
   const submit=async()=>{
@@ -21,7 +21,7 @@ export function HotelLifecycleDialog({hotel,action='archive',isLight,onClose,onS
     }catch(e){setError(e.name==='AbortError'?'No se ha recibido confirmación. Recarga para comprobar el estado antes de reintentar.':e.message);}finally{clearTimeout(deadline);working.current=false;setBusy(false);}
   };
   return <dialog ref={dialog} onKeyDown={event=>{if(event.key!=='Tab')return;const buttons=[...dialog.current.querySelectorAll('button:not(:disabled)')];if(!buttons.length){event.preventDefault();return;}const first=buttons[0],last=buttons.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}} aria-labelledby="hotel-lifecycle-title" aria-describedby="hotel-lifecycle-effects" onCancel={e=>{e.preventDefault();if(!busy)onClose();}}
-    className="w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border bg-white p-6 text-slate-900 shadow-xl backdrop:bg-black/60">
+    className={`w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border p-6 shadow-xl backdrop:bg-slate-950/60 ${isLight?'border-slate-200 bg-white text-slate-900':'border-slate-700 bg-slate-900 text-slate-100'}`} >
     <h2 id="hotel-lifecycle-title" className="break-words text-xl font-semibold">{tx(restore?'Restaurar hotel':'Archivar hotel')}: {hotel.name}</h2>
     <div id="hotel-lifecycle-effects" className="mt-4 space-y-3 text-sm leading-6">
       <p>{tx(restore?'Recupera el estado anterior del hotel y el acceso según los permisos actuales. No reactiva accesos deshabilitados ni acepta invitaciones.':'Suspende el acceso operativo al hotel. Conserva los datos, las asignaciones, las conexiones y los estados de conversaciones, reservas y tickets. No elimina datos.')}</p>

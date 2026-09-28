@@ -3058,3 +3058,10 @@ const hotelArchivePhrases = [
  ['Los archivos antiguos sin información previa o con conflictos requieren revisión; no se recuperan por suposición.','Legacy archives without previous state or with conflicts require review; restoration is never inferred.']
 ];
 for(const [es,en] of hotelArchivePhrases){phraseTranslations.es[es]=es;phraseTranslations.en[es]=en;}
+
+for (const [es,en] of [
+ ['Este hotel está archivado. Sus datos se conservan y las operaciones están suspendidas. Contacta con tu administrador o elige otro hotel autorizado.','This hotel is archived. Its data is preserved and operations are suspended. Contact your administrator or choose another authorized hotel.'],
+ ['Selecciona expresamente un hotel autorizado para continuar.','Choose an authorized hotel to continue.'],
+ ['Abrir hotel autorizado','Open authorized hotel'],
+ ['Hotel archivado. Los datos se conservan y la actividad automática permanece suspendida. Selecciona un hotel para abrir sus operaciones.','Hotel archived. Data is preserved and automatic activity remains suspended. Select a hotel to open its operations.']
+]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
