@@ -47,7 +47,8 @@ export async function GET(request) {
       fallback,
       user,
       accessDenied,
-      accessDeniedReason
+      accessDeniedReason,
+      archivedHotelId
     } = await getCurrentHotelForRequest(request);
 
     return NextResponse.json({
@@ -55,6 +56,7 @@ export async function GET(request) {
       hotelUser,
       role,
       permissions,
+      archivedHotelId: archivedHotelId || null,
       platformRole: platformRole || 'none',
       platformPermissions: platformPermissions || [],
       guestMemoryEnabled: isGuestMemoryEnabled(),
@@ -88,7 +90,7 @@ export async function POST(request) {
     }));
     const allowed = context.availableHotels.some((item) => item.hotel?.id === hotelId);
 
-    if (!hotelId || !allowed) {
+    if (!hotelId || !allowed || context.accessDenied || context.hotel?.id !== hotelId) {
       return jsonError(
         'You do not have access to this hotel',
         context.accessDenied && SESSION_ACCESS_DENIED_REASONS.has(context.accessDeniedReason) ? 401 : 403,

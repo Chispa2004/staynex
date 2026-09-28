@@ -106,7 +106,8 @@
     "test:arrival-booking-quality": "node scripts/test-arrival-booking-quality.js",
     "test:guest-final-output": "node scripts/test-guest-final-output.js",
     "test:hotel-lifecycle": "node scripts/test-hotel-lifecycle.js",
-    "test:hotel-lifecycle-postgres": "node scripts/test-hotel-lifecycle-postgres.js"
+    "test:hotel-lifecycle-postgres": "node scripts/test-hotel-lifecycle-postgres.js",
+    "test:hotel-lifecycle-navigation": "node scripts/test-hotel-lifecycle-navigation.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

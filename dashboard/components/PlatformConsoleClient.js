@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {invalidateArchivedWorkspace} from '@/lib/workspace-context';
 import {HotelLifecycleDialog} from './HotelLifecycleDialog';
 import { useRouter } from 'next/navigation';
 import {
@@ -29,7 +30,7 @@ import { submitHotelCreation, hasPendingHotelCreation } from '@/lib/hotel-creati
 import { HotelFieldErrors } from '@/components/HotelFieldErrors';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { persistWorkspaceSelection } from '@/lib/workspace-context';
+import { persistWorkspaceSelection, getWorkspaceRevision, assertWorkspaceRevision } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
@@ -623,6 +624,8 @@ export const PlatformConsoleClient = () => {
   const [healthFilter, setHealthFilter] = useState('all');
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const noticeRef = useRef(null);
+  useEffect(() => { if (notice) noticeRef.current?.focus(); }, [notice]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [lifecycleAction,setLifecycleAction]=useState('archive');
 
@@ -692,6 +695,7 @@ export const PlatformConsoleClient = () => {
   };
 
   const enterSupport = async (hotel) => {
+    const revision = getWorkspaceRevision();
     setError(null);
     setNotice(null);
 
@@ -707,6 +711,7 @@ export const PlatformConsoleClient = () => {
         throw new Error(body.error || 'Could not enter support session');
       }
 
+      assertWorkspaceRevision(revision);
       window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
       persistWorkspaceSelection({
         hotelId: hotel.id,
@@ -731,7 +736,7 @@ export const PlatformConsoleClient = () => {
           <StaynexLogo size="lg" />
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0A66FF]">{tx('Platform operations')}</p>
-            <h1 className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Staynex SaaS console')}</h1>
+            <h1 tabIndex={-1} data-lifecycle-focus className={cn('mt-3 text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>{tx('Staynex SaaS console')}</h1>
             <p className={cn('mt-3 max-w-2xl text-sm leading-6', ui.text.body(isLight))}>
               {tx('Internal operations hub for tenants, health, revenue, PMS status and support access.')}
             </p>
@@ -757,14 +762,14 @@ export const PlatformConsoleClient = () => {
         </div>
       ) : null}
       {notice ? (
-        <div role="status" className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+        <div ref={noticeRef} tabIndex={-1} role="status" className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
           {tx(notice)}
         </div>
       ) : null}
 
       {showCreate ? <CreateHotelForm canRecover={canRecover} fieldErrors={fieldErrors} isLight={isLight} saving={saving} onSubmit={createHotel} onCancel={() => setShowCreate(false)} /> : null}
       {deleteTarget?<HotelLifecycleDialog key={`${deleteTarget.id}:${lifecycleAction}`} hotel={deleteTarget} action={lifecycleAction} isLight={isLight}
-        onClose={()=>setDeleteTarget(null)} onSaved={()=>{setDeleteTarget(null);setNotice(tx('Operación confirmada. Los datos se conservan y la actividad automática permanece suspendida.'));loadPlatform({silent:true});}}/>:null}
+        onClose={()=>setDeleteTarget(null)} onSaved={body=>{if(body.action==='archive')invalidateArchivedWorkspace(body.hotel.id);setDeleteTarget(null);setNotice(tx('Operación confirmada. Los datos se conservan y la actividad automática permanece suspendida.'));loadPlatform({silent:true});}}/>:null}
       {(data.archivedHotels||[]).length ? <section className={cn('rounded-xl border p-5',ui.surface(isLight))}>
         <h2 className="text-lg font-semibold">{tx('Hoteles archivados')}</h2>
         <p className="mt-2 text-sm">{tx('No participan en las métricas activas. Restaurar conserva las revocaciones y no reanuda envíos.')}</p>

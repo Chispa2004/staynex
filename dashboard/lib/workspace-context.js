@@ -1,3 +1,6 @@
+export const WORKSPACE_ARCHIVED_EVENT = 'staynex:workspace-archived';
+export const WORKSPACE_INVALIDATION_KEY = 'staynex_workspace_invalidation';
+const WORKSPACE_UNSELECTED_KEY = 'staynex_workspace_unselected';
 const ACTIVE_WORKSPACE_KEY = 'staynex_active_workspace_id';
 const ACTIVE_WORKSPACE_META_KEY = 'staynex_active_workspace';
 const ACTIVE_WORKSPACE_COOKIE = 'staynex_active_hotel_id';
@@ -47,6 +50,8 @@ export const persistWorkspaceSelection = ({ hotelId, workspace, notify = false }
     return;
   }
 
+  window.localStorage.removeItem(WORKSPACE_UNSELECTED_KEY);
+  document.cookie = `${WORKSPACE_UNSELECTED_KEY}=; path=/; max-age=0; samesite=lax`;
   window.localStorage.setItem(ACTIVE_WORKSPACE_KEY, hotelId);
 
   if (workspace) {
@@ -75,11 +80,15 @@ export const notifyWorkspaceSelectionChanged = ({ hotelId, workspace = null } = 
   }));
 };
 
-export const clearWorkspaceSelection = () => {
+export const clearWorkspaceSelection = ({ resetRequirement = false } = {}) => {
   if (!isBrowser()) {
     return;
   }
 
+  if (resetRequirement) {
+    window.localStorage.removeItem(WORKSPACE_UNSELECTED_KEY);
+    document.cookie = `${WORKSPACE_UNSELECTED_KEY}=; path=/; max-age=0; samesite=lax`;
+  }
   window.localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
   window.localStorage.removeItem(ACTIVE_WORKSPACE_META_KEY);
   document.cookie = `${ACTIVE_WORKSPACE_COOKIE}=; path=/; max-age=0; samesite=lax`;
@@ -96,10 +105,11 @@ export const validateWorkspaceAccess = ({ hotelId, availableHotels = [] }) => {
 export const getWorkspaceRequestHeaders = ({ hotelId: explicitHotelId = null } = {}) => {
   const { hotelId } = getActiveWorkspace();
   const resolvedHotelId = explicitHotelId || hotelId;
-  return resolvedHotelId ? { 'x-staynex-hotel-id': resolvedHotelId } : {};
+  return resolvedHotelId ? { 'x-staynex-hotel-id': resolvedHotelId } : (isBrowser() && window.localStorage.getItem(WORKSPACE_UNSELECTED_KEY) ? { 'x-staynex-workspace-unselected': '1' } : {});
 };
 
 export const switchWorkspace = async ({ hotelId, accessToken }) => {
+  const revision = getWorkspaceRevision();
   const response = await fetch('/api/current-hotel', {
     method: 'POST',
     cache: 'no-store',
@@ -112,7 +122,7 @@ export const switchWorkspace = async ({ hotelId, accessToken }) => {
   });
   const body = await response.json();
 
-  if (!response.ok) {
+  if (!response.ok || body.accessDenied || body.hotel?.id !== hotelId || revision !== getWorkspaceRevision()) {
     throw new Error(body.error || 'Could not switch workspace');
   }
 
@@ -126,4 +136,24 @@ export const switchWorkspace = async ({ hotelId, accessToken }) => {
   });
 
   return body;
+};
+
+// Invalidation is a UI barrier, never authorization. Only a confirmed server archive
+// creates it. A subsequent explicit, server-authorized selection clears the empty state.
+export const getWorkspaceRevision = () => isBrowser() ? window.localStorage.getItem(WORKSPACE_INVALIDATION_KEY) : null;
+export const invalidateArchivedWorkspace = (hotelId) => {
+  if (!isBrowser() || !hotelId) return;
+  const selected = getActiveWorkspace().hotelId === hotelId;
+  if (selected) {
+    clearWorkspaceSelection();
+    window.localStorage.setItem(WORKSPACE_UNSELECTED_KEY, '1');
+    document.cookie = `${WORKSPACE_UNSELECTED_KEY}=1; path=/; max-age=31536000; samesite=lax`;
+  }
+  const detail = { hotelId, revision: crypto.randomUUID() };
+  window.localStorage.setItem(WORKSPACE_INVALIDATION_KEY, JSON.stringify(detail));
+  window.dispatchEvent(new CustomEvent(WORKSPACE_ARCHIVED_EVENT, { detail }));
+};
+
+export const assertWorkspaceRevision = revision => {
+  if (revision !== getWorkspaceRevision()) throw new Error('El contexto del hotel ha cambiado. Vuelve a seleccionarlo para continuar.');
 };

@@ -27,7 +27,7 @@ import { hotelFormInput, validateHotelFields } from '../../shared/onboarding/hot
 import { HotelFieldErrors } from '@/components/HotelFieldErrors';
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { persistWorkspaceSelection } from '@/lib/workspace-context';
+import { persistWorkspaceSelection, getWorkspaceRevision, assertWorkspaceRevision } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -363,6 +363,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
   };
 
   const enterSupport = async () => {
+    const revision = getWorkspaceRevision();
     setError(null);
     setNotice(null);
 
@@ -378,6 +379,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
         throw new Error(body.error || 'Could not enter support session');
       }
 
+      assertWorkspaceRevision(revision);
       window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
       persistWorkspaceSelection({
         hotelId,

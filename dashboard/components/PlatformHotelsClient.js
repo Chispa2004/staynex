@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { persistWorkspaceSelection } from '@/lib/workspace-context';
+import { persistWorkspaceSelection, getWorkspaceRevision, assertWorkspaceRevision } from '@/lib/workspace-context';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
@@ -227,6 +227,7 @@ export const PlatformHotelsClient = () => {
   }, [data.hotels, query]);
 
   const enterWorkspace = async (hotel) => {
+    const revision = getWorkspaceRevision();
     setError(null);
     try {
       const response = await fetch(`/api/platform/hotels/${hotel.id}/support`, {
@@ -238,6 +239,7 @@ export const PlatformHotelsClient = () => {
       if (!response.ok) {
         throw new Error(body.error || 'Could not enter hotel workspace');
       }
+      assertWorkspaceRevision(revision);
       window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
       persistWorkspaceSelection({
         hotelId: hotel.id,

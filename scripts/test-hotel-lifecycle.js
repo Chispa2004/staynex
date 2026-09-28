@@ -55,4 +55,17 @@ try{
  props.action='restore';await find(render(),n=>n.type==='button'&&n.props.children==='Confirmar restauración').props.onClick();assert.equal(saved.length,2);assert.equal(requests.at(-1).method,'PATCH');assert.equal(requests.at(-1).body.expectedArchivedAt,props.hotel.archived_at);assert.equal(requests.at(-1).url,`/api/platform/hotels/${id}`);
 }finally{globalThis.fetch=originalFetch;}
 console.log('PASS real dialog handlers retain errors, allow retry and accept only complete same-hotel server confirmation');
-console.log('5 hotel lifecycle behavior scenario groups passed');
+
+// Unrelated administrative PATCH remains usable with normal server authorization.
+let patchRole='platform_admin', writes=[];
+const patchDb={from:table=>{const filters=[];let changes=null;const q={select:()=>q,eq:(key,value)=>{filters.push([key,value]);return q;},update:value=>{changes=value;return q;},single:async()=>{
+ if(!filters.some(([k,v])=>k==='hotel_id'&&v===id))throw Error('missing tenant scope');
+ if(changes)writes.push({table,filters,changes});
+ return {data:{id:'assignment',hotel_id:id,user_id:'user',role:changes?.role||'receptionist',status:'active'}};
+ }};return q;}};
+const patchRoute=await compile('../dashboard/app/api/platform/hotels/[id]/route.js',{'next/server':{NextResponse:{json:(b,o)=>Response.json(b,o)}},'@/lib/platform':{...lifecycle,writePlatformAuditLog:async()=>{},getPlatformContext:async(req,{requireAdmin})=>{assert(requireAdmin);if(patchRole!=='platform_admin')throw Object.assign(Error('denied'),{status:403});return {supabase:patchDb,user:actor,platformRole:patchRole};}}});
+assert.equal((await patchRoute.PATCH(req({action:'update_user_role',hotelUserId:'assignment',role:'manager'}),{params:{id}})).status,200);
+assert.equal(writes.length,1);assert.equal(writes[0].changes.role,'manager');
+patchRole='receptionist';assert.equal((await patchRoute.PATCH(req({action:'update_user_role',hotelUserId:'assignment',role:'admin'}),{params:{id}})).status,403);assert.equal(writes.length,1);
+console.log('PASS legitimate settings PATCH through real handler, scoped writes and unchanged administration permission');
+console.log('6 hotel lifecycle behavior scenario groups passed');

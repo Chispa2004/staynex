@@ -665,3 +665,16 @@ for(const platformRole of ['none','platform_admin','support']) {
  assert.equal(context.platformRole,platformRole,'archive does not erase internal identity');
 }
 console.log('Archived hotel operational context blocked for hotel admin, Staynex and support; identity retained');
+
+// Explicitly cleared selection must not fall back to a default hotel after archive.
+for (const platformRole of ['platform_admin','none']) {
+ const assignment=hotelAssignment({platformRole,multiPropertyAccess:true});
+ const harness=contextHarness({assignments:[assignment]});
+ const request=makeRequest({token:'valid',workspacePath:'/platform'});
+ request.headers.set('x-staynex-workspace-unselected','1');
+ const context=await harness.getCurrentHotelForRequest(request);
+ assert.equal(context.hotel,null);assert.equal(context.accessDeniedReason,'workspace_required');
+ assert.equal(context.platformRole,platformRole);assert.deepEqual(context.permissions,[]);
+ assert.equal(context.availableHotels.length,platformRole==='none'?1:2);
+}
+console.log('Explicit deselection never selects another hotel; hotel users receive only assigned choices');
