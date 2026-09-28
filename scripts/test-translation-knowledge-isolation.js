@@ -1,3 +1,4 @@
+import {isArchivedHotel} from '../shared/hotels/lifecycle.js';
 import {readAllInboxRows} from '../shared/inbox/stay-stage.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -114,7 +115,7 @@ await test('Authenticated user -> actual hotel resolver -> internal authenticati
   s.client.auth={getUser:async token=>{authCalls++;return token==='synthetic-session-a'
     ? {data:{user:{id:'user-a',email:'a@example.test'}},error:null}
     : {data:{user:null},error:Error('Invalid synthetic session')};}};
-  const {getCurrentHotelForRequest}=load('dashboard/lib/current-hotel.js',{
+  const {getCurrentHotelForRequest}=load('dashboard/lib/current-hotel.js',{isArchivedHotel,
     getSupabaseAdmin:()=>s.client,canAccessPlatform,getPermissionsForPlatformRole,getPermissionsForRole,
     normalizeAuthEmail:x=>String(x).toLowerCase(),resolvePendingInvitationsForUser:async()=>{},
     getUserHotelAssignments:async({userId})=>{assert.equal(userId,'user-a');return [{id:'assignment-a',hotel_id:A,

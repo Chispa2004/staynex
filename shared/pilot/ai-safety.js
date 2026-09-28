@@ -1,3 +1,4 @@
+import { hotelOperationsHeld } from '../hotels/lifecycle.js';
 export const HOTEL_AI_AUTO_REPLY_COLUMN = 'ai_auto_reply_enabled';
 export const HOTEL_AI_AUTO_REPLY_SOURCE = `hotels.${HOTEL_AI_AUTO_REPLY_COLUMN}`;
 
@@ -162,6 +163,7 @@ export const getGlobalAiAutoReplyStatus = (env = process.env) => {
 };
 
 export const getHotelAiAutoReplyStatus = (hotel = {}) => {
+  if (hotelOperationsHeld(hotel)) return {configured:true,enabled:false,allowed:false,reason:'hotel_operations_held',source:'hotel_archive',label:'HOTEL SUSPENDIDO'};
   const configured = firstConfiguredFlag([
     {
       key: HOTEL_AI_AUTO_REPLY_COLUMN,

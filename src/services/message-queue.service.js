@@ -86,15 +86,15 @@ export const isHotelAutomationLiveExplicitlyEnabled = (hotel = {}) => {
   );
 };
 
-const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = getSupabase(), env = process.env } = {}) => {
+export const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = getSupabase(), env = process.env } = {}) => {
   if (!scheduledMessage.hotel_id) {
     return { allowed: false, reason: 'hotel_live_config_missing' };
   }
 
   try {
-    const { data, error } = await supabase
+    const { data: hotelRecord, error } = await supabase
       .from('hotels')
-      .select('id, metadata, ai_auto_reply_enabled')
+      .select('*')
       .eq('id', scheduledMessage.hotel_id)
       .maybeSingle();
 
@@ -102,12 +102,15 @@ const getHotelLiveAutomationGate = async (scheduledMessage = {}, { supabase = ge
       throw error;
     }
 
-    if (!data) {
+    if (!hotelRecord) {
       return { allowed: false, reason: 'hotel_live_config_missing' };
     }
+    // Keep the approved three-field dispatch snapshot unchanged. The full record
+    // is only used to recognize legacy name/status archives before starting.
+    const data = {id:hotelRecord.id,metadata:hotelRecord.metadata,ai_auto_reply_enabled:hotelRecord.ai_auto_reply_enabled};
 
     const autoReplyGate = shouldAiAutoRespond({
-      hotel: data,
+      hotel: hotelRecord,
       env
     });
 

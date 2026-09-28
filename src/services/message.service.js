@@ -1,3 +1,4 @@
+import {hotelOperationsHeld} from '../../shared/hotels/lifecycle.js';
 import crypto from 'node:crypto';
 import { getSupabase } from './supabase.service.js';
 import { isDemoMessageStagesContext } from '../../shared/demo-message-stages/server-provenance.js';
@@ -18,6 +19,9 @@ export const createManualMessageSender = ({ getClient = getSupabase, send = send
   if (isDemoMessageStagesContext({ hotelId, conversationId: conversation.id, guestId: conversation.guest_id })) {
     throw manualSendError('demo_external_blocked', 409);
   }
+  const {data: hotel,error: hotelError}=await client.from('hotels').select('*').eq('id',hotelId).maybeSingle();
+  if(hotelError)throw manualSendError('persistence_failed',503,true);
+  if(!hotel||hotelOperationsHeld(hotel))throw manualSendError('access_denied',403);
   const { data: guest, error: guestError } = await client.from('guests')
     .select('id, hotel_id, phone_number, preferred_language').eq('id', conversation.guest_id).eq('hotel_id', hotelId).maybeSingle();
   if (guestError) throw manualSendError('persistence_failed', 503, true);

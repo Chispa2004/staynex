@@ -1,3 +1,4 @@
+import {isArchivedHotel} from '../../shared/hotels/lifecycle.js';
 export const normalizeAuthEmail = (email) => String(email || '').trim().toLowerCase();
 
 export const attachUserToHotelInvitation = async ({ supabase, invitationId, userId }) => {
@@ -39,7 +40,7 @@ export const resolvePendingInvitationsForUser = async ({ supabase, user }) => {
 
   const { data: invitations, error } = await supabase
     .from('hotel_users')
-    .select('id')
+    .select('id, hotel:hotels(*)')
     .eq('email', email)
     .eq('status', 'invited')
     .is('user_id', null);
@@ -58,6 +59,7 @@ export const resolvePendingInvitationsForUser = async ({ supabase, user }) => {
   const resolved = [];
 
   for (const invitation of invitations) {
+    if(isArchivedHotel(invitation.hotel))continue;
     const row = await attachUserToHotelInvitation({
       supabase,
       invitationId: invitation.id,

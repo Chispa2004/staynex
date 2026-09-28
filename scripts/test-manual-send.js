@@ -12,7 +12,7 @@ const load=(file,bindings,names)=>new Function(...Object.keys(bindings),readFile
   .replace(/^import[\s\S]*?;\r?\n/gm,'').replaceAll('export const ','const ').replaceAll('export async function ','async function ')
   +'\nreturn {'+names.join(',')+'};')(...Object.values(bindings));
 const store=()=>{
-  const db={conversations:[{id:'ca',hotel_id:A,guest_id:'ga'},{id:'cb',hotel_id:B,guest_id:'gb'}],
+  const db={hotels:[{id:A},{id:B}],conversations:[{id:'ca',hotel_id:A,guest_id:'ga'},{id:'cb',hotel_id:B,guest_id:'gb'}],
     guests:[{id:'ga',hotel_id:A,phone_number:'+34900000001',preferred_language:'es'},{id:'gb',hotel_id:B,phone_number:'+34900000002'}],messages:[]};
   const calls=[];const client={from(table){let filters=[],action='select',values;const q={
     select(){return q;},eq(k,v){filters.push([k,v]);return q;},in(k,v){filters.push([k,v]);return q;},order(){return q;},limit(){return q;},range(start,end){q.bounds=[start,end];return q;},insert(v){action='insert';values=v;return q;},update(v){action='update';values=v;return q;},
@@ -32,7 +32,7 @@ const store=()=>{
     },maybeSingle:async()=>q.execute(true),single:async()=>q.execute(true),then:(a,b)=>Promise.resolve().then(()=>q.execute()).then(a,b)};return q;}};
   return {client,db,calls};
 };
-const input={hotelId:A,conversationId:'ca',message:'Hola 👋\n¿Cómo estás?',attemptId:ID};
+const input={hotelId:A,conversationId:'ca',message:'Hola ðŸ‘‹\n¿Cómo estás?',attemptId:ID};
 const setup=(options={})=>{const s=store(),sent=[],translations=[];const sender=createManualMessageSender({getClient:()=>s.client,detect:()=> 'es',
   translate:async args=>{translations.push(args);return options.translation||{translatedText:null,sourceLanguage:'es',targetLanguage:'es'};},
   send:async args=>{sent.push(args);if(options.error)throw options.error;return options.provider||accepted;}});return {...s,sent,translations,sender};};
@@ -43,7 +43,11 @@ await test('Valid Unicode/multiline message, accepted is not delivered, scoped r
   assert.equal(result.delivery.status,'accepted');assert.equal(result.delivery.persisted,true);assert.equal(s.sent[0].to,'+34900000001');assert.equal(s.sent[0].body,input.message);
   assert.equal(s.db.messages[0].content,input.message);assert.equal(s.db.messages[0].metadata.manual_send.provider_sid,sid);
   assert.equal(s.translations[0].hotelId,A);
-  for(const call of s.calls.filter(x=>x.action==='update'||x.action==='select'))assert.ok(call.filters.some(([k,v])=>k==='hotel_id'&&v===A));
+  for(const call of s.calls.filter(x=>x.action==='update'||x.action==='select'))assert.ok(call.filters.some(([k,v])=>k===(call.table==='hotels'?'id':'hotel_id')&&v===A));
+});
+
+await test('Archived and restored-held hotels cannot call translation or provider',async()=>{
+ for(const state of [{status:'archived'},{metadata:{archive_operational_hold:true}}]){const s=setup();Object.assign(s.db.hotels[0],state);await assert.rejects(()=>s.sender(input),e=>e.statusCode===403);assert.equal(s.sent.length,0);assert.equal(s.translations.length,0);assert.equal(s.db.messages.length,0);}
 });
 await test('Invalid bodies/types/length/attempt identifiers rejected before DB/provider/translation',async()=>{
   for(const value of [null,[],{}, {...input,message:{}},{...input,message:123},{...input,message:['hi']},{...input,message:'   '},{...input,message:'a'.repeat(1601)},

@@ -4,12 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PMS_PROVIDER_CATALOG } from '../dashboard/lib/pms-providers.js';
-import {
-  buildHotelArchiveFallbackUpdate,
-  buildHotelArchiveUpdate,
-  getScopedArchiveOperations,
-  isArchivedHotel
-} from '../dashboard/lib/platform-delete.js';
+import {isArchivedHotel} from '../shared/hotels/lifecycle.js';
 import {
   createPmsConnector,
   getPmsConnectorDefinition,
@@ -50,26 +45,10 @@ assert.equal(ubikosHealth.sandbox, true);
 assert.equal(ubikosHealth.readOnly, true);
 assert.ok(['not_configured', 'sandbox_configured'].includes(ubikosHealth.status), 'Ubikos should remain safe sandbox/read-only in phase 1');
 
-const archiveUpdate = buildHotelArchiveUpdate({
-  hotel: { id: 'hotel-a', name: 'Test Hotel', metadata: { source: 'test' } },
-  now: '2026-05-20T12:00:00.000Z',
-  actorId: 'platform-admin'
-});
-assert.equal(archiveUpdate.metadata.archived, true);
-assert.equal(isArchivedHotel(archiveUpdate), true);
-
-const fallbackUpdate = buildHotelArchiveFallbackUpdate({
-  hotel: { name: 'Pilot Hotel', workspace_slug: 'pilot-hotel' },
-  now: '2026-05-20T12:00:00.000Z'
-});
-assert.ok(fallbackUpdate.name.endsWith('(archived)'));
-assert.equal(Object.prototype.hasOwnProperty.call(fallbackUpdate, 'whatsapp_number'), false);
-assert.equal(isArchivedHotel(fallbackUpdate), true);
-
-const scopedOps = getScopedArchiveOperations('hotel-a', '2026-05-20T12:00:00.000Z');
-assert.ok(scopedOps.length >= 5);
-assert.ok(scopedOps.every((operation) => operation.matchColumn === 'hotel_id'));
-assert.ok(scopedOps.every((operation) => operation.matchValue === 'hotel-a'));
+assert.equal(isArchivedHotel({metadata:{archived:true}}),true);
+assert.equal(isArchivedHotel({name:'Legacy (archived)'}),true);
+assert.equal(isArchivedHotel({status:'active'}),false);
+// Atomic lifecycle behavior is exercised in test-hotel-lifecycle[-postgres].
 
 const providerApiSource = readFileSync(join(root, 'dashboard/app/api/platform/providers/route.js'), 'utf8');
 assert.ok(providerApiSource.includes("action === 'create_experience'"), 'Platform providers API should create experiences');

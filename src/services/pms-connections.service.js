@@ -1,3 +1,5 @@
+import { assertHotelOperationsAvailable } from '../../shared/hotels/lifecycle.js';
+import { getHotelById } from './hotel.service.js';
 import { getSupabase } from './supabase.service.js';
 import { encryptSecret, decryptSecret } from '../utils/encryption.js';
 import { logger } from '../utils/logger.js';
@@ -328,6 +330,7 @@ export const connectionToApaleoConfig = (connection) => {
 };
 
 export const testPmsConnection = async ({ hotelId, provider = 'apaleo' } = {}) => {
+  assertHotelOperationsAvailable(await getHotelById(hotelId));
   const connection = await getHotelPmsConnection({ hotelId, provider });
 
   if (!connection) {
@@ -407,6 +410,7 @@ export const syncHotelReservations = async ({
   pageSize = getPmsBatchSize(),
   maxReservations = getPmsMaxReservations()
 } = {}) => {
+  assertHotelOperationsAvailable(await getHotelById(hotelId));
   const connection = await getHotelPmsConnection({ hotelId, provider });
 
   if (!connection) {

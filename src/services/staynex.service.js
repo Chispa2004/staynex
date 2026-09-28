@@ -1,3 +1,4 @@
+import {assertHotelOperationsAvailable} from '../../shared/hotels/lifecycle.js';
 import { finalizeServiceReply, arrivalBookingTopic, guestFacingKnowledge } from '../../shared/guest-service/quality.js';
 import {
   createConversation,
@@ -341,6 +342,7 @@ export const prepareInboundGuestMessageForProcessing = async ({
     }
   }
 
+  assertHotelOperationsAvailable(activeHotel);
   const guest = await findOrCreateGuest({
     hotelId: activeHotel.id,
     phoneNumber: cleanPhone,

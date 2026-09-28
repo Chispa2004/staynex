@@ -1,12 +1,8 @@
 import { getCurrentHotelForRequest } from './current-hotel';
 import { writeEnterpriseAuditLog } from './enterprise-audit';
 import { canAccessPlatform } from './permissions';
-import {
-  buildHotelArchiveFallbackUpdate,
-  buildHotelArchiveUpdate,
-  getScopedArchiveOperations,
-  isArchivedHotel
-} from './platform-delete';
+import { isArchivedHotel } from '../../shared/hotels/lifecycle.js';
+export { archiveHotelWorkspace, restoreHotelWorkspace } from './hotel-lifecycle';
 import { buildReadinessForHotel } from './golive-readiness';
 import {
   pmsConnectionSelectForSurface,
@@ -147,178 +143,6 @@ export const writePlatformAuditLog = async ({
       target_email: targetEmail
     }
   });
-};
-
-export const archiveHotelWorkspace = async ({
-  supabase,
-  hotelId,
-  actor,
-  platformRole,
-  confirm = false
-}) => {
-  if (!confirm) {
-    const error = new Error('Delete confirmation is required');
-    error.status = 400;
-    throw error;
-  }
-
-  const { data: hotel, error: lookupError } = await supabase
-    .from('hotels')
-    .select('*')
-    .eq('id', hotelId)
-    .single();
-
-  if (lookupError) {
-    throw lookupError;
-  }
-
-  if (isArchivedHotel(hotel)) {
-    return {
-      ok: true,
-      mode: 'already_archived',
-      hotel,
-      related: []
-    };
-  }
-
-  const now = new Date().toISOString();
-  const archiveUpdate = buildHotelArchiveUpdate({
-    hotel,
-    now,
-    actorId: actor?.id || null
-  });
-  let archivedHotel = null;
-  let archiveMode = 'soft_delete';
-
-  await writePlatformAuditLog({
-    supabase,
-    actor,
-    platformRole,
-    action: 'hotel_archive_started',
-    hotelId,
-    metadata: {
-      hotel_name: hotel.name
-    }
-  });
-
-  const archiveResult = await supabase
-    .from('hotels')
-    .update(archiveUpdate)
-    .eq('id', hotelId)
-    .select('*')
-    .single();
-
-  if (archiveResult.error) {
-    const fallbackUpdate = buildHotelArchiveFallbackUpdate({ hotel, now });
-    const fallbackResult = await supabase
-      .from('hotels')
-      .update(fallbackUpdate)
-      .eq('id', hotelId)
-      .select('*')
-      .single();
-
-    if (fallbackResult.error) {
-      await writePlatformAuditLog({
-        supabase,
-        actor,
-        platformRole,
-        action: 'hotel_archive_failed',
-        hotelId,
-        metadata: {
-          hotel_name: hotel.name,
-          error: fallbackResult.error.message,
-          archive_error: archiveResult.error.message
-        }
-      });
-      await writePlatformAuditLog({
-        supabase,
-        actor,
-        platformRole,
-        action: 'hotel_workspace_delete_failed',
-        hotelId,
-        metadata: {
-          hotel_name: hotel.name,
-          error: fallbackResult.error.message,
-          archive_error: archiveResult.error.message
-        }
-      });
-      throw fallbackResult.error;
-    }
-
-    archivedHotel = fallbackResult.data;
-    archiveMode = 'fallback_archive';
-  } else {
-    archivedHotel = archiveResult.data;
-  }
-
-  const related = [];
-
-  for (const operation of getScopedArchiveOperations(hotelId, now)) {
-    try {
-      const { error } = await supabase
-        .from(operation.table)
-        .update(operation.update)
-        .eq(operation.matchColumn, operation.matchValue);
-
-      related.push({
-        table: operation.table,
-        ok: !error,
-        error: error?.message || null
-      });
-    } catch (error) {
-      related.push({
-        table: operation.table,
-        ok: false,
-        error: error.message
-      });
-    }
-  }
-
-  await writePlatformAuditLog({
-    supabase,
-    actor,
-    platformRole,
-    action: 'hotel_workspace_archived',
-    hotelId,
-    metadata: {
-      hotel_name: hotel.name,
-      archive_mode: archiveMode,
-      related
-    }
-  });
-
-  await writePlatformAuditLog({
-    supabase,
-    actor,
-    platformRole,
-    action: 'hotel_archive_success',
-    hotelId,
-    metadata: {
-      hotel_name: hotel.name,
-      delete_mode: archiveMode,
-      soft_delete: true
-    }
-  });
-
-  await writePlatformAuditLog({
-    supabase,
-    actor,
-    platformRole,
-    action: 'hotel_workspace_deleted',
-    hotelId,
-    metadata: {
-      hotel_name: hotel.name,
-      delete_mode: archiveMode,
-      soft_delete: true
-    }
-  });
-
-  return {
-    ok: true,
-    mode: archiveMode,
-    hotel: archivedHotel,
-    related
-  };
 };
 
 const byHotel = (rows, key = 'hotel_id') => rows.reduce((acc, row) => {
@@ -699,6 +523,7 @@ export const getPlatformOverview = async (supabase) => {
 
   return {
     hotels: hotelRows,
+    archivedHotels: hotels.filter(isArchivedHotel).map(({id, name, archived_at, archived_reason}) => ({id, name, archived_at, restorable: Boolean(archived_at && archived_reason === 'platform_archive_v1')})),
     metrics: {
       totalHotels: hotelRows.length,
       activeHotels: hotelRows.filter((hotel) => (hotel.stats.conversations > 0 || hotel.stats.reservations > 0 || hotel.pms?.enabled)).length,

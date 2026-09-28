@@ -1,3 +1,4 @@
+import {assertHotelOperationsAvailable} from '../../shared/hotels/lifecycle.js';
 import {
   createGuest,
   findGuestByPhone,
@@ -397,6 +398,7 @@ export const createOrUpdateReservation = async (data, options = {}) => {
   const hotel = requestedHotelId
     ? await getHotelById(requestedHotelId, { supabase: client }) || { id: requestedHotelId }
     : await getDefaultHotel({ supabase: client });
+  assertHotelOperationsAvailable(hotel);
   const hotelId = hotel.id;
   const guestPhone = normalizePhoneIfNeeded(data.guest_phone || data.guestPhone);
 
