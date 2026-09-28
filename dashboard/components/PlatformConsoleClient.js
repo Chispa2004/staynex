@@ -624,6 +624,8 @@ export const PlatformConsoleClient = () => {
   const [healthFilter, setHealthFilter] = useState('all');
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const noticeRef = useRef(null);
+  useEffect(() => { if (notice) noticeRef.current?.focus(); }, [notice]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [lifecycleAction,setLifecycleAction]=useState('archive');
 
@@ -760,7 +762,7 @@ export const PlatformConsoleClient = () => {
         </div>
       ) : null}
       {notice ? (
-        <div role="status" className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+        <div ref={noticeRef} tabIndex={-1} role="status" className={cn('rounded-xl border px-4 py-3 text-sm', isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
           {tx(notice)}
         </div>
       ) : null}
