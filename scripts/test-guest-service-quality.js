@@ -1,3 +1,4 @@
+import * as boundary from '../shared/guest-memory/personalization-boundary.js';
 import assert from 'node:assert/strict';import fs from 'node:fs';
 import * as quality from '../shared/guest-service/quality.js';
 import {buildStaynexUserPrompt} from '../src/prompts/staynex.prompt.js';
@@ -80,7 +81,7 @@ await test('Missing hotel knowledge never falls back to another hotel; AC drafts
  assert.equal(draft.text,quality.serviceCopy('es').pending);assert.equal(draft.draft,true);
 });
 await test('Optional Concierge uses the same scoped capabilities and facts; handoff templates cannot claim dispatch',()=>{
- const {buildPromptPayload}=load('src/services/openai-concierge.service.js',{...quality,isGuestMemoryEnabled:()=>false},['buildPromptPayload']);
+ const {buildPromptPayload}=load('src/services/openai-concierge.service.js',{...quality,...boundary,isGuestMemoryEnabled:()=>false},['buildPromptPayload']);
  const a=evaluationCases[0], b=evaluationCases[8];
  const payload=buildPromptPayload({...a,hotelKnowledge:[...a.hotelKnowledge,...b.hotelKnowledge],conversationContext:{...a.conversationContext,reservation:b.conversationContext.reservation}});
  assert.equal(payload.reservation,null);assert.equal(payload.service_capabilities.request_recording,true);

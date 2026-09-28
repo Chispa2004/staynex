@@ -1,3 +1,4 @@
+import * as boundary from '../../shared/guest-memory/personalization-boundary.js';
 import * as serviceQuality from '../../shared/guest-service/quality.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -61,14 +62,14 @@ export const assertMemoryOffBoundaries = async () => {
   await assertExecutiveMemoryOff();
   console.log('PASS OFF: executive handler and real source loaders do not read legacy memory');
 
-  // Captured provider request: OFF suppresses ONLY memory, not operational
+  // Captured provider request: OFF suppresses personal memory and profiles, not operational
   // guest content. Fake SDK and fake process env: never instantiate real OpenAI.
   let captured;
   class SimulatedOpenAI { chat = { completions: { create: async request => {
     captured = JSON.parse(request.messages[1].content);
     return { choices: [{ message: { content: JSON.stringify({ primary_intent: 'information' }) } }] };
   } } }; }
-  const concierge = load('src/services/openai-concierge.service.js', { ...serviceQuality, OpenAI: SimulatedOpenAI, logger, isGuestMemoryEnabled,
+  const concierge = load('src/services/openai-concierge.service.js', { ...serviceQuality, ...boundary, OpenAI: SimulatedOpenAI, logger, isGuestMemoryEnabled,
     process: { env: { AI_CONCIERGE_ENABLED: 'true', OPENAI_API_KEY: 'synthetic-not-a-key' } }, getAiTimeoutMs: () => 100,
     isAiCircuitBreakerOpen: () => false, recordAiSuccess() {}, recordAiFailure() {}
   }, ['enhanceConciergeIntelligence']);
@@ -77,19 +78,16 @@ export const assertMemoryOffBoundaries = async () => {
       reservation: { id: 'synthetic-reservation' }, guestIntelligence: { profileSummary: 'Independent profile' } } });
   assert.equal(response.ok, true); assert.deepEqual(captured.guest_memory, []);
   assert.equal(captured.guest.phone_number, 'synthetic-phone'); assert.equal(captured.current_message, 'Synthetic current message');
-  assert.equal(captured.reservation.id, 'synthetic-reservation'); assert.equal(captured.guest_intelligence.profileSummary, 'Independent profile');
-  console.log('PASS OFF: simulated provider gets no Guest Memory, but still gets independent operational/profile context');
+  assert.equal(captured.reservation.id, 'synthetic-reservation'); assert.equal(captured.guest_intelligence, null);
+  console.log('PASS OFF: simulated provider gets no Guest Memory, but still gets current operational context');
 
   const profileDb = spyDb();
-  const intelligence = load('src/services/guest-intelligence.service.js', { getSupabase: () => profileDb, logger }, ['persistGuestIntelligenceProfile']);
+  const intelligence = load('src/services/guest-intelligence.service.js', { getSupabase: () => profileDb, logger, isGuestMemoryEnabled }, ['persistGuestIntelligenceProfile']);
   await intelligence.persistGuestIntelligenceProfile({ hotelId: 'h', guestId: 'g', affinities: {}, sentimentScore: 50,
     signals: [{ signalType: 'synthetic', detectedFrom: 'Synthetic message' }], metadata: { detected_from: 'Synthetic message' } });
-  for (const table of ['guest_intelligence_profiles', 'guest_interest_affinities', 'guest_behavior_signals', 'guest_sentiment_history']) {
-    assert.ok(profileDb.calls.some(call => call.table === table && call.payload), table);
-  }
-  assert.ok(profileDb.calls.some(call => call.payload?.detected_from === 'Synthetic message'));
+  assert.equal(profileDb.calls.length, 0);
   const profile = load('src/services/guest-memory-ai.service.js', { getSupabase: () => profileDb, logger, isGuestMemoryEnabled }, ['generateGuestProfile']);
   assert.deepEqual((await profile.generateGuestProfile({ hotelId: 'h', guestId: 'g' })).memories, []);
-  assert.ok(profileDb.calls.some(call => call.table === 'reservations')); assert.ok(profileDb.calls.some(call => call.table === 'ai_logs'));
-  console.log('PASS OFF: independent profile/affinity/signal/sentiment persistence and operational profile reads remain active');
+  assert.equal(profileDb.calls.length, 0);
+  console.log('PASS OFF: profile/affinity/signal/sentiment persistence and personal profile reads are blocked');
 };

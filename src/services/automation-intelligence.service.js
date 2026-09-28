@@ -1,3 +1,5 @@
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
+import { operationalPmsContext } from '../../shared/guest-memory/personalization-boundary.js';
 import {
   getDefaultAutomationConfigs,
   getEngineAutomationTypesMap
@@ -235,6 +237,12 @@ export const evaluateAutomationOpportunity = ({
   recentRuns = [],
   recentScheduledMessages = []
 }) => {
+  if (!isGuestMemoryEnabled()) {
+    guestMemory = [];
+    guestIntelligenceContext = null;
+    pmsIntelligenceContext = operationalPmsContext(pmsIntelligenceContext);
+    guest = { ...guest, vip: undefined, score: undefined };
+  }
   const type = automation.type || automation.automation_type;
   const guestId = reservation.guest_id || guest?.id || null;
   const fatigueScore = calculateFatigueScore({ recentRuns, recentScheduledMessages, guestId });

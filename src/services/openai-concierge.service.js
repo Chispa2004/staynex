@@ -1,3 +1,4 @@
+import { operationalPmsContext } from '../../shared/guest-memory/personalization-boundary.js';
 import { GUEST_SERVICE_POLICY, sameHotelRows, serviceContext, buildArrivalBookingContext, arrivalBookingTopic, guestFacingKnowledge } from '../../shared/guest-service/quality.js';
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';
@@ -133,6 +134,16 @@ const buildPromptPayload = ({
 }) => {
   hotelKnowledge = arrivalBookingTopic(message,conversationContext.recentMessages) ? guestFacingKnowledge(hotelKnowledge,hotel?.id) : hotelKnowledge;
   const guestMemory = isGuestMemoryEnabled() ? conversationContext.guestMemory || [] : [];
+  const scopedGuestMemory = sameHotelRows(guestMemory, hotel?.id)
+    .filter(row => !row.guest_id || row.guest_id === guest?.id);
+  const profile = conversationContext.guestIntelligence?.profile || conversationContext.guestIntelligence;
+  const ownProfile = isGuestMemoryEnabled() && profile
+    && (profile.hotel_id || profile.hotelId) === hotel?.id
+    && (profile.guest_id || profile.guestId) === guest?.id;
+  const pmsContext = conversationContext.pmsIntelligenceContext || conversationContext.pms_intelligence_context || null;
+  const stay = pmsContext?.guestStayContext;
+  const ownStay = (!stay?.hotel_id || stay.hotel_id === hotel?.id)
+    && (!stay?.guest_id || stay.guest_id === guest?.id);
 
   return {
   arrival_booking: buildArrivalBookingContext({hotel,guest,message,hotelKnowledge,conversationContext}),
@@ -157,9 +168,9 @@ const buildPromptPayload = ({
   language: conversationContext.language || guest?.preferred_language || hotel?.default_language || 'es',
   recent_messages: compactRows(sameHotelRows(conversationContext.recentMessages, hotel?.id), ['sender_type', 'content', 'created_at']),
   reservation: serviceContext({hotel, guest, conversationContext}).reservation,
-  pms_intelligence_context: conversationContext.pmsIntelligenceContext || conversationContext.pms_intelligence_context || null,
-  guest_intelligence: conversationContext.guestIntelligence || null,
-  guest_memory: compactRows(guestMemory, ['memory_type', 'memory_key', 'memory_value', 'confidence']),
+  pms_intelligence_context: ownStay ? operationalPmsContext(pmsContext, isGuestMemoryEnabled()) : null,
+  guest_intelligence: ownProfile ? conversationContext.guestIntelligence : null,
+  guest_memory: compactRows(scopedGuestMemory, ['memory_type', 'memory_key', 'memory_value', 'confidence']),
   open_tickets: compactRows(sameHotelRows(conversationContext.openTickets, hotel?.id), ['category', 'priority', 'status', 'title']),
   hotel_knowledge: sameHotelRows(hotelKnowledge, hotel?.id).slice(0, 40).map(({key,value,category,title})=>({key,value,category,title})),
   local_knowledge: compactRows(sameHotelRows(conversationContext.localKnowledge, hotel?.id), ['title', 'short_description', 'description', 'category', 'tags', 'audience_tags', 'recommendation_contexts', 'weather_tags', 'featured', 'priority']),
@@ -276,7 +287,7 @@ export const enhanceConciergeIntelligence = async ({
     const completion = await getClient().chat.completions.create({
       model,
       messages: [
-        { role: 'system', content: CONCIERGE_SYSTEM_PROMPT },
+        { role: 'system', content: CONCIERGE_SYSTEM_PROMPT + (isGuestMemoryEnabled() ? '' : '\nPersonal memory is disabled. Do not extract personal profiles, affinities or guest insights for future conversations. Attend the current request using only operational context.') },
         { role: 'user', content: JSON.stringify(payload) }
       ],
       response_format: {
@@ -284,12 +295,17 @@ export const enhanceConciergeIntelligence = async ({
         json_schema: {
           name: 'staynex_concierge_intelligence',
           strict: true,
-          schema: responseSchema
+          schema: isGuestMemoryEnabled() ? responseSchema : {
+            ...responseSchema,
+            required: responseSchema.required.filter(key => key !== 'guest_insights'),
+            properties: Object.fromEntries(Object.entries(responseSchema.properties).filter(([key]) => key !== 'guest_insights'))
+          }
         }
       }
     });
 
     const result = parseResult(completion);
+    if (!isGuestMemoryEnabled()) result.guest_insights = [];
 
     logger.info('openai_concierge_success', {
       model,
@@ -327,6 +343,8 @@ export const enhanceConciergeIntelligence = async ({
 export const generateConciergeResponse = enhanceConciergeIntelligence;
 export const analyzeConversationIntent = enhanceConciergeIntelligence;
 export const generateConversationSummary = enhanceConciergeIntelligence;
-export const generateGuestInsights = enhanceConciergeIntelligence;
+export const generateGuestInsights = async (...args) => isGuestMemoryEnabled()
+  ? enhanceConciergeIntelligence(...args)
+  : { ok: false, disabled: true, reason: 'feature_disabled' };
 export const detectOperationalRisk = enhanceConciergeIntelligence;
 export const detectRevenueOpportunity = enhanceConciergeIntelligence;

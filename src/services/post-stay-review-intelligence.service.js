@@ -102,6 +102,8 @@ export const analyzePostStayReviewStrategy = ({
   guestMemory = [],
   intelligenceProfile = null
 } = {}) => {
+  const memoryEnabled = isGuestMemoryEnabled();
+  if (!memoryEnabled) { guestMemory = []; intelligenceProfile = null; }
   const config = getHotelReviewConfig(hotel);
   const text = getTextCorpus({ messages, tickets, aiLogs, guestMemory });
   const positiveSignals = countMatches(text, positivePatterns);
@@ -114,10 +116,10 @@ export const analyzePostStayReviewStrategy = ({
   const reviewRiskScore = Number(
     intelligenceProfile?.review_risk_score
     || intelligenceProfile?.reviewRiskScore
-    || guest?.metadata?.review_risk_score
+    || (memoryEnabled ? guest?.metadata?.review_risk_score : 0)
     || 0
   );
-  const vipScore = Number(intelligenceProfile?.vip_score || intelligenceProfile?.vipScore || guest?.metadata?.vip_score || 0);
+  const vipScore = Number(intelligenceProfile?.vip_score || intelligenceProfile?.vipScore || (memoryEnabled ? guest?.metadata?.vip_score : 0) || 0);
   const hasConversationEvidence = messages.length > 0 || tickets.length > 0 || aiLogs.length > 0 || guestMemory.length > 0;
   const reasons = [];
 
@@ -454,25 +456,26 @@ export const runPostStayReviewIntelligence = async ({
     const guestMemoryEnabled = isGuestMemoryEnabled();
     const [hotels, guests, conversations, states, messages, tickets, aiLogs, guestMemory, profiles, existingMessages, existingRuns] = await Promise.all([
       hotelIds.length ? safeRows(supabase.from('hotels').select('*').in('id', hotelIds)) : [],
-      guestIds.length ? safeRows(supabase.from('guests').select('*').in('id', guestIds)) : [],
-      guestIds.length ? safeRows(supabase.from('conversations').select('*').in('guest_id', guestIds)) : [],
-      guestIds.length ? safeRows(supabase.from('conversation_ai_state').select('*').in('guest_id', guestIds)).catch(() => []) : [],
-      guestIds.length ? safeRows(supabase.from('messages').select('*').in('guest_id', guestIds)).catch(() => []) : [],
-      guestIds.length ? safeRows(supabase.from('tickets').select('*').in('guest_id', guestIds)).catch(() => []) : [],
-      guestIds.length ? safeRows(supabase.from('ai_logs').select('*').in('guest_id', guestIds)).catch(() => []) : [],
-      guestMemoryEnabled && guestIds.length ? safeRows(supabase.from('guest_memory').select('*').in('guest_id', guestIds)).catch(() => []) : [],
-      guestIds.length ? safeRows(supabase.from('guest_intelligence_profiles').select('*').in('guest_id', guestIds)).catch(() => []) : [],
+      guestIds.length ? safeRows(supabase.from('guests').select('*').in('id', guestIds).in('hotel_id', hotelIds)) : [],
+      guestIds.length ? safeRows(supabase.from('conversations').select('*').in('guest_id', guestIds).in('hotel_id', hotelIds)) : [],
+      guestIds.length ? safeRows(supabase.from('conversation_ai_state').select('*').in('guest_id', guestIds).in('hotel_id', hotelIds)).catch(() => []) : [],
+      guestIds.length ? safeRows(supabase.from('messages').select('*').in('guest_id', guestIds).in('hotel_id', hotelIds)).catch(() => []) : [],
+      guestIds.length ? safeRows(supabase.from('tickets').select('*').in('guest_id', guestIds).in('hotel_id', hotelIds)).catch(() => []) : [],
+      guestIds.length ? safeRows(supabase.from('ai_logs').select('*').in('guest_id', guestIds).in('hotel_id', hotelIds)).catch(() => []) : [],
+      guestMemoryEnabled && guestIds.length ? safeRows(supabase.from('guest_memory').select('*').in('guest_id', guestIds).in('hotel_id', hotelIds)).catch(() => []) : [],
+      guestMemoryEnabled && guestIds.length ? safeRows(supabase.from('guest_intelligence_profiles').select('*').in('guest_id', guestIds).in('hotel_id', hotelIds)).catch(() => []) : [],
       reservationIds.length ? safeRows(supabase.from('scheduled_messages').select('*').in('reservation_id', reservationIds)).catch(() => []) : [],
       reservationIds.length ? safeRows(supabase.from('automation_runs').select('*').in('reservation_id', reservationIds)).catch(() => []) : []
     ]);
     const hotelsById = new Map(hotels.map((hotel) => [hotel.id, hotel]));
     const guestsById = new Map(guests.map((guest) => [guest.id, guest]));
-    const conversationsByGuestId = new Map(conversations.map((conversation) => [conversation.guest_id, conversation]));
+    const scopeKey = (hotelId, guestId) => JSON.stringify([hotelId, guestId]);
+    const conversationsByGuestId = new Map(conversations.map((conversation) => [scopeKey(conversation.hotel_id, conversation.guest_id), conversation]));
     const statesByConversationId = new Map(states.map((state) => [state.conversation_id, state]));
     const byGuest = (rows) => rows.reduce((map, row) => {
-      const list = map.get(row.guest_id) || [];
+      const list = map.get(scopeKey(row.hotel_id, row.guest_id)) || [];
       list.push(row);
-      map.set(row.guest_id, list);
+      map.set(scopeKey(row.hotel_id, row.guest_id), list);
       return map;
     }, new Map());
     const messagesByGuest = byGuest(messages);
@@ -483,18 +486,20 @@ export const runPostStayReviewIntelligence = async ({
 
     for (const reservation of reservations) {
       const hotel = hotelsById.get(reservation.hotel_id) || { id: reservation.hotel_id };
-      const guest = guestsById.get(reservation.guest_id) || null;
-      const conversation = conversationsByGuestId.get(reservation.guest_id) || null;
+      const matchedGuest = guestsById.get(reservation.guest_id);
+      const guest = matchedGuest?.hotel_id === reservation.hotel_id ? matchedGuest : null;
+      const key = scopeKey(reservation.hotel_id, reservation.guest_id);
+      const conversation = conversationsByGuestId.get(key) || null;
       const conversationState = conversation ? statesByConversationId.get(conversation.id) : null;
-      const profile = profilesByGuest.get(reservation.guest_id)?.[0] || null;
+      const profile = profilesByGuest.get(key)?.[0] || null;
       const analysis = analyzePostStayReviewStrategy({
         hotel,
         reservation,
         guest,
-        messages: messagesByGuest.get(reservation.guest_id) || [],
-        tickets: ticketsByGuest.get(reservation.guest_id) || [],
-        aiLogs: aiLogsByGuest.get(reservation.guest_id) || [],
-        guestMemory: memoryByGuest.get(reservation.guest_id) || [],
+        messages: messagesByGuest.get(key) || [],
+        tickets: ticketsByGuest.get(key) || [],
+        aiLogs: aiLogsByGuest.get(key) || [],
+        guestMemory: memoryByGuest.get(key) || [],
         intelligenceProfile: profile
       });
 

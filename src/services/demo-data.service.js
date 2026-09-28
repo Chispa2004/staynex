@@ -600,6 +600,8 @@ const createDemoMemoryAndSignals = async ({ hotelId, guest, scenario }) => {
     });
   }
 
+  if (!isGuestMemoryEnabled()) return;
+
   await safeUpsert({
     table: 'guest_ai_profiles',
     onConflict: 'hotel_id,guest_id',

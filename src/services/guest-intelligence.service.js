@@ -1,3 +1,4 @@
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 
@@ -217,6 +218,7 @@ export const buildGuestIntelligenceProfile = ({
   country = null,
   source = 'conversation'
 } = {}) => {
+  if (!isGuestMemoryEnabled()) return null;
   const signals = detectBehaviorSignals({
     message,
     recentMessages,
@@ -283,6 +285,7 @@ export const buildGuestIntelligenceProfile = ({
 };
 
 export const persistGuestIntelligenceProfile = async (profile) => {
+  if (!isGuestMemoryEnabled()) return null;
   if (!profile?.hotelId || !profile?.guestId) return null;
   const supabase = getSupabase();
   const now = new Date().toISOString();
@@ -362,6 +365,7 @@ export const persistGuestIntelligenceProfile = async (profile) => {
 };
 
 export const getGuestIntelligenceContext = async ({ hotelId, guestId } = {}) => {
+  if (!isGuestMemoryEnabled()) return null;
   if (!hotelId || !guestId) return null;
   const supabase = getSupabase();
   const [profile, affinities, prediction, signals] = await Promise.all([

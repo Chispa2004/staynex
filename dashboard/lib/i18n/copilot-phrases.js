@@ -1,5 +1,6 @@
 // Staff presentation only: never translate or rewrite suggestedReply here.
 export const copilotPhrases = [
+  ["Memoria personal desactivada", "Personal memory disabled"],
   ['Alerta urgente activa. Revisa la incidencia aunque el control sea humano.', 'Active urgent alert. Review the incident even when human control is active.'],
   ["Cargando seguimiento…", "Loading message tracking…"],
   ["La sesión ha caducado. Vuelve a iniciar sesión para consultar el seguimiento.", "Your session has expired. Sign in again to view message tracking."],

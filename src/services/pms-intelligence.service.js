@@ -1,3 +1,5 @@
+import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
+import { operationalStayContext, operationalPmsContext } from '../../shared/guest-memory/personalization-boundary.js';
 import { getSupabase } from './supabase.service.js';
 import { isDemoMessageStagesReservation } from '../../shared/demo-message-stages/server-provenance.js';
 import { logger } from '../utils/logger.js';
@@ -55,7 +57,7 @@ export const buildGuestStayContextFromReservation = ({
     now
   });
 
-  return {
+  return operationalStayContext({
     hotel_id: reservation.hotel_id || reservation.hotelId || null,
     guest_id: reservation.guest_id || reservation.guestId || null,
     reservation_id: reservation.id || reservation.reservation_id || null,
@@ -84,7 +86,7 @@ export const buildGuestStayContextFromReservation = ({
       pms_reservation_id: reservation.pms_reservation_id || null,
       status: reservation.status || null
     }
-  };
+  }, isGuestMemoryEnabled());
 };
 
 export const persistReservationOperationalContext = async ({
@@ -208,7 +210,7 @@ export const buildPmsIntelligenceContext = async ({
       occupancy: occupancySnapshot
     })
     : null;
-  const context = stayContext || fallbackContext || {};
+  const context = operationalStayContext(stayContext || fallbackContext || {}, isGuestMemoryEnabled());
   const occupancy = getOccupancyContext(occupancySnapshot);
   const warnings = [
     !stayContext && reservation ? 'guest_stay_context_fallback_from_reservation' : null,
@@ -226,7 +228,7 @@ export const buildPmsIntelligenceContext = async ({
     Number(context.vip_score || 0) >= 70 ? 'vip_follow_up' : null
   ].filter(Boolean);
 
-  return {
+  return operationalPmsContext({
     stayPhase: context.stay_phase || null,
     roomStatus: roomStatus ? {
       roomNumber: roomStatus.room_number,
@@ -247,7 +249,7 @@ export const buildPmsIntelligenceContext = async ({
     recommendedActions,
     guestStayContext: context,
     hotelSummary: summary
-  };
+  }, isGuestMemoryEnabled());
 };
 
 export const runPmsIntelligenceRefresh = async ({

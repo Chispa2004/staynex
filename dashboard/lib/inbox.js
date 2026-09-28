@@ -1,3 +1,4 @@
+import { operationalStayContext } from '../../shared/guest-memory/personalization-boundary.js';
 import { messageStayStage, readAllInboxRows } from '../../shared/inbox/stay-stage.js';
 import { guestFacingKnowledge } from '../../shared/guest-service/arrival-booking.js';
 import { getSupabaseAdmin } from './supabase';
@@ -475,6 +476,7 @@ const getReservationIdentityLookups = async ({ supabase, guestIds, guestPhones, 
 };
 
 const getGuestIntelligenceByGuest = async ({ supabase, guestIds, hotelId }) => {
+  if (!isGuestMemoryEnabled()) return new Map();
   if (!guestIds.length || !hotelId) {
     return new Map();
   }
@@ -614,7 +616,7 @@ const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, 
     const conversationMessages = messagesByConversation.get(conversation.id) || [];
     const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
     const guest = guestsById.get(conversation.guest_id) || null;
-    const guestStayContext = stayContextByGuest.get(conversation.guest_id) || null;
+    const guestStayContext = operationalStayContext(stayContextByGuest.get(conversation.guest_id) || null, guestMemoryEnabled);
     const reservation = reservationIdentityLookups.byGuestId.get(conversation.guest_id)
       || reservationIdentityLookups.byPhone.get(normalizePhone(guest?.phone_number))
       || null;
