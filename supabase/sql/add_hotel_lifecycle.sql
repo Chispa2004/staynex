@@ -83,9 +83,13 @@ GRANT EXECUTE ON FUNCTION public.hotel_lifecycle_v1(uuid,uuid,text,timestamptz,t
 -- Ordinary configuration saves cannot clear the hold or rewrite archive state.
 CREATE OR REPLACE FUNCTION public.hotel_lifecycle_guard_v1() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE rec public.hotel_lifecycle_history;
+DECLARE rec public.hotel_lifecycle_history; was_archived boolean := false; becomes_archived boolean;
 BEGIN
+  IF TG_OP='UPDATE' THEN was_archived := OLD.archived_at IS NOT NULL OR OLD.deleted_at IS NOT NULL OR coalesce(OLD.status='archived',false) OR coalesce(OLD.metadata->>'archived','false') <> 'false' OR coalesce(OLD.name LIKE '% (archived)',false); END IF;
+  becomes_archived := NEW.archived_at IS NOT NULL OR NEW.deleted_at IS NOT NULL OR coalesce(NEW.status='archived',false) OR coalesce(NEW.metadata->>'archived','false') <> 'false' OR coalesce(NEW.name LIKE '% (archived)',false);
   SELECT * INTO rec FROM public.hotel_lifecycle_history WHERE hotel_id=NEW.id;
+  IF becomes_archived AND NOT was_archived AND rec.active IS DISTINCT FROM true THEN RAISE EXCEPTION 'Solo el contrato administrativo puede archivar un hotel.'; END IF;
+  IF was_archived AND NOT becomes_archived AND (rec.hotel_id IS NULL OR rec.active) THEN RAISE EXCEPTION 'No se puede restaurar sin estado previo acreditado y autorización administrativa.'; END IF;
   IF rec.hotel_id IS NOT NULL THEN
     IF NEW.metadata IS NOT NULL AND jsonb_typeof(NEW.metadata) <> 'object' THEN RAISE EXCEPTION 'Metadata incompatible.'; END IF;
     NEW.metadata := coalesce(NEW.metadata,'{}'::jsonb)||'{"archive_operational_hold":true}'::jsonb;
@@ -100,14 +104,14 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.hotel_lifecycle_guard_v1() FROM PUBLIC,anon,authenticated,service_role;
 DROP TRIGGER IF EXISTS hotel_lifecycle_guard_v1 ON public.hotels;
-CREATE TRIGGER hotel_lifecycle_guard_v1 BEFORE UPDATE ON public.hotels FOR EACH ROW EXECUTE FUNCTION public.hotel_lifecycle_guard_v1();
+CREATE TRIGGER hotel_lifecycle_guard_v1 BEFORE INSERT OR UPDATE ON public.hotels FOR EACH ROW EXECUTE FUNCTION public.hotel_lifecycle_guard_v1();
 
 -- Serializes invitation activation with archive without changing assignments.
 CREATE OR REPLACE FUNCTION public.hotel_archive_invitation_guard_v1() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 DECLARE h public.hotels;
 BEGIN
-  IF NEW.status='active' AND (TG_OP='INSERT' OR OLD.status IS DISTINCT FROM 'active') THEN
+  IF NEW.status='active' AND (TG_OP='INSERT' OR OLD.status IS DISTINCT FROM 'active' OR NEW.hotel_id IS DISTINCT FROM OLD.hotel_id) THEN
     SELECT * INTO h FROM public.hotels WHERE id=NEW.hotel_id FOR SHARE;
     IF h.archived_at IS NOT NULL OR h.deleted_at IS NOT NULL OR h.status='archived'
       OR coalesce(h.metadata->>'archived','false') <> 'false' OR h.name LIKE '% (archived)' THEN

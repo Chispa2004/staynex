@@ -31,6 +31,7 @@ try {
  CREATE TABLE tickets(LIKE reservations INCLUDING ALL);INSERT INTO tickets VALUES(1,'${id(10)}','open');
  CREATE TABLE automation_events(id int PRIMARY KEY,hotel_id uuid REFERENCES hotels,metadata jsonb);INSERT INTO automation_events VALUES(1,'${id(10)}','{"keep":"original"}');
  CREATE TABLE experience_booking_requests(LIKE reservations INCLUDING ALL);INSERT INTO experience_booking_requests VALUES(1,'${id(10)}','confirmed');`);
+ sql(`UPDATE hotels SET metadata='{"archived":true}' WHERE id='${id(14)}'; UPDATE hotels SET name='Legacy (archived)' WHERE id='${id(15)}';`);
  const migration=readFileSync(new URL('../supabase/sql/add_hotel_lifecycle.sql',import.meta.url),'utf8');
  sql('ALTER TABLE hotels RENAME COLUMN metadata TO incompatible_metadata;');assert.throws(()=>sql(migration));assert.equal(sql("SELECT to_regclass('hotel_lifecycle_history');"),'');sql('ALTER TABLE hotels RENAME COLUMN incompatible_metadata TO metadata;');pass('incompatible catalog aborts before any migration change');
  sql(migration);sql(migration);assert.equal(sql("SELECT data_type FROM information_schema.columns WHERE table_name='hotels' AND column_name='status';"),'text');
@@ -60,7 +61,8 @@ try {
  const raced=await Promise.all(Array.from({length:8},()=>parallel(call(13)).then(JSON.parse)));assert.equal(raced.filter(x=>!x.replayed).length,1);assert.equal(new Set(raced.map(x=>x.hotel.archived_at)).size,1);pass('eight concurrent archives serialize without losing prior state');
  const stamp=raced[0].hotel.archived_at;const restores=await Promise.all(Array.from({length:8},()=>parallel(call(13,'restore',stamp)).then(JSON.parse)));assert.equal(restores.filter(x=>!x.replayed).length,1);pass('eight concurrent restores serialize and replay safely');
  const mixed=await Promise.allSettled([parallel(call(13)),parallel(call(13,'restore',stamp))]);assert.equal(mixed[0].status,'fulfilled');assert.equal(sql(`SELECT status FROM hotels WHERE id='${id(13)}';`),'archived');pass('stale concurrent restore cannot erase new archive');
- sql(`UPDATE hotels SET status='archived',archived_at=now() WHERE id='${id(14)}'; UPDATE hotels SET name='Legacy (archived)' WHERE id='${id(15)}';`);
+ for(const patch of ["status='archived'","metadata='{\"archived\":true}'","name='Bypass (archived)'"])assert.throws(()=>sql(`UPDATE hotels SET ${patch} WHERE id='${id(17)}';`));
+ assert.throws(()=>sql(`UPDATE hotels SET metadata='{}' WHERE id='${id(14)}';`));assert.throws(()=>sql(`UPDATE hotels SET name='Unarchived' WHERE id='${id(15)}';`));pass('ordinary writes cannot bypass archive authority or restore legacy archives');
  for(const n of [14,15]){const h=run(n);assert.equal(h.legacy,true);assert.throws(()=>run(n,'restore',h.hotel.archived_at));}pass('legacy archives have no invented recovery data');
  assert.throws(()=>sql(`UPDATE hotels SET status='active' WHERE id='${id(13)}';`));
  sql('ALTER TABLE hotels DISABLE TRIGGER hotel_lifecycle_guard_v1;');sql(`UPDATE hotels SET archived_reason='later modification' WHERE id='${id(13)}';`);sql('ALTER TABLE hotels ENABLE TRIGGER hotel_lifecycle_guard_v1;');
