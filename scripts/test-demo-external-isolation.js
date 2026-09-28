@@ -5,6 +5,7 @@ import { demoMessageStages } from './demo-message-stages.js';
 import * as provenance from '../shared/demo-message-stages/server-provenance.js';
 import * as catalog from '../shared/automations/catalog.js';
 import * as lifecycle from '../shared/automations/reservation-lifecycle.js';
+import * as hotelLifecycle from '../shared/hotels/lifecycle.js';
 import * as safePms from '../shared/pms/safe-connection.js';
 import * as language from '../src/services/language.service.js';
 import * as manual from '../shared/manual-send/contract.js';
@@ -15,7 +16,7 @@ import { isGuestMemoryEnabled } from '../shared/guest-memory/feature-flag.js';
 assert.equal(process.env.SEND_AUTOMATIONS, 'false', 'Run with SEND_AUTOMATIONS=false');
 const logger = { info(){}, warn(){}, error(){} };
 const load = (file, supplied, names) => {
-  const bindings = { ...provenance, ...catalog, ...lifecycle, ...safePms, logger, ...supplied };
+  const bindings = { ...provenance, ...catalog, ...lifecycle, ...hotelLifecycle, ...safePms, logger, ...supplied };
   const source = readFileSync(new URL('../'+file, import.meta.url), 'utf8')
     .replace(/^import[\s\S]*?;\r?\n/gm, '').replaceAll('export const ', 'const ');
   return new Function(...Object.keys(bindings), source+'\nreturn {'+names.join(',')+'};')(...Object.values(bindings));
@@ -68,7 +69,7 @@ await test('Manual send rejects demo even with edited valid phone; no translatio
     assert.equal(db.writes.length,0);
   }
   assert.equal(calls.whatsapp,0);assert.equal(calls.translation,0);
-  const db=dbFor({conversations:[{id:'normal-chat',hotel_id:H,guest_id:'normal'}],guests:[{id:'normal',hotel_id:H,phone_number:'+34900000001'}]});
+  const db=dbFor({hotels:[{id:H,status:'active'}],conversations:[{id:'normal-chat',hotel_id:H,guest_id:'normal'}],guests:[{id:'normal',hotel_id:H,phone_number:'+34900000001'}]});
   const send=createManualMessageSender({getClient:()=>db.client,detect:()=> 'es',translate:async()=>({translatedText:null}),send:async()=>{calls.whatsapp++;return {sid:'SM'+'a'.repeat(32),status:'queued'};}});
   const result=await send({hotelId:H,conversationId:'normal-chat',message:'Synthetic ordinary reply'});
   assert.equal(result.delivery.status,'accepted');assert.equal(calls.whatsapp,1);

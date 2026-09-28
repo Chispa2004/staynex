@@ -86,6 +86,7 @@ export async function PATCH(request) {
       return NextResponse.json({ ok: false, error: 'enabled must be true or false' }, { status: 400, ...noStore });
     }
 
+    if(body.enabled && getHotelAiAutoReplyStatus(hotel).reason === 'hotel_operations_held')return NextResponse.json({error:'La actividad permanece suspendida tras el archivo. Se requiere revisión administrativa independiente.'},{status:409,...noStore});
     const now = new Date().toISOString();
     const previousStatus = getHotelAiAutoReplyStatus(hotel);
 

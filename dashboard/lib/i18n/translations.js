@@ -3044,3 +3044,17 @@ export const translatePhrase = (language, value, replacements = {}) => {
 
   return replace(source);
 };
+
+const hotelArchivePhrases = [
+ ['Archivo antiguo: se requiere revisar los estados anteriores antes de recuperar el acceso.','Legacy archive: previous states must be reviewed before recovering access.'],
+ ['La actividad permanece suspendida tras el archivo. Se requiere revisión administrativa independiente.','Activity remains suspended after archiving. A separate administrative review is required.'],
+ ['Archivar hotel','Archive hotel'],['Restaurar hotel','Restore hotel'],['Confirmar archivado','Confirm archive'],['Confirmar restauración','Confirm restore'],['Guardando…','Saving…'],['Hoteles archivados','Archived hotels'],
+ ['Operación confirmada. Los datos se conservan y la actividad automática permanece suspendida.','Operation confirmed. Data is preserved and automatic activity remains suspended.'],
+ ['No participan en las métricas activas. Restaurar conserva las revocaciones y no reanuda envíos.','Excluded from active metrics. Restoration preserves revocations and does not resume sending.'],
+ ['Recupera el estado anterior del hotel y el acceso según los permisos actuales. No reactiva accesos deshabilitados ni acepta invitaciones.','Restores the previous hotel status and access under current permissions. Does not reactivate disabled access or accept invitations.'],
+ ['Suspende el acceso operativo al hotel. Conserva los datos, las asignaciones, las conexiones y los estados de conversaciones, reservas y tickets. No elimina datos.','Suspends hotel operations. Preserves data, assignments, connections and the states of conversations, reservations and tickets. No data is deleted.'],
+ ['La actividad automática y los conectores quedan suspendidos incluso después de restaurar. No se reencolan mensajes ni se reanudan envíos. Su reanudación requiere una revisión administrativa independiente.','Automatic activity and connectors remain suspended after restoration. Messages are not requeued and sending does not resume. Resumption requires a separate administrative review.'],
+ ['Las acciones ya aceptadas por un proveedor no pueden cancelarse retroactivamente.','Actions already accepted by a provider cannot be cancelled retroactively.'],
+ ['Los archivos antiguos sin información previa o con conflictos requieren revisión; no se recuperan por suposición.','Legacy archives without previous state or with conflicts require review; restoration is never inferred.']
+];
+for(const [es,en] of hotelArchivePhrases){phraseTranslations.es[es]=es;phraseTranslations.en[es]=en;}

@@ -1,3 +1,4 @@
+import { hotelOperationsHeld } from '../hotels/lifecycle.js';
 import {
   AUTOMATION_RUNTIME_VERSION,
   CERTIFICATION_STATUSES,
@@ -623,7 +624,9 @@ export const evaluateAutomationDecision = ({
 
   let triggerDecision = { eligible: false, reason: 'not_evaluated' };
 
-  if (automation?.active === false || automation?.is_active === false) {
+  if (hotelOperationsHeld(hotel)) {
+    triggerDecision = {eligible:false,reason:'hotel_operations_held'};
+  } else if (automation?.active === false || automation?.is_active === false) {
     triggerDecision = { eligible: false, reason: 'automation_inactive' };
   } else if (resolvedMode === EXECUTION_MODES.DISABLED) {
     triggerDecision = { eligible: false, reason: 'execution_mode_disabled' };

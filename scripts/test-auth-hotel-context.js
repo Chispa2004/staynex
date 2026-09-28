@@ -1,3 +1,4 @@
+import {isArchivedHotel} from '../shared/hotels/lifecycle.js';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -244,6 +245,7 @@ const loadCurrentHotelModule = ({
   const assignmentCalls = [];
 
   return new Function(
+    'isArchivedHotel',
     'getSupabaseAdmin',
     'canAccessPlatform',
     'getPermissionsForPlatformRole',
@@ -253,6 +255,7 @@ const loadCurrentHotelModule = ({
     'resolvePendingInvitationsForUser',
     `${source}\nreturn { getCurrentHotelForRequest, getDefaultHotel };`
   )(
+    isArchivedHotel,
     () => supabase,
     canAccessPlatform,
     getPermissionsForPlatformRole,
@@ -652,3 +655,13 @@ for (const fixtureFile of [
 }
 
 console.log('Auth hotel context checks passed');
+
+for(const platformRole of ['none','platform_admin','support']) {
+ const archived={...hotelA,status:'archived',metadata:{archived:true}};
+ const harness=contextHarness({hotels:[archived,hotelB],assignments:[hotelAssignment({hotel:archived,role:'admin',platformRole})]});
+ const context=await harness.getCurrentHotelForRequest(makeRequest({token:'valid',headerHotelId:hotelA.id}));
+ assert.equal(context.hotel,null);assert.equal(context.accessDeniedReason,'hotel_archived');assert.deepEqual(context.permissions,[]);
+ assert.equal(context.availableHotels.some(x=>x.hotel.id===hotelA.id),false);
+ assert.equal(context.platformRole,platformRole,'archive does not erase internal identity');
+}
+console.log('Archived hotel operational context blocked for hotel admin, Staynex and support; identity retained');

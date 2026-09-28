@@ -1,3 +1,4 @@
+import {getHotelLiveAutomationGate} from '../src/services/message-queue.service.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -235,7 +236,15 @@ assert.equal(getHotelAiAutoReplyStatus({ id: 'hotel-missing', metadata: {} }).al
 const aiSafetySource = readFileSync(join(root, 'shared/pilot/ai-safety.js'), 'utf8');
 assert.doesNotMatch(aiSafetySource, /hotels\.metadata\.ai_auto_reply_enabled|HOTEL_AI_AUTO_REPLY_METADATA/, 'AI gate must not depend on hotels.metadata for the kill switch');
 const messageQueueSource = readFileSync(join(root, 'src/services/message-queue.service.js'), 'utf8');
-assert.match(messageQueueSource, /select\('id, metadata, ai_auto_reply_enabled'\)/, 'scheduled message gate selects the canonical hotel AI switch column');
+const lifecycleHotel={id:'lifecycle-hotel',name:'Synthetic',ai_auto_reply_enabled:true,metadata:{automation_live_enabled:true,automation_execution_mode:'live',automation_live_approved_at:'2026-09-28',automation_live_approved_by:'synthetic-admin'}};
+const readHotel=record=>({from:table=>{assert.equal(table,'hotels');const query={select:()=>query,eq:(key,id)=>{assert.equal(key,'id');assert.equal(id,lifecycleHotel.id);return query;},maybeSingle:async()=>({data:record})};return query;}});
+const allowedHotelGate=await getHotelLiveAutomationGate({hotel_id:lifecycleHotel.id},{supabase:readHotel(lifecycleHotel),env:{}});
+assert.equal(allowedHotelGate.allowed,true);
+assert.deepEqual(allowedHotelGate.hotel,{id:lifecycleHotel.id,metadata:lifecycleHotel.metadata,ai_auto_reply_enabled:true},'approved three-column begin snapshot remains identical');
+for(const record of [{...lifecycleHotel,name:'Legacy (archived)'},{...lifecycleHotel,status:'archived'},{...lifecycleHotel,metadata:{...lifecycleHotel.metadata,archive_operational_hold:true}},{...lifecycleHotel,ai_auto_reply_enabled:false}]) {
+ const gate=await getHotelLiveAutomationGate({hotel_id:lifecycleHotel.id},{supabase:readHotel(record),env:{}});assert.equal(gate.allowed,false);
+}
+console.log('PASS actual queue gate blocks legacy/status/hold archives and AI OFF, preserving the approved dispatch snapshot');
 const migrationSource = readFileSync(join(root, 'supabase/sql/add_hotel_ai_auto_reply_enabled.sql'), 'utf8');
 assert.match(migrationSource, /add column if not exists ai_auto_reply_enabled boolean not null default false/i, 'migration adds the fail-closed canonical hotel AI switch column');
 

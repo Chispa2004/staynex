@@ -424,7 +424,7 @@ export const HotelHealthView = ({ requestState, loadHealth, updateHotelAutoReply
           <button
             type="button"
             onClick={() => updateHotelAutoReply(true)}
-            disabled={historical || refreshing || killSwitchUpdating || hotelAutoReplyEnabled}
+            disabled={historical || refreshing || killSwitchUpdating || hotelAutoReplyEnabled || hotelAiStatus.reason === 'hotel_operations_held'}
             className={ui.button(isLight, 'primary')}
           >
             <Power className="h-4 w-4" aria-hidden="true" />
@@ -442,6 +442,7 @@ export const HotelHealthView = ({ requestState, loadHealth, updateHotelAutoReply
         </div>
       </section> : null}
 
+      {hotelAiStatus.reason === 'hotel_operations_held' ? <p role="status" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{tx('La actividad permanece suspendida tras el archivo. Se requiere revisión administrativa independiente.')}</p> : null}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {loading ? (
           [0, 1, 2, 3, 4, 5].map((item) => <div key={item} className={cn('h-36 rounded-xl', ui.skeleton(isLight))} />)

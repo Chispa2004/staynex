@@ -1,3 +1,4 @@
+import {assertHotelOperationsAvailable} from '../../shared/hotels/lifecycle.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 
@@ -183,6 +184,7 @@ export const getHotelForAuthUser = async (userId) => {
 
 export const getHotelProfileForPrompt = async (hotelId) => {
   const hotel = hotelId ? await getHotelById(hotelId) : await getDefaultHotel();
+  assertHotelOperationsAvailable(hotel);
 
   if (!hotel) {
     return null;

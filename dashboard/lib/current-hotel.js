@@ -1,3 +1,4 @@
+import { isArchivedHotel } from '../../shared/hotels/lifecycle.js';
 import { getSupabaseAdmin } from './supabase';
 import { canAccessPlatform, getPermissionsForPlatformRole, getPermissionsForRole } from './permissions';
 import {
@@ -251,7 +252,7 @@ export const getDefaultHotel = async (supabase = getSupabaseAdmin()) => {
   return firstHotel;
 };
 
-export const getCurrentHotelForRequest = async (request) => {
+const resolveCurrentHotelForRequest = async (request) => {
   const supabase = getSupabaseAdmin();
   const token = getBearerToken(request);
   const requestedHotelId = getRequestedHotelId(request);
@@ -538,4 +539,12 @@ export const getCurrentHotelForRequest = async (request) => {
     userId,
     email
   });
+};
+
+// Platform can inspect archives. Operational routes receive no hotel or permissions.
+export const getCurrentHotelForRequest = async (request) => {
+  const context = await resolveCurrentHotelForRequest(request);
+  context.availableHotels = (context.availableHotels || []).filter(item => !isArchivedHotel(item.hotel));
+  if (isArchivedHotel(context.hotel)) return {...context,hotel:null,hotelUser:null,role:'blocked',permissions:[],accessDenied:true,accessDeniedReason:'hotel_archived'};
+  return context;
 };

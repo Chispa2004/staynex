@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   archiveHotelWorkspace,
+  restoreHotelWorkspace,
   getHotelPlatformDetail,
   getPlatformContext,
   writePlatformAuditLog
@@ -49,6 +50,11 @@ export async function PATCH(request, { params }) {
     const { supabase, user, platformRole } = await getPlatformContext(request, { requireAdmin: true });
     const body = await request.json();
     const action = body.action;
+
+    if (action === 'restore_hotel') {
+      const result = await restoreHotelWorkspace({supabase, hotelId:id, actor:user, platformRole, confirm:body.confirm, expectedArchivedAt:body.expectedArchivedAt});
+      return NextResponse.json(result, {headers:{'Cache-Control':'no-store'}});
+    }
 
     if (!action) {
       return NextResponse.json({ error: 'Action is required' }, { status: 400 });
@@ -251,6 +257,7 @@ export async function DELETE(request, { params }) {
       hotelId: id,
       actor: user,
       platformRole,
+      expectedUpdatedAt: body.expectedUpdatedAt ?? null,
       confirm: body.confirm === true
     });
 

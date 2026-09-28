@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {HotelLifecycleDialog} from './HotelLifecycleDialog';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
@@ -116,47 +117,6 @@ const HealthBar = ({ value = 0, isLight }) => {
   );
 };
 
-const DeleteHotelModal = ({ hotel, isLight, deleting, onCancel, onConfirm }) => {
-  const { tx } = useDashboardLanguage();
-  if (!hotel) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
-      <section className={cn('w-full max-w-lg rounded-2xl border p-6 shadow-2xl', isLight ? 'border-red-200 bg-white shadow-slate-300/40' : 'border-red-300/20 bg-[#0b1019] shadow-black/40')}>
-        <div className="flex items-start gap-3">
-          <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border', isLight ? 'border-red-200 bg-red-50 text-red-700' : 'border-red-300/20 bg-red-500/10 text-red-100')}>
-            <Trash2 className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div>
-            <p className={ui.text.eyebrow(isLight)}>{tx('Delete Hotel Workspace')}</p>
-            <h2 className={cn('mt-2 text-xl font-semibold', ui.text.title(isLight))}>{hotel.name}</h2>
-            <p className={cn('mt-2 text-sm leading-6', ui.text.body(isLight))}>
-              {tx('This action will permanently remove the hotel workspace and related demo/test data.')}
-            </p>
-            <p className={cn('mt-2 text-xs leading-5', ui.text.muted(isLight))}>
-              {tx('Staynex archives the workspace first, disables scoped operational records by hotel_id, and hides it from platform metrics to prevent accidental cross-hotel deletion.')}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} disabled={deleting} className={ui.button(isLight, 'secondary')}>
-            {tx('Cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={deleting}
-            className={cn('inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-60', isLight ? 'border-red-200 bg-red-600 text-white hover:bg-red-700' : 'border-red-300/20 bg-red-500 text-white hover:bg-red-400')}
-          >
-            <Trash2 className={deleting ? 'h-4 w-4 animate-pulse' : 'h-4 w-4'} aria-hidden="true" />
-            {tx(deleting ? 'Deleting...' : 'Delete hotel')}
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-};
 
 const PmsEcosystemSection = ({ ecosystem = {}, isLight }) => {
   const { tx } = useDashboardLanguage();
@@ -664,7 +624,7 @@ export const PlatformConsoleClient = () => {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
+  const [lifecycleAction,setLifecycleAction]=useState('archive');
 
   const hotels = data.hotels || [];
   const metrics = data.metrics || {};
@@ -728,37 +688,6 @@ export const PlatformConsoleClient = () => {
     } finally {
       creatingRef.current = false;
       setSaving(false);
-    }
-  };
-
-  const deleteHotel = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    setError(null);
-    setNotice(null);
-
-    try {
-      const response = await fetch(`/api/platform/hotels/${deleteTarget.id}`, {
-        method: 'DELETE',
-        headers: {
-          ...(await getAuthHeaders()),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ confirm: true })
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not delete hotel workspace');
-      }
-
-      setNotice(`${deleteTarget.name} archived and removed from active platform workspaces.`);
-      setDeleteTarget(null);
-      await loadPlatform({ silent: true });
-    } catch (caughtError) {
-      setError(caughtError.message);
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -834,13 +763,14 @@ export const PlatformConsoleClient = () => {
       ) : null}
 
       {showCreate ? <CreateHotelForm canRecover={canRecover} fieldErrors={fieldErrors} isLight={isLight} saving={saving} onSubmit={createHotel} onCancel={() => setShowCreate(false)} /> : null}
-      <DeleteHotelModal
-        hotel={deleteTarget}
-        isLight={isLight}
-        deleting={deleting}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={deleteHotel}
-      />
+      {deleteTarget?<HotelLifecycleDialog key={`${deleteTarget.id}:${lifecycleAction}`} hotel={deleteTarget} action={lifecycleAction} isLight={isLight}
+        onClose={()=>setDeleteTarget(null)} onSaved={()=>{setDeleteTarget(null);setNotice(tx('Operación confirmada. Los datos se conservan y la actividad automática permanece suspendida.'));loadPlatform({silent:true});}}/>:null}
+      {(data.archivedHotels||[]).length ? <section className={cn('rounded-xl border p-5',ui.surface(isLight))}>
+        <h2 className="text-lg font-semibold">{tx('Hoteles archivados')}</h2>
+        <p className="mt-2 text-sm">{tx('No participan en las métricas activas. Restaurar conserva las revocaciones y no reanuda envíos.')}</p>
+        <ul className="mt-3 space-y-3">{data.archivedHotels.map(h=><li key={h.id} className="flex flex-wrap items-center justify-between gap-3"><span className="min-w-0 break-words">{h.name}{!h.restorable?<span className="mt-1 block text-sm">{tx('Archivo antiguo: se requiere revisar los estados anteriores antes de recuperar el acceso.')}</span>:null}</span>
+          {canCreate?<button type="button" disabled={!h.restorable} className={ui.button(isLight,'secondary')} onClick={()=>{setLifecycleAction('restore');setDeleteTarget(h);}} aria-label={`${tx('Restaurar hotel')}: ${h.name}`}>{tx('Restaurar hotel')}</button>:null}</li>)}</ul>
+      </section>:null}
 
       <section className={cn('rounded-xl border p-5', ui.surface(isLight))}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -964,9 +894,9 @@ export const PlatformConsoleClient = () => {
                   {canCreate ? (
                     <button
                       type="button"
-                      onClick={() => setDeleteTarget(hotel)}
+                      onClick={() => {setLifecycleAction('archive');setDeleteTarget(hotel);}}
                       className={cn('inline-flex items-center justify-center rounded-lg border p-2 transition', isLight ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'border-red-300/20 bg-red-500/10 text-red-100 hover:bg-red-500/15')}
-                      aria-label={`Delete ${hotel.name}`}
+                      aria-label={`${tx('Archivar hotel')}: ${hotel.name}`}
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </button>

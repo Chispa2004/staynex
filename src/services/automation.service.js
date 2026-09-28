@@ -1,7 +1,8 @@
+import {assertHotelOperationsAvailable} from '../../shared/hotels/lifecycle.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 import OpenAI from 'openai';
-import { getHotelProfileForPrompt } from './hotel.service.js';
+import { getHotelById, getHotelProfileForPrompt } from './hotel.service.js';
 import { getGuestMemory, formatGuestMemoryForPrompt } from './guest-memory.service.js';
 import { getKnowledgeForHotel } from './knowledge.service.js';
 import { getLegacyAutomationTypesMap } from '../../shared/automations/catalog.js';
@@ -317,6 +318,7 @@ const buildAutomationEvents = (reservation) => {
 
 export const scheduleReservationAutomations = async (reservation, { supabase = getSupabase() } = {}) => {
   const client = supabase;
+  assertHotelOperationsAvailable(await getHotelById(reservation.hotel_id,{supabase}));
   const events = buildAutomationEvents(reservation);
 
   const { error: deleteError } = await client

@@ -624,6 +624,7 @@ assert.equal(retrySupabase.db.automation_runs.length, 1, 'No duplicate audit run
 
 const runDateChangeReplacementScenario = () => {
   const rescheduleSupabase = createMockSupabase({
+    hotels: [hotel],
     scheduled_messages: [canonicalMessage({ id: 'date-change-scheduled' })]
   });
 
@@ -850,3 +851,11 @@ console.log(JSON.stringify({
   dueMessages: dueMessages.map((message) => message.id),
   sendAutomations: process.env.SEND_AUTOMATIONS
 }, null, 2));
+
+for(const metadata of [{archived:true},{archive_operational_hold:true}]) {
+ const heldDb=createMockSupabase({hotels:[{...hotel,metadata}],scheduled_messages:[canonicalMessage({id:'held-date-change'})]});
+ const before=structuredClone(heldDb.db.scheduled_messages);
+ await assert.rejects(()=>reconcileReservationAutomationLifecycle({previousReservation,currentReservation:{...previousReservation,arrival_date:'2026-08-12'},source:'reservation_mutation',supabase:heldDb}),e=>e.code==='hotel_operations_held');
+ assert.deepEqual(heldDb.db.scheduled_messages,before);
+}
+console.log('Archived/restored hold prevents future automation replacement without changing the existing queue');

@@ -1,3 +1,4 @@
+import {assertHotelOperationsAvailable} from '../../shared/hotels/lifecycle.js';
 import { createHash } from 'node:crypto';
 import { isDemoMessageStagesReservation } from '../../shared/demo-message-stages/server-provenance.js';
 import {
@@ -300,7 +301,8 @@ const fetchHotelContext = async ({ supabase, hotelId }) => {
     throw error;
   }
 
-  return data || { id: hotelId };
+  assertHotelOperationsAvailable(data);
+  return data;
 };
 
 const policyForDateReconciliation = ({

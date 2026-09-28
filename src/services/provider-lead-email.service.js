@@ -1,3 +1,5 @@
+import {assertHotelOperationsAvailable} from '../../shared/hotels/lifecycle.js';
+import {getHotelById} from './hotel.service.js';
 import net from 'node:net';
 import tls from 'node:tls';
 import crypto from 'node:crypto';
@@ -757,6 +759,7 @@ export const sendProviderEmail = async ({
     };
   }
 
+  if(hotelId)assertHotelOperationsAvailable(await getHotelById(hotelId));
   const mode = getEmailMode();
   if (mode !== 'live') {
     logger.info('experience_provider_lead_email_prepared', logContext);
