@@ -36,6 +36,8 @@ Errores de fuentes, contrato o lectura parcial se propagan: no confirman cero. S
 
 Build y sintaxis se comprueban sobre el resultado final. Se preservó fuera de Git una salida `.next` antigua con un enlace inválido de OneDrive y se hizo build limpio. El fallo local conocido de HTTP Security por literal LF frente a CRLF se mantiene separado; el checkout Linux de CI debe ejecutar la prueba sin cambiar expectativas. Los fallos estáticos adicionales de permisos/PMS y post-login documentados en la base no se presentan como corregidos en esta tarea.
 
+Primer CI de PR #32 (`0e89400`): las diez regresiones nuevas pasan; `test:inbox` detectó que el cambio de nombre de un binding de presentación incumplía su comprobación literal de unidad accesible. Se conserva la expresión y la prueba original, situando la etiqueta «Prioridad de conversación» en la definición del filtro. No cambia el comportamiento ni se relajan expectativas. Las suites posteriores a ese fallo no se consideran ejecutadas en esa corrida; se exige CI completo para el SHA corregido.
+
 ## Publicación, recuperación y conservación
 
 Publicar rama/PR; esperar los tres jobs del SHA final y revisar logs de ambas suites; merge normal sin bloqueo de revisión; CI de main y versiones Vercel Production/Railway; comprobar las cuatro tarjetas públicamente mediante navegación y lectura. No hay migración, cambios de variables/permisos, datos sintéticos remotos ni nuevos proveedores. Recuperación: revertir el código con CI habitual; no requiere restaurar datos ni modificar contratos SQL. No ejecutar operaciones inciertas ni cambios de seguimiento para fabricar resultados.

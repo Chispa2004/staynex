@@ -1495,7 +1495,7 @@ export const InboxClient = ({ conversations }) => {
     { key: 'all', label: 'Todas', count: scopedItems.length },
     { key: 'unread', label: 'Sin leer', count: scopedItems.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
     { key: 'human', label: 'Control humano', count: controlCoverageComplete ? scopedItems.filter(isHumanTakeoverActive).length : null },
-    { key: 'urgent', label: 'Urgentes', count: scopedItems.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
+    { key: 'urgent', label: metricKey ? tx('Prioridad de conversación') : 'Urgentes', count: scopedItems.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
     { key: 'vip', label: 'VIP', count: scopedItems.filter((conversation) => isVipConversation(conversation)).length },
     { key: 'ai', label: 'Sin control humano', count: controlCoverageComplete ? scopedItems.filter((conversation) => !isHumanTakeoverActive(conversation)).length : null }
   ];
@@ -1604,14 +1604,13 @@ export const InboxClient = ({ conversations }) => {
         >
           {filterItems.map((filter) => {
             const active = activeFilter === filter.key;
-            const label=metricKey && filter.key==='urgent' ? tx('Prioridad de conversación') : filter.label;
 
             return (
               <button
                 key={filter.key}
                 type="button"
                 onClick={() => setActiveFilter(filter.key)}
-                aria-label={`${label}: ${filter.count === null ? tx('Control no confirmado') : tx('{count} conversaciones', {count:filter.count})}`}
+                aria-label={`${filter.label}: ${filter.count === null ? tx('Control no confirmado') : tx('{count} conversaciones', {count:filter.count})}`}
                 aria-pressed={active}
                 className={[
                   'inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition',
@@ -1624,7 +1623,7 @@ export const InboxClient = ({ conversations }) => {
                       : 'border-white/10 bg-white/[0.035] text-slate-400 hover:bg-white/[0.08] hover:text-slate-100'
                 ].join(' ')}
               >
-                {label}
+                {filter.label}
                 {filter.count > 0 ? (
                   <span className={active ? 'rounded-full bg-emerald-200 px-1.5 py-0.5 text-[10px] font-black text-slate-950' : 'rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-black text-slate-700'}>
                     {filter.count}
