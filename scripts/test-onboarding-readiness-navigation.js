@@ -1,3 +1,4 @@
+import * as pmsEvidence from '../dashboard/lib/pms-evidence.js';
 import * as fields from '../shared/onboarding/hotel-fields.js';
 import * as creationClient from '../dashboard/lib/hotel-creation-client.js';
 import assert from 'node:assert/strict';
@@ -107,7 +108,7 @@ assert.deepEqual(store.tables.hotels[0].metadata, {});
 console.log('PASS hotel/role isolation, hotel save recovery and unchanged live/AI guards');
 
 const view = await compile('../dashboard/components/onboarding/OnboardingWizard.js', {
-  '@/components/HotelFieldErrors': {}, '@/lib/hotel-creation-client': creationClient, 'next/navigation': {}, './StepHotelSetup': {}, '@/components/ExecutiveCard': {}, '@/lib/auth-headers': {},
+  '@/components/HotelFieldErrors': {}, '@/lib/hotel-creation-client': creationClient, 'next/navigation': {}, './StepHotelSetup': {}, './StepPmsConnection': {}, '@/components/ExecutiveCard': {}, '@/lib/auth-headers': {},
   '@/lib/theme/useDashboardTheme': {}, '@/lib/ui/styles': styles, '@/lib/onboarding-navigation': navigation,
   '@/lib/i18n/useDashboardLanguage': { useDashboardLanguage: () => ({ tx: value => translatePhrase('es', value) }) },
   'next/link': ({ children, ...props }) => React.createElement('a', props, children)
@@ -148,18 +149,21 @@ for(const check of readiness.checks)assert(navigation.getPlatformReadinessAction
 console.log('PASS actual Platform readiness rendering, per-requirement next steps and disabled live control');
 
 const pmsView = await compile('../dashboard/components/PmsProviderCard.js', {
+ '@/lib/pms-evidence':pmsEvidence, '@/lib/ui/styles':styles,
  '@/lib/theme/useDashboardTheme': {useDashboardTheme:()=>({theme:'light'})},
  '@/lib/i18n/useDashboardLanguage': {useDashboardLanguage:()=>({tx:value=>translatePhrase('es',value)})},
  './ExecutiveCard': {ExecutiveCard:({children})=>React.createElement('div',null,children),ExecutiveBadge:({children})=>React.createElement('span',null,children)}
 });
 const pmsHtml = renderToStaticMarkup(React.createElement(pmsView.PmsProviderCard, {
- provider:{key:'synthetic',name:'PMS sintético',configurationMode:'live_api'},
- connection:{enabled:true,has_client_secret:true,sync_status:'configured'}, canManage:false
+ provider:{key:'apaleo',name:'PMS sintético',configurationMode:'live_api'},
+ connection:{enabled:true,has_client_secret:true,sync_status:'configured'}, canManage:false, permissionDenied:true
 }));
-assert(pmsHtml.includes('Configurado; sin verificar'));
+assert(pmsHtml.includes('Configuración guardada'));
+assert(pmsHtml.includes('Sin comprobación acreditada'));
+assert(pmsHtml.includes('disabled=""'));
 assert(!pmsHtml.includes('>Connected<'));
-assert(pmsHtml.includes('Comprobar conexión'));
-assert(pmsHtml.includes('Un administrador del hotel'));
+assert(pmsHtml.includes('Probar conexión'));
+assert(pmsHtml.includes('Solo un administrador autorizado'));
 console.log('PASS actual PMS card: configuration is not verification; management remains disabled');
 
 const knowledgeView = await compile('../dashboard/components/KnowledgeBaseEditor.js', {

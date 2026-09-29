@@ -1,4 +1,5 @@
 import { encryptSecret } from './pms-encryption';
+import { assertHotelOperationsAvailable } from '../../shared/hotels/lifecycle.js';
 import { getInternalApiHeaders } from './internal-api';
 import { PMS_PROVIDER_CATALOG, getPmsProvider, isPmsProviderConfigurable, isPmsProviderLiveApi } from './pms-providers';
 import {
@@ -25,13 +26,14 @@ export const getBackendUrl = () => (
 
 export const getProviderWebhookUrl = (provider = 'apaleo') => `${getBackendUrl()}/integrations/${provider}/webhook`;
 
-export const assertPmsHotelContext = ({ hotel, fallback } = {}) => {
+export const assertPmsHotelContext = ({ hotel, fallback, write = false } = {}) => {
   if (!hotel?.id || fallback) {
     const error = new Error('Explicit hotel workspace is required for PMS operations');
     error.status = 400;
     throw error;
   }
 
+  if (write) assertHotelOperationsAvailable(hotel);
   return hotel.id;
 };
 

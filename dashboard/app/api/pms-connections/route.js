@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { hotelOperationsHeld } from '../../../../shared/hotels/lifecycle.js';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 import { PMS_CONNECTION_SELECT, PMS_PROVIDERS, assertPmsHotelContext, getProviderWebhookUrl, safePmsConnectionDto, saveConnection } from '@/lib/pms-connections';
@@ -22,7 +23,8 @@ export async function GET(request) {
       return jsonError('Access denied', 403);
     }
     const hotelId = assertPmsHotelContext({ hotel, fallback });
-    const canManage = canAccess(role, 'pms_connections_manage') && platformRole !== 'support';
+    const operationsHeld = hotelOperationsHeld(hotel);
+    const canManage = canAccess(role, 'pms_connections_manage') && platformRole !== 'support' && !operationsHeld;
     const { data, error } = await supabase
       .from('hotel_pms_connections')
       .select(PMS_CONNECTION_SELECT)
@@ -40,6 +42,7 @@ export async function GET(request) {
       role,
       platformRole: platformRole || 'none',
       canManage,
+      operationsHeld,
       providers: PMS_PROVIDERS.map((provider) => ({
         ...provider,
         webhookUrl: getProviderWebhookUrl(provider.key)
@@ -64,7 +67,7 @@ export async function POST(request) {
     if (platformRole === 'support') {
       return jsonError('Support sessions are read-only by default', 403);
     }
-    const hotelId = assertPmsHotelContext({ hotel, fallback });
+    const hotelId = assertPmsHotelContext({ hotel, fallback, write: true });
     const payload = await request.json();
     const connection = await saveConnection({
       supabase,
@@ -112,7 +115,7 @@ export async function DELETE(request) {
     if (platformRole === 'support') {
       return jsonError('Support sessions are read-only by default', 403);
     }
-    const hotelId = assertPmsHotelContext({ hotel, fallback });
+    const hotelId = assertPmsHotelContext({ hotel, fallback, write: true });
     const { searchParams } = new URL(request.url);
     const connectionId = searchParams.get('id');
 
