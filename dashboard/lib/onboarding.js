@@ -116,8 +116,8 @@ export const getOnboardingState = async ({ supabase, hotelId }) => {
 
 };
 
-export const getOnboardingContext = async (request) => {
-  const { supabase, hotel, role, fallback, user, platformRole } = await getCurrentHotelForRequest(request);
+export const getOnboardingContext = async (request, options) => {
+  const { supabase, hotel, role, fallback, user, platformRole } = await getCurrentHotelForRequest(request, options);
 
   if (!hotel?.id) {
     throw new Error('Hotel is required for onboarding');

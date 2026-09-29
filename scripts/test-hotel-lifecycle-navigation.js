@@ -62,7 +62,7 @@ const mocks={
   '@/lib/ui/styles':{cn:(...s)=>s.join(' ')},'@/lib/workspace-context':workspace,'@/lib/permissions':permissions
 };
 const {AppShellContent}=await compile('../dashboard/components/AppShell.js',mocks,'\nexport {AppShellContent};');
-const base={hotel:{id:a,name:'Synthetic'},role:'admin',permissions:['all'],platformRole:'platform_admin',availableHotels:[{hotel:{id:a}},{hotel:{id:b}}],canSwitchWorkspaces:true};
+const base={hotel:{id:a,name:'Synthetic'},user:{id:'actor'},role:'admin',permissions:['all'],platformRole:'platform_admin',availableHotels:[{hotel:{id:a}},{hotel:{id:b}}],canSwitchWorkspaces:true};
 let context=base, pendingReply=null,fail=false;
 globalThis.fetch=async url=>{
   if(url==='/api/current-hotel'){
@@ -70,7 +70,7 @@ globalThis.fetch=async url=>{
     if(pendingReply)return new Promise(resolve=>{pendingReply.resolve=resolve;});
     return Response.json(context);
   }
-  if(url==='/api/onboarding/state')return Response.json({state:{onboarding_completed:true},onboardingCompleted:true});
+  if(url==='/api/onboarding/state')return Response.json({state:{hotel_id:context.hotel?.id,onboarding_completed:true},onboardingCompleted:true});
   return Response.json({});
 };
 const render=()=>{cursor=0;effects=[];dirty=false;tree=AppShellContent({children:jsx('operational-child',{})});for(const effect of effects)effect();};

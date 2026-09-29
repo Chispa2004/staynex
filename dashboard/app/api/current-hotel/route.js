@@ -33,6 +33,7 @@ const jsonError = (message, status = 503, reason = 'workspace_context_unavailabl
 
 export async function GET(request) {
   try {
+    const directoryDeferred = request.headers.get('x-staynex-context-only') === '1';
     const {
       hotel,
       hotelUser,
@@ -49,10 +50,11 @@ export async function GET(request) {
       accessDenied,
       accessDeniedReason,
       archivedHotelId
-    } = await getCurrentHotelForRequest(request);
+    } = await getCurrentHotelForRequest(request, {readOnly:true, includeDirectory:!directoryDeferred});
 
     return NextResponse.json({
       hotel,
+      directoryDeferred: directoryDeferred && Boolean(canSwitchWorkspaces) && platformRole !== 'none',
       hotelUser,
       role,
       permissions,

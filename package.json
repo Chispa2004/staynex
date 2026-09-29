@@ -5,6 +5,7 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
+    "test:workspace-progressive-loading": "node scripts/test-workspace-progressive-loading.js",
     "test:manual-send": "node scripts/test-manual-send.js",
     "test:demo-external-isolation": "node scripts/test-demo-external-isolation.js",
     "start": "node src/server.js",

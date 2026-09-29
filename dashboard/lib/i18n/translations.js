@@ -1,4 +1,5 @@
 import { pmsPhrases } from './pms-phrases.js';
+import { workspaceLoadingPhrases } from './workspace-loading-phrases.js';
 import { copilotPhrases } from './copilot-phrases.js';
 import { inboxStagePhrases } from './inbox-stage-phrases.js';
 import { onboardingPhrases, onboardingEnglishPhrases, readinessSpanishPhrases } from './onboarding-phrases.js';
@@ -3067,4 +3068,4 @@ for (const [es,en] of [
  ['Hotel archivado. Los datos se conservan y la actividad automática permanece suspendida. Selecciona un hotel para abrir sus operaciones.','Hotel archived. Data is preserved and automatic activity remains suspended. Select a hotel to open its operations.']
 ]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
 
-for (const [es,en] of pmsPhrases) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
+for (const [es,en] of [...pmsPhrases, ...workspaceLoadingPhrases]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }

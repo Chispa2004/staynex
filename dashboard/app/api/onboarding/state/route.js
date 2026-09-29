@@ -22,8 +22,12 @@ const normalizeStep = (step) => (
 
 export async function GET(request) {
   try {
-    const context = await getOnboardingContext(request);
+    const context = await getOnboardingContext(request, {readOnly:true, includeDirectory:false});
     const { hotel, role, platformRole, fallback, state, schemaReady, warning } = context;
+    if (request.headers.get('x-staynex-onboarding-gate') === '1') {
+      if (!schemaReady) return jsonError('No se pudo verificar la preparación del hotel. Reintenta.',503);
+      return NextResponse.json({ok:true,hotel:{id:hotel.id},state:{hotel_id:hotel.id,onboarding_completed:state.onboarding_completed}}, {headers:{'Cache-Control':'no-store'}});
+    }
     const pilot = await getPilotOnboardingSummaryForContext(context);
 
     return NextResponse.json({
