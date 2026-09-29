@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { InboxMetricSummary } from './InboxMetricSummary';
+import { metricMatchingIds } from '../../shared/message-attention/metrics.js';
 import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Clock3, Eye, EyeOff, Languages, MessageSquareText, PauseCircle, PlayCircle, RefreshCw, Search, Send, ShieldCheck, Sparkles, UserRound, Zap, PanelRight } from 'lucide-react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { translateMessageForStaff } from '@/lib/i18n/translateMessageForStaff';
@@ -499,7 +501,11 @@ export const InboxClient = ({ conversations }) => {
   const isLight = theme === 'light';
   const sortedConversations = useMemo(() => normalizeInboxConversations(conversations), [conversations]);
   const requestedConversationId = searchParams.get('conversationId');
-  const [items, setItems] = useState(sortedConversations);
+  const metricKey = searchParams.has('metric') ? new URLSearchParams(['metric','metricOrigin','metricDate','hotelId'].flatMap(key=>searchParams.getAll(key).map(value=>[key,value]))).toString() : '';
+  const metricKeyRef=useRef(metricKey); metricKeyRef.current=metricKey;
+  const [metricState,setMetricState]=useState({key:metricKey,status:'loading'});
+  const [itemsState, setItems] = useState(sortedConversations);
+  const items=metricState.key!==metricKey || (metricKey && metricState.status!=='ready') ? [] : itemsState;
   const [selectedId, setSelectedId] = useState(
     requestedConversationId || null
   );
@@ -528,7 +534,8 @@ export const InboxClient = ({ conversations }) => {
   };
   const setSearchQuery = value => updateFilter('q',value,true);
   const setActiveFilter = value => updateFilter('filter',value);
-  const scopedItems = useMemo(()=>items.filter(c=>matchesInboxScope(c,stageFilter,originFilter)),[items,stageFilter,originFilter]);
+  const scopedItems = useMemo(()=>items.filter(c=>matchesInboxScope(c,stageFilter,originFilter)
+    && (!metricKey || metricMatchingIds(c,metricState.data,stageFilter,originFilter).length>0)),[items,stageFilter,originFilter,metricKey,metricState.data]);
   const [currentHotel, setCurrentHotel] = useState(null);
   const [pilotAiSafety, setPilotAiSafety] = useState(null);
   const [staffLanguage, setStaffLanguage] = useState(normalizeTranslationLanguage(language || 'es'));
@@ -617,7 +624,9 @@ export const InboxClient = ({ conversations }) => {
   const visibleItems = useMemo(() => filterInboxConversations({items,stage:stageFilter,origin:originFilter,query:searchQuery,filter:activeFilter,
     unread:c=>getUnreadCount(c,readState),human:isHumanTakeoverActive,urgent:c=>isUrgentConversation(c,getUnreadCount(c,readState)),vip:isVipConversation,
     searchText:c=>[getConversationGuestLabel(c),getConversationPhoneNumber(c),getConversationRoomNumber(c),...(c.messages||[]).map(m=>m.content),c.aiState?.current_intent,getConversationLanguage(c)].filter(Boolean).join(' ')
-  }).filter(c=>!['human','ai'].includes(activeFilter) || c.control?.status!=='unknown').sort((a,b)=>getConversationPriorityScore(b,readState)-getConversationPriorityScore(a,readState)),[items,stageFilter,originFilter,searchQuery,activeFilter,readState]);
+  }).filter(c=>(!['human','ai'].includes(activeFilter) || c.control?.status!=='unknown')
+    && (!metricKey || metricMatchingIds(c,metricState.data,stageFilter,originFilter).length>0))
+    .sort((a,b)=>getConversationPriorityScore(b,readState)-getConversationPriorityScore(a,readState)),[items,stageFilter,originFilter,searchQuery,activeFilter,readState,metricKey,metricState.data]);
 
   useEffect(() => {
     itemsRef.current = items;
@@ -640,6 +649,7 @@ export const InboxClient = ({ conversations }) => {
     const subscription = getSupabaseBrowser()?.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || (userId !== undefined && userId !== session?.user?.id)) {
         loadRequestIdRef.current++;
+        setMetricState({key:'',status:'loading'});
         setItems([]); setSelectedId(null); setCapabilities({});
         setMessage(''); setDraftsByConversation({}); setCopilotOpen(false); setGuestPanelOpen(false);
       }
@@ -679,16 +689,16 @@ export const InboxClient = ({ conversations }) => {
   }, [items, requestedConversationId]);
 
   useEffect(() => {
-    if (readStateLoaded && currentHotel?.id) {
+    if (!metricKey && readStateLoaded && currentHotel?.id) {
       dispatchUnreadTotal(unreadTotal, currentHotel.id);
     }
-  }, [currentHotel?.id, readStateLoaded, unreadTotal]);
+  }, [currentHotel?.id, readStateLoaded, unreadTotal, metricKey]);
 
   useEffect(() => {
-    if (currentHotel?.id && controlCoverageComplete) {
+    if (!metricKey && currentHotel?.id && controlCoverageComplete) {
       dispatchHumanTotal(humanTotal, currentHotel.id);
     }
-  }, [currentHotel?.id, humanTotal, controlCoverageComplete]);
+  }, [currentHotel?.id, humanTotal, controlCoverageComplete, metricKey]);
 
   const loadInbox = useCallback(async ({ silent = false, preserveSelection = true, force = false } = {}) => {
     if (controlMutationRef.current) return null;
@@ -709,7 +719,9 @@ export const InboxClient = ({ conversations }) => {
 
     try {
       const headers=await getAuthHeaders();
-      const response = await fetch('/api/inbox', {
+      const startedMetric=metricKey;
+      if (metricKey) setMetricState(current=>current.key===metricKey && current.status==='ready' ? {...current,refreshing:true} : {key:metricKey,status:'loading'});
+      const response = await fetch('/api/inbox'+(metricKey?'?'+metricKey:''), {
         headers,
         cache: 'no-store'
       });
@@ -718,9 +730,11 @@ export const InboxClient = ({ conversations }) => {
       if (!response.ok) {
         throw new Error(body.error || 'Could not refresh inbox');
       }
+      if (metricKey && (!body.metric || body.metric.hotelId!==body.hotelId || !Number.isSafeInteger(body.metric.messageCount)
+        || !Number.isSafeInteger(body.metric.conversationCount) || !body.metric.byConversation)) throw new Error('Respuesta de métricas incompleta. Reintenta.');
 
       const latestHeaders=await getAuthHeaders();
-      if (headers.Authorization!==latestHeaders.Authorization) return null;
+      if (headers.Authorization!==latestHeaders.Authorization || startedMetric!==metricKeyRef.current) return null;
       if (!shouldAcceptTenantPayload(body, 'inbox')) {
         return null;
       }
@@ -764,6 +778,7 @@ export const InboxClient = ({ conversations }) => {
         || 'es'
       ));
       setItems(nextItems);
+      setMetricState({key:metricKey,status:'ready',data:body.metric});
       setSelectedId((current) => {
         const currentSelection = selectedIdRef.current || current;
 
@@ -790,6 +805,7 @@ export const InboxClient = ({ conversations }) => {
     } catch (error) {
       console.warn('Inbox refresh failed', error);
       if (requestId === loadRequestIdRef.current) {
+        if (metricKey===metricKeyRef.current) setMetricState({key:metricKey,status:'error',error:error.message || 'No se pudo comprobar el conjunto de mensajes.'});
         setItems(current=>current.map(c=>({...c,control:controlFromState(null,false)})));
         setCapabilities({});
         setControlError('No se pudo actualizar el control. Actualiza antes de actuar.');
@@ -805,10 +821,10 @@ export const InboxClient = ({ conversations }) => {
       }
       setLoading(false);
     }
-  }, [currentHotel?.id, requestedConversationId]);
+  }, [currentHotel?.id, requestedConversationId, metricKey]);
 
   useEffect(() => {
-    loadInbox({ silent: true });
+    loadInbox({ silent: true, force:true });
   }, [loadInbox]);
 
   useEffect(() => {
@@ -820,6 +836,7 @@ export const InboxClient = ({ conversations }) => {
 
       debugInbox('tenant changed, resetting state', { surface: 'inbox', hotelId: nextHotelId });
       loadRequestIdRef.current++;
+      setMetricState({key:'',status:'loading'});
       setCapabilities({});setControlError('');
       setItems([]);
       setSelectedId(null);
@@ -1413,6 +1430,13 @@ export const InboxClient = ({ conversations }) => {
     setGuestPanelOpen(false);
   }, []);
 
+  const metricSummary = <InboxMetricSummary active={Boolean(metricKey)} state={metricState.key===metricKey?metricState:null}
+    visibleConversations={visibleItems.length} visibleMessages={visibleItems.reduce((n,c)=>n+metricMatchingIds(c,metricState.data,stageFilter,originFilter).length,0)} onRetry={()=>loadInbox({force:true})} />;
+  const pageSize=25;
+  const pageCount=Math.max(1,Math.ceil(visibleItems.length/pageSize));
+  const currentPage=Math.min(pageCount,Math.max(1,Math.floor(Number(searchParams.get('page')) || 1)));
+  const pageItems=metricKey ? visibleItems.slice((currentPage-1)*pageSize,currentPage*pageSize) : visibleItems;
+
   if (items.length === 0) {
     return (
       <section className={ergonomics.inbox}>
@@ -1422,8 +1446,9 @@ export const InboxClient = ({ conversations }) => {
         )}>
           <div className={cn(`${ergonomics.listHeader} shrink-0 border-b px-4 py-4 sm:px-6`, isLight ? 'border-slate-200 bg-white' : 'border-white/10')}>
             <p className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Inbox</p>
+            {metricSummary}
             <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
-              {loading ? 'Cargando conversaciones' : t('inbox.noConversations')}
+              {loading ? 'Cargando conversaciones' : metricKey && metricState.status!=='ready' ? tx('Resultados no confirmados') : t('inbox.noConversations')}
             </p>
           </div>
           {loading ? (
@@ -1432,7 +1457,7 @@ export const InboxClient = ({ conversations }) => {
                 <div key={item} className={cn('h-20 rounded-lg', ui.skeleton(isLight))} />
               ))}
             </div>
-          ) : (
+          ) : metricKey && metricState.status!=='ready' ? null : (
             <PremiumEmptyState
               icon={Bot}
               title={t('inbox.noConversations')}
@@ -1470,7 +1495,7 @@ export const InboxClient = ({ conversations }) => {
     { key: 'all', label: 'Todas', count: scopedItems.length },
     { key: 'unread', label: 'Sin leer', count: scopedItems.reduce((total, conversation) => total + (getUnreadCount(conversation, readState) > 0 ? 1 : 0), 0) },
     { key: 'human', label: 'Control humano', count: controlCoverageComplete ? scopedItems.filter(isHumanTakeoverActive).length : null },
-    { key: 'urgent', label: 'Urgentes', count: scopedItems.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
+    { key: 'urgent', label: metricKey ? tx('Prioridad de conversación') : 'Urgentes', count: scopedItems.filter((conversation) => isUrgentConversation(conversation, getUnreadCount(conversation, readState))).length },
     { key: 'vip', label: 'VIP', count: scopedItems.filter((conversation) => isVipConversation(conversation)).length },
     { key: 'ai', label: 'Sin control humano', count: controlCoverageComplete ? scopedItems.filter((conversation) => !isHumanTakeoverActive(conversation)).length : null }
   ];
@@ -1535,6 +1560,7 @@ export const InboxClient = ({ conversations }) => {
               </button>
             </div>
           </div>
+          {metricSummary}
               <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
                 {tx('{count} conversaciones', {count:visibleItems.length})} · {tx(STAY_STAGES[stageFilter])}
                 {visibleUnreadTotal > 0 ? ` · ${tx('{count} mensajes sin leer', {count:visibleUnreadTotal})}` : ''}
@@ -1620,7 +1646,12 @@ export const InboxClient = ({ conversations }) => {
               className="min-h-32 px-4 py-8"
             />
           ) : null}
-          {visibleItems.map((conversation) => {
+          {metricKey && pageCount>1 ? <nav aria-label={tx('Páginas de resultados')} className="flex flex-wrap items-center justify-between gap-2 p-3 text-xs">
+            <button type="button" disabled={currentPage<=1} onClick={()=>updateFilter('page',String(currentPage-1))}>{tx('Anterior')}</button>
+            <span>{tx('Página {page} de {pages}',{page:currentPage,pages:pageCount})}</span>
+            <button type="button" disabled={currentPage>=pageCount} onClick={()=>updateFilter('page',String(currentPage+1))}>{tx('Siguiente')}</button>
+          </nav> : null}
+          {pageItems.map((conversation) => {
             const active = conversation.id === selectedId;
             const lastMessage = conversation.lastMessage;
             const unreadCount = getUnreadCount(conversation, readState);
@@ -1971,6 +2002,8 @@ export const InboxClient = ({ conversations }) => {
                       </p> : null}
                       <p className={ergonomics.messageText}>{item.content}</p>
                       <AttentionMessage message={item} />
+                      {metricKey && metricState.data?.byConversation?.[selectedConversation.id]?.includes(item.id)
+                        ? <p className="mt-2 rounded border border-emerald-300 bg-emerald-50 p-2 text-xs font-semibold text-emerald-900" data-metric-match={item.id}>{tx('Coincide con la tarjeta del Dashboard')}</p> : null}
                     </div>
 
                     {hasTranslation ? (

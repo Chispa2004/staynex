@@ -5,6 +5,7 @@ import { pmsConnectionSelectForSurface, serializePmsConnectionsSafe } from '../.
 import { getPilotAiSafetyReadiness } from '../../../../shared/pilot/ai-safety.js';
 import { buildConversationDashboard, loadConversationDashboardSources } from '@/lib/hotel-operations-workspace';
 import { loadAttentionDashboard } from '@/lib/message-attention';
+import { loadMessageMetrics } from '@/lib/message-metrics';
 
 const readActiveCount = async (supabase, hotelId) => {
   try {
@@ -29,7 +30,7 @@ const readPmsSummary = async (supabase, hotelId) => {
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, fallback, role, permissions = [] } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, fallback, role, permissions = [] } = await getCurrentHotelForRequest(request, {readOnly:true,includeDirectory:false});
     if (!canAccess(role, 'dashboard')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -44,6 +45,16 @@ export async function GET(request) {
       readPmsSummary(supabase, hotelId),
       loadAttentionDashboard({supabase,hotelId,origin,urgentOnly:params.get('attentionUrgent') === 'true',cursor})
     ]);
+    if (attentionSnapshot.coverage === 'complete') {
+      try {
+        const snapshot=await loadMessageMetrics({supabase,hotel,origin,verified:true});
+        for (const key of Object.keys(snapshot.counters)) attentionSnapshot.counters[key].value=snapshot.counters[key];
+        attentionSnapshot.metricDate=snapshot.date;
+        attentionSnapshot.timezone=snapshot.timezone;
+      } catch {
+        for (const counter of Object.values(attentionSnapshot.counters)) { counter.value=null; counter.detail='Seguimiento no disponible'; }
+      }
+    }
     // Serialize only the presentation DTO, never AI log bodies or provider errors.
     return NextResponse.json({
       hotel: { id: hotel.id, name: hotel.name, slug: hotel.slug, timezone: hotel.timezone, city: hotel.city, country: hotel.country, country_code: hotel.country_code },

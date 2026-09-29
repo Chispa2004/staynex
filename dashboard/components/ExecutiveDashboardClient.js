@@ -1,6 +1,8 @@
 ﻿'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { messageMetricHref } from '../../shared/message-attention/metrics.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
@@ -146,7 +148,9 @@ export const ExecutiveDashboardClient = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [attentionOrigin, setAttentionOrigin] = useState('traced');
+  const dashboardParams=useSearchParams();
+  const attentionOrigin=['traced','simulated','unknown'].includes(dashboardParams.get('attentionOrigin')) ? dashboardParams.get('attentionOrigin') : 'traced';
+  const setAttentionOrigin=value=>{const url=new URL(document.URL);url.searchParams.set('attentionOrigin',value);window.history.pushState(null,'',url.pathname+url.search);};
   const [urgentOnly, setUrgentOnly] = useState(false);
   const [attentionCursor, setAttentionCursor] = useState(null);
   const dashboardRequestInFlightRef = useRef(false);
@@ -169,11 +173,13 @@ export const ExecutiveDashboardClient = () => {
     try {
       const attentionParams = new URLSearchParams({attentionOrigin,attentionUrgent:String(urgentOnly)});
       if (attentionCursor) { attentionParams.set('attentionBefore',attentionCursor.at); attentionParams.set('attentionId',attentionCursor.id); }
+      const headers=await getAuthHeaders();
       const response = await fetch('/api/executive-dashboard?' + attentionParams, {
-        headers: await getAuthHeaders(),
+        headers,
         cache: 'no-store'
       });
       const payload = await response.json();
+      if (headers.Authorization!==(await getAuthHeaders()).Authorization) return;
 
       if (!response.ok) {
         throw new Error(payload.error || 'No se pudo cargar el dashboard');
@@ -266,8 +272,6 @@ export const ExecutiveDashboardClient = () => {
         loading={loading}
         workspace={operationalWorkspace.messageWorkspace || {}}
         permissions={permissions}
-        urgentOnly={urgentOnly}
-        onUrgent={() => { setLoading(true); setAttentionCursor(null); setUrgentOnly(value => !value); }}
       />
 
       <p className={styles.scope}><label>{tx('Origen de los indicadores')}: <select value={attentionOrigin} onChange={event => { setLoading(true); setAttentionCursor(null); setAttentionOrigin(event.target.value); }} className="rounded border bg-transparent px-2 py-1">
@@ -276,6 +280,7 @@ export const ExecutiveDashboardClient = () => {
       <div className={styles.columns}>
         <div className={styles.leftColumn}>
           <WorkQueuePanel items={operationalWorkspace.messageWorkspace?.messages || []} coverage={operationalWorkspace.messageWorkspace?.coverage} loading={loading} timezone={timezone} permissions={permissions}
+            onUrgent={() => { setLoading(true); setAttentionCursor(null); setUrgentOnly(value => !value); }}
             urgentOnly={urgentOnly} nextCursor={operationalWorkspace.messageWorkspace?.nextCursor} hasCursor={Boolean(attentionCursor)}
             onPage={cursor => {setLoading(true);setAttentionCursor(cursor);}} />
         </div>
@@ -437,16 +442,18 @@ const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshi
   );
 };
 
-const OperationalIndicatorGrid = ({ data, loading, workspace, permissions, onUrgent, urgentOnly }) => {
+const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => {
   const { theme } = useDashboardTheme();
   const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const counters = workspace?.counters || {};
+  const href = metric => !loading && permissions.inbox && Number.isSafeInteger(counters[metric]?.value) && workspace.origin && data?.hotel?.id
+    ? messageMetricHref({metric,origin:workspace.origin,hotelId:data.hotel.id,date:workspace.metricDate}) : null;
   const cards = [
-    { label: 'Mensajes recibidos', metric: counters.received, href: permissions.inbox ? '/dashboard/inbox' : null, icon: Inbox, tone: 'sky' },
-    { label: 'Mensajes resueltos', metric: counters.resolved, href: permissions.inbox ? '/dashboard/inbox' : null, icon: CheckCircle2, tone: 'emerald' },
-    { label: 'Mensajes pendientes', metric: counters.pending, href: permissions.inbox ? '/dashboard/inbox' : null, icon: Clock3, tone: 'amber' },
-    { label: 'Mensajes urgentes', metric: counters.urgent, onClick: onUrgent, icon: AlertTriangle, tone: 'red' }
+    { label: 'Mensajes recibidos', metric: counters.received, href: href('received'), icon: Inbox, tone: 'sky' },
+    { label: 'Mensajes resueltos', metric: counters.resolved, href: href('resolved'), icon: CheckCircle2, tone: 'emerald' },
+    { label: 'Mensajes pendientes', metric: counters.pending, href: href('pending'), icon: Clock3, tone: 'amber' },
+    { label: 'Mensajes urgentes', metric: counters.urgent, href: href('urgent'), icon: AlertTriangle, tone: 'red' }
   ];
 
   return (
@@ -462,9 +469,8 @@ const OperationalIndicatorGrid = ({ data, loading, workspace, permissions, onUrg
           </div>
           {card.href ? <ChevronRight className={styles.arrow} aria-hidden="true" /> : null}
         </>;
-        if (card.onClick) return <button type="button" key={card.label} onClick={card.onClick} aria-pressed={urgentOnly} aria-controls="attention-pending-list" className={cn(styles.kpi, styles.urgentKpi, 'text-left')}>{content}</button>;
         return card.href
-          ? <Link key={card.label} href={card.href} className={cn(styles.kpi, card.tone === 'red' && styles.urgentKpi)}>{content}</Link>
+          ? <Link key={card.label} href={card.href} className={cn(styles.kpi, 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600', card.tone === 'red' && styles.urgentKpi)}>{content}</Link>
           : <div key={card.label} className={cn(styles.kpi, card.tone === 'red' && styles.urgentKpi)}>{content}</div>;
       })}
     </div>
@@ -476,7 +482,7 @@ const QueueRequest = ({ title = '' }) => {
   return <details className={styles.request}><summary>{title.slice(0, 100)}…</summary><p>{title}</p></details>;
 };
 
-const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, urgentOnly, nextCursor, hasCursor, onPage }) => {
+const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, urgentOnly, nextCursor, hasCursor, onPage, onUrgent }) => {
   const { tx, language } = useDashboardLanguage();
   const [expanded, setExpanded] = useState(false);
   const visibleItems = expanded ? items : items.slice(0, 5);
@@ -494,6 +500,7 @@ const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, 
           <p className={styles.subtitle}>{tx(urgentOnly ? 'Solo urgentes' : 'Muestra · urgentes, pendientes y resueltos')}</p>
         </div>
         <div className={styles.queueActions}>
+          <button type="button" className={styles.link} onClick={onUrgent} aria-pressed={urgentOnly} aria-controls="attention-pending-list">{tx('Solo urgentes')}</button>
           {hasCursor ? <button className={styles.link} onClick={() => onPage(null)}>{tx('Primera página')}</button> : null}
           {nextCursor ? <button className={styles.link} onClick={() => onPage(nextCursor)}>{tx('Siguiente página')}</button> : null}
           {permissions.inbox ? <Link className={styles.link} href="/dashboard/inbox">{tx('Ver Inbox')}</Link> : null}
