@@ -64,5 +64,5 @@ export const attentionDashboardDTO = (data, hotelId) => {
     messages:rows.map(item => ({...item,title:item.title || 'Mensaje sin texto',
       href:'/dashboard/inbox?conversationId=' + encodeURIComponent(item.conversationId),actionLabel:'Abrir conversación'})),
     pending:rows.filter(item=>item.status==='Pendiente').map(item=>({...item,href:'/dashboard/inbox?conversationId='+encodeURIComponent(item.conversationId),actionLabel:'Abrir conversación'})),
-    scope:'Con seguimiento de atención. Históricos sin clasificar excluidos. Hoy usa la zona horaria del hotel.' };
+    scope:'Recibidos: entradas válidas de hoy. Atención: históricos sin clasificar excluidos. Hoy usa la zona horaria del hotel.' };
 };

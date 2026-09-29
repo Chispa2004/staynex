@@ -106,6 +106,7 @@ let activeHotel=hotel,authorization='session-a',clientItems=[convo],clientError=
 const ref=current=>({current});const mutation=ref(false),requestId=ref(0);
 const noop=()=>{};
 const bindings={useCallback:f=>f,selectedConversation:convo,capabilities:{canManageControl:true},selectedControl:{confirmed:true},
+  metricKey:'',metricKeyRef:ref(''),setMetricState:noop,
   controlMutationRef:mutation,currentHotel:{id:hotel},loadRequestIdRef:requestId,loadInFlightRef:ref(false),
   setTakeoverUpdating:noop,setControlError:s=>{clientError=s;},setItems:f=>{clientItems=typeof f==='function'?f(clientItems):f;},
   getAuthHeaders:async()=>({Authorization:authorization}),getActiveTenantId:()=>activeHotel,

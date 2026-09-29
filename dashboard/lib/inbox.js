@@ -546,10 +546,12 @@ const getGuestIntelligenceByGuest = async ({ supabase, guestIds, hotelId }) => {
   }
 };
 
-export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null, hotel = null } = {}) => {
+export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null, hotel = null, conversationIds = null } = {}) => {
   if (!hotelId) return [];
-  const conversations = await readAllInboxRows(() => supabase.from('conversations')
+  const allConversations = await readAllInboxRows(() => supabase.from('conversations')
     .select('id, hotel_id, guest_id, status, last_message_at, created_at').eq('hotel_id', hotelId).order('id', {ascending:true}));
+  const allowedIds=conversationIds && new Set(conversationIds);
+  const conversations=allowedIds ? allConversations.filter(c=>allowedIds.has(c.id)) : allConversations;
   let hotelKnowledge = [];
   try {
     hotelKnowledge = guestFacingKnowledge(await readAllInboxRows(() => supabase.from('hotel_knowledge')
