@@ -353,6 +353,9 @@ const AppShellContent = ({ children }) => {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
+      // getSession carries the initial error; INITIAL_SESSION(null) does not.
+      // Supabase also emits that event when initial refresh fails temporarily.
+      if (event === 'INITIAL_SESSION') return;
       authRevision += 1;
       resolved = true;
       window.clearTimeout(timeoutId);

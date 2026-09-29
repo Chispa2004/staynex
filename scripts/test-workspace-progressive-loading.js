@@ -84,7 +84,9 @@ core.resolve(Response.json(base));await flush();assert(!protectedVisible(),'late
 transport=normal;await click('Retry');assert(protectedVisible());assertReadOnly();
 console.log('PASS mandatory context timeout, selection retained, no logout, late reply ignored, read retry recovers');
 
-const authPending=deferred();await reset({auth:()=>authPending.promise});await fireTimeouts();
+const authPending=deferred();await reset({auth:()=>authPending.promise});
+authListener('INITIAL_SESSION',null);await flush();assert(!replacements.includes('/login'));
+await fireTimeouts();
 assert(text().includes('Reintenta sin cerrar sesión'));assert(!protectedVisible());assert(!replacements.includes('/login'));
 authPending.resolve({data:{session}});await flush();assert(!protectedVisible());
 getSession=async()=>({data:{session}});await click('Retry');assert(protectedVisible());
