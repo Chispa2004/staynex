@@ -36,7 +36,7 @@ export async function POST(request) {
     if (platformRole === 'support') {
       return NextResponse.json({ ok: false, error: 'Support sessions are read-only by default' }, { status: 403, ...jsonOptions });
     }
-    const hotelId = assertPmsHotelContext({ hotel, fallback });
+    const hotelId = assertPmsHotelContext({ hotel, fallback, write: true });
     const body = await request.json().catch(() => ({}));
     const result = await proxyBackendPmsAction({
       action: 'sync',

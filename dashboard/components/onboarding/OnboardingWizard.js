@@ -16,6 +16,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { StepHotelSetup } from './StepHotelSetup';
+import { StepPmsConnection } from './StepPmsConnection';
 import { ExecutiveBadge, ExecutiveCard } from '@/components/ExecutiveCard';
 import { getOnboardingAction } from '@/lib/onboarding-navigation';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
@@ -82,8 +83,8 @@ export const OnboardingWizard = () => {
   const completedBlocks = useMemo(() => steps.filter((step) => step.status === 'COMPLETADO'), [steps]);
   const canManage = pilot?.permissions?.canModifyProtectedConfig ?? canManageProtectedConfig(access);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ preserveStep = false, silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
@@ -106,13 +107,13 @@ export const OnboardingWizard = () => {
       });
       setState(body.state || null);
       setPilot(nextPilot);
-      setCurrentStep(nextPilot?.blocks?.some((block) => block.id === nextCurrentStep) ? nextCurrentStep : fallbackSteps[0].id);
+      if (!preserveStep) setCurrentStep(nextPilot?.blocks?.some((block) => block.id === nextCurrentStep) ? nextCurrentStep : fallbackSteps[0].id);
       setSuccess(null);
       if (body.schemaReady === false) setError('No se puede finalizar: falta instalar el contrato de onboarding. Pide ayuda a Staynex.');
     } catch (caughtError) {
       setError(sanitizeError(caughtError.message));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -314,6 +315,7 @@ export const OnboardingWizard = () => {
             isLight={isLight}
             canManage={canManage}
             onHotelSaved={handleHotelSaved}
+            onPmsSaved={() => load({ preserveStep: true, silent: true })}
             onDirtyChange={setProfileDirty}
             onSelectStep={setCurrentStep}
             access={access}
@@ -363,7 +365,7 @@ const ReadyPanel = ({ isLight, title, ready, description }) => (
   </ExecutiveCard>
 );
 
-const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onDirtyChange, onSelectStep, access }) => {
+const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onPmsSaved, onDirtyChange, onSelectStep, access }) => {
   const { tx } = useDashboardLanguage();
   if (block?.id === 'hotel' || block?.id === 'whatsapp') {
     return <StepHotelSetup hotel={hotel} canEdit={canManage} onSaved={onHotelSaved} onDirtyChange={onDirtyChange} focusField={block?.id === 'whatsapp' ? 'whatsapp_number' : null} />;
@@ -372,6 +374,8 @@ const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onDi
   if (block?.id === 'readiness') {
     return <ReadinessDetail block={block} isLight={isLight} onSelectStep={onSelectStep} access={access} />;
   }
+
+  if (block?.id === 'pms') return <StepPmsConnection onConfigurationChanged={onPmsSaved} />;
 
   return (
     <ExecutiveCard className="p-6">
