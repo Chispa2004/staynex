@@ -338,6 +338,10 @@ const AppShellContent = ({ children }) => {
       window.clearTimeout(timeoutId);
 
       if (error) {
+        if ([401, 403].includes(error.status)) {
+          applySession(null);
+          return;
+        }
         setAuthLoading(false);
         setAuthError('No se pudo comprobar la sesión. Reintenta sin cerrar sesión.');
         return;

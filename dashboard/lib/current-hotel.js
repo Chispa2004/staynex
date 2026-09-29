@@ -273,7 +273,7 @@ const resolveCurrentHotelForRequest = async (request, { readOnly = false, includ
       email = normalizeAuthEmail(authUser?.email);
     } else {
       // A dependency/network failure is not evidence of an invalid session.
-      if (!error.status || error.status >= 500 || error.name === 'AuthRetryableFetchError') throw error;
+      if (!error.status || error.status >= 500 || [408, 429].includes(error.status) || error.name === 'AuthRetryableFetchError') throw error;
       console.warn('Current hotel auth lookup failed', error.message);
       return buildAccessDeniedContext({
         supabase,

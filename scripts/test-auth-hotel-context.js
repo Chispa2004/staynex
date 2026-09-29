@@ -319,7 +319,7 @@ const contextHarness = (options = {}) => {
   const scoped=contextHarness({assignments:[hotelAssignment({multiPropertyAccess:true}),hotelAssignment({hotel:hotelB,multiPropertyAccess:true,isDefault:false})]});
   const choices=await scoped.getCurrentHotelForRequest(makeRequest({token:'valid',headerHotelId:hotelA.id}),{readOnly:true,includeDirectory:false});
   assert.equal(choices.availableHotels.length,2,'already authorized assignments remain selectable without catalog query');
-  for(const error of [new Error('Network unavailable'),Object.assign(new Error('Auth upstream'),{status:503})]){
+  for(const error of [new Error('Network unavailable'),Object.assign(new Error('Auth upstream'),{status:503}),Object.assign(new Error('Rate limited'),{status:429})]){
     const unavailable=contextHarness({authResults:{offline:{data:{user:null},error}}});
     await assert.rejects(unavailable.getCurrentHotelForRequest(makeRequest({token:'offline'})),error,'transient auth error must not become invalid_session');
   }

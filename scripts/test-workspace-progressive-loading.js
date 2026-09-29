@@ -89,6 +89,7 @@ assert(text().includes('Reintenta sin cerrar sesión'));assert(!protectedVisible
 authPending.resolve({data:{session}});await flush();assert(!protectedVisible());
 getSession=async()=>({data:{session}});await click('Retry');assert(protectedVisible());
 await reset({auth:async()=>({data:{session:null}})});assert(replacements.includes('/login'));assert.equal(requests.length,0);
+await reset({auth:async()=>({data:{session:null},error:{status:401}})});assert(replacements.includes('/login'));assert.equal(requests.length,0);
 await reset({fetch:(url,o)=>url==='/api/current-hotel'?Response.json({accessDenied:true,accessDeniedReason:'invalid_session'},{status:401}):normal(url,o)});
 assert(replacements.includes('/login'));
 console.log('PASS session network timeout differs from explicit missing/expired session; retry is safe');
