@@ -108,7 +108,7 @@ export const getWorkspaceRequestHeaders = ({ hotelId: explicitHotelId = null } =
   return resolvedHotelId ? { 'x-staynex-hotel-id': resolvedHotelId } : (isBrowser() && window.localStorage.getItem(WORKSPACE_UNSELECTED_KEY) ? { 'x-staynex-workspace-unselected': '1' } : {});
 };
 
-export const switchWorkspace = async ({ hotelId, accessToken }) => {
+export const switchWorkspace = async ({ hotelId, accessToken, isCurrent = () => true }) => {
   const revision = getWorkspaceRevision();
   const response = await fetch('/api/current-hotel', {
     method: 'POST',
@@ -122,7 +122,7 @@ export const switchWorkspace = async ({ hotelId, accessToken }) => {
   });
   const body = await response.json();
 
-  if (!response.ok || body.accessDenied || body.hotel?.id !== hotelId || revision !== getWorkspaceRevision()) {
+  if (!response.ok || body.accessDenied || body.hotel?.id !== hotelId || revision !== getWorkspaceRevision() || !isCurrent()) {
     throw new Error(body.error || 'Could not switch workspace');
   }
 

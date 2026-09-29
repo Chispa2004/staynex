@@ -114,7 +114,7 @@ await test('Authenticated user -> actual hotel resolver -> internal authenticati
   const s=makeStore(),b=backend(s);let forwarded=0,authCalls=0;
   s.client.auth={getUser:async token=>{authCalls++;return token==='synthetic-session-a'
     ? {data:{user:{id:'user-a',email:'a@example.test'}},error:null}
-    : {data:{user:null},error:Error('Invalid synthetic session')};}};
+    : {data:{user:null},error:Object.assign(Error('Invalid synthetic session'),{status:401})};}};
   const {getCurrentHotelForRequest}=load('dashboard/lib/current-hotel.js',{isArchivedHotel,
     getSupabaseAdmin:()=>s.client,canAccessPlatform,getPermissionsForPlatformRole,getPermissionsForRole,
     normalizeAuthEmail:x=>String(x).toLowerCase(),resolvePendingInvitationsForUser:async()=>{},

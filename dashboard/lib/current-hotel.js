@@ -148,7 +148,8 @@ const buildWorkspaceSelectionRequiredContext = async ({
   assignments,
   tenantAccess,
   userId,
-  email
+  email,
+  includeDirectory = true
 }) => ({
   supabase,
   hotel: null,
@@ -161,7 +162,7 @@ const buildWorkspaceSelectionRequiredContext = async ({
   canSwitchWorkspaces: tenantAccess.canSwitchWorkspaces,
   canCreateWorkspaces: tenantAccess.canCreateWorkspaces,
   availableHotels: (tenantAccess.platformRole !== 'none'
-    ? await getAllHotelWorkspaces(supabase)
+    ? (includeDirectory ? await getAllHotelWorkspaces(supabase) : [])
     : assignments.filter(item => item.hotel).map(item => item.hotel)).map((workspaceHotel) => {
     const assignment = assignments.find((item) => item.hotel_id === workspaceHotel.id);
       return {
@@ -254,7 +255,7 @@ export const getDefaultHotel = async (supabase = getSupabaseAdmin()) => {
   return firstHotel;
 };
 
-const resolveCurrentHotelForRequest = async (request) => {
+const resolveCurrentHotelForRequest = async (request, { readOnly = false, includeDirectory = true } = {}) => {
   const supabase = getSupabaseAdmin();
   const token = getBearerToken(request);
   const requestedHotelId = getRequestedHotelId(request);
@@ -271,6 +272,8 @@ const resolveCurrentHotelForRequest = async (request) => {
       userId = authUser?.id || null;
       email = normalizeAuthEmail(authUser?.email);
     } else {
+      // A dependency/network failure is not evidence of an invalid session.
+      if (!error.status || error.status >= 500 || error.name === 'AuthRetryableFetchError') throw error;
       console.warn('Current hotel auth lookup failed', error.message);
       return buildAccessDeniedContext({
         supabase,
@@ -288,7 +291,7 @@ const resolveCurrentHotelForRequest = async (request) => {
 
   if (userId) {
     try {
-      await resolvePendingInvitationsForUser({ supabase, user: authUser });
+      if (!readOnly) await resolvePendingInvitationsForUser({ supabase, user: authUser });
     } catch (error) {
       if (!isMissingHotelIdentitySchema(error)) {
         if (process.env.NODE_ENV !== 'production') {
@@ -331,10 +334,15 @@ const resolveCurrentHotelForRequest = async (request) => {
           assignments,
           tenantAccess,
           userId,
-          email
+          email,
+          includeDirectory
         });
       }
 
+      // Platform needs its own authorization, not an operational hotel/catalog.
+      if (!includeDirectory && requestedWorkspacePath.startsWith('/platform') && ['platform_admin', 'super_admin', 'internal_only'].includes(tenantAccess.platformRole)) {
+        return buildWorkspaceSelectionRequiredContext({supabase, assignments, tenantAccess, userId, email, includeDirectory:false});
+      }
       const canUseRequestedHotel = tenantAccess.canSwitchWorkspaces;
       const selectedAssignment = chooseHotelAssignment(assignments, requestedHotelId, {
         allowRequested: canUseRequestedHotel
@@ -350,7 +358,8 @@ const resolveCurrentHotelForRequest = async (request) => {
             assignments,
             tenantAccess,
             userId,
-            email
+            email,
+            includeDirectory
           });
         }
 
@@ -369,7 +378,7 @@ const resolveCurrentHotelForRequest = async (request) => {
           });
         }
 
-        if (selectedAssignment.user_id === null) {
+        if (!readOnly && selectedAssignment.user_id === null) {
           await supabase
             .from('hotel_users')
             .update({
@@ -390,7 +399,7 @@ const resolveCurrentHotelForRequest = async (request) => {
           platform_role: tenantAccess.platformRole,
           multi_property_access: tenantAccess.multiPropertyAccess
         });
-        const availableHotels = tenantAccess.canSwitchWorkspaces
+        const availableHotels = tenantAccess.canSwitchWorkspaces && (includeDirectory || tenantAccess.platformRole === 'none')
           ? (
             tenantAccess.platformRole !== 'none'
               ? (await getAllHotelWorkspaces(supabase)).map((workspaceHotel) => {
@@ -546,8 +555,8 @@ const resolveCurrentHotelForRequest = async (request) => {
 };
 
 // Platform can inspect archives. Operational routes receive no hotel or permissions.
-export const getCurrentHotelForRequest = async (request) => {
-  const context = await resolveCurrentHotelForRequest(request);
+export const getCurrentHotelForRequest = async (request, options) => {
+  const context = await resolveCurrentHotelForRequest(request, options);
   context.availableHotels = (context.availableHotels || []).filter(item => !isArchivedHotel(item.hotel));
   if (isArchivedHotel(context.hotel)) return {...context,hotel:null,hotelUser:null,role:'blocked',permissions:[],accessDenied:true,accessDeniedReason:'hotel_archived',archivedHotelId:context.hotel.id};
   return context;

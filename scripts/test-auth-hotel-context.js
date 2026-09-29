@@ -207,7 +207,7 @@ const createFakeSupabase = ({
       calls.push({ type: 'auth.getUser', token });
       return authResults[token] || {
         data: { user: null },
-        error: new Error('invalid or expired session')
+        error: Object.assign(new Error('invalid or expired session'), {status:401})
       };
     }
   },
@@ -270,6 +270,7 @@ const loadCurrentHotelModule = ({
     },
     normalizeAuthEmail,
     async () => {
+      supabase.calls.push({type:'resolveInvitations'});
       if (invitationError) {
         throw invitationError;
       }
@@ -307,6 +308,25 @@ const contextHarness = (options = {}) => {
 };
 
 {
+  const harness=contextHarness({assignments:[hotelAssignment({platformRole:'platform_admin',role:'admin',userId:null})]});
+  const context=await harness.getCurrentHotelForRequest(makeRequest({token:'valid',headerHotelId:hotelA.id}),{readOnly:true,includeDirectory:false});
+  assert.equal(context.hotel.id,hotelA.id);
+  assert(!harness.calls.some(call=>call.type==='resolveInvitations'||call.type==='update'),'bootstrap must not resolve invitations or link assignments');
+  assert.equal(harness.calls.filter(call=>call.tableName==='hotels'&&call.type==='eq'&&call.field==='id').length,1);
+  assert.equal(harness.calls.filter(call=>call.type==='from'&&call.tableName==='hotels').length,1,'only selected hotel lookup, no whole catalog');
+  await harness.getCurrentHotelForRequest(makeRequest({token:'valid',workspacePath:'/platform'}),{readOnly:true,includeDirectory:false});
+  assert.equal(harness.calls.filter(call=>call.type==='from'&&call.tableName==='hotels').length,1,'Platform does not need an operational catalog');
+  const scoped=contextHarness({assignments:[hotelAssignment({multiPropertyAccess:true}),hotelAssignment({hotel:hotelB,multiPropertyAccess:true,isDefault:false})]});
+  const choices=await scoped.getCurrentHotelForRequest(makeRequest({token:'valid',headerHotelId:hotelA.id}),{readOnly:true,includeDirectory:false});
+  assert.equal(choices.availableHotels.length,2,'already authorized assignments remain selectable without catalog query');
+  for(const error of [new Error('Network unavailable'),Object.assign(new Error('Auth upstream'),{status:503})]){
+    const unavailable=contextHarness({authResults:{offline:{data:{user:null},error}}});
+    await assert.rejects(unavailable.getCurrentHotelForRequest(makeRequest({token:'offline'})),error,'transient auth error must not become invalid_session');
+  }
+  console.log('PASS read-only slim context has no invitation writes/catalog scan; assigned choices retained; auth network errors remain retryable');
+}
+
+{
   const harness = contextHarness({
     hotels: [{ ...hotelA, slug: 'staynex-demo' }]
   });
@@ -323,7 +343,7 @@ const contextHarness = (options = {}) => {
 {
   const harness = contextHarness({
     authResults: {
-      expired: { data: { user: null }, error: new Error('JWT expired') }
+      expired: { data: { user: null }, error: Object.assign(new Error('JWT expired'), {status:401}) }
     },
     hotels: [{ ...hotelA, slug: 'staynex-demo' }]
   });
