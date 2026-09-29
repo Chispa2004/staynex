@@ -1,6 +1,6 @@
 import { readAllInboxRows } from '../../shared/inbox/stay-stage.js';
 import { isAttentionMessage, validAttentionSnapshot, attentionError } from '../../shared/message-attention/contract.js';
-import { buildMessageMetrics } from '../../shared/message-attention/metrics.js';
+import { buildMessageMetrics, attentionOrigin } from '../../shared/message-attention/metrics.js';
 
 // Read-only, scoped, paginated queries. No raw claims, message bodies or actors are
 // returned in the metric DTO. Existing RPC checks the enabled attention contract.
@@ -16,8 +16,9 @@ export async function loadMessageMetrics({supabase,hotel,origin,date,verified=fa
     rows('twilio_inbound_message_claims','id:message_sid,message_id','message_sid'),
     rows('conversation_ai_state','id:conversation_id,conversation_id,hotel_id,escalation_level,updated_at','conversation_id')
   ]);
+  const claimedIds=new Set(claims.map(c=>c.message_id).filter(Boolean));
   const groups=new Map(), validConversations=new Set(conversations.map(c=>c.id));
-  for (const m of messages) if (isAttentionMessage(m) && validConversations.has(m.conversation_id)) {
+  for (const m of messages) if (isAttentionMessage(m) && validConversations.has(m.conversation_id) && attentionOrigin(m,claimedIds)===origin) {
     if (!groups.has(m.conversation_id)) groups.set(m.conversation_id,[]);
     groups.get(m.conversation_id).push(m.id);
   }
@@ -29,5 +30,5 @@ export async function loadMessageMetrics({supabase,hotel,origin,date,verified=fa
     for(const item of data.items) attention.set(item.messageId,item);
   }));
   return buildMessageMetrics({hotelId:hotel.id,timezone:hotel.timezone,origin,date,now,messages,conversations,attention,
-    alerts:new Map(states.map(s=>[s.conversation_id,s])),claimedIds:new Set(claims.map(c=>c.message_id).filter(Boolean))});
+    alerts:new Map(states.map(s=>[s.conversation_id,s])),claimedIds});
 }

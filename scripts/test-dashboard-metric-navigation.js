@@ -63,6 +63,9 @@ const many=Array.from({length:3105},(_,n)=>message(100+n));let reads=0,rpcs=0,fa
 const db={from(table){let offset=0,end=0;const rows=table==='messages'?many:table==='conversations'?[{id:c,hotel_id:h}]:[];const q={select(){return q},eq(k,v){assert.equal(k,'hotel_id');assert.equal(v,h);return q},order(){return q},async range(a,b){reads++;offset=a;end=b;return fail?{error:{message:'synthetic'}}:{data:rows.slice(offset,end+1)}}};return q},async rpc(name,args){rpcs++;assert.equal(args.p_hotel,h);return {data:name==='staynex_attention_dashboard_v1'?{contract:1,hotelId:h}:{contract:1,hotelId:h,conversationId:c,items:args.p_ids.map(messageId=>({messageId,status:'pending',version:1,changedAt:now}))}}}};
 const loaded=await loadMessageMetrics({supabase:db,hotel:{id:h,timezone:'Europe/Madrid'},origin:'simulated',now});
 assert.equal(loaded.counters.pending,3105);assert.equal(rpcs,3);assert(reads>7);
+const beforeOtherOrigin=rpcs;
+assert.equal((await loadMessageMetrics({supabase:db,hotel:{id:h,timezone:'Europe/Madrid'},origin:'traced',now})).counters.pending,0);
+assert.equal(rpcs,beforeOtherOrigin+1,'No attention RPCs for messages outside the selected origin');
 fail=true;await assert.rejects(loadMessageMetrics({supabase:db,hotel:{id:h,timezone:'Europe/Madrid'},origin:'simulated',now}));
 pass('all pages and bounded RPC batches; partial read failure propagates');
 

@@ -38,6 +38,8 @@ Build y sintaxis se comprueban sobre el resultado final. Se preservó fuera de G
 
 Primer CI de PR #32 (`0e89400`): las diez regresiones nuevas pasan; `test:inbox` detectó que el cambio de nombre de un binding de presentación incumplía su comprobación literal de unidad accesible. Se conserva la expresión y la prueba original, situando la etiqueta «Prioridad de conversación» en la definición del filtro. No cambia el comportamiento ni se relajan expectativas. Las suites posteriores a ese fallo no se consideran ejecutadas en esa corrida; se exige CI completo para el SHA corregido.
 
+Lectura remota autorizada, sin escrituras: el loader nuevo y `staynex_attention_dashboard_v1` concuerdan por nombre de contador para los tres orígenes en el proyecto acreditado. SIMULADO: 0 recibidos/0 resueltos del día, 18 pendientes/3 urgentes actuales. Trazable y no confirmado: cuatro ceros válidos. La clasificación limita las RPC de atención al origen seleccionado. Tres lecturas locales contra Supabase tardaron aproximadamente 1,535/1,103/0,450 s incluyendo la consulta adicional de comparación; no son una medición de carga de la web pública ni una garantía de rendimiento a gran escala.
+
 ## Publicación, recuperación y conservación
 
 Publicar rama/PR; esperar los tres jobs del SHA final y revisar logs de ambas suites; merge normal sin bloqueo de revisión; CI de main y versiones Vercel Production/Railway; comprobar las cuatro tarjetas públicamente mediante navegación y lectura. No hay migración, cambios de variables/permisos, datos sintéticos remotos ni nuevos proveedores. Recuperación: revertir el código con CI habitual; no requiere restaurar datos ni modificar contratos SQL. No ejecutar operaciones inciertas ni cambios de seguimiento para fabricar resultados.
