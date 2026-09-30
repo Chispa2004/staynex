@@ -18,15 +18,16 @@ import {
   X
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getAuthHeaders } from '@/lib/auth-headers';
-import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
 import { canAccess } from '@/lib/permissions';
 import { PremiumEmptyState } from './PremiumEmptyState';
 import { DataTableShell } from './DataTableShell';
 import { cn, ui } from '@/lib/ui/styles';
+import { useOperationalMetrics } from '@/lib/useOperationalMetrics';
+import { OperationalMetricSummary } from './OperationalMetricSummary';
 
 const filterOptions = [
   { key: 'upcoming', labelKey: 'reservations.filters.upcoming' },
@@ -36,14 +37,6 @@ const filterOptions = [
   { key: 'today_arrivals', labelKey: 'reservations.filters.todayArrivals' },
   { key: 'today_departures', labelKey: 'reservations.filters.todayDepartures' }
 ];
-
-const todayKey = () => new Date().toISOString().slice(0, 10);
-
-const addDaysKey = (days) => {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-};
 
 const addDaysToDate = (dateValue, days) => {
   if (!dateValue) {
@@ -60,13 +53,7 @@ const addDaysToDate = (dateValue, days) => {
   return date.toISOString();
 };
 
-const CANCELLED_RESERVATION_STATUSES = new Set(['cancelled', 'canceled', 'no_show', 'void']);
-const COMPLETED_RESERVATION_STATUSES = new Set(['completed', 'checked_out', 'departed']);
 const CHECKIN_DEMO_SLUG = 'hotel-demo-checkin';
-
-const isCancelledReservation = (reservation = {}) => (
-  CANCELLED_RESERVATION_STATUSES.has(String(reservation.status || '').toLowerCase())
-);
 
 const isCheckinDemoHotel = (hotel = {}) => (
   hotel?.slug === CHECKIN_DEMO_SLUG
@@ -99,53 +86,8 @@ const formatDateTime = (value) => {
   }).format(new Date(value));
 };
 
-const getStayStatus = (reservation) => {
-  const today = todayKey();
-  const arrival = reservation.arrival_date;
-  const departure = reservation.departure_date;
-  const rawStatus = String(reservation.status || '').toLowerCase();
-
-  if (isCancelledReservation(reservation)) {
-    return 'cancelled';
-  }
-
-  if (COMPLETED_RESERVATION_STATUSES.has(rawStatus) || (departure && departure < today)) {
-    return 'completed';
-  }
-
-  if (arrival && departure && arrival <= today && departure >= today) {
-    return 'in_house';
-  }
-
-  return 'upcoming';
-};
-
-const getJourneyStatus = (reservation) => {
-  if (isCancelledReservation(reservation)) {
-    return 'cancelled';
-  }
-
-  if (reservation.computedJourneyStatus) {
-    return reservation.computedJourneyStatus;
-  }
-
-  const today = todayKey();
-
-  if (reservation.departure_date && today > reservation.departure_date) {
-    return 'post_stay';
-  }
-
-  if (
-    reservation.arrival_date
-    && reservation.departure_date
-    && today >= reservation.arrival_date
-    && today <= reservation.departure_date
-  ) {
-    return 'in_house';
-  }
-
-  return 'pre_arrival';
-};
+const getStayStatus = reservation => reservation.computedStayStatus;
+const getJourneyStatus = reservation => reservation.computedJourneyStatus;
 
 const statusTone = (status) => {
   if (status === 'in_house' || status === 'linked') {
@@ -297,39 +239,6 @@ const buildAutomationPreview = (reservation) => {
   ];
 };
 
-const matchesFilter = (reservation, filter) => {
-  const status = getStayStatus(reservation);
-  const today = todayKey();
-
-  if (filter === 'today_arrivals') {
-    return status !== 'cancelled' && reservation.arrival_date === today;
-  }
-
-  if (filter === 'today_departures') {
-    return status !== 'cancelled' && reservation.departure_date === today;
-  }
-
-  return status === filter;
-};
-
-const matchesSearch = (reservation, search) => {
-  const query = search.trim().toLowerCase();
-
-  if (!query) {
-    return true;
-  }
-
-  return [
-    reservation.guest_name,
-    reservation.guest_email,
-    reservation.guest_phone,
-    reservation.pms_reservation_id,
-    reservation.reservation_access_token
-  ]
-    .filter(Boolean)
-    .some((value) => String(value).toLowerCase().includes(query));
-};
-
 const Card = ({ children, className = '' }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
@@ -357,12 +266,13 @@ const Badge = ({ children, tone = 'slate' }) => {
   );
 };
 
-const StatCard = ({ icon: Icon, label, value }) => {
+const StatCard = ({ icon: Icon, label, value, href }) => {
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
 
   return (
     <Card className="p-4">
+      {href ? <Link href={href} className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>
@@ -376,6 +286,7 @@ const StatCard = ({ icon: Icon, label, value }) => {
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
       </div>
+      </Link> : <div><p className="text-xs">{label}</p><p className="mt-3 text-3xl">…</p></div>}
     </Card>
   );
 };
@@ -738,135 +649,25 @@ const ReservationDetail = ({ reservation, onClose }) => {
 };
 
 export const ReservationsClient = () => {
-  const { t } = useDashboardLanguage();
+  const { t, tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
-  const [reservations, setReservations] = useState([]);
-  const [activeFilter, setActiveFilter] = useState('upcoming');
-  const [search, setSearch] = useState('');
-  const [selectedReservation, setSelectedReservation] = useState(null);
-  const [copiedAction, setCopiedAction] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [currentHotel, setCurrentHotel] = useState(null);
-  const [currentRole, setCurrentRole] = useState('receptionist');
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const loadRequestIdRef = useRef(0);
-  const activeHotelIdRef = useRef(null);
-
-  const loadReservations = async () => {
-    const requestId = loadRequestIdRef.current + 1;
-    loadRequestIdRef.current = requestId;
-    setLoading(true);
-    setReservations([]);
-    setSelectedReservation(null);
-    setError(null);
-
-    try {
-      const headers = await getAuthHeaders();
-      const response = await fetch('/api/reservations', {
-        headers,
-        cache: 'no-store'
-      });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || t('reservations.errors.loadFailed'));
-      }
-
-      if (!shouldAcceptTenantPayload(payload, 'reservations')) {
-        return;
-      }
-
-      const nextHotelId = payload.hotel?.id || null;
-
-      if (requestId !== loadRequestIdRef.current) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.info('stale response ignored', { surface: 'reservations', hotelId: nextHotelId });
-        }
-        return;
-      }
-
-      if (activeHotelIdRef.current && nextHotelId && activeHotelIdRef.current !== nextHotelId && process.env.NODE_ENV !== 'production') {
-        console.info('state reset for hotel', { surface: 'reservations', hotelId: nextHotelId });
-      }
-
-      activeHotelIdRef.current = nextHotelId;
-      setCurrentHotel(payload.hotel || null);
-      setCurrentRole(payload.role || 'receptionist');
-      const nextReservations = (payload.reservations || []).map((reservation) => ({
-        ...reservation,
-        hotel: payload.hotel || null,
-        hotel_name: payload.hotel?.name || null
-      }));
-      setReservations(nextReservations);
-      setSelectedReservation((current) => {
-        if (!current) return null;
-        return nextReservations.find((reservation) => reservation.id === current.id) || null;
-      });
-    } catch (loadError) {
-      console.error('Reservations fetch failed', loadError);
-      setError(loadError.message);
-    } finally {
-      if (requestId === loadRequestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    loadReservations();
-  }, []);
-
-  const stats = useMemo(() => {
-    const today = todayKey();
-    const soon = addDaysKey(7);
-
-    return {
-      total: reservations.length,
-      arrivingSoon: reservations.filter((reservation) => (
-        !isCancelledReservation(reservation)
-        &&
-        reservation.arrival_date
-        && reservation.arrival_date >= today
-        && reservation.arrival_date <= soon
-      )).length,
-      stayingNow: reservations.filter((reservation) => getStayStatus(reservation) === 'in_house').length,
-      completed: reservations.filter((reservation) => getStayStatus(reservation) === 'completed').length
-    };
-  }, [reservations]);
-
-  const filteredReservations = useMemo(() => (
-    reservations.filter((reservation) => (
-      matchesFilter(reservation, activeFilter)
-      && matchesSearch(reservation, search)
-    ))
-  ), [reservations, activeFilter, search]);
-
-  useEffect(() => {
-    setSelectedReservation((current) => {
-      if (!filteredReservations.length) {
-        return null;
-      }
-
-      if (current && filteredReservations.some((reservation) => reservation.id === current.id)) {
-        return current;
-      }
-
-      return filteredReservations[0];
-    });
-  }, [filteredReservations]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [activeFilter, search, pageSize, reservations.length]);
-
-  const paginatedReservations = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredReservations.slice(start, start + pageSize);
-  }, [filteredReservations, page, pageSize]);
+  const list = useOperationalMetrics('reservations');
+  const {data,loading,error,load:loadReservations} = list;
+  const metrics = data?.metrics;
+  const reservations = useMemo(() => (data?.reservations || []).map(row=>({...row,hotel:data.hotel,hotel_name:data.hotel?.name})),[data]);
+  const currentHotel = data?.hotel || null, currentRole = data?.role || 'receptionist';
+  const activeFilter = list.params.get('metric') || 'upcoming', search = list.params.get('q') || '';
+  const setActiveFilter = metric => list.change({metric});
+  const setSearch = q => list.change({q});
+  const page = metrics?.page || 1, pageSize = metrics?.pageSize || 10;
+  const setPage = page => list.change({page}), setPageSize = pageSize => list.change({pageSize});
+  const stats = metrics?.stats || {};
+  const filteredReservations = reservations, paginatedReservations = reservations;
+  const [selectedReservation,setSelectedReservation] = useState(null);
+  const [copiedAction,setCopiedAction] = useState(null);
+  const [createModalOpen,setCreateModalOpen] = useState(false);
+  useEffect(()=>{setSelectedReservation(current => reservations.find(row=>row.id===current?.id) || reservations[0] || null);},[reservations]);
 
   const canManageReservations = canAccess(currentRole, 'reservations_manage');
   const canCreateDemoReservation = canManageReservations && isCheckinDemoHotel(currentHotel);
@@ -881,18 +682,7 @@ export const ReservationsClient = () => {
     window.setTimeout(() => setCopiedAction(null), 1600);
   };
 
-  const handleTestReservationCreated = (reservation) => {
-    const nextReservation = {
-      ...reservation,
-      hotel: currentHotel,
-      hotel_name: currentHotel?.name || null,
-      automation_events: reservation.automation_events || []
-    };
-
-    setReservations((current) => [nextReservation, ...current.filter((item) => item.id !== reservation.id)]);
-    setSelectedReservation(nextReservation);
-    loadReservations();
-  };
+  const handleTestReservationCreated = () => { loadReservations(); };
 
   return (
     <div className="space-y-6">
@@ -943,12 +733,13 @@ export const ReservationsClient = () => {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Hotel} label={t('reservations.stats.total')} value={stats.total} />
-        <StatCard icon={CalendarClock} label={t('reservations.stats.arrivingSoon')} value={stats.arrivingSoon} />
-        <StatCard icon={CalendarCheck} label={t('reservations.stats.stayingNow')} value={stats.stayingNow} />
-        <StatCard icon={CheckCircle2} label={t('reservations.stats.completedStays')} value={stats.completed} />
+        <StatCard icon={Hotel} label={t('reservations.stats.total')} value={stats.total} href={metrics ? list.href({metric: 'total',q:null}) : null} />
+        <StatCard icon={CalendarClock} label={t('reservations.stats.arrivingSoon')} value={stats.arrivingSoon} href={metrics ? list.href({metric: 'arrivingSoon',q:null}) : null} />
+        <StatCard icon={CalendarCheck} label={t('reservations.stats.stayingNow')} value={stats.stayingNow} href={metrics ? list.href({metric: 'stayingNow',q:null}) : null} />
+        <StatCard icon={CheckCircle2} label={t('reservations.stats.completedStays')} value={stats.completed} href={metrics ? list.href({metric: 'completed',q:null}) : null} />
       </div>
 
+      <OperationalMetricSummary metrics={metrics} kind="reservations" href={list.href} loading={loading} error={error} />
       <Card className="p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
@@ -981,6 +772,7 @@ export const ReservationsClient = () => {
             <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
             <input
               value={search}
+              aria-label={t('reservations.searchPlaceholder')}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('reservations.searchPlaceholder')}
               className={isLight ? 'min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400' : 'min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600'}
@@ -995,7 +787,7 @@ export const ReservationsClient = () => {
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-semibold">{t('reservations.errors.title')}</p>
-              <p className="mt-1 text-sm">{error}</p>
+              <p className="mt-1 text-sm">{tx(error)}</p>
             </div>
           </div>
         </Card>
@@ -1005,7 +797,7 @@ export const ReservationsClient = () => {
         <Card className="overflow-hidden">
           <div className={isLight ? 'border-b border-slate-200 px-5 py-4' : 'border-b border-white/10 px-5 py-4'}>
             <p className={isLight ? 'text-sm font-semibold text-slate-700' : 'text-sm font-semibold text-slate-300'}>
-              {t('reservations.results', { count: filteredReservations.length })}
+              {metrics ? t('reservations.results', { count: metrics.total }) : '…'}
             </p>
           </div>
 
@@ -1015,19 +807,20 @@ export const ReservationsClient = () => {
                 <div key={item} className={`${ui.skeleton(isLight)} h-14 w-full`} />
               ))}
             </div>
-          ) : filteredReservations.length === 0 ? (
+          ) : error ? null : filteredReservations.length === 0 ? (
             <PremiumEmptyState
               icon={CalendarDays}
-              title={reservations.length === 0 ? t('reservations.empty') : t('reservations.noMatches')}
-              description={canCreateDemoReservation ? 'Crea una reserva demo o sincroniza el PMS cuando la integración real esté lista.' : 'Sincroniza el PMS cuando la integración real esté lista.'}
+              title={t('reservations.noMatches')}
+              description={tx('No hay registros que cumplan estos filtros.')}
               className="m-4"
             />
           ) : (
             <DataTableShell
               minWidth={1600}
-              totalItems={filteredReservations.length}
+              totalItems={metrics.total}
               page={page}
               pageSize={pageSize}
+              pageSizeOptions={[10,25,50]}
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
               mobileCards={paginatedReservations.map((reservation) => {
@@ -1278,7 +1071,7 @@ export const ReservationsClient = () => {
           )}
         </Card>
 
-        <ReservationDetail reservation={selectedReservation} onClose={() => setSelectedReservation(null)} />
+        <ReservationDetail reservation={loading || error ? null : selectedReservation} onClose={() => setSelectedReservation(null)} />
       </div>
     </div>
   );

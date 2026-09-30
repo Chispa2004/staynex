@@ -1,143 +1,43 @@
 'use client';
-
+import Link from 'next/link';
 import { AlertCircle, BrainCircuit, ShieldAlert, Sparkles } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { TicketsTable } from '@/components/TicketsTable';
+import { TicketFilters } from './TicketFilters';
 import { PremiumLoadingState } from './PremiumLoadingState';
-import { getAuthHeaders } from '@/lib/auth-headers';
-import { shouldAcceptTenantPayload } from '@/lib/tenant-client';
+import { useOperationalMetrics } from '@/lib/useOperationalMetrics';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
+import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
+import { OperationalMetricSummary, OperationalPagination, operationalLabels } from './OperationalMetricSummary';
 
 export const TicketsPageClient = () => {
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const requestIdRef = useRef(0);
-
-  const loadTickets = async () => {
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    setLoading(true);
-    setTickets([]);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/tickets', {
-        headers: await getAuthHeaders(),
-        cache: 'no-store'
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'No se pudieron cargar los tickets');
-      }
-
-      if (!shouldAcceptTenantPayload(body, 'tickets')) {
-        return;
-      }
-
-      if (requestId !== requestIdRef.current) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.info('stale response ignored', { surface: 'tickets', hotelId: body.hotelId });
-        }
-        return;
-      }
-
-      setTickets(body.tickets || []);
-    } catch (caughtError) {
-      setError(caughtError);
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    loadTickets();
-  }, []);
-
-  const copilotInsights = [
-    {
-      label: 'Riesgo urgente',
-      value: tickets.filter((ticket) => ticket.copilot?.aiPriority?.level === 'urgent' || ticket.priority === 'urgent').length,
-      icon: ShieldAlert
-    },
-    {
-      label: 'Satisfacción en riesgo',
-      value: tickets.filter((ticket) => ticket.copilot?.satisfactionRisk?.level === 'high').length,
-      icon: AlertCircle
-    },
-    {
-      label: 'Priorizados por IA',
-      value: tickets.filter((ticket) => ticket.copilot?.aiPriority?.level && ticket.copilot.aiPriority.level !== 'low').length,
-      icon: BrainCircuit
-    }
-  ];
-
-  return (
-    <section className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <PageHeader
-          titleKey="screens.tickets"
-          descriptionKey="screens.ticketsDescription"
-        />
-
-        <button
-          type="button"
-          onClick={loadTickets}
-          className="inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/[0.08]"
-        >
-          Actualizar
-        </button>
+  const list=useOperationalMetrics('tickets'),{t,tx}=useDashboardLanguage(),{theme}=useDashboardTheme();
+  const {data,loading,error}=list, metrics=data?.metrics, isLight=theme==='light';
+  const filters={status:list.params.get('status')||'all',priority:list.params.get('priority')||'all',category:list.params.get('category')||'all'};
+  const surface=isLight?'border-slate-200 bg-white text-slate-900':'border-white/10 bg-white/[0.04] text-slate-100';
+  const insights=[['urgent_risk',ShieldAlert],['satisfaction_risk',AlertCircle],['ai_prioritized',BrainCircuit]];
+  return <section className="space-y-6">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <PageHeader titleKey="screens.tickets" descriptionKey="screens.ticketsDescription" />
+      <button type="button" onClick={list.load} className={`rounded-lg border px-4 py-2 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-emerald-500 ${surface}`}>{t('buttons.refresh')}</button>
+    </div>
+    <div className={`rounded-xl border p-4 ${surface}`}>
+      <h2 className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4" aria-hidden="true" />{tx('Asistencia IA · estado actual')}</h2>
+      <p className="mt-1 text-sm">{tx('Estos recuentos incluyen tickets de cualquier estado; utiliza los filtros para acotar la cola.')}</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {insights.map(([metric,Icon])=>{
+          const content=<><span className="flex items-center gap-2 text-xs font-semibold"><Icon className="h-4 w-4" aria-hidden="true" />{tx(operationalLabels[metric])}</span><span className="mt-1 block text-xl font-semibold">{metrics?.stats[metric]??'…'}</span></>;
+          const className=`rounded-lg border px-3 py-3 ${surface} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500`;
+          return metrics?<Link key={metric} className={className} href={list.href({metric,q:null,status:null,priority:null,category:null})}>{content}</Link>:<div key={metric} className={className}>{content}</div>;
+        })}
       </div>
-
-      {!loading && !error ? (
-        <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.055] p-4 shadow-xl shadow-black/10">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-emerald-200" aria-hidden="true" />
-                <h2 className="text-sm font-semibold text-white">Asistencia IA de hoy</h2>
-              </div>
-              <p className="mt-1 text-sm text-slate-400">
-                Riesgo, urgencia y prioridad operativa para que recepción actúe rápido sobre la cola actual.
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {copilotInsights.map((item) => {
-                const Icon = item.icon;
-
-                return (
-                  <div key={item.label} className="rounded-lg border border-white/10 bg-black/15 px-3 py-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                      {item.label}
-                    </div>
-                    <p className="mt-1 text-xl font-semibold text-white">{item.value}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {loading ? (
-        <PremiumLoadingState title="Cargando tickets" description="Staynex está preparando la cola operativa de este hotel." rows={5} cards={3} />
-      ) : error ? (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-100">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 flex-none text-red-300" aria-hidden="true" />
-            <div>
-              <p className="font-semibold">No se pudieron cargar los tickets.</p>
-              <p className="mt-1 text-red-100/80">Revisa la sesión del hotel y vuelve a actualizar.</p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <TicketsTable tickets={tickets} />
-      )}
-    </section>
-  );
+    </div>
+    <OperationalMetricSummary metrics={metrics} kind="tickets" href={list.href} loading={loading} error={error} />
+    <TicketFilters filters={filters} onChange={list.change} categories={metrics?.categories||[]} statuses={['open','in_progress','completed']} priorities={['low','normal','high','urgent']} />
+    {loading?<PremiumLoadingState title={tx('Consultando registros…')} rows={5} cards={3} />:error?<div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">{tx(error)}</div>:<>
+      <OperationalPagination metrics={metrics} href={list.href} />
+      {metrics.total===0?<p>{tx('No hay registros que cumplan estos filtros.')}</p>:<TicketsTable tickets={data.tickets} hotelId={data.hotelId} onUpdated={list.load} />}
+      <OperationalPagination metrics={metrics} href={list.href} />
+    </>}
+  </section>;
 };

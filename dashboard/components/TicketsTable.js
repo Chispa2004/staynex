@@ -171,7 +171,7 @@ const mergeTicket = (items, ticket) => {
   return sortByNewest(nextItems);
 };
 
-export const TicketsTable = ({ tickets }) => {
+export const TicketsTable = ({ tickets, hotelId = null, onUpdated = null }) => {
   const router = useRouter();
   const { t } = useDashboardLanguage();
   const [items, setItems] = useState(() => sortByNewest(tickets));
@@ -201,6 +201,7 @@ export const TicketsTable = ({ tickets }) => {
       }
 
       setItems((current) => mergeTicket(current, body.ticket));
+      onUpdated?.();
     } catch (caughtError) {
       console.error('Ticket status update failed', {
         ticketId,
@@ -213,7 +214,7 @@ export const TicketsTable = ({ tickets }) => {
   };
 
   const openTicket = (ticketId) => {
-    router.push(`/dashboard/tickets/${ticketId}`);
+    router.push(`/dashboard/tickets/${ticketId}${hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : ''}`);
   };
 
   if (items.length === 0) {
