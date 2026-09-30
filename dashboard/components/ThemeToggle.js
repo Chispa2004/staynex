@@ -1,9 +1,11 @@
 'use client';
 
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { Moon, Sun } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 
-export const ThemeToggle = () => {
+export const ThemeToggle = ({ compact = false }) => {
+  const { tx } = useDashboardLanguage();
   const { theme, toggleTheme } = useDashboardTheme();
   const isDark = theme === 'dark';
   const isLight = theme === 'light';
@@ -18,8 +20,8 @@ export const ThemeToggle = () => {
           ? 'border-slate-200 bg-white text-slate-700 shadow-slate-200/70 hover:bg-slate-50 hover:text-slate-950'
           : 'border-white/10 bg-[#0b1019]/80 text-slate-300 shadow-black/15 hover:bg-white/[0.08] hover:text-white'
       ].join(' ')}
-      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={tx(isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro')}
+      aria-label={tx(isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro')}
     >
       <span className={[
         'flex h-6 w-6 items-center justify-center rounded-md transition',
@@ -32,7 +34,7 @@ export const ThemeToggle = () => {
           <Sun className="h-3.5 w-3.5" aria-hidden="true" />
         )}
       </span>
-      {isDark ? 'Dark' : 'Light'}
+      <span className={compact ? 'sr-only' : undefined}>{tx(isDark ? 'Oscuro' : 'Claro')}</span>
     </button>
   );
 };

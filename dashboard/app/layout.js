@@ -1,4 +1,5 @@
 import './globals.css';
+import { themeBootstrap } from '@/lib/theme/theme-contract';
 import { AppShell } from '@/components/AppShell';
 
 export const metadata = {
@@ -14,7 +15,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: themeBootstrap }} /></head>
       <body>
         <AppShell>{children}</AppShell>
       </body>

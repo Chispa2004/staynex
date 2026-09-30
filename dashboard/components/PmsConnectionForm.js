@@ -62,7 +62,7 @@ export const PmsConnectionForm = ({
           </button>
         </div>
 
-        {error ? <p role="alert" className="mt-4 text-sm text-red-600">{error}</p> : null}
+        {error ? <p role="alert" className={isLight ? "mt-4 text-sm text-red-600" : "mt-4 text-sm text-red-300"}>{error}</p> : null}
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="space-y-2">
             <span className={labelClass}>{tx("Proveedor")}</span>

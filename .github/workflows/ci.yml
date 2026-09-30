@@ -55,6 +55,16 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm --prefix dashboard ci --ignore-scripts --no-audit --no-fund
       - run: npm run ci:dashboard
+      - run: npx --no-install playwright install --with-deps chromium
+      - name: Production theme and contrast regressions
+        run: npm run test:theme-browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-theme-evidence
+          path: .npm-cache/theme-browser-results
+          include-hidden-files: true
+          retention-days: 7
 
   postgres:
     name: PostgreSQL knowledge and automation dispatch

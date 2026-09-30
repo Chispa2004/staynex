@@ -3071,3 +3071,5 @@ for (const [es,en] of [
 ]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
 
 for (const [es,en] of [...pmsPhrases, ...workspaceLoadingPhrases, ...operationalMetricPhrases, ...messageMetricPhrases]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
+
+for (const [es,en] of [['Cambiar a tema claro','Switch to light mode'],['Cambiar a tema oscuro','Switch to dark mode'],['Claro','Light'],['Oscuro','Dark']]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }

@@ -112,7 +112,8 @@
     "test:hotel-lifecycle-postgres": "node scripts/test-hotel-lifecycle-postgres.js",
     "test:hotel-lifecycle-navigation": "node scripts/test-hotel-lifecycle-navigation.js",
     "test:onboarding-pms-evidence": "node scripts/test-onboarding-pms-evidence.js",
-    "test:operational-metric-navigation": "node scripts/test-operational-metric-navigation.js"
+    "test:operational-metric-navigation": "node scripts/test-operational-metric-navigation.js",
+    "test:theme-browser": "node scripts/theme-lab.cjs build && playwright test --config scripts/theme-browser.config.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",
@@ -126,6 +127,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "1.58.2",
     "nodemon": "^3.1.9"
   }
 }

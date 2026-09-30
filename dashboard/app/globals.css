@@ -3,7 +3,19 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --theme-canvas: #eef4fa;
+  --theme-panel: #ffffff;
+  --theme-soft: #f5f8fc;
+  --theme-text: #0f172a;
+  --theme-muted: #465a70;
+  --theme-border: #d5e0e9;
+  --theme-control: #64748b;
+  --theme-green: #066b4c;
+  --theme-green-soft: #e7f7f1;
+  --theme-warning: #fff8ec;
+  --theme-danger: #b42318;
+  --theme-focus: #087f5b;
   --staynex-radius-card: 0.75rem;
   --staynex-radius-control: 0.5rem;
   --staynex-transition: 180ms ease;
@@ -15,6 +27,23 @@
   --staynex-sidebar-light: rgba(249, 251, 253, 0.96);
   --staynex-border-light: rgba(15, 23, 42, 0.14);
 }
+
+html.dark {
+  color-scheme: dark;
+  --theme-canvas: #0a101b;
+  --theme-panel: #101a2a;
+  --theme-soft: #162236;
+  --theme-text: #edf3ff;
+  --theme-muted: #b2c2d5;
+  --theme-border: #33465e;
+  --theme-control: #8b9eb7;
+  --theme-green: #6ee7b7;
+  --theme-green-soft: #103c32;
+  --theme-warning: #382c18;
+  --theme-danger: #fca5a5;
+  --theme-focus: #6ee7b7;
+}
+.theme-bootstrap { min-height: 100dvh; padding: 24px; background: var(--theme-canvas); color: var(--theme-text); }
 
 html,
 body {
@@ -28,8 +57,8 @@ body {
 
 body {
   margin: 0;
-  background:
-    linear-gradient(180deg, #070a10 0%, #0a0f18 48%, #070a10 100%);
+  background: var(--theme-canvas);
+  color: var(--theme-text);
   min-height: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
@@ -65,7 +94,7 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid rgba(110, 231, 183, 0.85);
+  outline: 2px solid var(--theme-focus);
   outline-offset: 2px;
 }
 
@@ -180,7 +209,7 @@ button:disabled {
   border-color: var(--staynex-border-light) !important;
 }
 
-.theme-light [class*="text-white"],
+.theme-light [class*="text-white"]:not([data-inverse-label]),
 .theme-light [class*="text-slate-100"],
 .theme-light [class*="text-slate-200"],
 .theme-light [class*="text-slate-300"] {
@@ -188,7 +217,7 @@ button:disabled {
 }
 
 .theme-light [class~="text-slate-400"],
-.theme-light [class~="text-gray-400"] { color: #596b83 !important; }
+.theme-light [class~="text-gray-400"] { color: #52647a !important; }
 .theme-light [class~="text-slate-500"],
 .theme-light [class~="text-gray-500"] { color: #4d607a !important; }
 .theme-light [class~="text-slate-600"],
@@ -214,7 +243,7 @@ button:disabled {
 .theme-light [class*="text-orange-200"],
 .theme-light [class*="text-amber-100"],
 .theme-light [class*="text-amber-200"] {
-  color: #c2410c !important;
+  color: #9a3412 !important;
 }
 
 .theme-light [class*="text-sky-100"],
@@ -249,13 +278,13 @@ button:disabled {
 .theme-light textarea,
 .theme-light select {
   background-color: rgba(255, 255, 255, 0.82) !important;
-  border-color: rgba(15, 23, 42, 0.14) !important;
+  border-color: var(--theme-control) !important;
   color: #0f172a !important;
 }
 
 .theme-light input::placeholder,
 .theme-light textarea::placeholder {
-  color: #94a3b8 !important;
+  color: #52647a !important;
 }
 
 .theme-light table thead {
@@ -274,3 +303,10 @@ button:disabled {
   background: rgba(148, 163, 184, 0.9);
   border-color: rgba(241, 245, 249, 0.85);
 }
+
+/* Form boundaries and placeholder text share the selected theme, including native menus. */
+.theme-dark input, .theme-dark textarea, .theme-dark select { border-color: var(--theme-control); }
+.theme-dark input::placeholder, .theme-dark textarea::placeholder { color: #a9bbd2; opacity: 1; }
+select option { background: var(--theme-panel); color: var(--theme-text); }
+
+.staynex-input-group { border-color: var(--theme-control); }
