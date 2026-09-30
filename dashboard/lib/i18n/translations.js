@@ -1,3 +1,4 @@
+import { operationalMetricPhrases } from './operational-metric-phrases.js';
 import { pmsPhrases } from './pms-phrases.js';
 import { messageMetricPhrases } from './message-metric-phrases.js';
 import { workspaceLoadingPhrases } from './workspace-loading-phrases.js';
@@ -3069,4 +3070,4 @@ for (const [es,en] of [
  ['Hotel archivado. Los datos se conservan y la actividad automática permanece suspendida. Selecciona un hotel para abrir sus operaciones.','Hotel archived. Data is preserved and automatic activity remains suspended. Select a hotel to open its operations.']
 ]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
 
-for (const [es,en] of [...pmsPhrases, ...workspaceLoadingPhrases, ...messageMetricPhrases]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
+for (const [es,en] of [...pmsPhrases, ...workspaceLoadingPhrases, ...operationalMetricPhrases, ...messageMetricPhrases]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }

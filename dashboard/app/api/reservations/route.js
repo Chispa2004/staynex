@@ -1,3 +1,5 @@
+import { parseOperationalFilter } from '../../../../shared/operational-metrics.js';
+import { loadOperationalMetrics } from '@/lib/operational-metrics';
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess, getPermissionsForRole } from '@/lib/permissions';
@@ -32,7 +34,14 @@ const getJourneyStatus = (reservation) => {
 
 export async function GET(request) {
   try {
-    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, accessDenied } = await getCurrentHotelForRequest(request, { readOnly: true, includeDirectory: false });
+    if (new URL(request.url).searchParams.get('view') === 'metrics') {
+      if (accessDenied || !hotel?.id || !canAccess(role, 'reservations')) return NextResponse.json({error:'Acceso al hotel denegado.'},{status:403});
+      const filter = parseOperationalFilter(new URL(request.url).searchParams, 'reservations');
+      if (filter.hotelId && filter.hotelId !== hotel.id) return NextResponse.json({error:'Acceso al hotel denegado.'},{status:403});
+      const {items,...metrics} = await loadOperationalMetrics({supabase,hotel,kind:'reservations',filter});
+      return NextResponse.json({hotel,hotelId:hotel.id,role,reservations:items,metrics},{headers:{'Cache-Control':'no-store'}});
+    }
 
     if (!canAccess(role, 'reservations')) {
       return NextResponse.json({ hotel, reservations: [], error: 'Access denied' }, { status: 403 });
@@ -112,7 +121,7 @@ export async function GET(request) {
         reservations: [],
         error: error.message
       },
-      { status: 500 }
+      { status: error.status || 500 }
     );
   }
 }

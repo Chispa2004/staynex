@@ -1,0 +1,77 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {OPERATIONAL_CARDS, reservationDay, reservationState, parseOperationalFilter, selectOperationalRows, operationalHref} from '../shared/operational-metrics.js';
+import {buildTicketCopilot} from '../dashboard/lib/ai-copilot.js';
+import * as contract from '../shared/operational-metrics.js';
+import * as permissions from '../dashboard/lib/permissions.js';
+const require=createRequire(new URL('../dashboard/package.json',import.meta.url)),swc=require('next/dist/build/swc');
+async function compile(file,mocks){const {code}=await swc.transform(readFileSync(new URL(file,import.meta.url),'utf8'),{filename:file,jsc:{parser:{syntax:'ecmascript',jsx:true}},module:{type:'commonjs'}});const module={exports:{}};new Function('require','module','exports',code)(name=>{assert(name in mocks,name);return mocks[name]},module,module.exports);return module.exports;}
+const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0'),hotelId=id(1),other=id(2),hotel={id:hotelId,timezone:'Europe/Madrid'},now='2026-09-29T22:30:00Z';
+const parse=(kind,query='')=>parseOperationalFilter(new URLSearchParams(query),kind);
+let groups=0;const pass=text=>{groups++;console.log('PASS '+text)};
+const ticket=(n,fields={})=>({id:id(100+n),hotel_id:hotelId,created_at:'2026-01-01T00:00:00Z',status:'open',category:'reception',priority:'normal',title:'Consulta',...fields});
+const tickets=[ticket(1,{priority:'urgent',status:'completed'}),ticket(2,{title:'Humo en la habitación'}),ticket(3,{title:'Queja: inaceptable'}),ticket(4,{title:'Hay ruido'}),ticket(5)].map(row=>({...row,copilot:buildTicketCopilot(row)}));
+let result=selectOperationalRows('tickets',tickets,parse('tickets'),{hotelId,timezone:hotel.timezone,now});
+assert.deepEqual(result.stats,{urgent_risk:2,satisfaction_risk:3,ai_prioritized:4});
+for(const metric of OPERATIONAL_CARDS.tickets){const selected=selectOperationalRows('tickets',tickets,parse('tickets','metric='+metric),{hotelId,now});assert.equal(selected.total,result.stats[metric]);}
+assert(selectOperationalRows('tickets',tickets,parse('tickets','metric=urgent_risk'),{hotelId,now}).items.some(r=>r.status==='completed'));
+pass('three actual ticket cards retain heuristic predicates and include completed tickets; not conversation urgency');
+const reservation=(n,fields={})=>({id:id(200+n),hotel_id:hotelId,status:'confirmed',arrival_date:'2026-10-01',departure_date:'2026-10-05',guest_name:'Persona '+n,...fields});
+const reservations=[reservation(1),reservation(2,{arrival_date:'2026-09-30'}),reservation(3,{arrival_date:'2026-10-07'}),reservation(4,{arrival_date:'2026-10-08'}),reservation(5,{arrival_date:'2026-09-29',departure_date:'2026-09-29'}),reservation(6,{status:'canceled',arrival_date:'2026-09-30'}),reservation(7,{status:'completed',arrival_date:'2026-09-30'}),reservation(8,{arrival_date:null,departure_date:null})];
+result=selectOperationalRows('reservations',reservations,parse('reservations','metric=total'),{hotelId,timezone:hotel.timezone,now});
+assert.equal(result.filter.date,'2026-09-30');assert.deepEqual(result.stats,{total:8,arrivingSoon:4,stayingNow:1,completed:2});
+for(const metric of OPERATIONAL_CARDS.reservations)assert.equal(selectOperationalRows('reservations',reservations,parse('reservations','metric='+metric),{hotelId,timezone:hotel.timezone,now}).total,result.stats[metric]);
+assert.equal(selectOperationalRows('reservations',reservations,parse('reservations','metric=today_arrivals'),{hotelId,timezone:hotel.timezone,now}).total,2);
+assert.equal(reservationState(reservation(1,{status:'no_show'}),'2026-09-30'),'cancelled');
+pass('four reservation cards; original unit is reservations, not rooms or guests; date window inclusive and cancelled excluded');
+for(const [time,zone,day] of [['2026-09-29T22:30Z','Europe/Madrid','2026-09-30'],['2026-09-29T22:30Z','America/New_York','2026-09-29'],['2026-03-29T01:30Z','Europe/Madrid','2026-03-29'],['2026-10-25T01:30Z','Europe/Madrid','2026-10-25']])assert.equal(reservationDay(time,zone),day);
+assert.throws(()=>selectOperationalRows('reservations',[],parse('reservations'),{hotelId,timezone:null,now}),{status:503});
+assert.equal(selectOperationalRows('tickets',[],parse('tickets'),{hotelId,now}).total,0);
+pass('hotel timezone, midnight and both DST changes; unavailable timezone is not confirmed zero');
+const href=operationalHref('reservations','hotelId='+hotelId,{metric:'arrivingSoon',date:'2026-09-30'});
+const filter=parse('reservations',new URL(href,'http://localhost').search);
+assert.equal(filter.date,'2026-09-30');assert.equal(filter.hotelId,hotelId);
+assert.equal(parse('reservations',new URL(operationalHref('reservations',new URL(href,'http://localhost').search,{page:2,q:'Persona'}),'http://localhost').search).page,2);
+assert.equal(selectOperationalRows('reservations',reservations,{...filter,q:'Persona 1'},{hotelId,timezone:hotel.timezone,now}).total,1);
+const combined=selectOperationalRows('tickets',tickets,parse('tickets','metric=urgent_risk&status=open&priority=normal&category=reception'),{hotelId,now});assert.equal(combined.metricTotal,2);assert.equal(combined.total,1);
+for(const query of ['metric=unknown','page=-1','pageSize=5000','date=2026-02-30','hotelId=oops','priority=sql','category=x,y'])assert.throws(()=>parse('tickets',query),{status:400});
+assert.throws(()=>selectOperationalRows('tickets',tickets,parse('tickets','hotelId='+other),{hotelId,now}),{status:403});
+assert.throws(()=>selectOperationalRows('tickets',[ticket(1,{hotel_id:other})],parse('tickets'),{hotelId,now}),{status:403});
+pass('explicit URLs retain date/hotel/page across reload, back/direct; combinations and tampering');
+let calls=[],failPage=false,changeDetail=false;
+const many=Array.from({length:1207},(_,n)=>reservation(n,{guest_id:id(5000+n),arrival_date:'2026-09-30'}));
+function dbFor(allRows){return {from(table){let eqs=[],ids=null;const q={select(){return q},eq(k,v){eqs.push([k,v]);return q},in(k,v){ids=[k,v];return q},order(){return q},limit(){return q},then(resolve,reject){return Promise.resolve(q.range(0,10000)).then(resolve,reject)},async range(a,b){calls.push({table,a,b,eqs});assert(eqs.some(([k,v])=>k==='hotel_id'&&v===hotelId));if(failPage && a===500)return {error:{message:'partial read failed'}};let rows=table==='reservations'?allRows:table==='tickets'?allRows:[];if(ids)rows=rows.filter(r=>ids[1].includes(r[ids[0]]));if(changeDetail&&ids&&table==='reservations')rows=rows.map(r=>({...r,status:'cancelled'}));return {data:rows.slice(a,b+1)}}};return q}};}
+const ticketLibrary=await compile('../dashboard/lib/tickets.js',{'./supabase':{getSupabaseAdmin:()=>{throw Error('No live database')}},'./enterprise-audit':{writeEnterpriseAuditLog:()=>{throw Error('No writes')}},'./ai-copilot':{buildTicketCopilot}});
+const loader=await compile('../dashboard/lib/operational-metrics.js',{'./ai-copilot.js':{buildTicketCopilot},'./tickets.js':ticketLibrary,'../../shared/operational-metrics.js':contract});
+result=await loader.loadOperationalMetrics({supabase:dbFor(many),hotel,kind:'reservations',filter:parse('reservations','metric=total&page=121'),now});
+assert.equal(result.total,1207);assert.equal(result.page,121);assert.equal(result.items.length,7);assert(calls.some(c=>c.a===1000));assert.equal(result.stats.total,1207);
+const larger=Array.from({length:1207},(_,n)=>ticket(n,{priority:n%2?'urgent':'low'}));result=await loader.loadOperationalMetrics({supabase:dbFor(larger),hotel,kind:'tickets',filter:parse('tickets','metric=urgent_risk&page=2'),now});assert.equal(result.total,603);assert.equal(result.items.length,10);
+pass('production loader scans beyond PostgREST cap and sends only one authorized page, for both screens');
+failPage=true;await assert.rejects(loader.loadOperationalMetrics({supabase:dbFor(many),hotel,kind:'reservations',filter:parse('reservations'),now}));failPage=false;changeDetail=true;await assert.rejects(loader.loadOperationalMetrics({supabase:dbFor(many),hotel,kind:'reservations',filter:parse('reservations','metric=total'),now}),/cambiaron/);changeDetail=false;
+result=await loader.loadOperationalMetrics({supabase:dbFor(many),hotel,kind:'reservations',filter:parse('reservations','metric=total&q=does-not-exist'),now});assert.equal(result.total,0);assert.equal(result.stats.total,1207);
+pass('partial source failure never succeeds; changed membership refused, zero distinct from errors, recovery');
+let role='admin',accessDenied=false,contextHotel=hotel,readOptions,loaderCalls=0;
+for(const kind of ['tickets','reservations']){
+ const route=await compile('../dashboard/app/api/'+kind+'/route.js',{'next/server':{NextResponse:Response},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,options)=>{readOptions=options;return {hotel:contextHotel,role,accessDenied,supabase:dbFor(kind==='tickets'?larger:many)}}},'@/lib/permissions':permissions,'@/lib/tickets':ticketLibrary,'../../../../shared/operational-metrics.js':contract,'@/lib/operational-metrics':{loadOperationalMetrics:args=>{loaderCalls++;return loader.loadOperationalMetrics({...args,now})}}});
+ const req=()=>new Request('https://synthetic.invalid/api/'+kind+'?view=metrics&metric='+OPERATIONAL_CARDS[kind][0]+'&hotelId='+hotelId);
+ let response=await route.GET(req());assert.equal(response.status,200);assert.deepEqual(readOptions,{readOnly:true,includeDirectory:false});assert.equal(response.headers.get('Cache-Control'),'no-store');const body=await response.json();assert(body[kind].length<=10);
+ const before=loaderCalls;accessDenied=true;assert.equal((await route.GET(req())).status,403);accessDenied=false;contextHotel={...hotel,id:other};assert.equal((await route.GET(req())).status,403);contextHotel=hotel;role='housekeeping';assert.equal((await route.GET(req())).status,403);role='admin';assert.equal(loaderCalls,before);
+ assert.equal((await route.GET(new Request('https://synthetic.invalid/api/'+kind+'?view=metrics&metric=invalid'))).status,400);
+}
+pass('actual handlers authorize before reading; archived/denied, role and foreign hotel fail closed; GET has no invitation writes');
+// Execute the actual async client callback, including identity and URL generation races.
+const source=readFileSync(new URL('../dashboard/lib/useOperationalMetrics.js',import.meta.url),'utf8');
+const callback=source.slice(source.indexOf('  const load = useCallback'),source.indexOf('  useEffect(()=>{load();'));
+let state={},pending=[],auth='a',key='metric=total',keyRef={current:key},generation={current:0},activeHotel=hotelId;
+const bindings={useCallback:f=>f,generation,keyRef,key,kind:'reservations',setState:v=>{state=v},getAuthHeaders:async()=>({Authorization:auth}),fetch:()=>new Promise(r=>pending.push(r)),sameOperationalRequest:(r,c,h,n)=>r===c&&JSON.stringify(h)===JSON.stringify(n),shouldAcceptTenantPayload:b=>b.hotelId===activeHotel};
+const loadClient=new Function(...Object.keys(bindings),callback+';return load;')(...Object.values(bindings));
+const tick=()=>new Promise(r=>setImmediate(r));const ok=()=>Response.json({hotelId,reservations:[],metrics:{total:0}});
+let work=loadClient();await tick();pending.shift()(ok());await work;assert.equal(state.loading,false);assert.equal(state.data.metrics.total,0);
+work=loadClient();await tick();pending.shift()(Response.json({error:'synthetic outage'},{status:503}));await work;assert.equal(state.error,'synthetic outage');assert.equal(state.data,null);
+work=loadClient();await tick();pending.shift()(ok());await work;assert.equal(state.error,null);
+work=loadClient();await tick();auth='b';pending.shift()(ok());await work;assert.equal(state.data,null);
+auth='a';work=loadClient();await tick();keyRef.current='metric=other';pending.shift()(ok());await work;assert.equal(state.data,null);
+keyRef.current=key;work=loadClient();await tick();activeHotel=other;pending.shift()(ok());await work;assert.equal(state.data,null);assert(state.error);
+pass('actual client error/retry, stale user, hotel and URL responses cannot display previous data');
+console.log(`${groups} operational metric behavior groups passed; synthetic transports, no providers.`);

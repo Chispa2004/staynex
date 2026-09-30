@@ -1,5 +1,6 @@
 'use client';
 
+import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 
 const filterClass = 'rounded-lg border border-white/10 bg-[#0b1019] px-3 py-2.5 text-sm text-slate-200 outline-none transition focus:border-emerald-300/40';
@@ -16,6 +17,8 @@ export const TicketFilters = ({
   statuses
 }) => {
   const { t } = useDashboardLanguage();
+  const {theme}=useDashboardTheme();
+  const filterClass = `rounded-lg border px-3 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-emerald-500 ${theme==='light'?'border-slate-200 bg-white text-slate-900':'border-white/10 bg-[#0b1019] text-slate-200'}`;
 
   return (
     <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-xl shadow-black/10 sm:grid-cols-3">

@@ -37,7 +37,7 @@ const getRoomStatusesForTickets = async ({ supabase, tickets, hotelId }) => {
   }
 };
 
-const attachTicketCopilot = async ({ supabase, tickets, hotelId }) => {
+export const attachTicketCopilot = async ({ supabase, tickets, hotelId, allTickets = tickets }) => {
   const roomStatusByRoom = await getRoomStatusesForTickets({ supabase, tickets, hotelId });
 
   return tickets.map((ticket) => {
@@ -57,7 +57,7 @@ const attachTicketCopilot = async ({ supabase, tickets, hotelId }) => {
       ...ticket,
       roomStatus,
       pmsIntelligenceContext,
-      copilot: buildTicketCopilot({ ...ticket, roomStatus, pmsIntelligenceContext }, tickets)
+      copilot: buildTicketCopilot({ ...ticket, roomStatus, pmsIntelligenceContext }, allTickets)
     };
   });
 };
