@@ -768,7 +768,7 @@ export const ReservationsClient = () => {
             })}
           </div>
 
-          <label className={isLight ? 'flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500 xl:w-96' : 'flex min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500 xl:w-96'}>
+          <label className={isLight ? 'staynex-input-group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500 xl:w-96' : 'staynex-input-group flex min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500 xl:w-96'}>
             <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
             <input
               value={search}
@@ -865,11 +865,11 @@ export const ReservationsClient = () => {
                     <div className={isLight ? 'mt-4 grid gap-3 text-sm text-slate-600' : 'mt-4 grid gap-3 text-sm text-slate-400'}>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">{t('reservations.columns.arrival')}</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em]">{t('reservations.columns.arrival')}</p>
                           <p className={isLight ? 'mt-1 font-medium text-slate-900' : 'mt-1 font-medium text-slate-100'}>{formatDate(reservation.arrival_date)}</p>
                         </div>
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">{t('reservations.columns.departure')}</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em]">{t('reservations.columns.departure')}</p>
                           <p className={isLight ? 'mt-1 font-medium text-slate-900' : 'mt-1 font-medium text-slate-100'}>{formatDate(reservation.departure_date)}</p>
                         </div>
                       </div>
@@ -979,7 +979,7 @@ export const ReservationsClient = () => {
                               {t('reservations.openConversation')}
                             </Link>
                           ) : (
-                            <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-600'}>
+                            <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-500'}>
                               {t('reservations.noConversationYet')}
                             </span>
                           )}
@@ -1056,7 +1056,7 @@ export const ReservationsClient = () => {
                               )}
                             </div>
                           ) : (
-                            <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-600'}>-</span>
+                            <span className={isLight ? 'text-sm text-slate-400' : 'text-sm text-slate-500'}>-</span>
                           )}
                         </td>
                         <td className="px-4 py-3">

@@ -1042,13 +1042,13 @@ const AppShellContent = ({ children }) => {
 
   if (authError || authLoading || !isAuthenticated || !hotelContextLoaded) {
     return (
-      <div data-workspace-loading="true" className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} min-h-dvh bg-midnight p-4 sm:p-8 text-slate-700`}>
+      <div data-workspace-loading="true" className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} min-h-dvh bg-midnight p-4 sm:p-8 ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>
         <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4"><StaynexLogo/><LanguageSelector/></header>
-        <main className="mx-auto mt-8 max-w-3xl rounded-xl border border-slate-200 bg-white p-6">
+        <main className={cn("mx-auto mt-8 max-w-3xl rounded-xl border p-6", isLight ? 'border-slate-200 bg-white text-slate-700' : 'border-white/10 bg-[#0b1019] text-slate-200')}>
           <h1 className="text-xl font-semibold">{tx('Preparando tu espacio de trabajo')}</h1>
           <p role={authError ? 'alert' : 'status'} className="mt-3">{tx(authError || (authLoading ? 'Comprobando la sesión…' : 'Comprobando acceso al workspace…'))}</p>
           <p className="mt-2 text-sm">{tx('El contenido del hotel aparecerá después de verificar tu acceso.')}</p>
-          {authError ? <button className="mt-4 rounded border px-4 py-2" onClick={() => setAuthRetryNonce(n=>n+1)}>{tx('Retry')}</button> : <div aria-hidden="true" className="mt-6 grid gap-3 sm:grid-cols-2"><div className="h-28 rounded-lg bg-slate-100"/><div className="h-28 rounded-lg bg-slate-100"/></div>}
+          {authError ? <button className="mt-4 rounded border px-4 py-2" onClick={() => setAuthRetryNonce(n=>n+1)}>{tx('Retry')}</button> : <div aria-hidden="true" className="mt-6 grid gap-3 sm:grid-cols-2"><div className={cn("h-28 rounded-lg", isLight ? "bg-slate-100" : "bg-slate-800")}/><div className={cn("h-28 rounded-lg", isLight ? "bg-slate-100" : "bg-slate-800")}/></div>}
         </main>
       </div>
     );
@@ -1345,7 +1345,7 @@ const AppShellContent = ({ children }) => {
                       ].join(' ')}
                     >
                       {active ? (
-                        <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-emerald-300" />
+                        <span className={cn("absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full", isLight ? "bg-emerald-700" : "bg-emerald-300")} />
                       ) : null}
                       <span className={[
                         'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
@@ -1424,7 +1424,7 @@ const AppShellContent = ({ children }) => {
                             ].join(' ')}
                           >
                             {active ? (
-                              <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-emerald-300" />
+                              <span className={cn("absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full", isLight ? "bg-emerald-700" : "bg-emerald-300")} />
                             ) : null}
                             <span className={[
                               'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
@@ -1466,7 +1466,7 @@ const AppShellContent = ({ children }) => {
           </nav>
 
           <div className={shellStyles.account}>
-            <div className="mb-3 flex items-center gap-2 lg:hidden">{!isInboxRoute ? <ThemeToggle /> : null}<LanguageSelector placement="top" /></div>
+            <div className={cn("mb-3 flex flex-wrap items-center gap-2", !isInboxRoute && "lg:hidden")}><ThemeToggle compact={desktopNavigation && desktopSidebarCollapsed} /><LanguageSelector placement="top" /></div>
             {!isPlatformContext ? <>
               <HotelWorkspaceSwitcher
                 iconOnly={desktopNavigation && desktopSidebarCollapsed}
@@ -1615,9 +1615,8 @@ const AppShellContent = ({ children }) => {
 };
 
 export const AppShell = ({ children }) => {
-  const pathname = usePathname();
   return (
-  <DashboardThemeProvider forcedTheme={pathname === '/dashboard/inbox' ? 'light' : null}>
+  <DashboardThemeProvider>
     <DashboardLanguageProvider>
       <AppShellContent>{children}</AppShellContent>
     </DashboardLanguageProvider>

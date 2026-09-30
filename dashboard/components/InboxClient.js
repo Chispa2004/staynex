@@ -1579,7 +1579,7 @@ export const InboxClient = ({ conversations }) => {
             </label>
           </div>
           <div className={cn(
-            'mt-3 flex items-center gap-2 rounded-lg border px-3 py-2',
+            'staynex-input-group mt-3 flex items-center gap-2 rounded-lg border px-3 py-2',
             isLight ? 'border-slate-200 bg-slate-50 text-slate-700' : 'border-white/10 bg-black/15 text-slate-200'
           )}
           >

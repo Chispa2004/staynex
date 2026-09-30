@@ -171,7 +171,7 @@ export const LoginClient = () => {
         </div>
 
         <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#0A66FF]">
+          <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.18em] text-[#0A66FF]' : 'text-xs font-semibold uppercase tracking-[0.18em] text-blue-300'}>
             Secure access
           </p>
           <h2 className={isLight ? 'mt-3 text-2xl font-semibold text-slate-950' : 'mt-3 text-2xl font-semibold text-white'}>
@@ -193,7 +193,7 @@ export const LoginClient = () => {
             <span className={isLight ? 'mb-2 block text-sm font-medium text-slate-700' : 'mb-2 block text-sm font-medium text-slate-300'}>
               Email
             </span>
-            <span className={isLight ? 'flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500' : 'flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500'}>
+            <span className={isLight ? 'staynex-input-group flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500' : 'staynex-input-group flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500'}>
               <Mail className="h-4 w-4" aria-hidden="true" />
               <input
                 type="email"
@@ -211,7 +211,7 @@ export const LoginClient = () => {
             <span className={isLight ? 'mb-2 block text-sm font-medium text-slate-700' : 'mb-2 block text-sm font-medium text-slate-300'}>
               Password
             </span>
-            <span className={isLight ? 'flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500' : 'flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500'}>
+            <span className={isLight ? 'staynex-input-group flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500' : 'staynex-input-group flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500'}>
               <Lock className="h-4 w-4" aria-hidden="true" />
               <input
                 type="password"
@@ -227,8 +227,9 @@ export const LoginClient = () => {
 
           <button
             type="submit"
+            data-inverse-label
             disabled={loading || checkingSession}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-blue-300/50 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-blue-300/50 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition disabled:cursor-not-allowed disabled:opacity-60"
             style={{ backgroundColor: STAYNEX_BLUE }}
           >
             {checkingSession ? 'Checking session...' : loading ? 'Entering...' : 'Login'}

@@ -18,7 +18,7 @@
 .account > div > button { padding: 10px; gap: 10px; border-radius: 9px; }
 .account > div > button > div:first-child { width: 38px; height: 38px; }
 .account > div > button p:first-child { font-size: 13px; }
-.platformLink { display: flex; gap: 14px; align-items: center; border: 1px solid #dde6f0; border-radius: 8px; min-height: 46px; padding: 10px 16px; margin-bottom: 10px; font-size: 13px; color: #465a77; }
+.platformLink { display: flex; gap: 14px; align-items: center; border: 1px solid #dde6f0; border-radius: 8px; min-height: 46px; padding: 10px 16px; margin-bottom: 10px; font-size: 13px; color: var(--theme-muted); }
 .urgent { display: flex; gap: 8px; align-items: center; color: #bc1835; padding-bottom: 10px; font-size: 12px; }
 .dashboardContent { padding: 24px; width: 100%; }
 @media (min-width: 1024px) {
@@ -35,14 +35,14 @@
 .fullBrand > div { gap: 8px; }
 .fullBrand p { font-size: 11px; }
 .compactBrand { display: none; }
-.collapseToggle { display: grid; flex-shrink: 0; place-items: center; width: 30px; height: 32px; border-radius: 7px; color: #678173; }
-.collapseToggle:hover { background: #e8f2ed; color: #0b7954; }
-.inboxContext { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; flex-shrink: 0; padding: 8px 20px; font-size: 11px; color: #65786d; background: #f6f8f7; border-bottom: 1px solid #e3e9e5; }
+.collapseToggle { display: grid; flex-shrink: 0; place-items: center; width: 30px; height: 32px; border-radius: 7px; color: var(--theme-muted); }
+.collapseToggle:hover { background: var(--theme-green-soft); color: var(--theme-green); }
+.inboxContext { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; flex-shrink: 0; padding: 8px 20px; font-size: 11px; color: var(--theme-muted); background: var(--theme-soft); border-bottom: 1px solid #e3e9e5; }
 .inboxContext > span { display: inline-flex; align-items: center; gap: 6px; }
-.inboxContext > span:first-child { color: #3a5144; font-weight: 600; }
+.inboxContext > span:first-child { color: var(--theme-text); font-weight: 600; }
 .compactBanner { margin-bottom: 0; border-radius: 0; padding: 8px 16px; font-size: 12px; }
 .navTooltip { position: fixed; z-index: 100; max-width: 270px; padding: 8px 12px; border-radius: 7px; background: #173c2d; color: white; font-size: 12px; box-shadow: 0 4px 12px #0002; pointer-events: none; }
-.shell :is(button,a):focus-visible { outline: 2px solid #15936a; outline-offset: 2px; }
+.shell :is(button,a):focus-visible { outline: 2px solid var(--theme-focus); outline-offset: 2px; }
 @media (min-width: 1024px) {
   .compact .brand { flex-direction: column; gap: 6px; padding: 12px 6px; }
   .compact .fullBrand { display: none; }
@@ -65,3 +65,5 @@
 }
 
 @media (max-width: 1023px) { .inboxContext[data-admin='false'] { display: none; } }
+
+.shell:global(.theme-dark) .urgent { color: #fda4af; }

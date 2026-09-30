@@ -215,7 +215,7 @@ export const InboxAiCopilotPanel = ({
         </div>
 
         <Section title={tx("Siguiente paso recomendado")} icon={ShieldAlert}>
-          {urgentAlert ? <p role="alert" className="mb-3 font-semibold text-red-700">{tx('Alerta urgente activa. Revisa la incidencia aunque el control sea humano.')}</p> : null}
+          {urgentAlert ? <p role="alert" className={isLight ? 'mb-3 font-semibold text-red-700' : 'mb-3 font-semibold text-red-300'}>{tx('Alerta urgente activa. Revisa la incidencia aunque el control sea humano.')}</p> : null}
           <div className="flex flex-wrap gap-2">
             <Pill tone={suggestedAction?.tone}>{staffText(actionLabels[suggestedAction?.title] || suggestedAction?.title || 'Responder con normalidad')}</Pill>
             <Pill tone="sky">{tx('Idioma del huésped')} {String(copilot.language || 'es').toUpperCase()}</Pill>
