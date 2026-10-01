@@ -1,4 +1,6 @@
 export const operationalMetricPhrases = [
+ ['{hotel} · Administración interna de Staynex','{hotel} · Internal Staynex administration'],
+ ['Acerca de estos resultados','About these results'],
  ['Riesgo urgente','Urgent risk'],['Satisfacción en riesgo','Satisfaction at risk'],['Priorizados por IA','AI prioritized'],
  ['Reservas totales','Total reservations'],['Llegadas en 7 días','Arrivals within 7 days'],['Alojados ahora','Staying now'],['Estancias completadas','Completed stays'],
  ['Todos','All'],['Próximas','Upcoming'],['Canceladas','Cancelled'],['Llegadas hoy','Arrivals today'],['Salidas hoy','Departures today'],

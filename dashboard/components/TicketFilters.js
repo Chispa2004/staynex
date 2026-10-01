@@ -10,6 +10,7 @@ const labelClass = 'space-y-1.5 text-xs font-semibold uppercase tracking-[0.14em
 const humanize = (value) => value.replaceAll('_', ' ');
 
 export const TicketFilters = ({
+  embedded = false,
   filters,
   onChange,
   categories,
@@ -21,8 +22,8 @@ export const TicketFilters = ({
   const filterClass = `rounded-lg border px-3 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-emerald-500 ${theme==='light'?'border-slate-200 bg-white text-slate-900':'border-white/10 bg-[#0b1019] text-slate-200'}`;
 
   return (
-    <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-xl shadow-black/10 sm:grid-cols-3">
-      <label className={labelClass}>
+    <div className={embedded ? "grid min-w-0 flex-1 gap-3 sm:grid-cols-3" : "grid gap-3 rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-xl shadow-black/10 sm:grid-cols-3"}>
+      <label className={embedded ? `${labelClass} flex flex-col` : labelClass}>
         {t('filters.status')}
         <select
           value={filters.status}
@@ -36,7 +37,7 @@ export const TicketFilters = ({
         </select>
       </label>
 
-      <label className={labelClass}>
+      <label className={embedded ? `${labelClass} flex flex-col` : labelClass}>
         {t('filters.priority')}
         <select
           value={filters.priority}
@@ -50,7 +51,7 @@ export const TicketFilters = ({
         </select>
       </label>
 
-      <label className={labelClass}>
+      <label className={embedded ? `${labelClass} flex flex-col` : labelClass}>
         {t('filters.category')}
         <select
           value={filters.category}

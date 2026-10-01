@@ -1,3 +1,4 @@
+import * as compactRoutes from '../dashboard/lib/compact-routes.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -38,6 +39,7 @@ const a='00000000-0000-4000-8000-000000000010',b='00000000-0000-4000-8000-000000
 const session={access_token:'synthetic',user:{id:'actor'}};
 let getSession,signOuts=0,requests=[],transport;
 const mocks={
+  '@/lib/compact-routes':compactRoutes,
   react:React,'react/jsx-runtime':{jsx,jsxs:jsx},'next/link':{default:'a'},'next/navigation':{usePathname:()=>pathname,useRouter:()=>router},
   'lucide-react':{},'@/lib/onboarding-navigation':navigation,'./AppShell.module.css':{default:{}},'@/lib/shell-navigation':{ShellNavigationContext:{Provider:'provider'}},
   './LanguageSelector':{},'./ThemeToggle':{},'./HotelWorkspaceSwitcher':{},'./StaynexBrand':{},

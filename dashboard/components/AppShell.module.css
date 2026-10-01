@@ -67,3 +67,21 @@
 @media (max-width: 1023px) { .inboxContext[data-admin='false'] { display: none; } }
 
 .shell:global(.theme-dark) .urgent { color: #fda4af; }
+
+/* Reviewed operational routes only; never inherited by Dashboard or Inbox. */
+.compactContent { width:100%; max-width:1280px; margin-inline:auto; padding:16px 20px 32px; }
+.compactToolbar { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-bottom:16px; }
+.compactWorkspace { display:flex; flex:1; min-width:0; align-items:center; justify-content:space-between; gap:12px; border-width:1px; border-radius:12px; padding:6px 12px; font-size:14px; line-height:20px; }
+.compactWorkspace > p { min-width:0; overflow-wrap:anywhere; }
+.compactContent [data-density-body] > :is(section,div) > * + * { margin-top:16px; }
+.compactContent h1 { margin-top:4px; font-size:30px; line-height:36px; }
+.compactContent h1 + p { margin-top:4px; }
+@media(max-width:639px) {
+  .compactContent { padding:12px 12px calc(24px + env(safe-area-inset-bottom)); }
+  .compactWorkspace { flex-wrap:wrap; gap:8px; }
+  .compactContent h1 { font-size:24px; line-height:32px; }
+}
+
+@media(max-width:1023px) {
+  .compactToolbar:not(:has(.compactWorkspace)) { display:none; }
+}

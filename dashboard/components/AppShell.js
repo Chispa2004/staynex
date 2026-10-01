@@ -1,5 +1,6 @@
 'use client';
 
+import { usesCompactLayout } from '@/lib/compact-routes';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -1154,6 +1155,7 @@ const AppShellContent = ({ children }) => {
   const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
   const isInboxRoute = pathname === '/dashboard/inbox';
   const isOperationsDashboard = pathname === '/dashboard';
+  const isCompactPage = usesCompactLayout(pathname);
   const workspaceBrandColor = isPlatformContext ? STAYNEX_BLUE : currentHotel?.brand_color || '#34d399';
   const workspaceSecondaryColor = isPlatformContext ? '#084EC7' : currentHotel?.secondary_color || '#0f766e';
   const showBackToPlatform = canAccessPlatformConsole && !isPlatformContext;
@@ -1512,14 +1514,23 @@ const AppShellContent = ({ children }) => {
 
         <main className={cn(
           'min-h-0 w-full flex-1 overflow-x-hidden overscroll-contain',
+          isCompactPage && 'min-w-0',
           isInboxRoute ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'
         )}>
           <div className={cn(
             isOperationsDashboard ? shellStyles.dashboardContent : isInboxRoute
               ? 'flex min-h-0 flex-1 flex-col w-full'
+              : isCompactPage ? shellStyles.compactContent
               : 'mx-auto w-full max-w-7xl px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 lg:px-10 lg:pb-8 lg:pt-8'
           )}>
-            {!isInboxRoute && !isOperationsDashboard ? (
+            {isCompactPage ? <div className={shellStyles.compactToolbar}>
+              {showBackToPlatform ? <div className={cn(shellStyles.compactWorkspace, isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
+                <p className="font-semibold">{tx('{hotel} · Administración interna de Staynex', {hotel:sidebarHotelName})}</p>
+                <Link href="/platform/hotels" className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-current px-3 py-2 text-sm font-semibold focus-visible:ring-2"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{tx('Back to Platform')}</Link>
+              </div> : null}
+              <div className="hidden shrink-0 items-center gap-2 lg:flex"><ThemeToggle/><LanguageSelector/></div>
+            </div> : null}
+            {!isCompactPage && !isInboxRoute && !isOperationsDashboard ? (
               <div className="mb-6 hidden justify-end gap-2 lg:flex">
                 <ThemeToggle />
                 <LanguageSelector />
@@ -1529,7 +1540,7 @@ const AppShellContent = ({ children }) => {
               <span><Building2 size={14} aria-hidden="true" /> {sidebarHotelName}</span>
               <span>{ROLE_LABELS[activeRole] || activeRole}{showBackToPlatform ? ' · Administración Staynex' : ''}</span>
             </div> : null}
-            {showBackToPlatform && !isOperationsDashboard && !isInboxRoute ? (
+            {showBackToPlatform && !isCompactPage && !isOperationsDashboard && !isInboxRoute ? (
               <div className={isLight ? 'mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-900 shadow-sm shadow-emerald-100' : 'mb-6 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm text-emerald-100 shadow-lg shadow-emerald-950/10'}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -1588,6 +1599,7 @@ const AppShellContent = ({ children }) => {
             ) : null}
             <div
               key={`${sessionActorId}:${isPlatformContext ? 'platform' : currentHotel?.id}:${supportSession ? 'support' : 'hotel'}`}
+              data-density-body={isCompactPage ? 'compact' : undefined}
               className={isInboxRoute ? 'min-h-0 flex-1' : undefined}
             >
               {onboardingNotice === currentHotel?.id && pathname === '/dashboard/health' ? <div role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">{tx('Configuración guardada y completada. No se han activado proveedores ni envíos.')}</div> : null}

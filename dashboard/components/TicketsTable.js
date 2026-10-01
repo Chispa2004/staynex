@@ -171,7 +171,7 @@ const mergeTicket = (items, ticket) => {
   return sortByNewest(nextItems);
 };
 
-export const TicketsTable = ({ tickets, hotelId = null, onUpdated = null }) => {
+export const TicketsTable = ({ tickets, compact = false, hotelId = null, onUpdated = null }) => {
   const router = useRouter();
   const { t } = useDashboardLanguage();
   const [items, setItems] = useState(() => sortByNewest(tickets));
@@ -227,7 +227,7 @@ export const TicketsTable = ({ tickets, hotelId = null, onUpdated = null }) => {
   }
 
   return (
-    <div className="space-y-3">
+    <div className={compact ? "space-y-2 [&_th]:whitespace-nowrap [&_th]:px-3 [&_th]:py-3 [&_td]:px-3 [&_td]:py-3" : "space-y-3"}>
       <div className="flex items-center justify-between gap-3 text-xs font-medium text-slate-500">
         <span>{t('tickets.count', { count: items.length })}</span>
       </div>
@@ -327,7 +327,7 @@ export const TicketsTable = ({ tickets, hotelId = null, onUpdated = null }) => {
             );
           })}
         </div>
-        <div className="hidden overflow-x-auto md:block">
+        <div role={compact ? "region" : undefined} aria-label={compact ? t('screens.tickets') : undefined} tabIndex={compact ? 0 : undefined} className="hidden overflow-x-auto md:block">
           <table className="min-w-full divide-y divide-white/10">
             <thead className="bg-white/[0.035]">
               <tr>
