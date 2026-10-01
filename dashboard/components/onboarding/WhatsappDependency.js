@@ -44,7 +44,7 @@ export const WhatsappDependency = ({hotel, canEdit, isLight, profileDirty, onSav
       <label className="block space-y-2" htmlFor="whatsapp-dependency-status">
         <span>{tx('Actuación externa pendiente')}</span>
         <select id="whatsapp-dependency-status" className={`${ui.input(isLight)} w-full`} value={status} disabled={!canEdit || saving}
-          aria-invalid={invalid} aria-describedby="whatsapp-dependency-help" onChange={event=>{setStatus(event.target.value);onDirtyChange?.(true);}}>
+          aria-invalid={invalid} aria-describedby={message?.type==='error' ? "whatsapp-dependency-help whatsapp-dependency-error" : "whatsapp-dependency-help"} onChange={event=>{setStatus(event.target.value);onDirtyChange?.(true);}}>
           <option value="">{tx('Selecciona la actuación pendiente')}</option>
           {Object.entries(WHATSAPP_DEPENDENCIES).map(([value,label])=><option key={value} value={value}>{tx(label)}</option>)}
         </select>
@@ -55,6 +55,6 @@ export const WhatsappDependency = ({hotel, canEdit, isLight, profileDirty, onSav
       </button>}
       {profileDirty ? <p>{tx('Guarda el perfil antes de registrar la dependencia.')}</p> : null}
     </form>}
-    {message ? <p role={message.type==='error'?'alert':'status'} className="text-sm">{tx(message.text)}</p> : null}
+    {message ? <p id="whatsapp-dependency-error" role={message.type==='error'?'alert':'status'} className="text-sm">{tx(message.text)}</p> : null}
   </section>;
 };

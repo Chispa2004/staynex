@@ -1,4 +1,5 @@
 'use client';
+import { returnFocus } from '@/lib/focus-layer';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -550,6 +551,19 @@ export const InboxClient = ({ conversations }) => {
   const locallyClosedConversationIdsRef = useRef(new Set());
   const itemsRef = useRef(sortedConversations);
   const selectedIdRef = useRef(selectedId);
+  const conversationOpener = useRef(null);
+  const conversationFocusAction = useRef(null);
+  useEffect(() => {
+    const action = conversationFocusAction.current;
+    if (!action) return;
+    conversationFocusAction.current = null;
+    if (action === 'open' && window.matchMedia('(max-width: 767px)').matches) document.querySelector('[data-inbox-return]')?.focus({preventScroll:true});
+    if (action === 'close') {
+      // The attention provider remounts the list when its conversation changes.
+      const row=[...document.querySelectorAll('[data-inbox-conversation]')].find(node=>node.dataset.inboxConversation===conversationOpener.current?.id);
+      returnFocus(row || conversationOpener.current?.element, document.getElementById('inbox-search'));
+    }
+  }, [selectedId, mobileChatOpen]);
   const messagesScrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const realtimeReloadTimerRef = useRef(null);
@@ -1424,6 +1438,7 @@ export const InboxClient = ({ conversations }) => {
       locallyClosedConversationIdsRef.current.add(selectedIdRef.current);
     }
 
+    conversationFocusAction.current = 'close';
     setSelectedId(null);
     setMobileChatOpen(false);
     setCopilotOpen(false);
@@ -1584,10 +1599,11 @@ export const InboxClient = ({ conversations }) => {
           )}
           >
             <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+            <label className="sr-only" htmlFor="inbox-search">{tx("Buscar huésped, habitación, mensaje o idioma")}</label>
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              aria-label="Buscar huésped, habitación, mensaje o idioma"
+              id="inbox-search"
               placeholder="Buscar huésped, habitación, mensaje…"
               className={cn(
                 'min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400',
@@ -1680,9 +1696,12 @@ export const InboxClient = ({ conversations }) => {
             return (
               <button
                 key={conversation.id}
+                data-inbox-conversation={conversation.id}
                 aria-current={active ? 'true' : undefined}
                 type="button"
-                onClick={() => {
+                onClick={event => {
+                  conversationOpener.current = {element:event.currentTarget,id:conversation.id};
+                  conversationFocusAction.current = 'open';
                   locallyClosedConversationIdsRef.current.delete(conversation.id);
                   setSelectedId(conversation.id);
                   markConversationAsRead(conversation.id);
@@ -1801,7 +1820,7 @@ export const InboxClient = ({ conversations }) => {
                     ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     : 'border-white/10 bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
                 )}
-                aria-label="Volver a conversaciones"
+                data-inbox-return aria-label={tx("Volver a conversaciones")}
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -2183,8 +2202,9 @@ export const InboxClient = ({ conversations }) => {
               : 'border-white/10 bg-black/20 shadow-black/20'
           ].join(' ')}
           >
+            <label className="sr-only" htmlFor="inbox-reply">{tx("Respuesta al huésped")}</label>
             <textarea
-              aria-label="Respuesta al huésped"
+              id="inbox-reply" aria-describedby="inbox-reply-help"
               disabled={!capabilities.canReply}
               maxLength={MANUAL_MESSAGE_MAX_LENGTH}
               value={message}
@@ -2209,7 +2229,7 @@ export const InboxClient = ({ conversations }) => {
               <span className="hidden sm:inline">{sendingSelectedConversation ? 'Enviando...' : sending ? 'Esperando otro envío' : selectedRecovery?.delivery.retryable && selectedRecovery.text === message.trim() ? 'Reintentar' : t('buttons.send')}</span>
             </button>
           </div>
-          <p className={ergonomics.composerHint}>Enter para enviar · Mayús + Enter para nueva línea</p>
+          <p id="inbox-reply-help" className={ergonomics.composerHint}>Enter para enviar · Mayús + Enter para nueva línea</p>
         </form>
       </section>
 

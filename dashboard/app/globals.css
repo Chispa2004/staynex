@@ -90,6 +90,8 @@ select {
 }
 
 button:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,

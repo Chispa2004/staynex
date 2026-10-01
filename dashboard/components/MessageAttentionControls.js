@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusLayer } from '@/lib/focus-layer';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
 import { getActiveTenantId, shouldAcceptTenantPayload } from '@/lib/tenant-client';
@@ -72,7 +73,7 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
     });
     return () => {window.removeEventListener(WORKSPACE_SELECTION_EVENT,clear);subscription?.data?.subscription?.unsubscribe();};
   },[invalidate]);
-  useEffect(() => { if (operation && dialog.current && !dialog.current.open) dialog.current.showModal(); },[operation]);
+  useFocusLayer(dialog, Boolean(operation), {native:true,onClose:()=>{if(!busyRef.current){setOperation(null);setConflict(false);}}});
   const rows = new Map((snapshot?.items || []).map(item=>[item.messageId,item]));
   const prepare = (action,ids=selected) => {
     if (!snapshot?.canManage || busyRef.current) return;

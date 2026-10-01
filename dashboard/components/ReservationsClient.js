@@ -1,5 +1,7 @@
 'use client';
 
+import { useFocusLayer, returnFocus } from '@/lib/focus-layer';
+
 import {
   AlertTriangle,
   CalendarCheck,
@@ -18,7 +20,7 @@ import {
   X
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { getAuthHeaders } from '@/lib/auth-headers';
@@ -336,12 +338,16 @@ const TestReservationModal = ({
   copiedAction,
   hotel
 }) => {
+  const { tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [form, setForm] = useState(initialTestReservationForm);
   const [createdReservation, setCreatedReservation] = useState(null);
+  const dialog = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+
+  useFocusLayer(dialog, open, {onClose:()=>{if(!submitting)onClose();}});
 
   if (!open) {
     return null;
@@ -400,7 +406,7 @@ const TestReservationModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 backdrop-blur-sm">
-      <section className={[
+      <section ref={dialog} role="dialog" aria-modal="true" aria-labelledby="reservation-create-title" tabIndex={-1} className={[
         'max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg border shadow-2xl',
         isLight
           ? 'border-slate-200 bg-white text-slate-950 shadow-slate-300/80'
@@ -410,7 +416,7 @@ const TestReservationModal = ({
         <div className={isLight ? 'flex items-center justify-between border-b border-slate-200 px-5 py-4' : 'flex items-center justify-between border-b border-white/10 px-5 py-4'}>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">DEMO PRE-ESTANCIA</p>
-            <h2 className="mt-2 text-xl font-semibold">Crear reserva demo</h2>
+            <h2 id="reservation-create-title" className="mt-2 text-xl font-semibold">Crear reserva demo</h2>
             <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-400'}>
               Crea datos sintéticos para enseñar el flujo. No confirma una conexión Ubikos ni PMS real.
             </p>
@@ -418,13 +424,15 @@ const TestReservationModal = ({
           <button
             type="button"
             onClick={onClose}
+            disabled={submitting}
+            aria-label={tx('Cerrar reserva demo')}
             className={isLight ? 'rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-950' : 'rounded-lg border border-white/10 bg-white/[0.035] p-2 text-slate-400 hover:bg-white/[0.08] hover:text-white'}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
-        <form className="space-y-5 p-5" onSubmit={submit}>
+        <form aria-describedby={error ? "reservation-create-error" : undefined} className="space-y-5 p-5" onSubmit={submit}>
           <div className="grid gap-4 md:grid-cols-2">
             {[
               ['guest_name', 'Nombre del huésped', 'text'],
@@ -462,7 +470,7 @@ const TestReservationModal = ({
           </label>
 
           {error ? (
-            <div className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'rounded-lg border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
+            <div id="reservation-create-error" role="alert" className={isLight ? 'rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'rounded-lg border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
               {error}
             </div>
           ) : null}
@@ -665,6 +673,7 @@ export const ReservationsClient = () => {
   const stats = metrics?.stats || {};
   const filteredReservations = reservations, paginatedReservations = reservations;
   const [selectedReservation,setSelectedReservation] = useState(null);
+  const reservationOpener = useRef(null);
   const [copiedAction,setCopiedAction] = useState(null);
   const [createModalOpen,setCreateModalOpen] = useState(false);
   useEffect(()=>{setSelectedReservation(current => reservations.find(row=>row.id===current?.id) || reservations[0] || null);},[reservations]);
@@ -770,9 +779,10 @@ export const ReservationsClient = () => {
 
           <label className={isLight ? 'staynex-input-group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500 xl:w-72' : 'staynex-input-group flex min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500 xl:w-72'}>
             <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <label id="reservation-search-label" htmlFor="reservation-search" className="sr-only">{t('reservations.searchPlaceholder')}</label>
             <input
               value={search}
-              aria-label={t('reservations.searchPlaceholder')}
+              id="reservation-search" aria-labelledby="reservation-search-label"
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('reservations.searchPlaceholder')}
               className={isLight ? 'min-w-0 flex-1 bg-transparent text-sm text-slate-950 outline-none placeholder:text-slate-400' : 'min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600'}
@@ -833,10 +843,11 @@ export const ReservationsClient = () => {
                     key={reservation.id}
                     role="button"
                     tabIndex={0}
-                    onClick={() => setSelectedReservation(reservation)}
+                    onClick={event => {reservationOpener.current=event.currentTarget;setSelectedReservation(reservation);}}
                     onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
+                      if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
                         event.preventDefault();
+                        reservationOpener.current=event.currentTarget;
                         setSelectedReservation(reservation);
                       }
                     }}
@@ -932,7 +943,7 @@ export const ReservationsClient = () => {
                         ].join(' ')}
                       >
                         <td className={isLight ? 'sticky left-0 z-10 bg-inherit px-4 py-3 text-sm font-semibold text-slate-900 shadow-[8px_0_16px_-14px_rgba(15,23,42,0.45)]' : 'sticky left-0 z-10 bg-inherit px-4 py-3 text-sm font-semibold text-slate-100 shadow-[8px_0_16px_-14px_rgba(0,0,0,0.9)]'}>
-                          {reservation.guest_name || t('reservations.unknownGuest')}
+                          <button type="button" aria-pressed={selected} onClick={event=>{event.stopPropagation();reservationOpener.current=event.currentTarget;setSelectedReservation(reservation);}} className="text-left font-inherit">{reservation.guest_name || t('reservations.unknownGuest')}</button>
                           <p className={isLight ? 'mt-1 text-xs font-normal text-slate-500' : 'mt-1 text-xs font-normal text-slate-500'}>
                             {reservation.pms_reservation_id || formatSource(reservation)}
                           </p>
@@ -1071,7 +1082,7 @@ export const ReservationsClient = () => {
           )}
         </Card>
 
-        <ReservationDetail reservation={loading || error ? null : selectedReservation} onClose={() => setSelectedReservation(null)} />
+        <ReservationDetail reservation={loading || error ? null : selectedReservation} onClose={() => {setSelectedReservation(null);returnFocus(reservationOpener.current,document.getElementById('reservation-search'));}} />
       </div>
     </div>
   );

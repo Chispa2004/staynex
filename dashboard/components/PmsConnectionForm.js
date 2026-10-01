@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
+import { useFocusLayer } from '@/lib/focus-layer';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { X } from 'lucide-react';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
@@ -17,7 +18,7 @@ export const PmsConnectionForm = ({
 }) => {
   const { tx } = useDashboardLanguage();
   const dialog = useRef(null);
-  useEffect(() => { const opener=document.activeElement;dialog.current?.showModal();return ()=>{dialog.current?.close();if(opener?.isConnected)opener.focus();}; }, []);
+  useFocusLayer(dialog, Boolean(provider), {native:true, onClose:()=>{if(!saving)onClose();}});
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
 
@@ -39,21 +40,14 @@ export const PmsConnectionForm = ({
     ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-300'
     : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-300/30';
   const labelClass = isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500';
-  const keepFocus = event => {
-    if (event.key !== 'Tab') return;
-    const items = [...dialog.current.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled)')];
-    const first = items[0], last = items.at(-1);
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-  };
 
   return (
-    <dialog ref={dialog} aria-labelledby="pms-form-title" onKeyDown={keepFocus} onCancel={event=>{event.preventDefault();if(!saving)onClose();}} className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-2xl bg-transparent p-0 backdrop:bg-slate-950/60">
-      <form onSubmit={onSave} className={isLight ? 'w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/40' : 'w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0b1019] p-6 shadow-2xl shadow-black/40'}>
+    <dialog ref={dialog} aria-labelledby="pms-form-title" onCancel={event=>{event.preventDefault();if(!saving)onClose();}} className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-2xl bg-transparent p-0 backdrop:bg-slate-950/60">
+      <form aria-describedby={error ? "pms-form-help pms-form-error" : "pms-form-help"} onSubmit={onSave} className={isLight ? 'w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-300/40' : 'w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0b1019] p-6 shadow-2xl shadow-black/40'}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p id="pms-form-title" className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>{tx(initialConnection ? 'Gestionar configuración' : 'Configurar')} {provider.name}</p>
-            <p className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
+            <p id="pms-form-help" className={isLight ? 'mt-1 text-sm text-slate-500' : 'mt-1 text-sm text-slate-500'}>
               {tx(liveApi ? 'Las credenciales se cifran al guardarse. Guardarlas no comprueba la conexión.' : 'Guarda la configuración y coordina la integración con Staynex y el proveedor. Guardar no activa ni notifica al proveedor.')}
             </p>
           </div>
@@ -62,7 +56,9 @@ export const PmsConnectionForm = ({
           </button>
         </div>
 
-        {error ? <p role="alert" className={isLight ? "mt-4 text-sm text-red-600" : "mt-4 text-sm text-red-300"}>{error}</p> : null}
+        {error ? <p id="pms-form-error" role="alert" className={isLight ? "mt-4 text-sm text-red-600" : "mt-4 text-sm text-red-300"}>{error}</p> : null}
+        {initialConnection?.api_key_configured ? <p id="pms-key-help" className="sr-only">{tx('Deja vacío para conservar la clave actual')}</p> : null}
+        {initialConnection?.has_client_secret ? <p id="pms-secret-help" className="sr-only">{tx('Deja vacío para conservar el secreto actual')}</p> : null}
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <label className="space-y-2">
             <span className={labelClass}>{tx("Proveedor")}</span>
@@ -103,7 +99,7 @@ export const PmsConnectionForm = ({
           <label className="space-y-2">
             <span className={labelClass}>{tx("Clave API")}</span>
             <input
-              type="password"
+              type="password" aria-describedby={initialConnection?.api_key_configured ? "pms-key-help" : undefined}
               className={inputClass}
               value={form.api_key}
               onChange={(event) => setForm((current) => ({ ...current, api_key: event.target.value }))}
@@ -123,7 +119,7 @@ export const PmsConnectionForm = ({
           <label className="space-y-2 sm:col-span-2">
             <span className={labelClass}>{tx("Secreto del cliente")}</span>
             <input
-              type="password"
+              type="password" aria-describedby={initialConnection?.has_client_secret ? "pms-secret-help" : undefined}
               className={inputClass}
               value={form.client_secret}
               onChange={(event) => setForm((current) => ({ ...current, client_secret: event.target.value }))}
@@ -152,7 +148,7 @@ export const PmsConnectionForm = ({
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={onClose} className={isLight ? 'rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}>
+          <button type="button" onClick={onClose} disabled={saving} className={isLight ? 'rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50' : 'rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/[0.08]'}>
             {tx("Cancelar")}
           </button>
           {!liveApi ? (

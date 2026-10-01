@@ -1,4 +1,6 @@
 export const operationalMetricPhrases = [
+ ['Filas por página','Rows per page'],['Cerrar reserva demo','Close demo reservation'],['Navegación principal','Main navigation'],
+ ['Buscar huésped, habitación, mensaje o idioma','Search guest, room, message or language'],['Respuesta al huésped','Reply to guest'],['Volver a conversaciones','Back to conversations'],
  ['{hotel} · Administración interna de Staynex','{hotel} · Internal Staynex administration'],
  ['Acerca de estos resultados','About these results'],
  ['Riesgo urgente','Urgent risk'],['Satisfacción en riesgo','Satisfaction at risk'],['Priorizados por IA','AI prioritized'],

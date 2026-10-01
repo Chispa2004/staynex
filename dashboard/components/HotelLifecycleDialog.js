@@ -1,4 +1,5 @@
 "use client";
+import { returnFocus } from '@/lib/focus-layer';
 import {useEffect,useRef,useState} from 'react';
 import {getSupabaseBrowser} from '@/lib/supabase-browser';
 import {useDashboardLanguage} from '@/lib/i18n/useDashboardLanguage';
@@ -6,8 +7,8 @@ import {ui} from '@/lib/ui/styles';
 export function HotelLifecycleDialog({hotel,action='archive',isLight,onClose,onSaved}) {
   const {tx}=useDashboardLanguage(); const dialog=useRef(null); const cancel=useRef(null); const opener=useRef(null);
   const [busy,setBusy]=useState(false); const [error,setError]=useState(null); const working=useRef(false);
-  useEffect(()=>{opener.current ||= document.activeElement; const element=dialog.current; element.showModal();cancel.current.focus();return ()=>{element.close();if(opener.current?.isConnected&&!opener.current.disabled)opener.current.focus();else document.querySelector('[data-lifecycle-focus]')?.focus();};},[]);
-  useEffect(()=>{if(error)cancel.current?.focus();},[error]);
+  useEffect(()=>{opener.current ||= document.activeElement; const element=dialog.current; element.showModal();cancel.current.focus();return ()=>{element.close();returnFocus(opener.current,document.querySelector('[data-lifecycle-focus]'));};},[]);
+
   const restore=action==='restore';
   const submit=async()=>{
     if(working.current)return; working.current=true;setBusy(true);setError(null);

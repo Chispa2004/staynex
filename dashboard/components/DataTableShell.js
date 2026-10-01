@@ -1,7 +1,8 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 
@@ -18,6 +19,8 @@ export const DataTableShell = ({
   className = ''
 }) => {
   const { theme } = useDashboardTheme();
+  const {tx} = useDashboardLanguage();
+  const pageSizeId = useId();
   const isLight = theme === 'light';
   const topScrollRef = useRef(null);
   const tableScrollRef = useRef(null);
@@ -107,11 +110,11 @@ export const DataTableShell = ({
           </p>
 
           <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap">
-            <select
+            <label className="sr-only" htmlFor={pageSizeId}>{tx('Filas por página')}</label>
+            <select id={pageSizeId}
               value={pageSize}
               onChange={(event) => onPageSizeChange(Number(event.target.value))}
               className={cn(ui.input(isLight), 'col-span-2 w-full sm:col-span-1 sm:w-auto')}
-              aria-label="Rows per page"
             >
               {pageSizeOptions.map((option) => (
                 <option key={option} value={option}>

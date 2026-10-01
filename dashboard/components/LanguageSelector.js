@@ -32,7 +32,7 @@ export const LanguageSelector = ({ placement = 'bottom' }) => {
       onPointerLeave={() => setHovered(false)}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) close(); }}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') { close(); trigger.current?.focus(); }
+        if (event.key === 'Escape' && visible && !event.isComposing) { event.preventDefault(); event.stopPropagation(); close(); trigger.current?.focus(); }
       }}>
       <button ref={trigger} type="button" aria-label={`${t('app.language')}: ${active.name}`}
         aria-expanded={visible} aria-controls={id} onClick={() => setOpen((value) => !value)}

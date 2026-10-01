@@ -17,7 +17,7 @@ export const OperationalMetricSummary = ({metrics,kind,href,loading,error,compac
       <p role="status">{t(kind==='tickets'?'{count} tickets':'{count} reservas',{count:total})}</p>
       <p>{kind==='tickets'?t('Estado actual · todos los estados del ticket'): `${filter.date} · ${timezone}`}</p>
       <Link href={href({metric:'all',q:null,status:null,priority:null,category:null})} className="rounded py-1 underline focus-visible:ring-2 focus-visible:ring-emerald-500">{t('Retirar filtros')}</Link>
-    <details className="min-w-0 open:basis-full">
+    <details onKeyDown={event=>{if(event.key==='Escape'&&event.currentTarget.open&&!event.isComposing){event.preventDefault();event.stopPropagation();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}}} className="min-w-0 open:basis-full">
       <summary className="w-fit cursor-pointer rounded py-1 underline focus-visible:ring-2 focus-visible:ring-emerald-500">{t('Acerca de estos resultados')}</summary>
       {kind==='tickets'?<p>{t('Estos recuentos incluyen tickets de cualquier estado; utiliza los filtros para acotar la cola.')}</p>:null}
       {filter.metric==='arrivingSoon'?<p>{t('Desde la fecha indicada hasta siete días después, ambos inclusive.')}</p>:null}

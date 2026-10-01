@@ -1,5 +1,6 @@
 'use client';
 
+import { useFocusLayer } from '@/lib/focus-layer';
 import { usesCompactLayout } from '@/lib/compact-routes';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -223,6 +224,8 @@ const AppShellContent = ({ children }) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
   const [desktopNavigation, setDesktopNavigation] = useState(true);
+  const navigationPanel = useRef(null);
+  useFocusLayer(navigationPanel, mobileSidebarOpen && !desktopNavigation, {onClose: () => setMobileSidebarOpen(false)});
   const [navigationHint, setNavigationHint] = useState(null);
   const showNavigationHint = event => {
     if (!desktopSidebarCollapsed || !desktopNavigation) return;
@@ -1191,7 +1194,7 @@ const AppShellContent = ({ children }) => {
       }}
     >
       <div data-desktop-restore={false} className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
-        <header
+        <header inert={mobileSidebarOpen && !desktopNavigation}
           className={[
             'sticky top-0 z-30 flex shrink-0 items-center justify-between gap-3 border-b px-3 py-3 backdrop-blur-xl',
             'lg:hidden',
@@ -1205,7 +1208,7 @@ const AppShellContent = ({ children }) => {
             type="button"
             onClick={() => desktopNavigation ? changeDesktopSidebar(false) : setMobileSidebarOpen(true)}
             className={isLight ? 'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm' : 'inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.045] text-slate-100 shadow-lg shadow-black/20'}
-            aria-label={tx('Open navigation')}
+            aria-label={tx('Open navigation')} aria-expanded={mobileSidebarOpen} aria-controls="staynex-sidebar"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -1249,7 +1252,7 @@ const AppShellContent = ({ children }) => {
           />
         ) : null}
 
-        <aside id="staynex-sidebar" data-desktop-collapsed={desktopSidebarCollapsed} inert={!desktopNavigation && !mobileSidebarOpen} className={[
+        <aside ref={navigationPanel} role={mobileSidebarOpen && !desktopNavigation ? 'dialog' : undefined} aria-modal={mobileSidebarOpen && !desktopNavigation ? true : undefined} aria-label={tx('Navegación principal')} tabIndex={-1} id="staynex-sidebar" data-desktop-collapsed={desktopSidebarCollapsed} inert={!desktopNavigation && !mobileSidebarOpen} className={[
           shellStyles.sidebar,
           desktopSidebarCollapsed ? shellStyles.compact : '',
           'fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] shrink-0 flex-col border-r shadow-2xl backdrop-blur-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-full lg:w-72 lg:translate-x-0',
@@ -1512,7 +1515,7 @@ const AppShellContent = ({ children }) => {
           </div>
         </aside>
 
-        <main className={cn(
+        <main inert={mobileSidebarOpen && !desktopNavigation} className={cn(
           'min-h-0 w-full flex-1 overflow-x-hidden overscroll-contain',
           isCompactPage && 'min-w-0',
           isInboxRoute ? 'flex flex-col overflow-hidden' : 'overflow-y-auto'

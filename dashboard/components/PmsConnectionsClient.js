@@ -39,7 +39,9 @@ export const PmsConnectionsClient = ({embedded = false, onConfigurationChanged})
   const inFlight = useRef(false);
   const controller = useRef(null);
   const dataRef = useRef(null);
-  const clear = () => { setData(null); dataRef.current=null; setReceivedAt(null); setLoadError(null); setEditing(null); setForm(null); setFeedback(null); setReceipts({}); };
+  // Unsaved fields stay in memory only while this authorized workspace is mounted.
+  const drafts = useRef({});
+  const clear = () => { drafts.current={};setData(null); dataRef.current=null; setReceivedAt(null); setLoadError(null); setEditing(null); setForm(null); setFeedback(null); setReceipts({}); };
 
   const request = async (url, options, ticket) => {
     const abort = new AbortController(); controller.current=abort;
@@ -65,6 +67,7 @@ export const PmsConnectionsClient = ({embedded = false, onConfigurationChanged})
     try {
       const body=validatePmsPayload(await request('/api/pms-connections',{},ticket),ticket.hotelId);
       if(!ticket.valid())return;
+      if(!body.canManage)drafts.current={};
       dataRef.current=body;setData(body);setReceivedAt(new Date().toISOString());
     } catch(error) {
       if(ticket.valid())setLoadError(error.name==='AbortError'?'La consulta ha tardado demasiado. Reintenta la actualización.':'No se pudo consultar el estado PMS. Reintenta la actualización.');
@@ -84,7 +87,7 @@ export const PmsConnectionsClient = ({embedded = false, onConfigurationChanged})
   const canManage = Boolean(data?.canManage && !loading && !loadError && data.hotelId===context().hotelId);
   const openEditor = (provider,connection) => {
     if(!canManage||inFlight.current)return;
-    setFeedback(null);setEditing({provider,connection});setForm(defaultForm(provider,connection));
+    setFeedback(null);setEditing({provider,connection});setForm(drafts.current[provider.key] || defaultForm(provider,connection));
   };
   const operate = async (action,provider,connection,payload) => {
     const allowed=pmsActions(provider,connection,canManage);
@@ -98,7 +101,7 @@ export const PmsConnectionsClient = ({embedded = false, onConfigurationChanged})
       if(!ticket.valid())return;
       if(action==='save' || action==='disconnect'){
         if(body.connection?.hotel_id!==ticket.hotelId || body.connection?.provider!==provider.key)throw new Error('pms_invalid_response');
-        setEditing(null);setForm(null);setReceipts(current=>({...current,[provider.key]:{}}));
+        delete drafts.current[provider.key];setEditing(null);setForm(null);setReceipts(current=>({...current,[provider.key]:{}}));
       } else {
         if(action==='test' && !(body.ok===true && body.connection?.sync_status==='connected' && body.connection?.hotel_id===ticket.hotelId && body.connection?.provider===provider.key))throw new Error('pms_invalid_response');
         if(action==='sync' && (!body.summary || !Array.isArray(body.summary.errors) || body.summary.status==='pending_setup'))throw new Error('pms_invalid_response');
@@ -136,6 +139,6 @@ export const PmsConnectionsClient = ({embedded = false, onConfigurationChanged})
     </div>:null}
     {editing?<PmsConnectionForm provider={editing.provider} initialConnection={editing.connection} form={form} setForm={setForm}
       onSave={event=>{event.preventDefault();operate('save',editing.provider,editing.connection,form);}}
-      onClose={()=>{if(!busy){setEditing(null);setForm(null);setFeedback(null);}}} saving={Boolean(busy)} error={feedback?.type==='error'?tx(feedback.text):null} />:null}
+      onClose={()=>{if(!busy){if(canManage)drafts.current[editing.provider.key]=form;setEditing(null);setForm(null);setFeedback(null);}}} saving={Boolean(busy)} error={feedback?.type==='error'?tx(feedback.text):null} />:null}
   </section>;
 };
