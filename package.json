@@ -113,6 +113,7 @@
     "test:hotel-lifecycle-navigation": "node scripts/test-hotel-lifecycle-navigation.js",
     "test:onboarding-pms-evidence": "node scripts/test-onboarding-pms-evidence.js",
     "test:operational-metric-navigation": "node scripts/test-operational-metric-navigation.js",
+    "test:density-browser": "node scripts/density-lab.cjs build && playwright test --config scripts/density-browser.config.js",
     "test:theme-browser": "node scripts/theme-lab.cjs build && playwright test --config scripts/theme-browser.config.js"
   },
   "dependencies": {

@@ -1,3 +1,4 @@
+import * as compactRoutes from '../dashboard/lib/compact-routes.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -53,6 +54,7 @@ const jsx=(type,props)=>({type,props});
 const router={replace:path=>{replacements.push(path);pathname=path;dirty=true;},prefetch(){},refresh(){}};
 const session={access_token:'synthetic',user:{id:'actor'}};
 const mocks={
+  '@/lib/compact-routes':compactRoutes,
   react:React,'react/jsx-runtime':{jsx,jsxs:jsx},'next/link':{default:'a'},'next/navigation':{usePathname:()=>pathname,useRouter:()=>router},
   'lucide-react':{},'@/lib/onboarding-navigation':navigation,'./AppShell.module.css':{default:{}},'@/lib/shell-navigation':{ShellNavigationContext:{Provider:'provider'}},
   './LanguageSelector':{},'./ThemeToggle':{},'./HotelWorkspaceSwitcher':{},'./StaynexBrand':{},

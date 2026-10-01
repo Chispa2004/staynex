@@ -58,11 +58,15 @@ jobs:
       - run: npx --no-install playwright install --with-deps chromium
       - name: Production theme and contrast regressions
         run: npm run test:theme-browser
+      - name: Production density and excluded-layout regressions
+        run: npm run test:density-browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: synthetic-theme-evidence
-          path: .npm-cache/theme-browser-results
+          path: |
+            .npm-cache/theme-browser-results
+            .npm-cache/density-browser-results
           include-hidden-files: true
           retention-days: 7
 

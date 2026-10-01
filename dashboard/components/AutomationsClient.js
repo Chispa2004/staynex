@@ -190,16 +190,11 @@ const Badge = ({ children, tone = 'slate' }) => {
 };
 
 const StatCard = ({ icon: Icon, label, value, tone }) => (
-  <Card className="p-4">
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-60">{label}</p>
-        <p className="mt-2 text-2xl font-semibold">{value}</p>
-      </div>
-      <Badge tone={tone}>
-        <Icon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-        Preview
-      </Badge>
+  <Card className="min-w-0 p-3">
+    <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-60">{label}</p>
+    <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+      <p className="text-2xl font-semibold">{value}</p>
+      <Badge tone={tone}><Icon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />Preview</Badge>
     </div>
   </Card>
 );

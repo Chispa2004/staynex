@@ -271,22 +271,22 @@ const StatCard = ({ icon: Icon, label, value, href }) => {
   const isLight = theme === 'light';
 
   return (
-    <Card className="p-4">
+    <Card className="p-3">
       {href ? <Link href={href} className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500' : 'text-xs font-semibold uppercase tracking-[0.14em] text-slate-500'}>
             {label}
           </p>
-          <p className={isLight ? 'mt-3 text-3xl font-semibold text-slate-950' : 'mt-3 text-3xl font-semibold text-white'}>
+          <p className={isLight ? 'mt-1 text-2xl font-semibold text-slate-950' : 'mt-1 text-2xl font-semibold text-white'}>
             {value}
           </p>
         </div>
-        <span className={isLight ? 'flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700' : 'flex h-10 w-10 items-center justify-center rounded-lg border border-emerald-300/20 bg-emerald-300/10 text-emerald-200'}>
+        <span className={isLight ? 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700' : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-300/20 bg-emerald-300/10 text-emerald-200'}>
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
       </div>
-      </Link> : <div><p className="text-xs">{label}</p><p className="mt-3 text-3xl">…</p></div>}
+      </Link> : <div><p className="text-xs">{label}</p><p className="mt-1 text-2xl">…</p></div>}
     </Card>
   );
 };
@@ -551,7 +551,7 @@ const ReservationDetail = ({ reservation, onClose }) => {
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="min-w-0 overflow-hidden">
       <div className={isLight ? 'flex items-center justify-between gap-3 border-b border-slate-200 p-5' : 'flex items-center justify-between gap-3 border-b border-white/10 p-5'}>
         <div>
           <p className={isLight ? 'text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700' : 'text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300'}>
@@ -685,8 +685,8 @@ export const ReservationsClient = () => {
   const handleTestReservationCreated = () => { loadReservations(); };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div data-density-page className="space-y-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300/90">
             {t('screens.operations')}
@@ -732,15 +732,15 @@ export const ReservationsClient = () => {
         />
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatCard icon={Hotel} label={t('reservations.stats.total')} value={stats.total} href={metrics ? list.href({metric: 'total',q:null}) : null} />
         <StatCard icon={CalendarClock} label={t('reservations.stats.arrivingSoon')} value={stats.arrivingSoon} href={metrics ? list.href({metric: 'arrivingSoon',q:null}) : null} />
         <StatCard icon={CalendarCheck} label={t('reservations.stats.stayingNow')} value={stats.stayingNow} href={metrics ? list.href({metric: 'stayingNow',q:null}) : null} />
         <StatCard icon={CheckCircle2} label={t('reservations.stats.completedStays')} value={stats.completed} href={metrics ? list.href({metric: 'completed',q:null}) : null} />
       </div>
 
-      <OperationalMetricSummary metrics={metrics} kind="reservations" href={list.href} loading={loading} error={error} />
-      <Card className="p-4">
+      <Card className="space-y-3 p-3">
+        <OperationalMetricSummary compact metrics={metrics} kind="reservations" href={list.href} loading={loading} error={error} />
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
             {filterOptions.map((item) => {
@@ -768,7 +768,7 @@ export const ReservationsClient = () => {
             })}
           </div>
 
-          <label className={isLight ? 'staynex-input-group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500 xl:w-96' : 'staynex-input-group flex min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500 xl:w-96'}>
+          <label className={isLight ? 'staynex-input-group flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500 xl:w-72' : 'staynex-input-group flex min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500 xl:w-72'}>
             <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
             <input
               value={search}
@@ -793,8 +793,8 @@ export const ReservationsClient = () => {
         </Card>
       ) : null}
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <Card className="overflow-hidden">
+      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <Card className="min-w-0 overflow-hidden">
           <div className={isLight ? 'border-b border-slate-200 px-5 py-4' : 'border-b border-white/10 px-5 py-4'}>
             <p className={isLight ? 'text-sm font-semibold text-slate-700' : 'text-sm font-semibold text-slate-300'}>
               {metrics ? t('reservations.results', { count: metrics.total }) : '…'}

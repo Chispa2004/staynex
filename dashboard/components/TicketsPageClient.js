@@ -16,27 +16,30 @@ export const TicketsPageClient = () => {
   const filters={status:list.params.get('status')||'all',priority:list.params.get('priority')||'all',category:list.params.get('category')||'all'};
   const surface=isLight?'border-slate-200 bg-white text-slate-900':'border-white/10 bg-white/[0.04] text-slate-100';
   const insights=[['urgent_risk',ShieldAlert],['satisfaction_risk',AlertCircle],['ai_prioritized',BrainCircuit]];
-  return <section className="space-y-6">
+  return <section data-density-page className="space-y-4">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <PageHeader titleKey="screens.tickets" descriptionKey="screens.ticketsDescription" />
       <button type="button" onClick={list.load} className={`rounded-lg border px-4 py-2 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-emerald-500 ${surface}`}>{t('buttons.refresh')}</button>
     </div>
-    <div className={`rounded-xl border p-4 ${surface}`}>
+    <div className={`rounded-xl border p-3 ${surface}`}>
       <h2 className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4" aria-hidden="true" />{tx('Asistencia IA · estado actual')}</h2>
-      <p className="mt-1 text-sm">{tx('Estos recuentos incluyen tickets de cualquier estado; utiliza los filtros para acotar la cola.')}</p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
         {insights.map(([metric,Icon])=>{
           const content=<><span className="flex items-center gap-2 text-xs font-semibold"><Icon className="h-4 w-4" aria-hidden="true" />{tx(operationalLabels[metric])}</span><span className="mt-1 block text-xl font-semibold">{metrics?.stats[metric]??'…'}</span></>;
-          const className=`rounded-lg border px-3 py-3 ${surface} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500`;
+          const className=`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${surface} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500`;
           return metrics?<Link key={metric} className={className} href={list.href({metric,q:null,status:null,priority:null,category:null})}>{content}</Link>:<div key={metric} className={className}>{content}</div>;
         })}
       </div>
     </div>
-    <OperationalMetricSummary metrics={metrics} kind="tickets" href={list.href} loading={loading} error={error} />
-    <TicketFilters filters={filters} onChange={list.change} categories={metrics?.categories||[]} statuses={['open','in_progress','completed']} priorities={['low','normal','high','urgent']} />
+    <div className={`space-y-2 rounded-xl border p-3 ${surface}`}>
+    <OperationalMetricSummary compact metrics={metrics} kind="tickets" href={list.href} loading={loading} error={error} />
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+    <TicketFilters embedded filters={filters} onChange={list.change} categories={metrics?.categories||[]} statuses={['open','in_progress','completed']} priorities={['low','normal','high','urgent']} />
+    {!loading && !error ? <OperationalPagination metrics={metrics} href={list.href} /> : null}
+    </div>
+    </div>
     {loading?<PremiumLoadingState title={tx('Consultando registros…')} rows={5} cards={3} />:error?<div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">{tx(error)}</div>:<>
-      <OperationalPagination metrics={metrics} href={list.href} />
-      {metrics.total===0?<p>{tx('No hay registros que cumplan estos filtros.')}</p>:<TicketsTable tickets={data.tickets} hotelId={data.hotelId} onUpdated={list.load} />}
+      {metrics.total===0?<p>{tx('No hay registros que cumplan estos filtros.')}</p>:<TicketsTable compact tickets={data.tickets} hotelId={data.hotelId} onUpdated={list.load} />}
       <OperationalPagination metrics={metrics} href={list.href} />
     </>}
   </section>;
