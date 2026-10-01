@@ -114,7 +114,8 @@
     "test:onboarding-pms-evidence": "node scripts/test-onboarding-pms-evidence.js",
     "test:operational-metric-navigation": "node scripts/test-operational-metric-navigation.js",
     "test:density-browser": "node scripts/density-lab.cjs build && playwright test --config scripts/density-browser.config.js",
-    "test:theme-browser": "node scripts/theme-lab.cjs build && playwright test --config scripts/theme-browser.config.js"
+    "test:theme-browser": "node scripts/theme-lab.cjs build && playwright test --config scripts/theme-browser.config.js",
+    "test:accessibility-browser": "node scripts/accessibility-lab.cjs build && playwright test --config scripts/accessibility-browser.config.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

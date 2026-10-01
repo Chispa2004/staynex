@@ -1,7 +1,7 @@
 'use client';
 
 import { Building2, Check, ChevronDown, Loader2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { submitHotelCreation, hasPendingHotelCreation } from '@/lib/hotel-creation-client';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { HotelFieldErrors } from '@/components/HotelFieldErrors';
@@ -68,6 +68,8 @@ export const HotelWorkspaceSwitcher = ({
   const [workspaceTimezone, setWorkspaceTimezone] = useState('');
   const [createError, setCreateError] = useState(null);
   const containerRef = useRef(null);
+  const triggerRef = useRef(null);
+  const menuId = useId();
   const creatingRef = useRef(false);
   const [fieldErrors, setFieldErrors] = useState(null);
   const canSwitch = canSwitchWorkspaces && availableHotels.length > 1;
@@ -95,6 +97,7 @@ export const HotelWorkspaceSwitcher = ({
 
     onSwitch(hotelId);
     setOpen(false);
+    triggerRef.current?.focus();
   };
 
   const handleCreateWorkspace = async (event, recover = false) => {
@@ -130,8 +133,8 @@ export const HotelWorkspaceSwitcher = ({
   };
 
   return (
-    <div ref={containerRef} data-icon-only={iconOnly} className={compact ? "relative pb-3" : "relative px-4 pb-4 pt-5"}>
-      <button
+    <div ref={containerRef} onKeyDown={event=>{if(event.key==='Escape'&&open&&!event.isComposing){event.preventDefault();event.stopPropagation();setOpen(false);triggerRef.current?.focus();}}} onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setOpen(false);}} data-icon-only={iconOnly} className={compact ? "relative pb-3" : "relative px-4 pb-4 pt-5"}>
+      <button ref={triggerRef}
         type="button"
         onClick={() => canOpenMenu && setOpen((current) => !current)}
         disabled={!canOpenMenu || switching}
@@ -144,7 +147,7 @@ export const HotelWorkspaceSwitcher = ({
         ].join(' ')}
         aria-label={`${currentHotel?.name || 'Hotel activo'} · ${ROLE_LABELS[activeRole] || activeRole}`}
         title={`${currentHotel?.name || 'Hotel activo'} · ${ROLE_LABELS[activeRole] || activeRole}`}
-        aria-haspopup={canOpenMenu ? 'listbox' : undefined}
+        aria-controls={open ? menuId : undefined}
         aria-expanded={canOpenMenu ? open : undefined}
       >
         <WorkspaceLogo hotel={currentHotel} />
@@ -174,7 +177,7 @@ export const HotelWorkspaceSwitcher = ({
               ? 'border-slate-200 bg-white text-slate-950 shadow-slate-200/80'
               : 'border-white/10 bg-[#0b1019] text-white shadow-black/40'
           ].join(' ')}
-          role="listbox"
+          id={menuId} role="group" aria-label={tx('Cambiar hotel')}
         >
           <div className={isLight ? 'border-b border-slate-100 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500' : 'border-b border-white/10 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500'}>
             {tx('Cambiar hotel')}
@@ -200,8 +203,7 @@ export const HotelWorkspaceSwitcher = ({
                         ? 'bg-emerald-300/10 text-white'
                         : 'text-slate-300 hover:bg-white/[0.05]'
                   ].join(' ')}
-                  role="option"
-                  aria-selected={active}
+                  aria-pressed={active}
                 >
                   <WorkspaceLogo hotel={hotel} size="sm" />
                   <div className="min-w-0 flex-1">
@@ -219,38 +221,42 @@ export const HotelWorkspaceSwitcher = ({
             <div className={isLight ? 'border-t border-slate-100 p-2' : 'border-t border-white/10 p-2'}>
               {createOpen ? (
                 <form onSubmit={handleCreateWorkspace} className="space-y-2">
+                  <label className="sr-only" htmlFor={`${menuId}-name`}>{tx('Nombre del hotel')}</label>
                   <input
-                    aria-label={tx('Nombre del hotel')}
+                    id={`${menuId}-name`} aria-invalid={Boolean(fieldErrors?.name)} aria-describedby={fieldErrors?.name ? `${menuId}-name-error` : undefined}
                     value={workspaceName}
                     onChange={(event) => setWorkspaceName(event.target.value)}
                     placeholder={tx('Nuevo hotel')}
                     className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
                   />
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <input
-                      aria-label={tx('Código de país')}
+                    <label className="sr-only" htmlFor={`${menuId}-country_code`}>{tx('Código de país')}</label>
+                  <input
+                      id={`${menuId}-country_code`} aria-invalid={Boolean(fieldErrors?.country_code)} aria-describedby={fieldErrors?.country_code ? `${menuId}-country_code-error` : undefined}
                       value={workspaceCountryCode}
                       onChange={(event) => setWorkspaceCountryCode(event.target.value)}
                       placeholder={tx('Country code')}
                       maxLength={2}
                       className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
                     />
-                    <input
-                      aria-label={tx('Ciudad')}
+                    <label className="sr-only" htmlFor={`${menuId}-city`}>{tx('Ciudad')}</label>
+                  <input
+                      id={`${menuId}-city`} aria-invalid={Boolean(fieldErrors?.city)} aria-describedby={fieldErrors?.city ? `${menuId}-city-error` : undefined}
                       value={workspaceCity}
                       onChange={(event) => setWorkspaceCity(event.target.value)}
                       placeholder={tx('City')}
                       className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
                     />
                   </div>
+                  <label className="sr-only" htmlFor={`${menuId}-timezone`}>{tx('Zona horaria')}</label>
                   <input
-                    aria-label={tx('Zona horaria')}
+                    id={`${menuId}-timezone`} aria-invalid={Boolean(fieldErrors?.timezone)} aria-describedby={fieldErrors?.timezone ? `${menuId}-timezone-error` : undefined}
                     value={workspaceTimezone}
                     onChange={(event) => setWorkspaceTimezone(event.target.value)}
                     placeholder="Europe/Madrid"
                     className={isLight ? 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-emerald-300' : 'w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-emerald-300/40'}
                   />
-                  <HotelFieldErrors fields={fieldErrors} />
+                  <HotelFieldErrors fields={fieldErrors} prefix={menuId} />
                   {canRecover ? <button type="button" disabled={creating} className="rounded border px-3 py-2 text-sm" onClick={event => handleCreateWorkspace(event, true)}>{tx('Recuperar alta pendiente')}</button> : null}
                   {createError ? (
                     <p role="alert" className="text-xs font-medium text-red-500">{tx(createError)}</p>

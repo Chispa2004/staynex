@@ -5,7 +5,7 @@ export const HotelFieldErrors=({fields,prefix})=>{
  const {tx}=useDashboardLanguage();
  if(!fields || !Object.keys(fields).length)return null;
  return <div role="alert" className="my-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
- <p>{tx('Revisa los campos indicados.')}</p><ul className="mt-2 space-y-1">{Object.entries(fields).map(([key,message])=><li key={key}>
+ <p>{tx('Revisa los campos indicados.')}</p><ul className="mt-2 space-y-1">{Object.entries(fields).map(([key,message])=><li key={key} id={prefix ? `${prefix}-${key}-error` : undefined}>
  {prefix && key!=='_form'?<a className="underline" href={`#${prefix}-${key}`}>{tx(labels[key]||key)}</a>:tx(labels[key]||key)}: {tx(message)}
  </li>)}</ul></div>;
 };

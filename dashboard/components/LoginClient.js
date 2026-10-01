@@ -183,7 +183,7 @@ export const LoginClient = () => {
         </div>
 
         {error ? (
-          <div className={isLight ? 'mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'mb-4 rounded-lg border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
+          <div id="login-error" role="alert" className={isLight ? 'mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800' : 'mb-4 rounded-lg border border-red-300/20 bg-red-500/10 px-4 py-3 text-sm text-red-100'}>
             {error}
           </div>
         ) : null}
@@ -196,7 +196,7 @@ export const LoginClient = () => {
             <span className={isLight ? 'staynex-input-group flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500' : 'staynex-input-group flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500'}>
               <Mail className="h-4 w-4" aria-hidden="true" />
               <input
-                type="email"
+                type="email" aria-describedby={error ? "login-error" : undefined}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -214,7 +214,7 @@ export const LoginClient = () => {
             <span className={isLight ? 'staynex-input-group flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-500' : 'staynex-input-group flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-slate-500'}>
               <Lock className="h-4 w-4" aria-hidden="true" />
               <input
-                type="password"
+                type="password" aria-describedby={error ? "login-error" : undefined}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required

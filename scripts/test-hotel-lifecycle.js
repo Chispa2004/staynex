@@ -42,7 +42,8 @@ console.log('PASS legacy/archive/restore hold blocks new AI and automation eligi
 let hooks=[],cursor=0,mode='fail',saved=[],requests=[];
 const React={useState:init=>{const i=cursor++;if(!(i in hooks))hooks[i]=init;return [hooks[i],v=>{hooks[i]=v;}];},useRef:init=>{const i=cursor++;return hooks[i]||=( {current:init});},useEffect:()=>{}};
 const jsx=(type,props)=>({type,props});
-const component=await compile('../dashboard/components/HotelLifecycleDialog.js',{'react':React,'react/jsx-runtime':{jsx,jsxs:jsx},'@/lib/supabase-browser':{getSupabaseBrowser:()=>null},'@/lib/i18n/useDashboardLanguage':{useDashboardLanguage:()=>({tx:x=>x})},'@/lib/ui/styles':{ui:{button:()=>''}}});
+const focusLayer=await compile('../dashboard/lib/focus-layer.js',{'react':React});
+const component=await compile('../dashboard/components/HotelLifecycleDialog.js',{'@/lib/focus-layer':focusLayer,'react':React,'react/jsx-runtime':{jsx,jsxs:jsx},'@/lib/supabase-browser':{getSupabaseBrowser:()=>null},'@/lib/i18n/useDashboardLanguage':{useDashboardLanguage:()=>({tx:x=>x})},'@/lib/ui/styles':{ui:{button:()=>''}}});
 const props={hotel:{id,name:'Synthetic',archived_at:'2026-09-28',updated_at:'2026-09-27'},isLight:true,action:'archive',onClose:()=>{},onSaved:r=>saved.push(r)};
 const render=()=>{cursor=0;return component.HotelLifecycleDialog(props);};
 const find=(node,predicate)=>{if(!node||typeof node!=='object')return null;if(predicate(node))return node;for(const c of [node.props?.children].flat(Infinity)){const hit=find(c,predicate);if(hit)return hit;}return null;};

@@ -125,6 +125,7 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved, onDirtyChange, 
 
     setSaving(true);
     setMessage(null);
+    setFieldErrors(null);
 
     try {
       const response = await fetch('/api/onboarding/hotel', {
@@ -176,6 +177,7 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved, onDirtyChange, 
                 id={`onboarding-${field}`}
                 required={required}
                 aria-invalid={Boolean(fieldErrors?.[field])}
+                aria-describedby={fieldErrors?.[field] ? `onboarding-${field}-error` : undefined}
                 maxLength={HOTEL_FIELD_LIMITS[field]}
                 ref={field === focusField ? focusRef : undefined}
                 className={`${ui.input(isLight)} w-full scroll-mt-32`}
@@ -189,12 +191,12 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved, onDirtyChange, 
 
         <label className="space-y-2">
           <span className={ui.text.eyebrow(isLight)}>Dirección</span>
-          <input id="onboarding-address" maxLength={500} className={`${ui.input(isLight)} w-full`} value={form.address || ''} onChange={(event) => update('address', event.target.value)} readOnly={!canEdit} />
+          <input id="onboarding-address" aria-invalid={Boolean(fieldErrors?.address)} aria-describedby={fieldErrors?.address ? 'onboarding-address-error' : undefined} maxLength={500} className={`${ui.input(isLight)} w-full`} value={form.address || ''} onChange={(event) => update('address', event.target.value)} readOnly={!canEdit} />
         </label>
 
         <label className="space-y-2">
           <span className={ui.text.eyebrow(isLight)}>Descripción breve</span>
-          <textarea id="onboarding-description" maxLength={2000} rows={3} className={`${ui.input(isLight)} w-full`} value={form.description || ''} onChange={(event) => update('description', event.target.value)} readOnly={!canEdit} />
+          <textarea id="onboarding-description" aria-invalid={Boolean(fieldErrors?.description)} aria-describedby={fieldErrors?.description ? 'onboarding-description-error' : undefined} maxLength={2000} rows={3} className={`${ui.input(isLight)} w-full`} value={form.description || ''} onChange={(event) => update('description', event.target.value)} readOnly={!canEdit} />
         </label>
 
         {message ? (

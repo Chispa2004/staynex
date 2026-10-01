@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BrainCircuit, CheckCircle2, Circle, Loader2, PlayCircle, ShieldAlert } from 'lucide-react';
@@ -244,19 +245,12 @@ export const TicketsTable = ({ tickets, compact = false, hotelId = null, onUpdat
             return (
               <article
                 key={ticket.id}
-                role="button"
-                tabIndex={0}
                 onClick={() => openTicket(ticket.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    openTicket(ticket.id);
-                  }
-                }}
                 className={`rounded-xl border border-white/10 p-4 transition focus:outline-none focus:ring-2 focus:ring-emerald-400/40 ${getTicketRowClass(ticket)}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="line-clamp-2 text-sm font-semibold text-slate-100">{primaryText}</p>
+                    <p className="line-clamp-2 text-sm font-semibold text-slate-100"><Link href={`/dashboard/tickets/${ticket.id}${hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : ''}`} onClick={event=>event.stopPropagation()}>{primaryText}</Link></p>
                     <p className="mt-1 text-xs text-slate-500">
                       {ticket.room_number ? `Habitación ${ticket.room_number}` : t('tickets.noRoom')}
                     </p>
@@ -351,18 +345,11 @@ export const TicketsTable = ({ tickets, compact = false, hotelId = null, onUpdat
                 return (
                   <tr
                     key={ticket.id}
-                    role="button"
-                    tabIndex={0}
                     onClick={() => openTicket(ticket.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        openTicket(ticket.id);
-                      }
-                    }}
                     className={`cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-emerald-400/40 ${getTicketRowClass(ticket)}`}
                   >
                     <td className="min-w-[260px] max-w-[340px] px-5 py-4">
-                      <p className="line-clamp-2 text-sm font-semibold text-slate-100">{primaryText}</p>
+                      <p className="line-clamp-2 text-sm font-semibold text-slate-100"><Link href={`/dashboard/tickets/${ticket.id}${hotelId ? `?hotelId=${encodeURIComponent(hotelId)}` : ''}`} onClick={event=>event.stopPropagation()}>{primaryText}</Link></p>
                       <p className="mt-1 text-xs text-slate-500">
                         {ticket.room_number ? `Habitación ${ticket.room_number}` : t('tickets.noRoom')}
                       </p>

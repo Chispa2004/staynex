@@ -48,6 +48,7 @@ const mocks={
   '@/lib/supabase-browser':{getSupabaseBrowser:()=>({auth:{getSession:()=>getSession(),onAuthStateChange:fn=>{authListener=fn;return {data:{subscription:{unsubscribe(){authListener=null}}}}},signOut:async()=>{signOuts++;authListener?.('SIGNED_OUT',null);return {error:null}}}})},
   '@/lib/ui/styles':{cn:(...s)=>s.join(' ')},'@/lib/workspace-context':workspace,'@/lib/permissions':permissions
 };
+mocks['@/lib/focus-layer']=await compile('../dashboard/lib/focus-layer.js',{react:React});
 const {AppShellContent}=await compile('../dashboard/components/AppShell.js',mocks,'\nexport {AppShellContent};');
 const base={hotel:{id:a,name:'Authorized A'},user:{id:'actor'},role:'admin',permissions:['all'],platformRole:'platform_admin',canSwitchWorkspaces:true,directoryDeferred:true,availableHotels:[]};
 const normal=(url,options)=>Response.json(url==='/api/onboarding/state'?{state:{hotel_id:options.headers['x-staynex-hotel-id'],onboarding_completed:true}}:url==='/api/current-hotel'||url==='/api/workspace-directory'?{...base,availableHotels:[{hotel:base.hotel}]}:{});

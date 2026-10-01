@@ -1,5 +1,6 @@
 'use client';
 
+import { focusableIn, returnFocus } from '@/lib/focus-layer';
 import { useEffect, useRef } from 'react';
 import { ChevronDown, X } from 'lucide-react';
 import styles from './InboxErgonomics.module.css';
@@ -15,7 +16,8 @@ export function InboxActionMenu({ label, icon, children, inline = false, placeme
     return () => document.removeEventListener('pointerdown', dismiss);
   }, []);
   return <details ref={menu} className={styles.actionMenu} data-inline={inline} data-placement={placement} onKeyDown={event => {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && menu.current.open && !event.isComposing) {
+      event.preventDefault(); event.stopPropagation();
       menu.current.open = false;
       menu.current.querySelector('summary')?.focus();
     }
@@ -50,11 +52,19 @@ export function InboxDetailPanel({ title, onClose, children, closeLabel }) {
     return () => {
       media.removeEventListener('change', present);
       node.close();
-      if (trigger?.isConnected) trigger.focus();
+      returnFocus(trigger, document.querySelector('[data-inbox-return]'));
     };
   }, []);
   return <dialog id="inbox-detail-panel" ref={dialog} className={styles.detailPanel}
-    aria-labelledby="inbox-detail-title" onCancel={event => { event.preventDefault(); close.current(); }}>
+    aria-labelledby="inbox-detail-title" onKeyDown={event=>{
+      if(event.defaultPrevented || event.isComposing)return;
+      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close.current();return;}
+      if(event.key==='Tab' && event.currentTarget.matches(':modal')){
+        const items=focusableIn(event.currentTarget),first=items[0],last=items.at(-1);
+        if(event.shiftKey && document.activeElement===first){event.preventDefault();last?.focus();}
+        else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first?.focus();}
+      }
+    }} onCancel={event => { event.preventDefault(); close.current(); }}>
     <header><h2 id="inbox-detail-title">{title}</h2><button type="button" onClick={onClose} aria-label={closeLabel || `Cerrar ${title.toLowerCase()}`}><X size={18} aria-hidden="true" /></button></header>
     <div className={styles.detailBody}>{children}</div>
   </dialog>;

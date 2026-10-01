@@ -125,7 +125,8 @@ console.log('PASS actual panel renders ES/EN, supplied and fallback copilot, gue
 const detailSource=fs.readFileSync(new URL('../dashboard/components/InboxDetailPanel.js',import.meta.url),'utf8');
 const detailCode=await swc.transform(detailSource,{filename:'InboxDetailPanel.js',jsc:{parser:{syntax:'ecmascript',jsx:true},transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
 const detailModule={exports:{}};
-new Function('require','module','exports',detailCode.code)(id=>id.endsWith('.module.css')?{}:require(id),detailModule,detailModule.exports);
+const focusLayer=await import('../dashboard/lib/focus-layer.js');
+new Function('require','module','exports',detailCode.code)(id=>id==='@/lib/focus-layer'?focusLayer:id.endsWith('.module.css')?{}:require(id),detailModule,detailModule.exports);
 for(const lang of ['es','en']) {
   const title=translatePhrase(lang,'Asistencia IA'),closeLabel=translatePhrase(lang,'Cerrar asistencia IA');
   const html=renderToStaticMarkup(React.createElement(detailModule.exports.InboxDetailPanel,{title,closeLabel,onClose(){}}));

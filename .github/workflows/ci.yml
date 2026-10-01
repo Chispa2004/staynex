@@ -60,6 +60,8 @@ jobs:
         run: npm run test:theme-browser
       - name: Production density and excluded-layout regressions
         run: npm run test:density-browser
+      - name: Production names keyboard and focus regressions
+        run: npm run test:accessibility-browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -67,6 +69,7 @@ jobs:
           path: |
             .npm-cache/theme-browser-results
             .npm-cache/density-browser-results
+            .npm-cache/accessibility-browser-results
           include-hidden-files: true
           retention-days: 7
 

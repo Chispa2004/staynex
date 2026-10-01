@@ -63,6 +63,7 @@ const mocks={
   '@/lib/supabase-browser':{getSupabaseBrowser:()=>({auth:{getSession:async()=>({data:{session}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}})},
   '@/lib/ui/styles':{cn:(...s)=>s.join(' ')},'@/lib/workspace-context':workspace,'@/lib/permissions':permissions
 };
+mocks['@/lib/focus-layer']=await compile('../dashboard/lib/focus-layer.js',{react:React});
 const {AppShellContent}=await compile('../dashboard/components/AppShell.js',mocks,'\nexport {AppShellContent};');
 const base={hotel:{id:a,name:'Synthetic'},user:{id:'actor'},role:'admin',permissions:['all'],platformRole:'platform_admin',availableHotels:[{hotel:{id:a}},{hotel:{id:b}}],canSwitchWorkspaces:true};
 let context=base, pendingReply=null,fail=false;
