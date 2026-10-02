@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { getTicketResolutionCopy } from '@/lib/ticket-resolution';
 import {useDashboardLanguage} from '@/lib/i18n/useDashboardLanguage';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BrainCircuit, CheckCircle2, Circle, Loader2, PlayCircle, ShieldAlert } from 'lucide-react';
@@ -111,30 +112,6 @@ const CopilotPill = ({ children, tone = 'slate' }) => (
   </span>
 );
 
-const getResolutionCopy = (ticket) => {
-  const copilot = ticket.copilot || {};
-  const housekeepingStatus = copilot.roomStatus?.housekeepingStatus || copilot.roomStatus?.housekeeping_status;
-  const maintenanceStatus = copilot.roomStatus?.maintenanceStatus || copilot.roomStatus?.maintenance_status;
-  const department = String(copilot.suggestedDepartment || '').toLowerCase();
-
-  if (maintenanceStatus === 'maintenance' || maintenanceStatus === 'out_of_order') {
-    return 'Confirma el estado con mantenimiento antes de cerrar el ticket.';
-  }
-
-  if (housekeepingStatus === 'dirty') {
-    return 'Asigna pisos y responde al huésped cuando la habitación esté revisada.';
-  }
-
-  if (department.includes('maintenance') || ticket.category === 'maintenance') {
-    return 'Asigna mantenimiento, confirma acceso a la habitación y avisa al huésped.';
-  }
-
-  if (department.includes('housekeeping') || ticket.category === 'housekeeping') {
-    return 'Asigna pisos y marca el ticket como completado solo tras revisar la habitación.';
-  }
-
-  return 'Revisa el ticket y responde al huésped con el siguiente paso claro.';
-};
 
 export const TicketDetail = ({ initialTicket, initialMessages }) => {
   const {tx}=useDashboardLanguage();
@@ -328,7 +305,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
                 <h2 className="text-sm font-semibold text-white">Asistencia IA para este ticket</h2>
               </div>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-                {getResolutionCopy(ticket)}
+                {tx(getTicketResolutionCopy(ticket))}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

@@ -58,3 +58,17 @@ const stored=buildServiceDraft({message:a.sourceMessage.content,language:'es',ro
 const copilot=buildConversationCopilot({...a.conversation,guest:a.guest,operationalContext:resolveOperationalContext(a),messages:[a.sourceMessage],tickets:[first.ticket]});assert.equal(copilot.suggestedReply.ticketId,first.ticket.id);
 assert.doesNotMatch(JSON.stringify(serviceContext({guest:a.guest,conversationContext:{operationalContext:{...resolveOperationalContext(a),reservation:{reservation_access_token:'SECRET-SYNTHETIC'}}}})),/SECRET-SYNTHETIC/);
 console.log('PASS final answer acknowledges only persisted record, no action/ETA invention; readonly Inbox draft and secret-free shared prompt context');
+import {getTicketResolutionCopy} from '../dashboard/lib/ticket-resolution.js';
+const receptionTicket={...first.ticket,category:'housekeeping',request_context:{...first.ticket.request_context,responsible_role:'reception'}};
+const recordedConversation={...a.conversation,guest:a.guest,messages:[a.sourceMessage],tickets:[receptionTicket]};
+assert.equal(buildConversationCopilot(recordedConversation).suggestedAction.title,'Review recorded request');
+for(const category of ['housekeeping','maintenance']) {
+ const ticket={...receptionTicket,category,copilot:{suggestedDepartment:'Reception',roomStatus:{housekeepingStatus:'dirty',maintenanceStatus:'maintenance'}}};
+ assert.match(getTicketResolutionCopy(ticket),/^Recepción gestiona/);
+ assert.doesNotMatch(getTicketResolutionCopy(ticket),/Asigna/);
+}
+assert.notEqual(buildConversationCopilot({...recordedConversation,tickets:[{...receptionTicket,hotel_id:b.hotel.id}]}).suggestedAction.title,'Review recorded request');
+assert.notEqual(buildConversationCopilot({...recordedConversation,tickets:[{...receptionTicket,request_context:{...receptionTicket.request_context,source_message_id:'older'}}]}).suggestedAction.title,'Review recorded request');
+assert.equal(buildConversationCopilot({...recordedConversation,messages:[{...a.sourceMessage,content:'Emergency! Fire in the room!'}]}).suggestedAction.title,'Escalate immediately');
+assert.match(getTicketResolutionCopy({category:'maintenance'}),/^Asigna mantenimiento/);
+console.log('PASS persisted reception responsibility overrides department heuristics; foreign/stale receipts and urgent escalation remain protected');
