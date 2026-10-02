@@ -50,7 +50,17 @@ Recovery: preserve tickets/receipts; an uncertain attempt must be retried by its
 
 ## Publication and demo delta
 
-Pending final CI/publication. No remote migration or demo modification had occurred when this review was prepared. Public QA and exact two-row/ticket delta will be recorded after deployment; a Ready Preview alone is not functional verification.
+PR #37 merged normally as 9f27b75edeaebec1e97a7be6c815ea9d7a02aedf. All three PR/main CI jobs passed; main run: https://github.com/Chispa2004/staynex/actions/runs/36993346474. Logs confirm all 10 operational PostgreSQL groups, 24 actual-generation replays, new Inbox browser regressions and HTTP Security on the Linux checkout. The local CRLF discrepancy remains documented above.
+
+The exact migration/hash above was applied once to the verified project. Read-only postflight confirmed invoker RPC, service-only execute, RLS, guard trigger, empty JSON default and PostgREST exposure. Vercel Production and Railway reached the merge SHA; the previous Railway deployment was Removed. Runtime SEND_AUTOMATIONS=false; Guest Memory variable absent with proven OFF default. Backend health returned HTTP 200.
+
+After publication, the authorized demo transaction changed only Elena's and Carlos's existing AI response content/metadata and added their two synthetic operational tickets/receipts. Elena retains DEMO-209 and response status; Carlos retains DEMO-208 and draft/human-review status. Categories are housekeeping/normal and maintenance/high, respectively. Both use the authorized reception fallback because no specific active hotel team is assigned. Original timestamps, demo marker, previous-generation provenance and output hash history are preserved. No delivery occurred.
+
+A fresh private backup immediately before the transaction and a full after snapshot show exactly two changed AI rows plus two tickets (and their new receipt rows). All other records match, including six presentation replies; totals remain 42 messages, 15 populated and five empty conversations. A concurrent change on another existing ticket preceded our transaction and was preserved. Backups and UUID inventory remain outside Git.
+
+Authenticated public keyboard selection of Carlos retained list scrollTop 344.79998779296875 and row top 584.9000244140625 before/after. His recorded-request link opens the correct ticket/room and returns to the conversation. Elena's persisted response and room were checked in dark theme. Health loads truthfully with unverified services. Public browser actually measured 1280×720 despite requested overrides: public mobile is not claimed. Local 1366×900 and 390×844 in both themes are genuine browser evidence.
+
+Public QA found one remaining presentation issue: department heuristics still recommended assigning housekeeping/maintenance despite a persisted reception owner. The follow-up uses the scoped latest-source receipt for Inbox recommendations and the saved responsibility for ticket guidance, preserves urgent/human overrides, and adds behavior regressions for stale/foreign receipts. It requires no further SQL or demo rewrite. Follow-up publication verification is recorded below when complete.
 
 ## Local measurements (milliseconds, all three trials)
 

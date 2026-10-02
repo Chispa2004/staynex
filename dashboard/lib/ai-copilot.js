@@ -239,6 +239,9 @@ const priorityFromSignals = ({ sentiment, conversation = {}, ticket = null, vip 
 };
 
 const suggestedActionFor = ({ priority, sentiment, revenueOpportunity, conversation = {}, ticket = null }) => {
+  if (priority.level !== 'urgent' && ticket?.request_context?.responsible_role === 'reception') {
+    return { title: 'Review recorded request', detail: 'Reception manages this request. Review the ticket and confirm staff action before closing it.', tone: 'sky' };
+  }
   const text = normalizeText([
     ticket?.category,
     ticket?.title,
@@ -347,14 +350,15 @@ export const buildConversationCopilot = (conversation = {}) => {
   const revenueOpportunity = detectRevenueOpportunity(conversation);
   const vip = detectVip(conversation);
   const priority = priorityFromSignals({ sentiment, conversation, vip });
-  const suggestedAction = suggestedActionFor({ priority, sentiment, revenueOpportunity, conversation });
+  const recordedTicket = (conversation.tickets || []).find(t => t.hotel_id === conversation.hotel_id && t.conversation_id === conversation.id && t.guest_id === conversation.guest_id && [t.request_context?.last_source_message_id, t.request_context?.source_message_id].filter(Boolean).includes(lastGuestMessage(conversation.messages || [])?.id));
+  const suggestedAction = suggestedActionFor({ priority, sentiment, revenueOpportunity, conversation, ticket: recordedTicket });
   const escalationRisk = escalationRiskFor({ priority, sentiment, conversation });
   const suggestedReply = (priority.level !== 'urgent' && buildArrivalBookingDraft({hotel:conversation.hotelProfile || {id:conversation.hotel_id},
     guest:conversation.guest || {},message:lastGuestMessage(conversation.messages || [])?.content,
     hotelKnowledge:conversation.hotelKnowledge || [],conversationContext:{language,recentMessages:conversation.messages || [],
       reservation:conversation.reservation,referenceTime:conversation.contextReadAt,serviceCapabilities:{requestRecording:false,mode:'staff_draft'}}})) || buildServiceDraft({message:lastGuestMessage(conversation.messages || [])?.content, language,
     room:conversation.operationalContext ? conversation.operationalContext.known_room : conversation.guest?.current_room,
-    recordedTicket:(conversation.tickets||[]).find(t=>t.hotel_id===conversation.hotel_id && t.conversation_id===conversation.id && t.guest_id===conversation.guest_id && [t.request_context?.last_source_message_id,t.request_context?.source_message_id].filter(Boolean).includes(lastGuestMessage(conversation.messages||[])?.id)), history:conversation.messages || [], urgent:priority.level==='urgent'})
+    recordedTicket, history:conversation.messages || [], urgent:priority.level==='urgent'})
     || {text:'',language,draft:true,confidence:0};
   const summary = summaryForConversation(conversation);
   const guestMemory = getEnabledGuestMemory(conversation);

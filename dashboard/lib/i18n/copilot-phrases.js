@@ -1,5 +1,7 @@
 // Staff presentation only: never translate or rewrite suggestedReply here.
 export const copilotPhrases = [
+  ['Revisar solicitud registrada', 'Review recorded request'],
+  ['Recepción gestiona esta solicitud. Revisa el ticket y confirma la actuación antes de cerrarlo.', 'Reception manages this request. Review the ticket and confirm staff action before closing it.'],
   ["Memoria personal desactivada", "Personal memory disabled"],
   ['Alerta urgente activa. Revisa la incidencia aunque el control sea humano.', 'Active urgent alert. Review the incident even when human control is active.'],
   ["Cargando seguimiento…", "Loading message tracking…"],
