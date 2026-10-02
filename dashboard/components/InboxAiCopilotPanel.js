@@ -231,6 +231,8 @@ export const InboxAiCopilotPanel = ({
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Pill tone="emerald">{tx('Borrador para revisión · no enviado')}</Pill>
+            <span className="text-xs">{tx(copilot.suggestedReply?.requestStatus==='recorded' ? 'Solicitud registrada; atención pendiente de confirmar.' : 'Acción propuesta; abrir o copiar este borrador no crea una solicitud.')}</span>
+            {copilot.suggestedReply?.ticketId ? <Link className="text-sm underline" href={'/dashboard/tickets/'+encodeURIComponent(copilot.suggestedReply.ticketId)}>{tx('Ver solicitud registrada')}</Link> : null}
             <Pill tone="sky">{String(copilot.suggestedReply?.language || copilot.language || 'es').toUpperCase()}</Pill>
             <ActionButton onClick={copySuggestedReply} tone="emerald">
               <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />

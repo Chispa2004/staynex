@@ -1,4 +1,11 @@
 export const workspaceLoadingPhrases = [
+  ['No se pudo actualizar la comprobación del hotel. Los datos visibles pueden ser anteriores.', 'The hotel check could not be refreshed. Visible data may be from the previous check.'],
+  ['Asistencia IA sin actualizar.', 'AI Assistance could not be refreshed.'],
+  ['Solicitud registrada; atención pendiente de confirmar.', 'Request recorded; staff attention is not confirmed.'],
+  ['Acción propuesta; abrir o copiar este borrador no crea una solicitud.', 'Proposed action; opening or copying this draft does not create a request.'],
+  ['Ver solicitud registrada', 'View recorded request'],
+  ['Volver a la conversación', 'Back to the conversation'],
+  ['Cargando conversaciones', 'Loading conversations'],
   ['Preparando tu espacio de trabajo', 'Preparing your workspace'],
   ['Comprobando la sesión…', 'Checking your session…'],
   ['Comprobando acceso al workspace…', 'Checking workspace access…'],

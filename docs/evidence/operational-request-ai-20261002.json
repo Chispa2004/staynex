@@ -1,0 +1,1962 @@
+{
+  "description": "24 real OpenAI outputs from isolated synthetic requests; no database or guest-message transport access. Preserve unfavorable raw replies. Replayed against disposable PostgreSQL by test-operational-requests-postgres.js.",
+  "inputs": [
+    {
+      "id": "1-towels",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Hotel sintético 1",
+        "timezone": "Europe/Madrid",
+        "default_language": "es"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "current_room": "A-208",
+        "preferred_language": "es"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000021",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "guest_id": "00000000-0000-4000-8000-000000000011"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000100",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "conversation_id": "00000000-0000-4000-8000-000000000021",
+        "sender_type": "guest",
+        "content": "¿Podéis traer dos toallas más a la habitación cuando sea posible?",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "¿Podéis traer dos toallas más a la habitación cuando sea posible?",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "key": "breakfast",
+          "value": "Desayuno de 7:30 a 10:30 en el comedor."
+        }
+      ],
+      "conversationContext": {
+        "language": "es",
+        "knownRoom": "A-208",
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "conversation_id": "00000000-0000-4000-8000-000000000021",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000031",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "guest_id": "00000000-0000-4000-8000-000000000011",
+            "room_number": "A-208",
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": "A-208",
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": "reservation",
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "confirmed"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000031",
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "room_number": "A-208",
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "1-leak",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Hotel sintético 1",
+        "timezone": "Europe/Madrid",
+        "default_language": "es"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "current_room": "A-208",
+        "preferred_language": "es"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000021",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "guest_id": "00000000-0000-4000-8000-000000000011"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000101",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "conversation_id": "00000000-0000-4000-8000-000000000021",
+        "sender_type": "guest",
+        "content": "El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento.",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento.",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "key": "breakfast",
+          "value": "Desayuno de 7:30 a 10:30 en el comedor."
+        }
+      ],
+      "conversationContext": {
+        "language": "es",
+        "knownRoom": "A-208",
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "conversation_id": "00000000-0000-4000-8000-000000000021",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000031",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "guest_id": "00000000-0000-4000-8000-000000000011",
+            "room_number": "A-208",
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": "A-208",
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": "reservation",
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "confirmed"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000031",
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "room_number": "A-208",
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "1-missing",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Hotel sintético 1",
+        "timezone": "Europe/Madrid",
+        "default_language": "es"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "current_room": null,
+        "preferred_language": "es"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000021",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "guest_id": "00000000-0000-4000-8000-000000000011"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000102",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "conversation_id": "00000000-0000-4000-8000-000000000021",
+        "sender_type": "guest",
+        "content": "El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento.",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento.",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "key": "breakfast",
+          "value": "Desayuno de 7:30 a 10:30 en el comedor."
+        }
+      ],
+      "conversationContext": {
+        "language": "es",
+        "knownRoom": null,
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "conversation_id": "00000000-0000-4000-8000-000000000021",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000031",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "guest_id": "00000000-0000-4000-8000-000000000011",
+            "room_number": null,
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": null,
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": null,
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "room_missing"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000031",
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "room_number": null,
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "1-changed",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Hotel sintético 1",
+        "timezone": "Europe/Madrid",
+        "default_language": "es"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "current_room": "A-208",
+        "preferred_language": "es"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000021",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "guest_id": "00000000-0000-4000-8000-000000000011"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000103",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "conversation_id": "00000000-0000-4000-8000-000000000021",
+        "sender_type": "guest",
+        "content": "El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento.",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento.",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "key": "breakfast",
+          "value": "Desayuno de 7:30 a 10:30 en el comedor."
+        }
+      ],
+      "conversationContext": {
+        "language": "es",
+        "knownRoom": "NEW-1",
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "conversation_id": "00000000-0000-4000-8000-000000000021",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000031",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "guest_id": "00000000-0000-4000-8000-000000000011",
+            "room_number": "A-208",
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": "NEW-1",
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": "stay_snapshot",
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "confirmed"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000031",
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "room_number": "A-208",
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "1-ambiguous",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Hotel sintético 1",
+        "timezone": "Europe/Madrid",
+        "default_language": "es"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "current_room": "A-208",
+        "preferred_language": "es"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000021",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "guest_id": "00000000-0000-4000-8000-000000000011"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000104",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "conversation_id": "00000000-0000-4000-8000-000000000021",
+        "sender_type": "guest",
+        "content": "El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento.",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "El aire acondicionado pierde agua y está mojando el suelo. Necesitamos que venga mantenimiento.",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "key": "breakfast",
+          "value": "Desayuno de 7:30 a 10:30 en el comedor."
+        }
+      ],
+      "conversationContext": {
+        "language": "es",
+        "knownRoom": null,
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "conversation_id": "00000000-0000-4000-8000-000000000021",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "reservation": null,
+          "known_room": null,
+          "historical_room": null,
+          "phase": "unknown",
+          "room_source": null,
+          "ambiguous": true,
+          "reason": "stay_unconfirmed",
+          "reference_time": "2026-10-02T12:00:00.000Z"
+        },
+        "reservation": null,
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "1-information",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Hotel sintético 1",
+        "timezone": "Europe/Madrid",
+        "default_language": "es"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "current_room": "A-208",
+        "preferred_language": "es"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000021",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "guest_id": "00000000-0000-4000-8000-000000000011"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000105",
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "conversation_id": "00000000-0000-4000-8000-000000000021",
+        "sender_type": "guest",
+        "content": "¿A qué hora empieza el desayuno?",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "¿A qué hora empieza el desayuno?",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "key": "breakfast",
+          "value": "Desayuno de 7:30 a 10:30 en el comedor."
+        }
+      ],
+      "conversationContext": {
+        "language": "es",
+        "knownRoom": "A-208",
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "conversation_id": "00000000-0000-4000-8000-000000000021",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000031",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "guest_id": "00000000-0000-4000-8000-000000000011",
+            "room_number": "A-208",
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": "A-208",
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": "reservation",
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "confirmed"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000031",
+          "hotel_id": "00000000-0000-4000-8000-000000000001",
+          "guest_id": "00000000-0000-4000-8000-000000000011",
+          "room_number": "A-208",
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "2-towels",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Hotel sintético 2",
+        "timezone": "Europe/Madrid",
+        "default_language": "en"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000012",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "current_room": "B-509",
+        "preferred_language": "en"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000022",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "guest_id": "00000000-0000-4000-8000-000000000012"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000206",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "conversation_id": "00000000-0000-4000-8000-000000000022",
+        "sender_type": "guest",
+        "content": "Could you bring two extra towels to my room?",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "Could you bring two extra towels to my room?",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "key": "breakfast",
+          "value": "Breakfast from 8 to 10 in the dining room."
+        }
+      ],
+      "conversationContext": {
+        "language": "en",
+        "knownRoom": "B-509",
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "conversation_id": "00000000-0000-4000-8000-000000000022",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000032",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "guest_id": "00000000-0000-4000-8000-000000000012",
+            "room_number": "B-509",
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": "B-509",
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": "reservation",
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "confirmed"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000032",
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "room_number": "B-509",
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "2-leak",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Hotel sintético 2",
+        "timezone": "Europe/Madrid",
+        "default_language": "en"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000012",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "current_room": "B-509",
+        "preferred_language": "en"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000022",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "guest_id": "00000000-0000-4000-8000-000000000012"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000207",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "conversation_id": "00000000-0000-4000-8000-000000000022",
+        "sender_type": "guest",
+        "content": "The air conditioning is leaking water onto the floor. We need maintenance.",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "The air conditioning is leaking water onto the floor. We need maintenance.",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "key": "breakfast",
+          "value": "Breakfast from 8 to 10 in the dining room."
+        }
+      ],
+      "conversationContext": {
+        "language": "en",
+        "knownRoom": "B-509",
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "conversation_id": "00000000-0000-4000-8000-000000000022",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000032",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "guest_id": "00000000-0000-4000-8000-000000000012",
+            "room_number": "B-509",
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": "B-509",
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": "reservation",
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "confirmed"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000032",
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "room_number": "B-509",
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "2-missing",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Hotel sintético 2",
+        "timezone": "Europe/Madrid",
+        "default_language": "en"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000012",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "current_room": null,
+        "preferred_language": "en"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000022",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "guest_id": "00000000-0000-4000-8000-000000000012"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000208",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "conversation_id": "00000000-0000-4000-8000-000000000022",
+        "sender_type": "guest",
+        "content": "The air conditioning is leaking water onto the floor. We need maintenance.",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "The air conditioning is leaking water onto the floor. We need maintenance.",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "key": "breakfast",
+          "value": "Breakfast from 8 to 10 in the dining room."
+        }
+      ],
+      "conversationContext": {
+        "language": "en",
+        "knownRoom": null,
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "conversation_id": "00000000-0000-4000-8000-000000000022",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000032",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "guest_id": "00000000-0000-4000-8000-000000000012",
+            "room_number": null,
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": null,
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": null,
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "room_missing"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000032",
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "room_number": null,
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "2-changed",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Hotel sintético 2",
+        "timezone": "Europe/Madrid",
+        "default_language": "en"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000012",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "current_room": "B-509",
+        "preferred_language": "en"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000022",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "guest_id": "00000000-0000-4000-8000-000000000012"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000209",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "conversation_id": "00000000-0000-4000-8000-000000000022",
+        "sender_type": "guest",
+        "content": "The air conditioning is leaking water onto the floor. We need maintenance.",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "The air conditioning is leaking water onto the floor. We need maintenance.",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "key": "breakfast",
+          "value": "Breakfast from 8 to 10 in the dining room."
+        }
+      ],
+      "conversationContext": {
+        "language": "en",
+        "knownRoom": "NEW-2",
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "conversation_id": "00000000-0000-4000-8000-000000000022",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000032",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "guest_id": "00000000-0000-4000-8000-000000000012",
+            "room_number": "B-509",
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": "NEW-2",
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": "stay_snapshot",
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "confirmed"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000032",
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "room_number": "B-509",
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "2-ambiguous",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Hotel sintético 2",
+        "timezone": "Europe/Madrid",
+        "default_language": "en"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000012",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "current_room": "B-509",
+        "preferred_language": "en"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000022",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "guest_id": "00000000-0000-4000-8000-000000000012"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000210",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "conversation_id": "00000000-0000-4000-8000-000000000022",
+        "sender_type": "guest",
+        "content": "The air conditioning is leaking water onto the floor. We need maintenance.",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "The air conditioning is leaking water onto the floor. We need maintenance.",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "key": "breakfast",
+          "value": "Breakfast from 8 to 10 in the dining room."
+        }
+      ],
+      "conversationContext": {
+        "language": "en",
+        "knownRoom": null,
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "conversation_id": "00000000-0000-4000-8000-000000000022",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "reservation": null,
+          "known_room": null,
+          "historical_room": null,
+          "phase": "unknown",
+          "room_source": null,
+          "ambiguous": true,
+          "reason": "stay_unconfirmed",
+          "reference_time": "2026-10-02T12:00:00.000Z"
+        },
+        "reservation": null,
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    },
+    {
+      "id": "2-information",
+      "hotel": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "name": "Hotel sintético 2",
+        "timezone": "Europe/Madrid",
+        "default_language": "en"
+      },
+      "guest": {
+        "id": "00000000-0000-4000-8000-000000000012",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "current_room": "B-509",
+        "preferred_language": "en"
+      },
+      "conversation": {
+        "id": "00000000-0000-4000-8000-000000000022",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "guest_id": "00000000-0000-4000-8000-000000000012"
+      },
+      "sourceMessage": {
+        "id": "00000000-0000-4000-8000-000000000211",
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "conversation_id": "00000000-0000-4000-8000-000000000022",
+        "sender_type": "guest",
+        "content": "What time does breakfast start?",
+        "created_at": "2026-10-02T12:00:00Z"
+      },
+      "message": "What time does breakfast start?",
+      "hotelKnowledge": [
+        {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "key": "breakfast",
+          "value": "Breakfast from 8 to 10 in the dining room."
+        }
+      ],
+      "conversationContext": {
+        "language": "en",
+        "knownRoom": "B-509",
+        "operationalContext": {
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "conversation_id": "00000000-0000-4000-8000-000000000022",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "reservation": {
+            "id": "00000000-0000-4000-8000-000000000032",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "guest_id": "00000000-0000-4000-8000-000000000012",
+            "room_number": "B-509",
+            "arrival_date": "2026-10-01",
+            "departure_date": "2026-10-05",
+            "status": "confirmed"
+          },
+          "known_room": "B-509",
+          "historical_room": null,
+          "phase": "stay",
+          "room_source": "reservation",
+          "ambiguous": false,
+          "reference_time": "2026-10-02T12:00:00.000Z",
+          "reason": "confirmed"
+        },
+        "reservation": {
+          "id": "00000000-0000-4000-8000-000000000032",
+          "hotel_id": "00000000-0000-4000-8000-000000000002",
+          "guest_id": "00000000-0000-4000-8000-000000000012",
+          "room_number": "B-509",
+          "arrival_date": "2026-10-01",
+          "departure_date": "2026-10-05",
+          "status": "confirmed"
+        },
+        "referenceTime": "2026-10-02T12:00:00Z",
+        "recentMessages": [],
+        "openTickets": [],
+        "guestMemory": [],
+        "serviceCapabilities": {
+          "requestRecording": true,
+          "mode": "guest_reply"
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "1-towels",
+      "path": "primary",
+      "inputHash": "3ca64b83c42c3b715551b640ce258da575af7501cf4494a00abced86aecc285a",
+      "requestHash": "3aac5faa67f48175be620456395b58d03ed89cddc4ad2270fdbe45f2c0dd7cb1",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "housekeeping_request",
+        "confidence": 1,
+        "reply": "He solicitado que le lleven dos toallas más a su habitación A-208 lo antes posible.",
+        "create_ticket": true,
+        "ticket": {
+          "category": "housekeeping",
+          "title": "Solicitud de dos toallas adicionales en habitación A-208",
+          "description": "El huésped ha solicitado que se le lleven dos toallas adicionales a la habitación A-208 cuando sea posible.",
+          "priority": "normal"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3683,
+        "completion_tokens": 111,
+        "total_tokens": 3794,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:52.173Z",
+      "durationMs": 2824
+    },
+    {
+      "id": "1-towels",
+      "path": "concierge",
+      "inputHash": "3ca64b83c42c3b715551b640ce258da575af7501cf4494a00abced86aecc285a",
+      "requestHash": "957e53a3581169c348786b2e3443c6b5ebdae0c7c602f445cd99edc6ad99dc7d",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "solicitud_servicio",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": false,
+        "escalation_level": "ai_handled",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "Claro, solicitaremos que le lleven dos toallas adicionales a su habitación A-208 tan pronto como sea posible.",
+        "summary": "El huésped pide dos toallas adicionales para la habitación.",
+        "department_actions": [
+          {
+            "department": "housekeeping",
+            "title": "Solicitar entrega de dos toallas adicionales a la habitación A-208",
+            "priority": "normal"
+          }
+        ],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.9,
+        "resolution_estimate": true,
+        "reasoning": "El huésped hace una petición simple y clara para servicio de habitaciones, sin indicios de problemas o urgencia."
+      },
+      "usage": {
+        "prompt_tokens": 2948,
+        "completion_tokens": 174,
+        "total_tokens": 3122,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:52.411Z",
+      "durationMs": 3048
+    },
+    {
+      "id": "1-leak",
+      "path": "primary",
+      "inputHash": "2219b5f50c8a2e60c39fb76d4a9dc61b12e423a2f5f09dbe1ca28056e990c3b1",
+      "requestHash": "58e9ab75d1b80a477cc3d36b400df6c8e35d33682eeba40dc0e7233e1aa687a8",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "maintenance_issue",
+        "confidence": 0.99,
+        "reply": "Haremos que mantenimiento revise el aire acondicionado y solucione la fuga cuanto antes.",
+        "create_ticket": true,
+        "ticket": {
+          "category": "maintenance",
+          "title": "Fuga de agua en aire acondicionado habitación A-208",
+          "description": "El aire acondicionado está perdiendo agua y mojando el suelo en la habitación A-208.",
+          "priority": "normal"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3689,
+        "completion_tokens": 103,
+        "total_tokens": 3792,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:53.740Z",
+      "durationMs": 1552
+    },
+    {
+      "id": "1-leak",
+      "path": "concierge",
+      "inputHash": "2219b5f50c8a2e60c39fb76d4a9dc61b12e423a2f5f09dbe1ca28056e990c3b1",
+      "requestHash": "66a43f326bf0df1da06c8d9d6999d10c5ac292215a6ab41968d22ac9b6578b92",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "solicitud_mantenimiento",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "He registrado su solicitud para que mantenimiento revise el aire acondicionado que pierde agua en la habitación A-208. Le confirmarán la visita a la brevedad.",
+        "summary": "Solicitud de mantenimiento por fuga de agua en aire acondicionado en habitación A-208.",
+        "department_actions": [
+          {
+            "department": "recepción",
+            "title": "Solicitud de mantenimiento aire acondicionado habitación A-208",
+            "priority": "alta"
+          }
+        ],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.8,
+        "resolution_estimate": false,
+        "reasoning": "La petición es un reclamo operativo que requiere intervención y confirmación por parte del equipo de mantenimiento; se debe escalar para seguimiento efectivo."
+      },
+      "usage": {
+        "prompt_tokens": 2953,
+        "completion_tokens": 186,
+        "total_tokens": 3139,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:54.010Z",
+      "durationMs": 1599
+    },
+    {
+      "id": "1-missing",
+      "path": "primary",
+      "inputHash": "b8a69a48d8997240c21a7eecbe28ad28eaf15d3a3961aec62f53617784c7fe0d",
+      "requestHash": "7c3480e3e52bd07d38c364fef6a3e2c32cedd0fe1fc41bf14496c138d8219d08",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "maintenance_issue",
+        "confidence": 0.99,
+        "reply": "Informo al equipo de mantenimiento sobre la pérdida del aire acondicionado para que intervengan pronto.",
+        "create_ticket": true,
+        "ticket": {
+          "category": "maintenance",
+          "title": "Fuga de agua en aire acondicionado",
+          "description": "El aire acondicionado está perdiendo agua y mojando el suelo. Se requiere intervención urgente.",
+          "priority": "high"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3688,
+        "completion_tokens": 99,
+        "total_tokens": 3787,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:55.663Z",
+      "durationMs": 1923
+    },
+    {
+      "id": "1-missing",
+      "path": "concierge",
+      "inputHash": "b8a69a48d8997240c21a7eecbe28ad28eaf15d3a3961aec62f53617784c7fe0d",
+      "requestHash": "051a5bdb2cdaba373c6769bffbe3856031957e4397af957cb346841ca1c41fa0",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "mantenimiento_solicitado",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "He registrado su solicitud para que mantenimiento revise el acondicionador de aire que pierde agua. El equipo de mantenimiento se pondrá en contacto con usted pronto para solucionar el problema.",
+        "summary": "Solicitud de mantenimiento por fuga de agua del aire acondicionado en la habitación.",
+        "department_actions": [
+          {
+            "department": "mantenimiento",
+            "title": "Revisión y reparación de aire acondicionado con fuga de agua",
+            "priority": "alta"
+          }
+        ],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.6,
+        "resolution_estimate": false,
+        "reasoning": "El problema reportado requiere atención inmediata del departamento de mantenimiento. Se debe registrar y priorizar para la pronta intervención técnica."
+      },
+      "usage": {
+        "prompt_tokens": 2950,
+        "completion_tokens": 185,
+        "total_tokens": 3135,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:56.370Z",
+      "durationMs": 2360
+    },
+    {
+      "id": "1-changed",
+      "path": "primary",
+      "inputHash": "8c9b31a9669d1b42e5d99833b381ec70dfd16832ac96a20676f3ee5ee8d7243b",
+      "requestHash": "4037c8fadb3c8116a20da39583414f82c8224f304663701635159dcb209d8d1f",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "maintenance_issue",
+        "confidence": 0.99,
+        "reply": "He registrado que el aire acondicionado de la habitación NEW-1 está perdiendo agua; el equipo de mantenimiento será informado para atenderlo pronto.",
+        "create_ticket": true,
+        "ticket": {
+          "category": "maintenance",
+          "title": "Aire acondicionado perdiendo agua en habitación NEW-1",
+          "description": "El aire acondicionado está mojando el suelo, se requiere revisión y reparación.",
+          "priority": "normal"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3690,
+        "completion_tokens": 110,
+        "total_tokens": 3800,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:56.968Z",
+      "durationMs": 1305
+    },
+    {
+      "id": "1-changed",
+      "path": "concierge",
+      "inputHash": "8c9b31a9669d1b42e5d99833b381ec70dfd16832ac96a20676f3ee5ee8d7243b",
+      "requestHash": "c26b89d0ceda376038180cca665bb2792a80566cc7501f3a0ad60262c57e3466",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "solicitud_mantenimiento",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "He registrado su solicitud para que mantenimiento revise el aire acondicionado que pierde agua. En breve, alguien del equipo se pondrá en contacto con usted.",
+        "summary": "Solicitud de mantenimiento por fuga de agua en el aire acondicionado en habitación NEW-1 durante estancia confirmada.",
+        "department_actions": [
+          {
+            "department": "recepción",
+            "title": "Revisión de aire acondicionado con pérdida de agua en habitación NEW-1",
+            "priority": "alta"
+          }
+        ],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.8,
+        "resolution_estimate": false,
+        "reasoning": "La solicitud es clara y requiere intervención técnica; debe escalarse a recepción para gestión inmediata de mantenimiento."
+      },
+      "usage": {
+        "prompt_tokens": 2954,
+        "completion_tokens": 186,
+        "total_tokens": 3140,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:58.681Z",
+      "durationMs": 2310
+    },
+    {
+      "id": "1-ambiguous",
+      "path": "primary",
+      "inputHash": "6e1f733a9a0e3bc443b0dcdf92f07a68dd0f34c1e322e9e7745a21a3cbd84756",
+      "requestHash": "d67b1d0cc012ed9a96895fc47b10e7db5b3b5d4d7a73b90ed963893ceb6599ad",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "maintenance_issue",
+        "confidence": 0.99,
+        "reply": "He informado al equipo de mantenimiento para que revisen el aire acondicionado cuanto antes.",
+        "create_ticket": true,
+        "ticket": {
+          "category": "maintenance",
+          "title": "Fuga de agua del aire acondicionado",
+          "description": "El aire acondicionado está perdiendo agua y mojando el suelo, requiere revisión inmediata.",
+          "priority": "normal"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3573,
+        "completion_tokens": 96,
+        "total_tokens": 3669,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:21:59.660Z",
+      "durationMs": 2691
+    },
+    {
+      "id": "1-ambiguous",
+      "path": "concierge",
+      "inputHash": "6e1f733a9a0e3bc443b0dcdf92f07a68dd0f34c1e322e9e7745a21a3cbd84756",
+      "requestHash": "3fd1929d37d5ab5c565521e8b8460f018ab279f7b231115d996a222737d428a4",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "mantenimiento",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "He registrado su solicitud para que mantenimiento revise la fuga de agua del aire acondicionado. Nuestro equipo se pondrá en contacto con usted para coordinar la solución.",
+        "summary": "El huésped reporta una pérdida de agua por el aire acondicionado y solicita mantenimiento.",
+        "department_actions": [
+          {
+            "department": "mantenimiento",
+            "title": "Revisión de fuga de agua en aire acondicionado",
+            "priority": "alta"
+          }
+        ],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.7,
+        "resolution_estimate": false,
+        "reasoning": "El problema reportado es operativo y requiere intervención del equipo de mantenimiento; la solicitud debe ser registrada en sistema para su atención."
+      },
+      "usage": {
+        "prompt_tokens": 2842,
+        "completion_tokens": 180,
+        "total_tokens": 3022,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:00.859Z",
+      "durationMs": 2178
+    },
+    {
+      "id": "1-information",
+      "path": "primary",
+      "inputHash": "dd9f5171776b2115d3df07547b3e5732e3eb7bce26d8b90403aae8534577d081",
+      "requestHash": "f89d39b0bc3147909a1dbe7d1ebfdb1790d2747bed1f174a546774578388f9ea",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "hotel_info",
+        "confidence": 0.95,
+        "reply": "El desayuno se sirve de 7:30 a 10:30 en el comedor.",
+        "create_ticket": false,
+        "ticket": {
+          "category": null,
+          "title": null,
+          "description": null,
+          "priority": null
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3669,
+        "completion_tokens": 76,
+        "total_tokens": 3745,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:01.025Z",
+      "durationMs": 1364
+    },
+    {
+      "id": "2-towels",
+      "path": "primary",
+      "inputHash": "264233dd5f3ff107a8b2a1408865ede12195a90dcd4535cbf8f1030d719d0886",
+      "requestHash": "25884bc47e220b2962d77e4bca394c08a8c4e1cc12bfef79f7e22dd33afc1397",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "housekeeping_request",
+        "confidence": 1,
+        "reply": "I'll arrange for two extra towels to be sent to your room shortly.",
+        "create_ticket": true,
+        "ticket": {
+          "category": "housekeeping",
+          "title": "Extra towels request for room B-509",
+          "description": "Guest in room B-509 requests two extra towels.",
+          "priority": "normal"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3663,
+        "completion_tokens": 89,
+        "total_tokens": 3752,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:02.134Z",
+      "durationMs": 1109
+    },
+    {
+      "id": "1-information",
+      "path": "concierge",
+      "inputHash": "dd9f5171776b2115d3df07547b3e5732e3eb7bce26d8b90403aae8534577d081",
+      "requestHash": "a68cd4a72687209644670425701b203abe6b423ec796ad0930b6dcf9989cd5e8",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "informacion_hotel",
+        "secondary_intents": [
+          "consulta_horario_desayuno"
+        ],
+        "sentiment": "neutral",
+        "confidence": 0.98,
+        "should_escalate": false,
+        "escalation_level": "ai_handled",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "El desayuno se sirve de 7:30 a 10:30 en el comedor.",
+        "summary": "El huésped consulta el horario de desayuno confirmado en la información del hotel.",
+        "department_actions": [],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.9,
+        "resolution_estimate": true,
+        "reasoning": "La pregunta tiene respuesta directa documentada en la información del hotel sobre desayuno."
+      },
+      "usage": {
+        "prompt_tokens": 2934,
+        "completion_tokens": 143,
+        "total_tokens": 3077,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:02.260Z",
+      "durationMs": 1401
+    },
+    {
+      "id": "2-leak",
+      "path": "primary",
+      "inputHash": "753884614bcea11ef00bf1efa29b28a41b19f083ff7484b17aee375a97fa4d7d",
+      "requestHash": "25781dd02b06b9afb807a4e6c001e652897213df376b1c3d293dc7e337dc6085",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "maintenance_issue",
+        "confidence": 0.99,
+        "reply": "We have noted the air conditioning leak in room B-509 and will address it as soon as possible.",
+        "create_ticket": true,
+        "ticket": {
+          "category": "maintenance",
+          "title": "Air conditioning leak in room B-509",
+          "description": "Guest reports water leaking onto the floor from the air conditioning unit.",
+          "priority": "normal"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3670,
+        "completion_tokens": 98,
+        "total_tokens": 3768,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:03.396Z",
+      "durationMs": 1136
+    },
+    {
+      "id": "2-towels",
+      "path": "concierge",
+      "inputHash": "264233dd5f3ff107a8b2a1408865ede12195a90dcd4535cbf8f1030d719d0886",
+      "requestHash": "19584ee35e1c125ce1aa06540f14bbc67dc70d4c5b77f487529566823f136919",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "request_extra_towels",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "I will notify reception to bring two extra towels to your room B-509 promptly.",
+        "summary": "Guest requests two extra towels to be delivered to room B-509 during their stay.",
+        "department_actions": [
+          {
+            "department": "reception",
+            "title": "Deliver two extra towels to room B-509",
+            "priority": "normal"
+          }
+        ],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.8,
+        "resolution_estimate": true,
+        "reasoning": "The guest explicitly requests extra towels in the current confirmed stay; this is an operational guest service request requiring a reception action."
+      },
+      "usage": {
+        "prompt_tokens": 2928,
+        "completion_tokens": 167,
+        "total_tokens": 3095,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:03.743Z",
+      "durationMs": 1608
+    },
+    {
+      "id": "2-missing",
+      "path": "primary",
+      "inputHash": "8f13bbd8e6abf82a02ca1cff81a0413ef10a1532a512ea1065ab6be370a5ef27",
+      "requestHash": "651ceaccc63edb8fffdfeb80a90db05c6708fa9cedae6d214284717bf7237d3a",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "maintenance_issue",
+        "confidence": 0.95,
+        "reply": "We have noted the air conditioning leak and will arrange maintenance promptly. Could you please confirm your room number?",
+        "create_ticket": true,
+        "ticket": {
+          "category": "maintenance",
+          "title": "Air conditioning leaking water",
+          "description": "Guest reports water leaking onto the floor from the air conditioning unit. Maintenance required.",
+          "priority": "high"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3669,
+        "completion_tokens": 98,
+        "total_tokens": 3767,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:04.911Z",
+      "durationMs": 1168
+    },
+    {
+      "id": "2-leak",
+      "path": "concierge",
+      "inputHash": "753884614bcea11ef00bf1efa29b28a41b19f083ff7484b17aee375a97fa4d7d",
+      "requestHash": "e7e83a980692776d0c7ff164ff2f12029f1ff87a5076c56313a4569af8a4359b",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "maintenance_request",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "Thank you for letting us know about the air conditioning issue. I will notify maintenance to address the water leak in your room B-509 as soon as possible.",
+        "summary": "Guest reports air conditioning leaking water in room B-509 and requests maintenance.",
+        "department_actions": [
+          {
+            "department": "maintenance",
+            "title": "Air conditioning leaking water in room B-509",
+            "priority": "high"
+          }
+        ],
+        "risk_flags": [
+          "potential water damage"
+        ],
+        "satisfaction_estimate": 0.6,
+        "resolution_estimate": false,
+        "reasoning": "The guest reports a maintenance issue that risks damage and discomfort, requiring prompt staff intervention. Immediate repair is necessary for guest satisfaction and safety."
+      },
+      "usage": {
+        "prompt_tokens": 2935,
+        "completion_tokens": 184,
+        "total_tokens": 3119,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:05.412Z",
+      "durationMs": 2016
+    },
+    {
+      "id": "2-missing",
+      "path": "concierge",
+      "inputHash": "8f13bbd8e6abf82a02ca1cff81a0413ef10a1532a512ea1065ab6be370a5ef27",
+      "requestHash": "c10fd415f98e7656558c02fd21cbed6c1c85202234f700858b8ff7cebe8e135d",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "maintenance_request",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "Thank you for informing us. I will notify our maintenance team immediately to address the air conditioning leak in your room.",
+        "summary": "Guest reports an air conditioning leak causing water on the floor and requests maintenance service.",
+        "department_actions": [
+          {
+            "department": "maintenance",
+            "title": "Air conditioning leak repair",
+            "priority": "high"
+          }
+        ],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.7,
+        "resolution_estimate": false,
+        "reasoning": "The guest has reported a maintenance issue with potential room impact; prompt technical intervention is required to resolve it."
+      },
+      "usage": {
+        "prompt_tokens": 2932,
+        "completion_tokens": 161,
+        "total_tokens": 3093,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:06.399Z",
+      "durationMs": 1487
+    },
+    {
+      "id": "2-changed",
+      "path": "primary",
+      "inputHash": "ebb3b27706cb6079a268989e83df079bcfa3651d3025c2c78dc87c332ec388bc",
+      "requestHash": "35a27ad189695aac9cbd885fffde3b93a3d4e93395b7e2fdd89d61f5552488cf",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "maintenance_issue",
+        "confidence": 0.98,
+        "reply": "We have noted the air conditioning leak in your room. Our maintenance team will be informed to assist you shortly.",
+        "create_ticket": true,
+        "ticket": {
+          "category": "maintenance",
+          "title": "Air conditioning leaking water in room NEW-2",
+          "description": "Guest reports that the air conditioning is leaking water onto the floor in room NEW-2.",
+          "priority": "normal"
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3671,
+        "completion_tokens": 105,
+        "total_tokens": 3776,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:07.061Z",
+      "durationMs": 1649
+    },
+    {
+      "id": "2-ambiguous",
+      "path": "primary",
+      "inputHash": "f080cf8a6c549c11466a31a84049f2b81f3ccefec952d67525f1bfc56f5c3535",
+      "requestHash": "66be60f0523bc8cc64aaf6ad283be6016456cffaec2cf3266559804bda577851",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "maintenance_issue",
+        "confidence": 1,
+        "reply": "Please provide your room number so we can arrange maintenance for the air conditioning leak promptly.",
+        "create_ticket": false,
+        "ticket": {
+          "category": null,
+          "title": null,
+          "description": null,
+          "priority": null
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3554,
+        "completion_tokens": 73,
+        "total_tokens": 3627,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:07.966Z",
+      "durationMs": 905
+    },
+    {
+      "id": "2-changed",
+      "path": "concierge",
+      "inputHash": "ebb3b27706cb6079a268989e83df079bcfa3651d3025c2c78dc87c332ec388bc",
+      "requestHash": "e67ac9103b118b2633011439b6072931a6abeeaf4a2bb895904c830b31e8ecb8",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "maintenance_request",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "Thank you for informing us about the air conditioning issue. I have noted your request for maintenance assistance to address the leak in your room. Someone from our team will attend to this promptly.",
+        "summary": "Guest reports air conditioning is leaking water on the floor and requests maintenance in room NEW-2 during confirmed stay from Oct 1 to Oct 5, 2026.",
+        "department_actions": [
+          {
+            "department": "maintenance",
+            "title": "Air conditioning leak in room NEW-2",
+            "priority": "high"
+          }
+        ],
+        "risk_flags": [
+          "maintenance_required",
+          "water_leak"
+        ],
+        "satisfaction_estimate": 0.7,
+        "resolution_estimate": false,
+        "reasoning": "The guest reports a maintenance issue with water leak from air conditioning, which requires staff action. The request must be escalated to maintenance team to ensure timely resolution and guest comfort."
+      },
+      "usage": {
+        "prompt_tokens": 2936,
+        "completion_tokens": 218,
+        "total_tokens": 3154,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:08.147Z",
+      "durationMs": 1748
+    },
+    {
+      "id": "2-information",
+      "path": "primary",
+      "inputHash": "2cc4d1b0052351ebcbd1e696c61a1d5095f722d37026e2026c2e5d2078c05e4e",
+      "requestHash": "a658c50fc53046c101a86513b60916a1cc793339964313cf7db1f2a3d8d48377",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "intent": "hotel_info",
+        "confidence": 1,
+        "reply": "Breakfast is served in the dining room from 8 to 10 AM.",
+        "create_ticket": false,
+        "ticket": {
+          "category": null,
+          "title": null,
+          "description": null,
+          "priority": null
+        },
+        "escalate_to_human": false,
+        "emergency": false,
+        "upsell_opportunity": false
+      },
+      "usage": {
+        "prompt_tokens": 3654,
+        "completion_tokens": 71,
+        "total_tokens": 3725,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:09.140Z",
+      "durationMs": 993
+    },
+    {
+      "id": "2-ambiguous",
+      "path": "concierge",
+      "inputHash": "f080cf8a6c549c11466a31a84049f2b81f3ccefec952d67525f1bfc56f5c3535",
+      "requestHash": "36206acdf4238c656dd6d8709ee4198124135dc3d619d898002f9326c0564625",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "maintenance_request",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 0.95,
+        "should_escalate": true,
+        "escalation_level": "reception_required",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "Thank you for informing us about the air conditioning issue. I will notify maintenance to address the water leakage in your room promptly.",
+        "summary": "Guest reports water leaking from air conditioning and requests maintenance.",
+        "department_actions": [
+          {
+            "department": "maintenance",
+            "title": "Air conditioning leaking water - maintenance request",
+            "priority": "high"
+          }
+        ],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.7,
+        "resolution_estimate": false,
+        "reasoning": "The guest reports a maintenance issue that requires prompt action; escalation to maintenance is necessary to resolve."
+      },
+      "usage": {
+        "prompt_tokens": 2824,
+        "completion_tokens": 159,
+        "total_tokens": 2983,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:09.404Z",
+      "durationMs": 1437
+    },
+    {
+      "id": "2-information",
+      "path": "concierge",
+      "inputHash": "2cc4d1b0052351ebcbd1e696c61a1d5095f722d37026e2026c2e5d2078c05e4e",
+      "requestHash": "cc24858d7b27198c797344fbfefb320cfe77c3a29efd811cc93e8315717cfb55",
+      "model": "gpt-4.1-mini-2025-04-14",
+      "provider": "openai",
+      "output": {
+        "primary_intent": "breakfast_time_inquiry",
+        "secondary_intents": [],
+        "sentiment": "neutral",
+        "confidence": 1,
+        "should_escalate": false,
+        "escalation_level": "ai_handled",
+        "revenue_opportunity": false,
+        "offer_type": null,
+        "suggested_response": "Breakfast is served from 8 to 10 in the dining room.",
+        "summary": "Guest asked about breakfast time during current confirmed stay.",
+        "department_actions": [],
+        "risk_flags": [],
+        "satisfaction_estimate": 0.9,
+        "resolution_estimate": true,
+        "reasoning": "The hotel knowledge clearly states breakfast hours, directly answering guest's question."
+      },
+      "usage": {
+        "prompt_tokens": 2920,
+        "completion_tokens": 124,
+        "total_tokens": 3044,
+        "prompt_tokens_details": {
+          "cached_tokens": 1920,
+          "audio_tokens": 0
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "audio_tokens": 0,
+          "accepted_prediction_tokens": 0,
+          "rejected_prediction_tokens": 0
+        }
+      },
+      "generatedAt": "2026-10-02T09:22:10.296Z",
+      "durationMs": 1156
+    }
+  ]
+}

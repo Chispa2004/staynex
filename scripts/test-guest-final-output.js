@@ -24,7 +24,8 @@ for(const [index,row] of rows.entries()) {
   assert.equal(transport[0].values.body,result.result.response.reply);
   assert.ok(!transport[0].values.body.includes('SYNTHETIC-RESTRICTED'));
   if(result.result.ticket) {
-    assert.ok(transport[0].values.body.startsWith(serviceCopy(input.conversationContext.language).saved));
+    assert.equal(result.result.response.service_quality.request_status,'recorded');
+    assert.doesNotMatch(transport[0].values.body,/ya van|I have notified|he avisado/i);
     assert.ok(result.calls.findIndex(c=>c.kind==='ticket')<result.calls.findIndex(c=>c.kind==='transport'));
   }
   reviewedOutputs.push({index,id:row.id,phase:row.phase,path:row.path,inputHash:row.inputHash,
@@ -38,7 +39,8 @@ console.log('PASS all 92 preserved generations replayed through production final
 
 const invoice=rows.find(r=>r.id==='a-invoice' && r.phase==='after');
 const fixed=await captureFinalOutput(inputs.get(invoice.id),invoice.output);
-assert.equal(fixed.result.response.reply,serviceCopy('es').saved);
+assert.match(fixed.result.response.reply,/registrad/);
+assert.equal(fixed.result.response.service_quality.request_status,'recorded');
 for(const q of ['¿Quieres que registre una solicitud?','Would you like me to create a ticket?','Shall I open a request?']) {
   assert.equal(missingServiceQuestion(q,{requestRecorded:true}),null);
   assert.ok(missingServiceQuestion(q,{requestRecorded:false}));
@@ -47,18 +49,19 @@ assert.equal(missingServiceQuestion('¿Qué edad tiene el bebé?',{requestRecord
 console.log('PASS saved receipt removes redundant consent to create the same request, retaining essential missing questions');
 for(const failTicket of [true,false]) {
   const r=await captureFinalOutput(inputs.get(invoice.id),invoice.output,{failTicket});
-  assert.equal(r.calls.some(c=>c.kind==='transport'),!failTicket);
-  if(failTicket)assert.ok(r.error);
+  assert.equal(r.error,undefined);
+  assert.equal(r.result.response.service_quality.request_status,failTicket?'unconfirmed':'recorded');
+  if(failTicket){assert.equal(r.result.ticket,null);assert.match(r.result.response.reply,/no.*confirmar/i);}
 }
 const foreign=await captureFinalOutput(inputs.get('a-towels'),rows.find(r=>r.id==='a-towels').output,{foreignTicket:true});
-assert.equal(foreign.result.response.service_quality.request_status,'not_recorded');
+assert.equal(foreign.result.response.service_quality.request_status,'unconfirmed');
 assert.ok(!foreign.result.response.reply.includes('ha quedado registrada'));
-console.log('PASS ticket failure blocks persistence/send; retry works; foreign receipt cannot acknowledge success');
+console.log('PASS ticket failure cannot acknowledge success; honest unconfirmed response and retry work; foreign receipt cannot acknowledge success');
 for(const id of ['b-lost','b-invoice','a-towels']) {
   const row=rows.find(r=>r.id===id && r.phase==='after');
   const input=structuredClone(inputs.get(id));input.conversationContext.serviceCapabilities.requestRecording=false;
   const r=await captureFinalOutput(input,row.output);
-  assert.equal(r.result.response.service_quality.request_status,'not_recorded');
+  assert(['proposed','not_requested'].includes(r.result.response.service_quality.request_status));
   assert.equal(r.calls.find(c=>c.kind==='transport').values.body,serviceCopy(input.conversationContext.language).pending);
   assert.ok(!r.calls.some(c=>c.kind==='ticket'));
 }
@@ -70,7 +73,7 @@ for(const row of rows.filter(r=>r.path==='concierge')) {
   const body=r.calls.find(c=>c.kind==='transport').values.body;
   if(row.id==='promo-current-a')for(const term of ['2026-10-31','2026-11-30','No acumulable','disponibilidad'])assert.ok(body.includes(term));
   if(row.id.startsWith('arrival-'))assert.ok(!/room will be available|on your arrival day|habitación estará disponible/.test(body));
-  if(row.id==='booking-request-b')assert.equal(body,serviceCopy('en').saved);
+  if(row.id==='booking-request-b'){assert.equal(r.result.response.service_quality.request_status,'recorded');assert.doesNotMatch(body,/booked|confirmed your reservation/i);}
 }
 console.log('PASS all 12 Concierge candidates selected with low-confidence primary remain guarded at transport');
 

@@ -1,3 +1,4 @@
+import { resolveOperationalContext } from '../../shared/guest-service/operational-context.js';
 import { operationalStayContext } from '../../shared/guest-memory/personalization-boundary.js';
 import { messageStayStage, readAllInboxRows } from '../../shared/inbox/stay-stage.js';
 import { guestFacingKnowledge } from '../../shared/guest-service/arrival-booking.js';
@@ -546,7 +547,7 @@ const getGuestIntelligenceByGuest = async ({ supabase, guestIds, hotelId }) => {
   }
 };
 
-export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null, hotel = null, conversationIds = null } = {}) => {
+export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null, hotel = null, conversationIds = null, includeDetails = true } = {}) => {
   if (!hotelId) return [];
   const allConversations = await readAllInboxRows(() => supabase.from('conversations')
     .select('id, hotel_id, guest_id, status, last_message_at, created_at').eq('hotel_id', hotelId).order('id', {ascending:true}));
@@ -554,39 +555,52 @@ export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hot
   const conversations=allowedIds ? allConversations.filter(c=>allowedIds.has(c.id)) : allConversations;
   let hotelKnowledge = [];
   try {
-    hotelKnowledge = guestFacingKnowledge(await readAllInboxRows(() => supabase.from('hotel_knowledge')
+    if (includeDetails) hotelKnowledge = guestFacingKnowledge(await readAllInboxRows(() => supabase.from('hotel_knowledge')
       .select('id,hotel_id,key,title,category,value,is_active').eq('hotel_id',hotelId).eq('is_active',true).order('id',{ascending:true})),hotelId);
   } catch (error) { console.warn('Inbox guest-facing Knowledge unavailable',error.message); }
   const result = [];
   // Bound each IN clause; every authorized page is loaded before filtering.
   for (let start = 0; start < conversations.length; start += 100) {
-    result.push(...await getInboxBatch({supabase, resolvedHotelId:hotelId, hotel, hotelKnowledge, conversations:conversations.slice(start,start+100)}));
+    result.push(...await getInboxBatch({supabase, resolvedHotelId:hotelId, hotel, hotelKnowledge, includeDetails, conversations:conversations.slice(start,start+100)}));
   }
   return result.sort((a,b)=>Date.parse(b.last_message_at || b.created_at)-Date.parse(a.last_message_at || a.created_at));
 };
 
-const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, conversations}) => {
+const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, includeDetails, conversations}) => {
   const guestMemoryEnabled = isGuestMemoryEnabled();
   const guestIds = [...new Set(conversations.map((conversation) => conversation.guest_id).filter(Boolean))];
   const conversationIds = conversations.map((conversation) => conversation.id).filter(Boolean);
   const [guests, messages, aiLogsByConversation, upsellsByConversation, offersByConversation, experienceBookingsByConversation, aiStateByConversation, memoryByGuest, stayContextByGuest, intelligenceByGuest] = await Promise.all([
     getGuestsForInbox({ supabase, guestIds, hotelId: resolvedHotelId }),
     getMessagesForConversations({ supabase, conversationIds, hotelId: resolvedHotelId }),
-    getLatestAiLogsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
-    getActiveUpsellsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
-    getActiveOffersByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
-    getExperienceBookingsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
+    includeDetails ? getLatestAiLogsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }) : Promise.resolve(new Map()),
+    includeDetails ? getActiveUpsellsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }) : Promise.resolve(new Map()),
+    includeDetails ? getActiveOffersByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }) : Promise.resolve(new Map()),
+    includeDetails ? getExperienceBookingsByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }) : Promise.resolve(new Map()),
     getAiStateByConversation({ supabase, conversationIds, hotelId: resolvedHotelId }),
-    guestMemoryEnabled
+    includeDetails && guestMemoryEnabled
       ? getGuestMemoryByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
       : Promise.resolve(new Map()),
     getGuestStayContextByGuest({ supabase, guestIds, hotelId: resolvedHotelId }),
-    getGuestIntelligenceByGuest({ supabase, guestIds, hotelId: resolvedHotelId })
+    includeDetails ? getGuestIntelligenceByGuest({ supabase, guestIds, hotelId: resolvedHotelId }) : Promise.resolve(new Map()),
   ]);
 
-  const stageReservations = guestIds.length ? await readAllInboxRows(() => supabase.from('reservations')
-    .select('id,hotel_id,guest_id,arrival_date,departure_date,status').eq('hotel_id', resolvedHotelId)
-    .in('guest_id',guestIds).order('id',{ascending:true})) : [];
+  const reservationColumns='id,hotel_id,guest_id,guest_name,guest_phone,room_number,room_type,arrival_date,departure_date,status,pms_provider,pms_reservation_id,source,updated_at';
+  const readReservations=columns=>readAllInboxRows(()=>supabase.from('reservations').select(columns).eq('hotel_id',resolvedHotelId).in('guest_id',guestIds).order('id',{ascending:true}));
+  let stageReservations=[];
+  if(guestIds.length){
+    let columns=reservationColumns;
+    for(let retry=0;retry<4;retry++){
+      try{stageReservations=await readReservations(columns);break;}catch(error){
+        const missing=['room_number','source','updated_at'].find(c=>error.message?.includes(c));
+        if(retry===3 || !['42703','PGRST204'].includes(error.code)||!missing)throw error;
+        columns=columns.split(',').filter(c=>missing==='updated_at'?c!==missing:!['room_number','source'].includes(c)).join(',');
+      }
+    }
+  }
+  // Legacy identity-only fallback is not authority for room/stay assignment.
+  const missingIdentity=(guests||[]).filter(g=>!g.name && !g.full_name && !stageReservations.some(r=>r.guest_id===g.id && r.guest_name));
+  const identities=missingIdentity.length ? await getReservationIdentityLookups({supabase,guestIds:missingIdentity.map(g=>g.id),guestPhones:missingIdentity.map(g=>g.phone_number),hotelId:resolvedHotelId}) : {byGuestId:new Map(),byPhone:new Map()};
   for (const message of messages) {
     const conversation = conversations.find(c=>c.id === message.conversation_id);
     message.stayStage = messageStayStage(message, conversation, stageReservations, hotel);
@@ -595,23 +609,17 @@ const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, 
       || /^(demo|mock|simulation|checkin_demo)([_-]|$)/i.test(meta.source || '') ? 'simulated' : 'other';
   }
   const guestsById = new Map((guests || []).map((guest) => [guest.id, guest]));
-  const reservationIdentityLookups = await getReservationIdentityLookups({
-    supabase,
-    guestIds,
-    guestPhones: (guests || []).map((guest) => guest.phone_number),
-    hotelId: resolvedHotelId
-  });
   const roomNumbers = [...new Set([
     ...(guests || []).map((guest) => guest.current_room),
-    ...[...reservationIdentityLookups.byGuestId.values()].map((reservation) => reservation.room_number),
-    ...[...reservationIdentityLookups.byPhone.values()].map((reservation) => reservation.room_number),
+    ...stageReservations.map(reservation=>reservation.room_number),
     ...[...stayContextByGuest.values()].map((context) => context.room_number)
   ].filter(Boolean))];
-  const roomStatusByRoom = await getRoomStatusByRoomNumber({
+  const roomStatusByRoom = includeDetails ? await getRoomStatusByRoomNumber({
     supabase,
     roomNumbers,
     hotelId: resolvedHotelId
-  });
+  }) : new Map();
+  const tickets = includeDetails ? await readAllInboxRows(()=>supabase.from('tickets').select('id,hotel_id,guest_id,conversation_id,room_number,category,title,description,priority,status,request_context').eq('hotel_id',resolvedHotelId).in('conversation_id',conversationIds).order('id',{ascending:true})) : [];
   const messagesByConversation = groupMessagesByConversation(messages || []);
 
   return conversations.map((conversation) => {
@@ -619,18 +627,20 @@ const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, 
     const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
     const guest = guestsById.get(conversation.guest_id) || null;
     const guestStayContext = operationalStayContext(stayContextByGuest.get(conversation.guest_id) || null, guestMemoryEnabled);
-    const reservation = reservationIdentityLookups.byGuestId.get(conversation.guest_id)
-      || reservationIdentityLookups.byPhone.get(normalizePhone(guest?.phone_number))
-      || null;
+    const operationalContext=resolveOperationalContext({hotel:hotel||{id:resolvedHotelId},guest:guest||{id:conversation.guest_id,hotel_id:resolvedHotelId},conversation,
+      reservations:stageReservations,stayContexts:guestStayContext?[guestStayContext]:[],
+      sourceMessage:[...conversationMessages].reverse().find(m=>m.sender_type==='guest')||null});
+    const reservation=operationalContext.reservation;
+    const identity=reservation||identities.byGuestId.get(conversation.guest_id)||identities.byPhone.get(normalizePhone(guest?.phone_number));
     const resolvedGuest = guest || reservation ? {
       ...(guest || { id: conversation.guest_id }),
-      name: guest?.name || guest?.full_name || reservation?.guest_name || null,
-      full_name: guest?.full_name || guest?.name || reservation?.guest_name || null,
+      name: guest?.name || guest?.full_name || identity?.guest_name || null,
+      full_name: guest?.full_name || guest?.name || identity?.guest_name || null,
       phone_number: guest?.phone_number || reservation?.guest_phone || null,
-      current_room: guest?.current_room || reservation?.room_number || guestStayContext?.room_number || null,
+      current_room: operationalContext.known_room,
       preferred_language: guest?.preferred_language || null
     } : null;
-    const roomNumber = resolvedGuest?.current_room || reservation?.room_number || guestStayContext?.room_number || null;
+    const roomNumber = operationalContext.known_room;
     const roomStatus = roomStatusByRoom.get(roomNumber) || null;
     const guestName = resolvedGuest?.name || resolvedGuest?.full_name || reservation?.guest_name || null;
     const guestPhone = resolvedGuest?.phone_number || reservation?.guest_phone || null;
@@ -638,6 +648,9 @@ const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, 
       ...conversation,
       hotelProfile:hotel?.id === resolvedHotelId ? {id:hotel.id,name:hotel.name,timezone:hotel.timezone,phone:hotel.phone,check_in_time:hotel.check_in_time} : {id:resolvedHotelId},
       hotelKnowledge,
+      operationalContext,
+      tickets:tickets.filter(t=>t.conversation_id===conversation.id && t.guest_id===conversation.guest_id),
+      detailsLoaded:includeDetails,
       contextReadAt:new Date().toISOString(),
       guestName,
       guest_name: guestName,

@@ -84,7 +84,7 @@ const start=clientSource.indexOf('  const loadInbox = useCallback');
 const loadSource=clientSource.slice(start,clientSource.indexOf('  useEffect(() => {\n    loadInbox',start));
 const ref=current=>({current}),noop=()=>{};let state={},items=[],auth='session-a',activeHotel=h,pending=[];
 const key=new URL(href,'http://localhost').searchParams.toString(),keyRef=ref(key),requestId=ref(0);
-const bindings={useCallback:f=>f,controlMutationRef:ref(false),loadInFlightRef:ref(false),loadRequestIdRef:requestId,
+const bindings={captureListAnchor:noop,hotelRef:ref({id:h}),requestedIdRef:ref(null),useCallback:f=>f,controlMutationRef:ref(false),loadInFlightRef:ref(false),loadRequestIdRef:requestId,
  itemsRef:ref([]),setRefreshing:noop,setLoading:noop,getAuthHeaders:async()=>({Authorization:auth}),metricKey:key,metricKeyRef:keyRef,
  setMetricState:f=>{state=typeof f==='function'?f(state):f},fetch:async url=>{assert(url.includes('metric=pending'));return new Promise(resolve=>pending.push(resolve))},
  shouldAcceptTenantPayload:b=>b.hotelId===activeHotel,mountedRef:ref(true),normalizeInboxConversations:x=>x,currentHotel:{id:h},

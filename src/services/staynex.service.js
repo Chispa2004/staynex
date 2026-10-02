@@ -12,7 +12,7 @@ import {
   findKnowledgeAnswerWithMetadata,
   getKnowledgeForHotel
 } from './knowledge.service.js';
-import { createTicketFromAiResponse } from './ticket.service.js';
+import { recordOperationalRequest } from './operational-request.service.js';
 import { findOrCreateGuest } from './guest.service.js';
 import { sendWhatsAppMessage } from './twilio.service.js';
 import {
@@ -55,7 +55,6 @@ import {
 } from './guest-memory.service.js';
 import {
   createAiOffer,
-  createOperationalTicketForConciergeRisk,
   detectGuestIntent,
   detectOperationalRisk as detectConciergeOperationalRisk,
   detectRevenueOpportunity,
@@ -666,7 +665,8 @@ export const processGuestMessage = async ({
     guest,
     conversation,
     message,
-    reservation
+    reservation,
+    sourceMessage:guestMessage
   });
   const guestMemoryEnabled = isGuestMemoryEnabled();
   conversationContext.guestMemory = guestMemoryEnabled ? conversationContext.guestMemory || [] : [];
@@ -674,7 +674,7 @@ export const processGuestMessage = async ({
     hotelId: activeHotel.id,
     guestId: guest.id,
     reservationId: conversationContext.reservation?.id || reservation?.id || null,
-    roomNumber: guest.current_room || conversationContext.reservation?.room_number || null,
+    roomNumber: conversationContext.knownRoom,
     reservation: conversationContext.reservation || reservation || null
   });
   conversationContext.guestIntelligence = null;
@@ -1710,14 +1710,12 @@ export const processGuestMessage = async ({
     recentUpsells
   });
 
-  let ticket = await createTicketFromAiResponse({
-    aiResponse: aiResponseWithUpsell,
-    hotel: activeHotel,
-    guest,
-    conversation
-  });
+  const operationalRequest = await recordOperationalRequest({hotel:activeHotel,guest,conversation,sourceMessage:guestMessage,
+    context:conversationContext,aiResponse:aiResponseWithUpsell.create_ticket || !enhancedRisk.hasRisk ? aiResponseWithUpsell : {...aiResponseWithUpsell,create_ticket:true,ticket:{category:enhancedRisk.category||'reception',title:message}},message});
+  let ticket = operationalRequest.ticket;
 
-  if (!ticket && upsellInterest) {
+
+  if (!ticket && operationalRequest.status==='not_requested' && upsellInterest) {
     ticket = await createUpsellInterestTicket({
       hotel: activeHotel,
       guest,
@@ -1727,21 +1725,11 @@ export const processGuestMessage = async ({
     });
   }
 
-  if (!ticket && enhancedRisk.hasRisk) {
-    ticket = await createOperationalTicketForConciergeRisk({
-      hotel: activeHotel,
-      guest,
-      conversation,
-      risk: enhancedRisk,
-      message
-    });
-  }
-
   aiResponseWithUpsell = finalizeServiceReply({primary:rawAiResponse, processed:aiResponseWithUpsell, ticket,
     hotel:activeHotel, hotelId:activeHotel.id, guestId:guest.id, conversationId:conversation.id, language:conversationContext.language,
     providerOwned:Boolean(providerExperienceOwnsResponse || experienceBookingIntent.detected || experienceBookingRequest),
     preferPrimary:!finalOfferSuppression.suppress && humanEscalation.humanReason !== 'human_requested' && !smarterResponse.metadata.repair_mode_activated,
-    emergency:aiResponseWithUpsell.emergency, knownRoom:guest.current_room || conversationContext.knownRoom, context:conversationContext, message});
+    emergency:aiResponseWithUpsell.emergency, knownRoom:conversationContext.knownRoom, context:conversationContext, message,operationalRequest});
 
   const aiMessage = await createMessage({
     conversationId: conversation.id,

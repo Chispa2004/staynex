@@ -13,14 +13,18 @@ export async function GET(request) {
     if (!user?.id || !hotel?.id || accessDenied || !canAccess(role, 'inbox')) {
       return NextResponse.json({ conversations: [], hotel, error: 'Access denied' }, { status: 403 });
     }
-    const filter=parseMessageMetric(new URL(request.url).searchParams);
+    const params=new URL(request.url).searchParams;
+    const detailId=params.get('detail');
+    if(detailId && !/^[0-9a-f-]{36}$/i.test(detailId))return NextResponse.json({error:'Conversación inválida'},{status:400});
+    const filter=detailId ? null : parseMessageMetric(params);
     if (filter && filter.hotelId!==hotel.id) return NextResponse.json({error:'El filtro pertenece a otro hotel.'},{status:403});
     const metric=filter ? selectMessageMetric(await loadMessageMetrics({supabase,hotel,origin:filter.origin,date:filter.date || undefined}),filter) : null;
     const conversations = await getInboxConversations({
       supabase,
       hotel,
       hotelId: hotel?.id || null,
-      conversationIds: metric ? Object.keys(metric.byConversation) : null
+      conversationIds: detailId ? [detailId] : metric ? Object.keys(metric.byConversation) : null,
+      includeDetails:params.get('view')!=='summary'
     });
     if (metric) {
       const threads=new Map(conversations.map(c=>[c.id,c]));

@@ -468,7 +468,7 @@ export const getOpenTicketsForGuest = async ({ guestId, hotelId = null, limit = 
 
   let query = client
     .from('tickets')
-    .select('id, hotel_id, guest_id, conversation_id, room_number, category, title, description, priority, status, created_at')
+    .select('id, hotel_id, guest_id, conversation_id, room_number, category, title, description, priority, status, created_at, request_context')
     .eq('guest_id', guestId)
     .in('status', ['open', 'in_progress'])
     .order('created_at', { ascending: false })

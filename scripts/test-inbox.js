@@ -1,3 +1,4 @@
+import {resolveOperationalContext} from '../shared/guest-service/operational-context.js';
 import { operationalStayContext } from '../shared/guest-memory/personalization-boundary.js';
 import { controlFromState, attentionReadText } from '../dashboard/lib/inbox-tracking-state.js';
 import { guestFacingKnowledge } from '../shared/guest-service/arrival-booking.js';
@@ -15,6 +16,7 @@ import {
 const loadInboxModuleForTest = () => {
   const source = readFileSync(new URL('../dashboard/lib/inbox.js', import.meta.url), 'utf8')
     .replace(/\r\n/g, '\n')
+    .replace("import { resolveOperationalContext } from '../../shared/guest-service/operational-context.js';\n", '')
     .replace("import { operationalStayContext } from '../../shared/guest-memory/personalization-boundary.js';\n", '')
     .replace("import { messageStayStage, readAllInboxRows } from '../../shared/inbox/stay-stage.js';\n", '')
     .replace("import { guestFacingKnowledge } from '../../shared/guest-service/arrival-booking.js';\n", '')
@@ -26,13 +28,13 @@ const loadInboxModuleForTest = () => {
     .replaceAll('export const ', 'const ');
 
   return new Function(
-    'operationalStayContext','controlFromState','guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
+    'resolveOperationalContext','operationalStayContext','controlFromState','guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
     'buildConversationCopilot',
     'isGuestMemoryEnabled',
     'sanitizeInboxMessageTranslations',
     `${source}\nreturn { getInboxConversations };`
   )(
-    operationalStayContext,controlFromState,guestFacingKnowledge,messageStayStage,readAllInboxRows,
+    resolveOperationalContext,operationalStayContext,controlFromState,guestFacingKnowledge,messageStayStage,readAllInboxRows,
     () => {
       throw new Error('Unexpected default Supabase admin access in inbox test');
     },
@@ -263,7 +265,7 @@ const baseTables = {
     {
       id: 'reservation-lucia',
       hotel_id: hotelA,
-      guest_id: 'legacy-guest-link',
+      guest_id: 'guest-lucia',
       guest_name: luciaName,
       guest_phone: '+1 (500) 555-0001',
       room_number: '208',
@@ -399,6 +401,9 @@ assert.equal(languageLegacyInbox[0].guest.name,luciaName);
 assert.equal(languageLegacyInbox[0].guest.preferred_language,null,'Missing optional language must remain unknown');
 assert.ok(languageLegacyInbox.every(c=>c.hotel_id===hotelA));
 
+const legacyUnlinked=await getInboxConversations({supabase:createFakeSupabase({...baseTables,reservations:baseTables.reservations.map(r=>r.hotel_id===hotelA?{...r,guest_id:'legacy-unlinked'}:r)},{guestIdentityColumnsMissing:true}),hotelId:hotelA});
+assert.equal(legacyUnlinked[0].guest.name,luciaName,'Legacy identity display remains hotel scoped');
+assert.equal(legacyUnlinked[0].roomNumber,null,'Matching a phone is not authority to bind a different guest stay or room');
 const phoneFallbackConversations = await getInboxConversations({
   supabase: createFakeSupabase({
     ...baseTables,
@@ -439,7 +444,7 @@ assert.match(inboxSource, /from\('ai_offers'\)[\s\S]*?\.eq\('hotel_id', hotelId\
 assert.match(inboxSource, /from\('experience_booking_requests'\)[\s\S]*?\.eq\('hotel_id', hotelId\)[\s\S]*?\.in\('conversation_id', conversationIds\)/, 'Inbox bookings must filter by hotel before conversation ids');
 assert.match(inboxSource, /phoneKeys\.has\(normalizePhone\(reservation\.guest_phone\)\)/, 'Reservation phone fallback should normalize candidate phones inside the same hotel');
 assert.match(inboxSource, /guestName,/, 'Inbox serializer should expose the canonical rendered guestName');
-assert.match(inboxSource, /guest\?\.name \|\| guest\?\.full_name \|\| reservation\?\.guest_name/, 'Guest and reservation names should outrank phone fallback');
+assert.match(inboxSource, /guest\?\.name \|\| guest\?\.full_name \|\| identity\?\.guest_name/, 'Guest and reservation names should outrank phone fallback');
 assert.match(inboxComponentSource, /conversation\?\.guestName[\s\S]*?conversation\?\.guest_name[\s\S]*?conversation\?\.guest\?\.name/, 'Inbox UI should render the canonical payload guest name before phone fallback');
 const inboxLayoutStyles = readFileSync(new URL('../dashboard/components/InboxErgonomics.module.css', import.meta.url), 'utf8');
 assert.match(inboxComponentSource, /<section className=\{ergonomics.inbox\}>/, 'Inbox should use its scoped height container');
@@ -452,7 +457,7 @@ assert.match(inboxComponentSource, /const closeActiveConversation = useCallback\
 assert.match(inboxComponentSource, /onClick=\{closeActiveConversation\}/, 'Back arrow should use the local close action');
 assert.doesNotMatch(inboxComponentSource, /useRouter|router\.push|window\.location/, 'Inbox back action should not route or reload');
 assert.match(inboxComponentSource, /locallyClosedConversationIdsRef\.current\.add\(selectedIdRef\.current\)/, 'Back action should remember locally closed conversations');
-assert.match(inboxComponentSource, /locallyClosedConversationIdsRef\.current\.has\(requestedConversationId\)/, 'Polling or URL params should not reopen a locally closed chat');
+assert.match(inboxComponentSource, /locallyClosedConversationIdsRef\.current\.has\(requestedIdRef\.current\)/, 'Polling or URL params should not reopen a locally closed chat');
 assert.match(inboxComponentSource, /draftsByConversation/, 'Inbox drafts should stay separated by conversation in ephemeral state');
 assert.match(inboxComponentSource, /\$\{currentHotel\.id\}:\$\{selectedConversation\.id\}/, 'Inbox draft keys should be scoped by hotel and conversation');
 assert.match(inboxComponentSource, /setDraftsByConversation\(\{\}\)/, 'Hotel changes should clear conversation drafts');
