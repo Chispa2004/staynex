@@ -32,7 +32,12 @@ export function serviceContext({hotel, guest, conversationContext = {}}) {
     && (!c.reservation.guest_id || c.reservation.guest_id === guest?.id) ? c.reservation : null;
   return {
     language: c.language || guest?.preferred_language || hotel?.default_language || 'es',
-    known_room: c.knownRoom || guest?.current_room || null,
+    known_room: c.operationalContext ? c.operationalContext.known_room : c.knownRoom || guest?.current_room || null,
+    operational_context: c.operationalContext ? {
+      phase:c.operationalContext.phase, reason:c.operationalContext.reason,
+      room_source:c.operationalContext.room_source, ambiguous:c.operationalContext.ambiguous,
+      reference_time:c.operationalContext.reference_time
+    } : null,
     reservation: reservation ? {id:reservation.id,guest_name:reservation.guest_name,arrival_date:reservation.arrival_date,
       departure_date:reservation.departure_date,room_type:reservation.room_type,status:reservation.reservation_status || reservation.status} : null,
     reservation_ambiguous: c.reservationAmbiguous === true,
@@ -79,20 +84,26 @@ export function missingServiceQuestion(reply = '', {knownRoom = null, reservatio
     && !(/edad|old|[aâ]ge|alt/i.test(q) && hasKnownChildAge(facts))) || null;
 }
 
-export function finalizeServiceReply({primary, processed = primary, ticket = null, hotelId, guestId, conversationId, language = 'es', providerOwned = false, preferPrimary = true, emergency = false, knownRoom = null, context = {}, message = '', hotel = {}}) {
+export function finalizeServiceReply({primary, processed = primary, ticket = null, hotelId, guestId, conversationId, language = 'es', providerOwned = false, preferPrimary = true, emergency = false, knownRoom = null, context = {}, message = '', hotel = {},operationalRequest=null}) {
   // Existing provider booking receipts are handled by their own verified workflow.
   if(providerOwned) return processed;
   const t = serviceCopy(language);
   const actual = ticket?.id && ticket.hotel_id === hotelId && ticket.guest_id === guestId && ticket.conversation_id === conversationId;
+  if(actual && operationalRequest?.status==='recorded' && Object.hasOwn(ticket,'room_number'))knownRoom=ticket.room_number||null;
   const genuine = preferPrimary && !primary?.upsell_opportunity && primary?.ai_provider === 'openai' && !primary.fallback_used && Number(primary.confidence)>=0.65;
   let reply = genuine ? primary.reply : processed?.reply;
   if(actual && t) {
     // Only the persisted, scoped record authorizes this acknowledgement. Discard
     // pre-execution operational prose: a model cannot certify its own actions.
     reply=t.saved;
+    if(operationalRequest?.status==='recorded' && language==='es')reply=`He registrado tu solicitud${knownRoom?` para la habitación ${knownRoom}`:''} para que el equipo del hotel la atienda. La actuación todavía no está confirmada.`;
+    if(operationalRequest?.status==='recorded' && language==='en')reply=`I have recorded your request${knownRoom?` for room ${knownRoom}`:''} for the hotel team to review. Action has not yet been confirmed.`;
     const question=missingServiceQuestion(primary?.reply,{knownRoom,...context,message,requestRecorded:true});
     if(question)reply+=' '+question;
     if(!knownRoom && !question && ['maintenance','housekeeping','complaint'].includes(ticket.category))reply+=' '+t.room;
+  } else if(operationalRequest?.status==='unconfirmed') {
+    const failure={es:'Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Sigue pendiente de revisión por el equipo del hotel.',en:'Your message is preserved, but I could not confirm that the request was recorded. It still needs the hotel team’s review.',fr:'Votre message est conservé, mais l’enregistrement de la demande n’a pas pu être confirmé. L’équipe de l’hôtel doit encore l’examiner.',de:'Ihre Nachricht bleibt erhalten, aber die Erfassung der Anfrage konnte nicht bestätigt werden. Das Hotelteam muss sie noch prüfen.',it:'Il messaggio è conservato, ma non è stato possibile confermare la registrazione della richiesta. Deve ancora essere esaminata dall’hotel.',pt:'A mensagem foi preservada, mas não foi possível confirmar o registo do pedido. A equipa do hotel ainda precisa de o analisar.'};
+    reply=failure[String(language).slice(0,2)]||t?.pending||'';
   } else if(hasUnverifiedActionClaim(reply)) reply = t?.pending || '';
   if(!actual && /habitaci[oó]n (?:estar[aá]|est[aá]) (?:lista|disponible)|room (?:will be|is) (?:ready|available)/i.test(reply || '')) {
     const times={es:'La hora prevista de entrada es',en:'The scheduled check-in time is',fr:'L’heure prévue d’arrivée est',de:'Die vorgesehene Check-in-Zeit ist',it:'L’orario previsto di check-in è',pt:'A hora prevista de check-in é'};
@@ -118,16 +129,17 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
   }
   if(!reply) throw new Error('No safe service reply in the guest language');
   if(emergency && t && !reply.includes(t.urgent)) reply = `${t.urgent} ${reply}`;
-  return {...processed, reply, service_quality:{version:1,request_status:actual?'recorded':'not_recorded',ticket_id:actual?ticket.id:null,notification_confirmed:false}};
+  return {...processed, reply, service_quality:{version:2,request_status:actual?'recorded':operationalRequest?.status||'not_recorded',ticket_id:actual?ticket.id:null,source_message_id:operationalRequest?.sourceMessageId||null,notification_confirmed:false}};
 }
 
 // Inbox currently supplies deterministic drafts, not a provider generation. Keep
 // them explicitly as drafts and useful without pretending an operation took place.
-export function buildServiceDraft({message = '', language = 'es', room = null, urgent = false, history = []}) {
+export function buildServiceDraft({message = '', language = 'es', room = null, urgent = false, history = [], recordedTicket = null}) {
   const t=serviceCopy(language); if(!t)return null;
   const text=message.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const prior=history.filter(m=>m.sender_type==='guest').map(m=>m.content).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const facts=text+' '+prior;
+  if(recordedTicket?.id)return {text:t.saved,language,draft:true,confidence:1,requestStatus:'recorded',ticketId:recordedTicket.id};
   let reply=t.pending;
   if(urgent)reply=t.urgent+' '+t.pending;
   else if(/cuna|cot|crib|lit bebe|babybett/.test(text))reply=hasKnownChildAge(facts)?t.pending:t.cot+' '+t.pending;
@@ -135,5 +147,5 @@ export function buildServiceDraft({message = '', language = 'es', room = null, u
   else if(/factura|invoice|rechnung|facture/.test(text))reply=/necesito|need|solicit|request|besoin|brauche/.test(text)?t.pending:t.invoice;
   else if(/toalla|towel|ruido|noise|aire acondicionado|air condition|serviette|handtuch|larm/.test(text))reply=room?t.pending:t.room;
   else reply=t.missing+' '+t.clarify;
-  return {text:reply,language,draft:true,confidence:0.6};
+  return {text:reply,language,draft:true,confidence:0.6,requestStatus:'proposed'};
 }

@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFocusLayer } from '@/lib/focus-layer';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
@@ -54,6 +54,10 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
 
   }),[exchange,idsKey,conversationId]);
   readerRef.current=reader;
+  // Changing the selected conversation invalidates only this reader, not the
+  // Inbox subtree. Do not expose the previous conversation's controls for a frame.
+  const scopedSnapshot=snapshot?.hotelId===hotelId && snapshot?.conversationId===conversationId ? snapshot : null;
+  useLayoutEffect(() => {invalidate();},[hotelId,conversationId,invalidate]);
   const refresh = useCallback(() => {
     if (conversationId && hotelId && !busyRef.current) return reader.refresh();
   },[reader,conversationId,hotelId]);
@@ -74,9 +78,9 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
     return () => {window.removeEventListener(WORKSPACE_SELECTION_EVENT,clear);subscription?.data?.subscription?.unsubscribe();};
   },[invalidate]);
   useFocusLayer(dialog, Boolean(operation), {native:true,onClose:()=>{if(!busyRef.current){setOperation(null);setConflict(false);}}});
-  const rows = new Map((snapshot?.items || []).map(item=>[item.messageId,item]));
+  const rows = new Map((scopedSnapshot?.items || []).map(item=>[item.messageId,item]));
   const prepare = (action,ids=selected) => {
-    if (!snapshot?.canManage || busyRef.current) return;
+    if (!scopedSnapshot?.canManage || busyRef.current) return;
     const observed = ids.map(id=>rows.get(id)).filter(Boolean);
     if (!observed.length || observed.length!==ids.length) return;
     try {
@@ -102,7 +106,7 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
       if (caught.status===409) {setConflict(true);await refresh();}
     } finally {if(version===generation.current){busyRef.current=false;setBusy(false);latestRefresh.current?.();}}
   };
-  const value={rows,selected,readState,available:Boolean(snapshot),canManage:readState.status==='ready' && snapshot?.canManage===true,busy,prepare,
+  const value={rows,selected,readState,available:Boolean(scopedSnapshot),canManage:readState.status==='ready' && scopedSnapshot?.canManage===true,busy,prepare,
     toggle:id=>setSelected(current=>current.includes(id)?current.filter(item=>item!==id):current.length<50?[...current,id]:current),
     error,notice,refresh};
   return <AttentionContext.Provider value={value}>

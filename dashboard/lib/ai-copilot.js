@@ -353,7 +353,8 @@ export const buildConversationCopilot = (conversation = {}) => {
     guest:conversation.guest || {},message:lastGuestMessage(conversation.messages || [])?.content,
     hotelKnowledge:conversation.hotelKnowledge || [],conversationContext:{language,recentMessages:conversation.messages || [],
       reservation:conversation.reservation,referenceTime:conversation.contextReadAt,serviceCapabilities:{requestRecording:false,mode:'staff_draft'}}})) || buildServiceDraft({message:lastGuestMessage(conversation.messages || [])?.content, language,
-    room:conversation.guest?.current_room, history:conversation.messages || [], urgent:priority.level==='urgent'})
+    room:conversation.operationalContext ? conversation.operationalContext.known_room : conversation.guest?.current_room,
+    recordedTicket:(conversation.tickets||[]).find(t=>t.hotel_id===conversation.hotel_id && t.conversation_id===conversation.id && t.guest_id===conversation.guest_id && [t.request_context?.last_source_message_id,t.request_context?.source_message_id].filter(Boolean).includes(lastGuestMessage(conversation.messages||[])?.id)), history:conversation.messages || [], urgent:priority.level==='urgent'})
     || {text:'',language,draft:true,confidence:0};
   const summary = summaryForConversation(conversation);
   const guestMemory = getEnabledGuestMemory(conversation);
@@ -413,6 +414,7 @@ export const buildConversationCopilot = (conversation = {}) => {
 };
 
 const departmentFromTicket = (ticket = {}) => {
+  if(ticket.request_context?.responsible_role)return ({housekeeping:'Housekeeping',maintenance:'Maintenance',reception:'Reception'})[ticket.request_context.responsible_role]||'Reception';
   const text = normalizeText(`${ticket.category || ''} ${ticket.title || ''} ${ticket.description || ''}`);
 
   if (hasAny(text, ['housekeeping', 'pisos', 'clean', 'towel', 'towels', 'limpieza', 'toalla', 'toallas', 'sabana', 'sabanas', 'amenity', 'amenities'])) {

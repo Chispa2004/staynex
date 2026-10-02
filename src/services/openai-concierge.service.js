@@ -161,7 +161,7 @@ const buildPromptPayload = ({
   guest: {
     id: guest?.id,
     phone_number: guest?.phone_number,
-    current_room: guest?.current_room,
+    current_room: serviceContext({hotel,guest,conversationContext}).known_room,
     preferred_language: guest?.preferred_language
   },
   current_message: message,

@@ -5,7 +5,7 @@ import {
 } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 import { detectGuestLanguage } from './language.service.js';
-import { getLatestReservationForGuest } from './reservation.service.js';
+import { resolveOperationalContext } from '../../shared/guest-service/operational-context.js';
 import { getHotelProfileForPrompt } from './hotel.service.js';
 import { getGuestMemory } from './guest-memory.service.js';
 import { hasReservationAccessTokenForLogs } from '../utils/privacy.js';
@@ -382,7 +382,8 @@ export const buildConversationContext = async ({
   guest,
   conversation,
   message,
-  reservation = null
+  reservation = null,
+  sourceMessage = null
 }) => {
   const [recentMessages, openTickets, hotelProfile, guestMemory] = await Promise.all([
     getRecentMessages({
@@ -399,10 +400,19 @@ export const buildConversationContext = async ({
     hotel?.id && guest?.id ? getGuestMemory(hotel.id, guest.id) : Promise.resolve([])
   ]);
 
-  const explicitReservation = reservation?.hotel_id === hotel?.id && reservation?.guest_id === guest.id ? reservation : null;
-  const activeReservation = explicitReservation || (reservation ? null : await getLatestReservationForGuest({
-    guestId: guest.id, hotelId:hotel?.id, requireUnambiguous:true
-  }));
+  const reservations=[];
+  for(let offset=0;;offset+=500){
+    const {data,error}=await getSupabase().from('reservations').select('*').eq('hotel_id',hotel.id).eq('guest_id',guest.id).order('id').range(offset,offset+499);
+    if(error)throw error;reservations.push(...data);if(data.length<500)break;
+  }
+  const {data:stays,error:stayError}=await getSupabase().from('guest_stay_context').select('*').eq('hotel_id',hotel.id).eq('guest_id',guest.id);
+  if(stayError && !['42P01','PGRST205'].includes(stayError.code))throw stayError;
+  // An access-token reservation is already resolved and tenant-validated by the
+  // server. Preserve that binding, never take a reservation id from guest prose.
+  const scopedConversation=reservation?.hotel_id===hotel.id && reservation?.guest_id===guest.id
+    && reservations.some(row=>row.id===reservation.id) ? {...conversation,reservation_id:reservation.id} : conversation;
+  const operationalContext=resolveOperationalContext({hotel,guest,conversation:scopedConversation,reservations,stayContexts:stays||[],sourceMessage});
+  const activeReservation=operationalContext.reservation;
   const language = detectGuestLanguage(message, guest.preferred_language || 'es');
 
   logger.info('language detected', {
@@ -412,7 +422,9 @@ export const buildConversationContext = async ({
 
   const context = {
     referenceTime: new Date().toISOString(),
-    knownRoom: guest.current_room || null,
+    operationalContext,
+    knownRoom: operationalContext.known_room,
+    reservationAmbiguous: operationalContext.ambiguous,
     recentMessages,
     openTickets,
     language,
@@ -427,6 +439,7 @@ export const buildConversationContext = async ({
         arrival_date: activeReservation.arrival_date,
         departure_date: activeReservation.departure_date,
         room_type: activeReservation.room_type,
+        room_number: activeReservation.room_number,
         rate_plan: activeReservation.rate_plan,
         board_basis: activeReservation.board_basis,
         reservation_status: activeReservation.status,

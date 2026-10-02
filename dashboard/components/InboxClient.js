@@ -1,7 +1,7 @@
 'use client';
 import { returnFocus } from '@/lib/focus-layer';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { InboxMetricSummary } from './InboxMetricSummary';
 import { metricMatchingIds } from '../../shared/message-attention/metrics.js';
@@ -506,11 +506,13 @@ export const InboxClient = ({ conversations }) => {
   const metricKeyRef=useRef(metricKey); metricKeyRef.current=metricKey;
   const [metricState,setMetricState]=useState({key:metricKey,status:'loading'});
   const [itemsState, setItems] = useState(sortedConversations);
-  const items=metricState.key!==metricKey || (metricKey && metricState.status!=='ready') ? [] : itemsState;
+  const items=metricState.key!==metricKey || (metricKey && !metricState.data) ? [] : itemsState;
   const [selectedId, setSelectedId] = useState(
     requestedConversationId || null
   );
   const [message, setMessage] = useState('');
+  const [detailState,setDetailState]=useState(null);
+  const [detailRetry,setDetailRetry]=useState(0);
   const [loading, setLoading] = useState(sortedConversations.length === 0);
   const [sending, setSending] = useState(false);
   const [pendingSendKey, setPendingSendKey] = useState(null);
@@ -551,6 +553,22 @@ export const InboxClient = ({ conversations }) => {
   const locallyClosedConversationIdsRef = useRef(new Set());
   const itemsRef = useRef(sortedConversations);
   const selectedIdRef = useRef(selectedId);
+  const requestedIdRef = useRef(requestedConversationId); requestedIdRef.current=requestedConversationId;
+  const hotelRef = useRef(currentHotel); hotelRef.current=currentHotel;
+  const listScrollRef = useRef(null);
+  const listAnchor = useRef(null);
+  const historyPositions = useRef(new Map());
+  const captureListAnchor = useCallback(() => {
+    const list=listScrollRef.current; if(!list || !list.clientHeight)return;
+    const top=list.getBoundingClientRect().top;
+    const rows=[...list.querySelectorAll('[data-inbox-conversation]')];
+    // Read/priority badges can disappear during selection. Reserve the measured
+    // row height so that even the bottom of the list cannot clamp upward.
+    for(const node of rows)node.style.minHeight=node.getBoundingClientRect().height+'px';
+    const row=rows.find(node=>node.getBoundingClientRect().bottom>top);
+    listAnchor.current={id:row?.dataset.inboxConversation,offset:row?row.getBoundingClientRect().top-top:0,top:list.scrollTop};
+  },[]);
+  useEffect(()=>{const resize=()=>{for(const node of listScrollRef.current?.querySelectorAll('[data-inbox-conversation]')||[])node.style.minHeight='';listAnchor.current=null;};window.addEventListener('resize',resize);return()=>window.removeEventListener('resize',resize);},[]);
   const conversationOpener = useRef(null);
   const conversationFocusAction = useRef(null);
   useEffect(() => {
@@ -559,7 +577,7 @@ export const InboxClient = ({ conversations }) => {
     conversationFocusAction.current = null;
     if (action === 'open' && window.matchMedia('(max-width: 767px)').matches) document.querySelector('[data-inbox-return]')?.focus({preventScroll:true});
     if (action === 'close') {
-      // The attention provider remounts the list when its conversation changes.
+      // Resolve the stable row again in case a genuine server reorder replaced it.
       const row=[...document.querySelectorAll('[data-inbox-conversation]')].find(node=>node.dataset.inboxConversation===conversationOpener.current?.id);
       returnFocus(row || conversationOpener.current?.element, document.getElementById('inbox-search'));
     }
@@ -574,7 +592,36 @@ export const InboxClient = ({ conversations }) => {
   const pageVisibleRef = useRef(true);
   const staffLanguageRef = useRef(staffLanguage);
 
-  const selectedConversation = items.find((conversation) => conversation.id === selectedId) || null;
+  const selectedBase=items.find(conversation=>conversation.id===selectedId)||null;
+  const detailVersion=selectedBase ? JSON.stringify([selectedBase.hotel_id,selectedBase.id,selectedBase.messages?.map(m=>[m.id,m.updated_at,m.content]),selectedBase.aiState?.updated_at,selectedBase.operationalContext,selectedBase.contextReadAt]) : '';
+  const matchingDetail=detailState?.hotelId===currentHotel?.id && detailState?.id===selectedId ? detailState : null;
+  // Secondary results belong to a specific primary snapshot. A late response
+  // must never replace newer stay/room facts or regenerate a stale suggestion.
+  const selectedConversation=selectedBase && matchingDetail?.version===detailVersion && matchingDetail?.data
+    ? {...selectedBase,...matchingDetail.data,messages:selectedBase.messages,lastMessage:selectedBase.lastMessage,control:selectedBase.control,aiState:selectedBase.aiState,operationalContext:selectedBase.operationalContext,roomNumber:selectedBase.roomNumber} : selectedBase;
+  useEffect(()=>{
+    if(!selectedBase?.id || !currentHotel?.id)return;
+    const controller=new AbortController();let current=true;
+    const id=selectedBase.id,hotelId=currentHotel.id;
+    setDetailState(old=>old?.id===id && old?.hotelId===hotelId ? {...old,status:'loading'} : {id,hotelId,status:'loading'});
+    (async()=>{
+      try {
+        const headers=await getAuthHeaders();
+        const response=await fetch('/api/inbox?detail='+encodeURIComponent(id),{headers,cache:'no-store',signal:controller.signal});
+        const body=await response.json();
+        if(!response.ok)throw Object.assign(new Error(body.error||'No se pudo actualizar Asistencia IA.'),{status:response.status});
+        const latest=await getAuthHeaders();
+        if(!current || headers.Authorization!==latest.Authorization || !shouldAcceptTenantPayload(body,'inbox-detail'))return;
+        const data=body.conversations?.find(c=>c.id===id && c.hotel_id===hotelId);
+        if(!data || body.hotelId!==hotelId)throw new Error('Contexto de conversación no confirmado.');
+        setDetailState({id,hotelId,status:'ready',data,version:detailVersion});
+      }catch(error){if(current && error.name!=='AbortError'){
+        setDetailState(old=>({...(old?.id===id && old?.hotelId===hotelId?old:{}),id,hotelId,status:'error',error:error.message}));
+        if([401,403].includes(error.status)){setItems([]);setCapabilities({});setSelectedId(null);setDraftsByConversation({});setMessage('');setDetailState(null);}
+      }}
+    })();
+    return ()=>{current=false;controller.abort();};
+  },[detailVersion,currentHotel?.id,detailRetry]);
   const unreadTotal = useMemo(() => getTotalUnread(items, readState), [items, readState]);
   const humanTotal = useMemo(() => getHumanTotal(items), [items]);
   const controlCoverageComplete = items.every(c=>c.control?.status !== 'unknown');
@@ -664,9 +711,10 @@ export const InboxClient = ({ conversations }) => {
       if (event === 'SIGNED_OUT' || (userId !== undefined && userId !== session?.user?.id)) {
         loadRequestIdRef.current++;
         setMetricState({key:'',status:'loading'});
-        setItems([]); setSelectedId(null); setCapabilities({});
+        setItems([]); setSelectedId(null); setCapabilities({}); setDetailState(null);
         setMessage(''); setDraftsByConversation({}); setCopilotOpen(false); setGuestPanelOpen(false);
       }
+      if(event==='TOKEN_REFRESHED')setDetailRetry(n=>n+1);
       userId = session?.user?.id;
     });
     return () => subscription?.data?.subscription?.unsubscribe();
@@ -676,7 +724,7 @@ export const InboxClient = ({ conversations }) => {
     staffLanguageRef.current = staffLanguage;
   }, [staffLanguage]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setMessage(draftKey ? draftsByConversation[draftKey] || '' : '');
   }, [draftKey, draftsByConversation]);
 
@@ -692,15 +740,18 @@ export const InboxClient = ({ conversations }) => {
   }, [currentHotel?.id]);
 
   useEffect(() => {
-    if (
-      requestedConversationId
-      && !locallyClosedConversationIdsRef.current.has(requestedConversationId)
-      && items.some((conversation) => conversation.id === requestedConversationId)
-    ) {
-      setSelectedId(requestedConversationId);
-      setMobileChatOpen(true);
-    }
-  }, [items, requestedConversationId]);
+    if(requestedConversationId)locallyClosedConversationIdsRef.current.delete(requestedConversationId);
+    setSelectedId(requestedConversationId || null);
+    setMobileChatOpen(Boolean(requestedConversationId));
+    setCopilotOpen(false); setGuestPanelOpen(false);
+  }, [requestedConversationId]);
+
+  useLayoutEffect(() => {
+    const list=listScrollRef.current, anchor=listAnchor.current;
+    if(!list?.clientHeight || !anchor)return;
+    const row=[...list.querySelectorAll('[data-inbox-conversation]')].find(node=>node.dataset.inboxConversation===anchor.id);
+    list.scrollTop=row ? list.scrollTop+row.getBoundingClientRect().top-list.getBoundingClientRect().top-anchor.offset : anchor.top;
+  },[visibleItems,selectedId,mobileChatOpen]);
 
   useEffect(() => {
     if (!metricKey && readStateLoaded && currentHotel?.id) {
@@ -727,7 +778,7 @@ export const InboxClient = ({ conversations }) => {
     if (!silent) {
       setRefreshing(true);
     }
-    if (!silent || itemsRef.current.length === 0) {
+    if (itemsRef.current.length === 0) {
       setLoading(true);
     }
 
@@ -735,14 +786,14 @@ export const InboxClient = ({ conversations }) => {
       const headers=await getAuthHeaders();
       const startedMetric=metricKey;
       if (metricKey) setMetricState(current=>current.key===metricKey && current.status==='ready' ? {...current,refreshing:true} : {key:metricKey,status:'loading'});
-      const response = await fetch('/api/inbox'+(metricKey?'?'+metricKey:''), {
+      const response = await fetch('/api/inbox?view=summary'+(metricKey?'&'+metricKey:''), {
         headers,
         cache: 'no-store'
       });
       const body = await response.json();
 
       if (!response.ok) {
-        throw new Error(body.error || 'Could not refresh inbox');
+        throw Object.assign(new Error(body.error || 'Could not refresh inbox'),{status:response.status});
       }
       if (metricKey && (!body.metric || body.metric.hotelId!==body.hotelId || !Number.isSafeInteger(body.metric.messageCount)
         || !Number.isSafeInteger(body.metric.conversationCount) || !body.metric.byConversation)) throw new Error('Respuesta de métricas incompleta. Reintenta.');
@@ -759,7 +810,7 @@ export const InboxClient = ({ conversations }) => {
 
       const nextItems = normalizeInboxConversations(body.conversations || []);
       const nextHotelId = body.hotel?.id || null;
-      const previousHotelId = currentHotel?.id || null;
+      const previousHotelId = hotelRef.current?.id || null;
 
       if (previousHotelId && nextHotelId && previousHotelId !== nextHotelId) {
         if (process.env.NODE_ENV !== 'production') {
@@ -791,6 +842,7 @@ export const InboxClient = ({ conversations }) => {
         || language
         || 'es'
       ));
+      captureListAnchor();
       setItems(nextItems);
       setMetricState({key:metricKey,status:'ready',data:body.metric});
       setSelectedId((current) => {
@@ -808,8 +860,8 @@ export const InboxClient = ({ conversations }) => {
           return current;
         }
 
-        if (requestedConversationId && !locallyClosedConversationIdsRef.current.has(requestedConversationId)) {
-          return requestedConversationId;
+        if (requestedIdRef.current && !locallyClosedConversationIdsRef.current.has(requestedIdRef.current)) {
+          return requestedIdRef.current;
         }
 
         return null;
@@ -819,7 +871,8 @@ export const InboxClient = ({ conversations }) => {
     } catch (error) {
       console.warn('Inbox refresh failed', error);
       if (requestId === loadRequestIdRef.current) {
-        if (metricKey===metricKeyRef.current) setMetricState({key:metricKey,status:'error',error:error.message || 'No se pudo comprobar el conjunto de mensajes.'});
+        if (metricKey===metricKeyRef.current) setMetricState(current=>({...current,key:metricKey,status:'error',refreshing:false,error:error.message || 'No se pudo comprobar el conjunto de mensajes.'}));
+        if ([401,403].includes(error.status)) {setItems([]);setSelectedId(null);setCurrentHotel(null);setDraftsByConversation({});setMessage('');}
         setItems(current=>current.map(c=>({...c,control:controlFromState(null,false)})));
         setCapabilities({});
         setControlError('No se pudo actualizar el control. Actualiza antes de actuar.');
@@ -828,14 +881,11 @@ export const InboxClient = ({ conversations }) => {
     } finally {
       if (requestId === loadRequestIdRef.current) {
         loadInFlightRef.current = false;
-      }
-
-      if (!silent) {
         setRefreshing(false);
+        setLoading(false);
       }
-      setLoading(false);
     }
-  }, [currentHotel?.id, requestedConversationId, metricKey]);
+  }, [metricKey,captureListAnchor]);
 
   useEffect(() => {
     loadInbox({ silent: true, force:true });
@@ -888,10 +938,11 @@ export const InboxClient = ({ conversations }) => {
         [conversationId]: new Date().toISOString()
       };
 
+      captureListAnchor();
       persistReadState(nextState, currentHotel?.id);
       return nextState;
     });
-  }, [currentHotel?.id]);
+  }, [currentHotel?.id,captureListAnchor]);
 
   const isMessagesPanelNearBottom = useCallback(() => {
     const element = messagesScrollRef.current;
@@ -905,7 +956,8 @@ export const InboxClient = ({ conversations }) => {
 
   const scrollMessagesToBottom = useCallback((behavior = 'smooth') => {
     window.requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ block: 'end', behavior });
+      const panel=messagesScrollRef.current;
+      if(panel)panel.scrollTo({top:panel.scrollHeight,behavior});
     });
   }, []);
 
@@ -977,9 +1029,11 @@ export const InboxClient = ({ conversations }) => {
     }
   }, [markConversationAsRead, readStateLoaded, selectedId]);
 
-  useEffect(() => {
-    scrollMessagesToBottom('auto');
-  }, [scrollMessagesToBottom, selectedConversation?.id]);
+  useLayoutEffect(() => {
+    const panel=messagesScrollRef.current, key=draftKey;
+    if(!panel || !key)return;
+    panel.scrollTop=historyPositions.current.get(key) ?? panel.scrollHeight;
+  }, [draftKey]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -1145,7 +1199,7 @@ export const InboxClient = ({ conversations }) => {
       }
     };
 
-    handleVisibilityChange();
+    pageVisibleRef.current = document.visibilityState !== 'hidden';
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
@@ -1439,6 +1493,7 @@ export const InboxClient = ({ conversations }) => {
     }
 
     conversationFocusAction.current = 'close';
+    updateFilter('conversationId',null);
     setSelectedId(null);
     setMobileChatOpen(false);
     setCopilotOpen(false);
@@ -1451,39 +1506,6 @@ export const InboxClient = ({ conversations }) => {
   const pageCount=Math.max(1,Math.ceil(visibleItems.length/pageSize));
   const currentPage=Math.min(pageCount,Math.max(1,Math.floor(Number(searchParams.get('page')) || 1)));
   const pageItems=metricKey ? visibleItems.slice((currentPage-1)*pageSize,currentPage*pageSize) : visibleItems;
-
-  if (items.length === 0) {
-    return (
-      <section className={ergonomics.inbox}>
-        <div className={cn(
-          'premium-fade-in flex h-full min-h-0 flex-col overflow-hidden rounded-none border-0 lg:rounded-xl lg:border',
-          isLight ? 'border-slate-200 bg-white' : 'border-white/10 bg-[#0b1019]'
-        )}>
-          <div className={cn(`${ergonomics.listHeader} shrink-0 border-b px-4 py-4 sm:px-6`, isLight ? 'border-slate-200 bg-white' : 'border-white/10')}>
-            <p className={isLight ? 'text-lg font-semibold text-slate-950' : 'text-lg font-semibold text-white'}>Inbox</p>
-            {metricSummary}
-            <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
-              {loading ? 'Cargando conversaciones' : metricKey && metricState.status!=='ready' ? tx('Resultados no confirmados') : t('inbox.noConversations')}
-            </p>
-          </div>
-          {loading ? (
-            <div className="executive-scroll min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-6">
-              {[0, 1, 2, 3, 4, 5].map((item) => (
-                <div key={item} className={cn('h-20 rounded-lg', ui.skeleton(isLight))} />
-              ))}
-            </div>
-          ) : metricKey && metricState.status!=='ready' ? null : (
-            <PremiumEmptyState
-              icon={Bot}
-              title={t('inbox.noConversations')}
-              description={t('inbox.noConversationsDescription')}
-              className="m-4"
-            />
-          )}
-        </div>
-      </section>
-    );
-  }
 
   const copilotSignals = [
     selectedHumanEscalation.needsHuman,
@@ -1515,7 +1537,7 @@ export const InboxClient = ({ conversations }) => {
     { key: 'ai', label: 'Sin control humano', count: controlCoverageComplete ? scopedItems.filter((conversation) => !isHumanTakeoverActive(conversation)).length : null }
   ];
   return (
-    <MessageAttentionProvider key={`${currentHotel?.id || ''}:${selectedConversation?.id || ''}`} hotelId={currentHotel?.id} conversation={selectedConversation}>
+    <MessageAttentionProvider hotelId={currentHotel?.id} conversation={selectedConversation}>
     <section className={ergonomics.inbox}>
       <div
         data-detail-open={Boolean(selectedConversation && (copilotOpen || guestPanelOpen))}
@@ -1576,6 +1598,7 @@ export const InboxClient = ({ conversations }) => {
             </div>
           </div>
           {metricSummary}
+          {matchingDetail?.status==='error' ? <p className="px-4 text-xs" role="status">{tx('Asistencia IA sin actualizar.')} <button type="button" className="underline" onClick={()=>setDetailRetry(n=>n+1)}>{tx('Reintentar')}</button></p> : null}
               <p className={isLight ? 'mt-1 text-sm text-slate-600' : 'mt-1 text-sm text-slate-500'}>
                 {tx('{count} conversaciones', {count:visibleItems.length})} · {tx(STAY_STAGES[stageFilter])}
                 {visibleUnreadTotal > 0 ? ` · ${tx('{count} mensajes sin leer', {count:visibleUnreadTotal})}` : ''}
@@ -1653,6 +1676,8 @@ export const InboxClient = ({ conversations }) => {
         <div
           className={`executive-scroll min-h-0 flex-1 overflow-y-auto ${ergonomics.conversationList}`}
           data-inbox-scroll-region="conversation-list"
+          ref={listScrollRef}
+          onScroll={captureListAnchor}
         >
           {visibleItems.length === 0 ? (
             <PremiumEmptyState
@@ -1667,6 +1692,7 @@ export const InboxClient = ({ conversations }) => {
             <span>{tx('Página {page} de {pages}',{page:currentPage,pages:pageCount})}</span>
             <button type="button" disabled={currentPage>=pageCount} onClick={()=>updateFilter('page',String(currentPage+1))}>{tx('Siguiente')}</button>
           </nav> : null}
+          {loading && items.length===0 ? <p role="status" className="p-4 text-sm">{tx('Cargando conversaciones')}</p> : null}
           {pageItems.map((conversation) => {
             const active = conversation.id === selectedId;
             const lastMessage = conversation.lastMessage;
@@ -1702,8 +1728,10 @@ export const InboxClient = ({ conversations }) => {
                 onClick={event => {
                   conversationOpener.current = {element:event.currentTarget,id:conversation.id};
                   conversationFocusAction.current = 'open';
+                  captureListAnchor();
                   locallyClosedConversationIdsRef.current.delete(conversation.id);
                   setSelectedId(conversation.id);
+                  updateFilter('conversationId',conversation.id);
                   markConversationAsRead(conversation.id);
                   setMobileChatOpen(true);
                 }}
@@ -1925,6 +1953,7 @@ export const InboxClient = ({ conversations }) => {
         ].join(' ')}
         ref={messagesScrollRef}
         data-inbox-scroll-region="message-history"
+        onScroll={event=>{if(draftKey)historyPositions.current.set(draftKey,event.currentTarget.scrollTop);}}
         >
           {(selectedConversation?.messages || []).map((item) => {
             if (isKnownInternalExperienceEvent(item)) return <article key={item.id} className={ergonomics.internalEvent} aria-label="Actividad interna: solicitud de experiencia">

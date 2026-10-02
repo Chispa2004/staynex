@@ -48,8 +48,8 @@ export async function readAllInboxRows(makeQuery, pageSize = 500) {
 
 export const inboxFilterUrl = (href,key,value) => {
   const url = new URL(href);
-  if (!['q','stage','origin','filter','page'].includes(key)) throw Error('Unknown Inbox filter');
-  if (key!=='page') url.searchParams.delete('page');
+  if (!['q','stage','origin','filter','page','conversationId'].includes(key)) throw Error('Unknown Inbox filter');
+  if (!['page','conversationId'].includes(key)) url.searchParams.delete('page');
   if (!value || value === 'all') url.searchParams.delete(key); else url.searchParams.set(key,value);
   return url.pathname+url.search;
 };

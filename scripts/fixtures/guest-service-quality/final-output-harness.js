@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import {recordOperationalRequest as recordRequest} from '../../../src/services/operational-request.service.js';
 import * as quality from '../../../shared/guest-service/quality.js';
 import { chooseNaturalConciergeResponse } from '../../../src/services/natural-conversation.service.js';
 
@@ -12,7 +13,7 @@ const segment = (start, end) => {
 // Execute the production persistence/finalization block and the actual send
 // boundary. Only persistence and transport are doubles. Intermediate analytics,
 // provider workflows and the earlier model call are deliberately not simulated.
-const finalBody=segment('  let ticket = await createTicketFromAiResponse(', '  const previousLastProviderExperience');
+const finalBody=segment('  const operationalRequest = await recordOperationalRequest(', '  const previousLastProviderExperience');
 const transportBody=segment('  let twilioMessage = null;\n\n  if (sendReply)', "  logger.info('Guest message processed'");
 const ticketSource=read('src/services/ticket.service.js').replace(/^import[^;]+;\r?\n/gm,'').replace('export const ','const ');
 export async function captureFinalOutput(input, primaryOutput, {conciergeOutput=null, failTicket=false, foreignTicket=false, finalizer=quality.finalizeServiceReply}={}) {
@@ -26,9 +27,16 @@ export async function captureFinalOutput(input, primaryOutput, {conciergeOutput=
     return {id:'synthetic-ticket',hotel_id:foreignTicket?'other-hotel':values.hotelId,guest_id:values.guestId,conversation_id:values.conversationId,category:values.category};
   };
   const createTicketFromAiResponse=new Function('createTicketRecord',ticketSource+';return createTicketFromAiResponse;')(createTicketRecord);
+  const sourceMessage={id:'synthetic-source',hotel_id:input.hotel.id,conversation_id:'synthetic-conversation',sender_type:'guest'};
+  let stored;
+  const client={rpc:async(name,{p_request})=>{
+    try{stored=await createTicketRecord({hotelId:input.hotel.id,guestId:input.guest.id,conversationId:'synthetic-conversation',category:p_request.category});
+    return {data:{ticket:stored,source_message_id:sourceMessage.id}};}catch(error){return {error};}
+  },from:()=>{const q={select:()=>q,eq:()=>q,single:async()=>({data:stored})};return q}};
   const bindings={...quality,finalizeServiceReply:finalizer,rawAiResponse:primary,aiResponseWithUpsell:processed,
+    recordOperationalRequest:values=>recordRequest({...values,client}),guestMessage:sourceMessage,
     activeHotel:input.hotel,guest:input.guest,conversation:{id:'synthetic-conversation'},
-    conversationContext:{...input.conversationContext,hotelKnowledge:input.hotelKnowledge},
+    conversationContext:{...input.conversationContext,hotelKnowledge:input.hotelKnowledge,knownRoom:input.guest.current_room,operationalContext:{hotel_id:input.hotel.id,guest_id:input.guest.id,conversation_id:'synthetic-conversation',known_room:input.guest.current_room}},
     message:input.message,finalOfferSuppression:{suppress:false},humanEscalation:{humanReason:null},
     smarterResponse:{metadata:{}},providerExperienceOwnsResponse:false,experienceBookingIntent:{detected:false},experienceBookingRequest:null,
     upsellInterest:null,enhancedRisk:{hasRisk:false},createTicketFromAiResponse,

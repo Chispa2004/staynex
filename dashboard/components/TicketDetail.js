@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {useDashboardLanguage} from '@/lib/i18n/useDashboardLanguage';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BrainCircuit, CheckCircle2, Circle, Loader2, PlayCircle, ShieldAlert } from 'lucide-react';
 import { PriorityBadge, StatusBadge } from './Badge';
@@ -136,6 +137,7 @@ const getResolutionCopy = (ticket) => {
 };
 
 export const TicketDetail = ({ initialTicket, initialMessages }) => {
+  const {tx}=useDashboardLanguage();
   const [ticket, setTicket] = useState(initialTicket);
   const [messages, setMessages] = useState(initialMessages);
   const [updating, setUpdating] = useState(false);
@@ -239,6 +241,8 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
           Volver a tickets
         </Link>
 
+        {ticket.conversation_id ? <Link href={'/dashboard/inbox?conversationId='+encodeURIComponent(ticket.conversation_id)}
+          className="text-sm underline">{tx('Volver a la conversación')}</Link> : null}
         <span className={realtimeEnabled ? 'text-xs text-emerald-300' : 'text-xs text-amber-300'}>
           {realtimeEnabled ? 'Actualización en vivo' : 'Actualización manual'}
         </span>

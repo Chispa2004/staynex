@@ -213,6 +213,11 @@ const AppShellContent = ({ children }) => {
   });
   const [hotelContextLoaded, setHotelContextLoaded] = useState(false);
   const [workspaceError, setWorkspaceError] = useState(null);
+  const [workspaceRefreshError, setWorkspaceRefreshError] = useState(null);
+  const confirmedWorkspace = useRef(null);
+  confirmedWorkspace.current = hotelContextLoaded && currentHotel?.id && !hotelContext.accessDenied
+    ? {actorId:sessionActorId,hotelId:currentHotel.id} : null;
+  const checkedGate = useRef(null);
   const [workspaceRetryNonce, setWorkspaceRetryNonce] = useState(0);
   const [switchingHotel, setSwitchingHotel] = useState(false);
   const [welcomeState, setWelcomeState] = useState(null);
@@ -315,6 +320,11 @@ const AppShellContent = ({ children }) => {
       const key = `${session?.user?.id || ''}:${session?.access_token || ''}`;
       if (key === lastSessionKey) return;
       lastSessionKey = key;
+      if (session?.user?.id && confirmedWorkspace.current?.actorId===session.user.id) {
+        setSessionAccessToken(session.access_token);setSessionActorId(session.user.id);
+        setIsAuthenticated(true);setAuthLoading(false);setAuthError(null);
+        return;
+      }
       workspaceGeneration.current += 1;
       setHotelContextLoaded(false);
       setCurrentHotel(null);
@@ -383,6 +393,8 @@ const AppShellContent = ({ children }) => {
     let active = true;
     const generation = ++workspaceGeneration.current;
     const revision = getWorkspaceRevision();
+    const previous=confirmedWorkspace.current;
+    const background=previous?.actorId===sessionActorId && previous.hotelId===getWorkspaceRequestHeaders()['x-staynex-hotel-id'];
     const controller = new AbortController();
     resolutionInFlight.current = true;
     const timeoutId = window.setTimeout(() => {
@@ -393,17 +405,21 @@ const AppShellContent = ({ children }) => {
       if (generation !== workspaceGeneration.current || revision !== getWorkspaceRevision()) return;
       console.warn('workspace timeout', { phase: 'workspace' });
       controller.abort();
-      setWorkspaceError(getWorkspaceResolutionErrorCopy('timeout'));
+      if(background)setWorkspaceRefreshError(getWorkspaceResolutionErrorCopy('timeout'));
+      else setWorkspaceError(getWorkspaceResolutionErrorCopy('timeout'));
       setHotelContextLoaded(true);
     }, WORKSPACE_RESOLUTION_TIMEOUT_MS);
 
     setWorkspaceError(null);
-    setCurrentHotel(null);
-    setHotelContextLoaded(false);
-    setOnboardingChecked(false);
-    setOnboardingCompleted(false);
-    setOnboardingError(null);
-    setDirectoryState({status:'idle'});
+    setWorkspaceRefreshError(null);
+    if(!background) {
+      setCurrentHotel(null);
+      setHotelContextLoaded(false);
+      setOnboardingChecked(false);
+      setOnboardingCompleted(false);
+      setOnboardingError(null);
+      setDirectoryState({status:'idle'});
+    }
 
     const loadCurrentHotel = async () => {
       try {
@@ -435,8 +451,8 @@ const AppShellContent = ({ children }) => {
         }
 
         if (active && response.ok) {
-          if (body.user?.id !== sessionActorId) throw new Error('Workspace actor mismatch');
-          if (!body.accessDenied && headers['x-staynex-hotel-id'] && body.hotel?.id !== headers['x-staynex-hotel-id']) throw new Error('Workspace selection mismatch');
+          if (body.user?.id !== sessionActorId) throw Object.assign(new Error('Workspace actor mismatch'),{scopeInvalid:true});
+          if (!body.accessDenied && headers['x-staynex-hotel-id'] && body.hotel?.id !== headers['x-staynex-hotel-id']) throw Object.assign(new Error('Workspace selection mismatch'),{scopeInvalid:true});
           if (!body.accessDenied && (!body.hotel?.id || !body.role)) throw new Error('Incomplete workspace context');
           if (body.hotel?.id) setArchiveNotice(false);
           setCurrentHotel(body.hotel || null);
@@ -473,10 +489,12 @@ const AppShellContent = ({ children }) => {
             });
           }
           setHotelContextLoaded(true);
-          setDirectoryState({status:body.directoryDeferred && body.canSwitchWorkspaces ? 'pending' : 'ready'});
+          if(!background)setDirectoryState({status:body.directoryDeferred && body.canSwitchWorkspaces ? 'pending' : 'ready'});
           if (body.accessDeniedReason === 'hotel_archived' && body.archivedHotelId) {
             invalidateArchivedWorkspace(body.archivedHotelId);
           }
+        } else if (active && background && response.status!==403 && !body.accessDenied) {
+          setWorkspaceRefreshError(getWorkspaceResolutionErrorCopy('workspace_context_unavailable'));
         } else if (active) {
           setCurrentHotel(null);
           setHotelContext({
@@ -502,7 +520,9 @@ const AppShellContent = ({ children }) => {
           console.error('Current hotel lookup failed', error);
         }
         if (active && generation === workspaceGeneration.current && revision === getWorkspaceRevision()) {
-          setWorkspaceError(error.name === 'AbortError'
+          if(error.scopeInvalid){setCurrentHotel(null);setHotelContext(value=>({...value,accessDenied:true,role:'blocked',permissions:[]}));}
+          const reportError=background && !error.scopeInvalid ? setWorkspaceRefreshError : setWorkspaceError;
+          reportError(error.name === 'AbortError'
             ? getWorkspaceResolutionErrorCopy('timeout')
             : getWorkspaceResolutionErrorCopy('workspace_context_unavailable'));
           setHotelContextLoaded(true);
@@ -584,7 +604,7 @@ const AppShellContent = ({ children }) => {
       try { archived({detail:JSON.parse(event.newValue)}); } catch { /* Not archive evidence. */ }
     };
     // Returning to a stale tab revalidates authorization; errors stay errors.
-    const revalidate = () => { if (resolutionInFlight.current) return; workspaceGeneration.current += 1; setHotelContextLoaded(false); setWorkspaceRetryNonce(value => value + 1); };
+    const revalidate = () => { if (resolutionInFlight.current) return; workspaceGeneration.current += 1; setWorkspaceRetryNonce(value => value + 1); };
     window.addEventListener(WORKSPACE_ARCHIVED_EVENT, archived);
     window.addEventListener('storage', storage);
     window.addEventListener('pageshow', revalidate);
@@ -608,7 +628,8 @@ const AppShellContent = ({ children }) => {
       return undefined;
     }
 
-    if (onboardingChecked) {
+    const gateKey=`${sessionActorId}:${currentHotel.id}:${sessionAccessToken}:${workspaceRetryNonce}:${onboardingRetry}`;
+    if (onboardingChecked && checkedGate.current===gateKey) {
       if (shouldRedirectToOnboarding({ pathname, completed: onboardingCompleted, role: activeRole, platformRole: hotelContext.platformRole })) {
         router.replace('/dashboard/onboarding');
       }
@@ -644,6 +665,7 @@ const AppShellContent = ({ children }) => {
         }
 
         if (!response.ok) {
+          if([401,403].includes(response.status)) {setCurrentHotel(null);setHotelContextLoaded(false);setWorkspaceRetryNonce(n=>n+1);return;}
           if (process.env.NODE_ENV !== 'production') {
             console.warn('onboarding state missing or unavailable', {
               ok: response.ok,
@@ -661,6 +683,7 @@ const AppShellContent = ({ children }) => {
         if (body.state?.hotel_id !== currentHotel.id || typeof body.state?.onboarding_completed !== 'boolean') throw new Error('Incomplete onboarding gate');
         const completed = body.state.onboarding_completed;
         setOnboardingCompleted(completed);
+        checkedGate.current=gateKey;
         setOnboardingChecked(true);
 
         if (!hotelContext.accessDenied && shouldRedirectToOnboarding({ pathname, completed, role: activeRole, platformRole: hotelContext.platformRole })) {
@@ -681,7 +704,7 @@ const AppShellContent = ({ children }) => {
 
     loadOnboardingState();
     return () => { active = false; controller.abort(); window.clearTimeout(timeout); };
-  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, onboardingChecked, onboardingCompleted, pathname, hotelContext.platformRole, router, sessionAccessToken, onboardingRetry, workspaceKind]);
+  }, [activeRole, authLoading, currentHotel?.id, hotelContext.accessDenied, hotelContextLoaded, isAuthenticated, isLoginPage, isOnboardingPage, onboardingChecked, onboardingCompleted, pathname, hotelContext.platformRole, router, sessionAccessToken, sessionActorId, workspaceRetryNonce, onboardingRetry, workspaceKind]);
 
   useEffect(() => {
     if (!hotelContextLoaded || !currentHotel?.id || hotelContext.accessDenied || directoryState.status !== 'pending') return;
@@ -1613,6 +1636,7 @@ const AppShellContent = ({ children }) => {
                 </nav>
               ) : null}
               {archiveNotice ? <p role="status" tabIndex={-1} data-lifecycle-focus className="mb-4 rounded-xl border p-4">{tx('Hotel archivado. Los datos se conservan y la actividad automática permanece suspendida. Selecciona un hotel para abrir sus operaciones.')}</p> : null}
+              {workspaceRefreshError || (onboardingError && onboardingChecked) ? <div role="status" className="border-b border-amber-500/40 px-3 py-2 text-sm">{tx('No se pudo actualizar la comprobación del hotel. Se conserva la última información confirmada.')} <button className="underline" onClick={()=>setWorkspaceRetryNonce(n=>n+1)}>{tx('Reintentar')}</button></div> : null}
               {contentReady ? children : <section aria-busy={!onboardingError} className="rounded-xl border border-slate-200 bg-white p-6 text-slate-800">
                 <h1 className="text-xl font-semibold">{tx('Preparando esta pantalla')}</h1>
                 <p role={onboardingError ? 'alert' : 'status'} className="mt-3">{tx(onboardingError || 'Comprobando la preparación del hotel…')}</p>

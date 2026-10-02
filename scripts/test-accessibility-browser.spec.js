@@ -108,7 +108,7 @@ test('eleven metric cards have names and open their detail using Enter',async({p
     await ready(page,route);
     const card=page.getByRole('link',{name:new RegExp('^'+name)});
     const href=await card.getAttribute('href');expect(href).toContain('metric=');
-    await card.press('Enter');await expect(page).toHaveURL(new URL(href,'http://127.0.0.1:3364').href);
+    await card.press('Enter');await expect(page).toHaveURL(new URL(href,page.url()).href);
   }
 });
 
@@ -118,5 +118,5 @@ test('wide Inbox panel is non-modal and data refresh does not steal focus',async
   const search=page.getByRole('textbox',{name:'Buscar huésped, habitación, mensaje o idioma',exact:true});await search.focus();await expect(search).toBeFocused();await panel.getByRole('button').first().focus();await page.keyboard.press('Shift+Tab');expect(await panel.evaluate(e=>e.contains(document.activeElement))).toBe(false);
   await panel.getByRole('button').first().focus();await page.keyboard.press('Escape');await expect(panel).toHaveCount(0);
   await expect(page.getByRole('button',{name:/^Asistencia IA(?: \d+)?$/})).toBeFocused();
-  const refresh=page.getByRole('button',{name:'Actualizar',exact:true}).last();await refresh.focus();await expect(refresh).toBeFocused();const response=page.waitForResponse(r=>r.url().endsWith('/api/inbox')&&r.status()===200);await refresh.press('Enter');await response;await expect(page.getByRole('textbox',{name:'Respuesta al huésped',exact:true})).toBeVisible();await expect(refresh).toBeFocused();
+  const refresh=page.getByRole('button',{name:'Actualizar',exact:true}).last();await refresh.focus();await expect(refresh).toBeFocused();const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/inbox'&&!new URL(r.url()).searchParams.has('detail')&&r.status()===200);await refresh.press('Enter');await response;await expect(page.getByRole('textbox',{name:'Respuesta al huésped',exact:true})).toBeVisible();await expect(refresh).toBeFocused();
 });

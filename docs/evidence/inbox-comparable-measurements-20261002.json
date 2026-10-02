@@ -1,0 +1,130 @@
+{
+  "before": {
+    "baseline": true,
+    "latencyMs": 180,
+    "viewport": {
+      "width": 1366,
+      "height": 900
+    },
+    "samples": [
+      {
+        "first": {
+          "visual": 740,
+          "newData": 665
+        },
+        "selection": {
+          "visual": 116,
+          "newData": null
+        },
+        "refresh": {
+          "visual": 291,
+          "newData": 482
+        },
+        "returning": {
+          "visual": 433,
+          "newData": 274
+        }
+      },
+      {
+        "first": {
+          "visual": 530,
+          "newData": 402
+        },
+        "selection": {
+          "visual": 98,
+          "newData": null
+        },
+        "refresh": {
+          "visual": 279,
+          "newData": 479
+        },
+        "returning": {
+          "visual": 445,
+          "newData": 278
+        }
+      },
+      {
+        "first": {
+          "visual": 589,
+          "newData": 450
+        },
+        "selection": {
+          "visual": 133,
+          "newData": null
+        },
+        "refresh": {
+          "visual": 312,
+          "newData": 514
+        },
+        "returning": {
+          "visual": 429,
+          "newData": 252
+        }
+      }
+    ]
+  },
+  "after": {
+    "baseline": false,
+    "latencyMs": 180,
+    "viewport": {
+      "width": 1366,
+      "height": 900
+    },
+    "samples": [
+      {
+        "first": {
+          "visual": 793,
+          "newData": 632
+        },
+        "selection": {
+          "visual": 117,
+          "newData": 282
+        },
+        "refresh": {
+          "visual": 65,
+          "newData": 260
+        },
+        "returning": {
+          "visual": 454,
+          "newData": 285
+        }
+      },
+      {
+        "first": {
+          "visual": 553,
+          "newData": 432
+        },
+        "selection": {
+          "visual": 92,
+          "newData": 268
+        },
+        "refresh": {
+          "visual": 64,
+          "newData": 258
+        },
+        "returning": {
+          "visual": 439,
+          "newData": 285
+        }
+      },
+      {
+        "first": {
+          "visual": 524,
+          "newData": 420
+        },
+        "selection": {
+          "visual": 107,
+          "newData": 277
+        },
+        "refresh": {
+          "visual": 59,
+          "newData": 253
+        },
+        "returning": {
+          "visual": 475,
+          "newData": 312
+        }
+      }
+    ]
+  }
+}

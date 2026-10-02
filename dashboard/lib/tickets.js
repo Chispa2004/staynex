@@ -2,7 +2,7 @@ import { getSupabaseAdmin } from './supabase';
 import { writeEnterpriseAuditLog } from './enterprise-audit';
 import { buildTicketCopilot } from './ai-copilot';
 
-const TICKET_SELECT = 'id, hotel_id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id, guest_id';
+const TICKET_SELECT = 'id, hotel_id, room_number, category, priority, status, created_at, completed_at, title, description, conversation_id, guest_id, request_context';
 
 const getRoomStatusesForTickets = async ({ supabase, tickets, hotelId }) => {
   const roomNumbers = [...new Set((tickets || []).map((ticket) => ticket.room_number).filter(Boolean))];
