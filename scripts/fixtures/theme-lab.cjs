@@ -12,8 +12,12 @@ exports.prepare = (root, lab) => {
   if (!fs.existsSync(path.join(d,'node_modules'))) fs.symlinkSync(path.join(root,'dashboard/node_modules'),path.join(d,'node_modules'),'junction');
   put('next.config.mjs',`export default {reactStrictMode:true,outputFileTracingRoot:${JSON.stringify(root)}};`);
   for (const file of ['app/layout.js','app/globals.css','app/login/page.js','app/dashboard/page.js','app/dashboard/inbox/page.js','app/dashboard/tickets/page.js','app/dashboard/reservations/page.js','app/dashboard/health/page.js','app/dashboard/onboarding/page.js','app/dashboard/settings/pms/page.js']) put(file,fs.readFileSync(path.join(root,'dashboard',file),'utf8'));
+  // Dashboard ticket links prefetch this real destination on desktop. Omitting
+  // it leaves Next's RSC prefetch pending on the fixture's missing route.
+  put('app/dashboard/tickets/[id]/page.js',fs.readFileSync(path.join(root,'dashboard/app/dashboard/tickets/[id]/page.js'),'utf8'));
+  put('app/api/tickets/[id]/route.js',fs.readFileSync(path.join(root,'dashboard/app/api/tickets/[id]/route.js'),'utf8').replace("from '@/lib/current-hotel'","from '@/lib/lab-fixture'"));
   put('lib/supabase-browser.js',`const session={access_token:'synthetic-only',user:{id:'00000000-0000-4000-8000-000000000009',email:'qa@example.invalid'}};const channel={on(){return channel},subscribe(){return channel},unsubscribe(){}};const client={auth:{getSession:async()=>({data:{session:location.pathname==='/login'?null:session}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},channel:()=>channel,removeChannel(){}};export const getSupabaseBrowser=()=>client;`);
-  put('lib/lab-fixture.js',fs.readFileSync(path.join(root,'scripts/fixtures/theme-data.js'),'utf8'));
+  put('lib/lab-fixture.js',fs.readFileSync(path.join(root,'scripts/fixtures/theme-data.js'),'utf8').replace('then(resolve,reject){return Promise.resolve(query.range','async maybeSingle(){const r=await query.range(0,0);return {data:r.data[0]||null}},then(resolve,reject){return Promise.resolve(query.range'));
   put('app/api/executive-dashboard/route.js',fs.readFileSync(path.join(root,'scripts/fixtures/theme-dashboard-route.js'),'utf8'));
   put('app/api/inbox/route.js',fs.readFileSync(path.join(root,'dashboard/app/api/inbox/route.js'),'utf8').replace("from '@/lib/current-hotel'","from '@/lib/lab-fixture'").replace("from '@/lib/inbox'","from '@/lib/lab-fixture'"));
   for (const kind of ['tickets','reservations']) {

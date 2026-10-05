@@ -5,11 +5,8 @@ Object.assign(env,{SEND_AUTOMATIONS:'false',USE_MOCK_AI:'true',GUEST_MEMORY_ENAB
 const next=path.join(root,'dashboard/node_modules/next/dist/bin/next');
 if(process.argv[2]==='build') {
   const d=require('./fixtures/accessibility-lab.cjs').prepare(root,lab);
-  const put=(p,s)=>{const target=path.join(d,p);fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(target,s);};
-  put('app/dashboard/tickets/[id]/page.js',fs.readFileSync(path.join(root,'dashboard/app/dashboard/tickets/[id]/page.js'),'utf8'));
-  put('app/api/tickets/[id]/route.js',fs.readFileSync(path.join(root,'dashboard/app/api/tickets/[id]/route.js'),'utf8').replace("from '@/lib/current-hotel'","from '@/lib/lab-fixture'"));
   const file=path.join(d,'lib/lab-fixture.js');
-  let data=fs.readFileSync(file,'utf8').replace('then(resolve,reject){return Promise.resolve(query.range', 'async maybeSingle(){const r=await query.range(0,0);return {data:r.data[0]||null}},then(resolve,reject){return Promise.resolve(query.range');
+  let data=fs.readFileSync(file,'utf8');
   data+=`
 rows.guests=[{id:id(500),hotel_id:hotel.id,name:'Huésped sintético'}];rows.messages=[];
 rows.tickets=Array.from({length:507},(_,n)=>({id:id(2000+n),hotel_id:hotel.id,guest_id:id(500),conversation_id:id(100),title:'Petición de toallas · '+n,description:'Dos toallas. Datos ficticios, sin transporte.',room_number:'201',priority:'normal',category:'housekeeping',status:'open',created_at:'2026-01-01T12:00:00Z'}));

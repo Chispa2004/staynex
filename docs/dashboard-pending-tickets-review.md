@@ -25,6 +25,8 @@ Carga independiente, actualización visible sin retirar datos válidos del mismo
 - Build de producción y `git diff --check`: PASS. Sintaxis: 408 archivos comprobados. Regresiones operativas y de navegación: PASS.
 - Suite crítica ejecutada hasta HTTP Security. Los grupos anteriores pasan; permanece la discrepancia local heredada de CRLF en la búsqueda literal LF de `dashboard/lib/demo.js`, documentada en la revisión anterior. No se cambian expectativas; el checkout Linux de CI debe ejecutar esta prueba correctamente.
 - CI incorpora los seis grupos al job crítico y las ocho pruebas de navegador al job Dashboard, con artefactos sintéticos. Mantiene PostgreSQL desechable y proveedores bloqueados en las regresiones existentes.
+- Las 32 regresiones existentes de temas/distribución/accesibilidad pasan localmente: 30 con el conjunto ampliado, y dos que exigen nombres/recuentos concretos con su conjunto sintético original, sin modificar sus expectativas.
+- La primera ejecución de CI (`37285189810`) aprobó críticos (incluido HTTP Security) y PostgreSQL. Distribución falló porque el montaje compartido no incluía la página de detalle de Tickets y sus precargas RSC quedaban pendientes en escritorio. Se reprodujo registrando las peticiones pendientes y se incorporaron la página y el handler real al montaje sintético común. La prueba conserva su espera y todas sus expectativas; el siguiente CI debe acreditar la corrección.
 
 Las pruebas de teclado y nombres accesibles no equivalen a una prueba con lector de pantalla ni a accesibilidad completa. Los escenarios de volumen, error, cambio de hotel y tickets recientes son sintéticos; no se fabrican en producción.
 
