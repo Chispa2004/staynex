@@ -1,0 +1,27 @@
+.wrapper { min-width:0; }
+.actions { display:flex; flex-wrap:wrap; align-items:stretch; gap:6px; }
+.badge,.action { --ink:#cbd5e1; --fill:#1e293b; --line:#64748b; color:var(--ink); background:var(--fill); border:1px solid var(--line); }
+.badge { display:inline-flex; border-radius:999px; padding:3px 8px; font-size:12px; font-weight:600; line-height:1.4; }
+.action { display:inline-flex; flex-direction:column; justify-content:center; align-items:center; gap:2px; min-height:36px; max-width:100%; border-radius:7px; padding:5px 7px; font-size:12px; font-weight:600; line-height:1.4; cursor:pointer; }
+.actionLabel { display:flex; align-items:center; gap:4px; white-space:nowrap; }
+.action svg { width:14px; height:14px; flex-shrink:0; }
+.action small { font-size:10px; font-weight:700; }
+.action[data-current="true"] { border-width:2px; padding:4px 6px; box-shadow:inset 0 0 0 1px var(--line); }
+.action:disabled { cursor:default; }
+.action:disabled:not([data-current="true"]) { opacity:.65; cursor:wait; }
+.action:not(:disabled):hover { filter:brightness(1.12); box-shadow:0 0 0 1px var(--line); }
+.action:focus-visible { outline:3px solid #38bdf8; outline-offset:3px; }
+.badge[data-ticket-status="open"],.action[data-ticket-status="open"] { --ink:#fde68a; --fill:#422b0b; --line:#d99a27; }
+.badge[data-ticket-status="in_progress"],.action[data-ticket-status="in_progress"] { --ink:#bfdbfe; --fill:#142d50; --line:#60a5fa; }
+.badge[data-ticket-status="completed"],.action[data-ticket-status="completed"] { --ink:#a7f3d0; --fill:#103b2c; --line:#34d399; }
+:global(.theme-light) .badge,:global(.theme-light) .action { --ink:#334155; --fill:#f8fafc; --line:#64748b; }
+:global(.theme-light) [data-ticket-status="open"].badge,:global(.theme-light) [data-ticket-status="open"].action { --ink:#854d0e; --fill:#fffbeb; --line:#b77912; }
+:global(.theme-light) [data-ticket-status="in_progress"].badge,:global(.theme-light) [data-ticket-status="in_progress"].action { --ink:#1e40af; --fill:#eff6ff; --line:#3b82f6; }
+:global(.theme-light) [data-ticket-status="completed"].badge,:global(.theme-light) [data-ticket-status="completed"].action { --ink:#166534; --fill:#ecfdf5; --line:#228653; }
+.notice { margin:6px 0 0; font-size:12px; color:#cbd5e1; }
+.error { margin:6px 0 0; font-size:12px; color:#fecaca; }
+:global(.theme-light) .notice { color:#475569; }
+:global(.theme-light) .error { color:#991b1b; }
+.spinner { animation:spin 1s linear infinite; }
+@keyframes spin { to {transform:rotate(360deg)} }
+@media(prefers-reduced-motion:reduce) { .spinner { animation:none; } }

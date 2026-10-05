@@ -40,8 +40,9 @@ export const TicketsPageClient = () => {
     {!loading && !error ? <OperationalPagination metrics={metrics} href={list.href} /> : null}
     </div>
     </div>
-    {loading?<PremiumLoadingState title={tx('Consultando registros…')} rows={5} cards={3} />:error?<div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">{tx(error)}</div>:<>
-      {metrics.total===0?<p>{tx('No hay registros que cumplan estos filtros.')}</p>:<TicketsTable compact tickets={data.tickets} hotelId={data.hotelId} onUpdated={list.load} />}
+    {error && data?<p role="alert">{tx(error)}</p>:null}
+    {loading?<PremiumLoadingState title={tx('Consultando registros…')} rows={5} cards={3} />:error && !data?<div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-900">{tx(error)}</div>:<>
+      {metrics.total===0?<p>{tx('No hay registros que cumplan estos filtros.')}</p>:<TicketsTable compact tickets={data.tickets} hotelId={data.hotelId} onUpdated={()=>list.load({preserve:true})} />}
       <OperationalPagination metrics={metrics} href={list.href} />
     </>}
   </section>;

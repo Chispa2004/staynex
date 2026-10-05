@@ -3075,3 +3075,12 @@ for (const [es,en,fr,de] of pendingTicketPhrases) { phraseTranslations.es[es]=es
 for (const [es,en] of [...pmsPhrases, ...workspaceLoadingPhrases, ...operationalMetricPhrases, ...messageMetricPhrases]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
 
 for (const [es,en] of [['Cambiar a tema claro','Switch to light mode'],['Cambiar a tema oscuro','Switch to dark mode'],['Claro','Light'],['Oscuro','Dark']]) { phraseTranslations.es[es]=es; phraseTranslations.en[es]=en; }
+
+for(const [es,en,fr,de] of [
+ ['Hecho','Done','Terminé','Erledigt'],['En curso','In progress','En cours','In Bearbeitung'],['Abierto','Open','Ouvert','Offen'],
+ ['Pendiente','Pending','En attente','Ausstehend'],['Cerrado','Closed','Fermé','Geschlossen'],['Cancelado','Cancelled','Annulé','Storniert'],['Resuelto','Resolved','Résolu','Gelöst'],
+ ['Sin estado','No status','Sans statut','Kein Status'],['Estado del ticket','Ticket status','Statut du ticket','Ticketstatus'],['Estado actual','Current status','Statut actuel','Aktueller Status'],
+ ['Guardando estado…','Saving status…','Enregistrement du statut…','Status wird gespeichert…'],
+ ['No tienes permiso para cambiar este ticket.','You do not have permission to change this ticket.','Vous ne pouvez pas modifier ce ticket.','Sie dürfen dieses Ticket nicht ändern.'],
+ ['No se pudo confirmar el cambio. Se conserva el último estado confirmado; puedes reintentar.','The change could not be confirmed. The last confirmed status is retained; you can retry.','La modification n’a pas pu être confirmée. Le dernier statut confirmé est conservé ; vous pouvez réessayer.','Die Änderung konnte nicht bestätigt werden. Der zuletzt bestätigte Status bleibt erhalten; Sie können es erneut versuchen.']
+]) {phraseTranslations.es[es]=es;phraseTranslations.en[es]=en;phraseTranslations.fr[es]=fr;phraseTranslations.de[es]=de;}

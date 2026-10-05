@@ -13,20 +13,21 @@ export const useOperationalMetrics = (kind) => {
   const [state,setState] = useState({key:null,data:null,loading:true,error:null});
   const generation = useRef(0), keyRef = useRef(key);
   keyRef.current = key;
-  const load = useCallback(async () => {
+  const load = useCallback(async (options = {}) => {
     const request = ++generation.current;
-    setState({key,data:null,loading:true,error:null});
+    let retainData=Boolean(options.preserve);
+    setState(previous=>options.preserve && previous.key===key && previous.data ? {...previous,loading:false,refreshing:true,error:null} : {key,data:null,loading:true,error:null});
     try {
       const headers = await getAuthHeaders();
       const response = await fetch(`/api/${kind}?view=metrics&${key}`,{headers,cache:'no-store'});
       const payload = await response.json();
       const nextHeaders = await getAuthHeaders();
       if (!sameOperationalRequest(request,generation.current,headers,nextHeaders) || keyRef.current !== key) return;
-      if (!response.ok) throw new Error(payload.error || 'No se pudieron confirmar los resultados.');
-      if (!shouldAcceptTenantPayload(payload,kind) || !payload.hotelId || !payload.metrics || !Array.isArray(payload[kind])) throw new Error('El contexto cambió. Actualiza para reintentar.');
+      if (!response.ok) { if ([401,403].includes(response.status)) retainData=false; throw new Error(payload.error || 'No se pudieron confirmar los resultados.'); }
+      if (!shouldAcceptTenantPayload(payload,kind) || !payload.hotelId || !payload.metrics || !Array.isArray(payload[kind])) { retainData=false; throw new Error('El contexto cambió. Actualiza para reintentar.'); }
       setState({key,data:payload,loading:false,error:null});
     } catch(error) {
-      if (request === generation.current && keyRef.current === key) setState({key,data:null,loading:false,error:error.message});
+      if (request === generation.current && keyRef.current === key) setState(previous=>({key,data:retainData && previous.key===key?previous.data:null,loading:false,error:error.message}));
     }
   },[kind,key]);
   useEffect(()=>{load();return()=>{generation.current++;};},[load]);

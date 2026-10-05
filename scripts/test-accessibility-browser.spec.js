@@ -75,7 +75,7 @@ test('field errors, native row actions and confirmation fallback remain usable',
   const name=page.getByLabel('Nombre del hotel',{exact:false});await name.fill('');await page.getByRole('button',{name:'Guardar hotel',exact:true}).click();await expect(name).toHaveAttribute('aria-invalid','true');await expect(name).toHaveAccessibleDescription(/obligatorio|vacío|nombre|requerido/i);
   await ready(page,'/dashboard/tickets');
   await page.route('http://127.0.0.1:3364/api/tickets/*/status',r=>r.fulfill({status:503,json:{error:'Synthetic save failure'}}));
-  const action=page.locator('tbody tr').first().getByRole('button',{name:'En progreso',exact:true});
+  const action=page.locator('tbody tr').first().getByRole('button',{name:'En curso',exact:true});
   const update=page.waitForResponse(r=>r.url().includes('/status')&&r.request().method()==='PATCH');
   await action.press('Enter');await update;await expect(action).toBeEnabled();await expect(page).toHaveURL(/\/dashboard\/tickets$/);
   const ticket=page.locator('tbody').getByRole('link').first();await expect(ticket).toHaveAccessibleName(/QA/);await ticket.focus();await page.keyboard.press('Enter');await expect(page).toHaveURL(/\/dashboard\/tickets\/000/);

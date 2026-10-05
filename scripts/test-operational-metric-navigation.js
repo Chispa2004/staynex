@@ -66,7 +66,7 @@ pass('actual handlers authorize before reading; archived/denied, role and foreig
 const source=readFileSync(new URL('../dashboard/lib/useOperationalMetrics.js',import.meta.url),'utf8');
 const callback=source.slice(source.indexOf('  const load = useCallback'),source.indexOf('  useEffect(()=>{load();'));
 let state={},pending=[],auth='a',key='metric=total',keyRef={current:key},generation={current:0},activeHotel=hotelId;
-const bindings={useCallback:f=>f,generation,keyRef,key,kind:'reservations',setState:v=>{state=v},getAuthHeaders:async()=>({Authorization:auth}),fetch:()=>new Promise(r=>pending.push(r)),sameOperationalRequest:(r,c,h,n)=>r===c&&JSON.stringify(h)===JSON.stringify(n),shouldAcceptTenantPayload:b=>b.hotelId===activeHotel};
+const bindings={useCallback:f=>f,generation,keyRef,key,kind:'reservations',setState:v=>{state=typeof v==='function'?v(state):v},getAuthHeaders:async()=>({Authorization:auth}),fetch:()=>new Promise(r=>pending.push(r)),sameOperationalRequest:(r,c,h,n)=>r===c&&JSON.stringify(h)===JSON.stringify(n),shouldAcceptTenantPayload:b=>b.hotelId===activeHotel};
 const loadClient=new Function(...Object.keys(bindings),callback+';return load;')(...Object.values(bindings));
 const tick=()=>new Promise(r=>setImmediate(r));const ok=()=>Response.json({hotelId,reservations:[],metrics:{total:0}});
 let work=loadClient();await tick();pending.shift()(ok());await work;assert.equal(state.loading,false);assert.equal(state.data.metrics.total,0);
@@ -75,5 +75,9 @@ work=loadClient();await tick();pending.shift()(ok());await work;assert.equal(sta
 work=loadClient();await tick();auth='b';pending.shift()(ok());await work;assert.equal(state.data,null);
 auth='a';work=loadClient();await tick();keyRef.current='metric=other';pending.shift()(ok());await work;assert.equal(state.data,null);
 keyRef.current=key;work=loadClient();await tick();activeHotel=other;pending.shift()(ok());await work;assert.equal(state.data,null);assert(state.error);
+activeHotel=hotelId;work=loadClient();await tick();pending.shift()(ok());await work;const prior=state.data;
+work=loadClient({preserve:true});await tick();assert.equal(state.data,prior);assert.equal(state.loading,false);pending.shift()(Response.json({error:'refresh failure'},{status:503}));await work;assert.equal(state.data,prior);assert.equal(state.error,'refresh failure');
+work=loadClient({preserve:true});await tick();pending.shift()(Response.json({error:'denied'},{status:403}));await work;assert.equal(state.data,null);
+work=loadClient();await tick();pending.shift()(ok());await work;work=loadClient({preserve:true});await tick();activeHotel=other;pending.shift()(ok());await work;assert.equal(state.data,null);
 pass('actual client error/retry, stale user, hotel and URL responses cannot display previous data');
 console.log(`${groups} operational metric behavior groups passed; synthetic transports, no providers.`);
