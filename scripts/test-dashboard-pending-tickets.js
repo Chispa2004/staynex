@@ -66,3 +66,22 @@ assert.equal((await detail(tickets[0].id)).status,200);assert.deepEqual(options,
 assert.equal((await detail(other)).status,404);
 accessDenied=true;before=detailReads;assert.equal((await detail(tickets[0].id)).status,403);assert.equal(detailReads,before);
 console.log('PASS real ticket detail handler: scoped read-only context, correct ticket, missing ticket and denied context');
+const namedGuest=rows.guests[0];rows.guests=[{id:namedGuest.id,hotel_id:h}];
+rows.reservations=[{id:id(9000),hotel_id:h,guest_id:namedGuest.id,guest_name:'Identidad en reserva',arrival_date:'2026-10-01'},
+  {id:id(9001),hotel_id:other,guest_id:namedGuest.id,guest_name:'Otro hotel',arrival_date:'2026-11-01'}];
+let identityFailure=null;
+const legacyDb={from(table){const query=db.from(table);let selected='';const range=query.range;query.select=columns=>{selected=columns;return query;};query.range=async(a,b)=>{
+  if(table==='guests') {
+    if(identityFailure)return {error:identityFailure};
+    const missing=['name','full_name'].find(field=>selected.split(',').includes(field));
+    if(missing)return {error:{code:'42703',message:'column guests.'+missing+' does not exist'}};
+  }
+  return range(a,b);
+};return query;}};
+const legacy=await pending.loadDashboardPendingTickets({supabase:legacyDb,hotel,origin:'other'});
+assert.equal(legacy.total,1204);assert.equal(legacy.tickets[0].guest_name,'Identidad en reserva');
+assert(!legacy.tickets.some(t=>t.guest_name==='Otro hotel'));
+rows.reservations=[];assert.equal((await pending.loadDashboardPendingTickets({supabase:legacyDb,hotel,origin:'other'})).tickets[0].guest_name,null);
+identityFailure={code:'42501',message:'permission denied for column name'};
+await assert.rejects(pending.loadDashboardPendingTickets({supabase:legacyDb,hotel,origin:'other'}),error=>error.code==='42501');
+console.log('PASS legacy guests without name/full_name: scoped reservation identity, unknown name stays absent, permission failures remain visible');

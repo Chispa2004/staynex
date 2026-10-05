@@ -8,7 +8,10 @@ if(process.argv[2]==='build') {
   const file=path.join(d,'lib/lab-fixture.js');
   let data=fs.readFileSync(file,'utf8');
   data+=`
-rows.guests=[{id:id(500),hotel_id:hotel.id,name:'Huésped sintético'}];rows.messages=[];
+rows.guests=[{id:id(500),hotel_id:hotel.id}];rows.messages=[];
+rows.reservations.push({id:id(99999),hotel_id:hotel.id,guest_id:id(500),guest_name:'Huésped sintético',arrival_date:'2026-10-01'});
+const originalFrom=operationalDb.from;
+operationalDb.from=function(table){const query=originalFrom(table);let selected='';const range=query.range;query.select=columns=>{selected=columns;return query;};query.range=async(a,b)=>{const missing=table==='guests'&&['name','full_name'].find(field=>selected.split(',').includes(field));return missing?{error:{code:'42703',message:'column guests.'+missing+' does not exist'}}:range(a,b);};return query;};
 rows.tickets=Array.from({length:507},(_,n)=>({id:id(2000+n),hotel_id:hotel.id,guest_id:id(500),conversation_id:id(100),title:'Petición de toallas · '+n,description:'Dos toallas. Datos ficticios, sin transporte.',room_number:'201',priority:'normal',category:'housekeeping',status:'open',created_at:'2026-01-01T12:00:00Z'}));
 rows.tickets[500]={...rows.tickets[500],title:'Fuga de agua · revisión urgente',priority:'urgent',created_at:new Date().toISOString()};
 rows.tickets[501]={...rows.tickets[501],title:'Aire acondicionado sin funcionar',priority:'high',status:'in_progress',created_at:new Date().toISOString()};
