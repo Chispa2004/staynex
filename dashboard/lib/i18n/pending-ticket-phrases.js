@@ -1,0 +1,23 @@
+export const pendingTicketPhrases = [
+ ['Tickets pendientes','Pending tickets','Tickets en attente','Offene Tickets'],
+ ['Abiertos, pendientes y en curso','Open, pending and in progress','Ouverts, en attente et en cours','Offen, ausstehend und in Bearbeitung'],
+ ['Actualizar tickets','Refresh tickets','Actualiser les tickets','Tickets aktualisieren'],
+ ['Origen de los tickets','Ticket origin','Origine des tickets','Ticketherkunft'],
+ ['Sin marca de simulación','Not marked as simulated','Sans marque de simulation','Nicht als simuliert markiert'],
+ ['{count} pendientes','{count} pending','{count} en attente','{count} offen'],
+ ['No se pudieron actualizar los tickets. Se muestran datos anteriores.','Tickets could not be refreshed. Previous data is shown.','Actualisation impossible. Les données précédentes sont affichées.','Tickets konnten nicht aktualisiert werden. Vorherige Daten werden angezeigt.'],
+ ['No se pudieron cargar los tickets.','Tickets could not be loaded.','Impossible de charger les tickets.','Tickets konnten nicht geladen werden.'],
+ ['Reintentar tickets','Retry tickets','Réessayer les tickets','Tickets erneut laden'],
+ ['Actualizando tickets…','Refreshing tickets…','Actualisation des tickets…','Tickets werden aktualisiert…'],
+ ['Cargando tickets…','Loading tickets…','Chargement des tickets…','Tickets werden geladen…'],
+ ['Fecha no disponible','Date unavailable','Date indisponible','Datum nicht verfügbar'],
+ ['Solicitud sin título','Untitled request','Demande sans titre','Anfrage ohne Titel'],
+ ['Habitación {room}','Room {room}','Chambre {room}','Zimmer {room}'],
+ ['Habitación no indicada','Room not specified','Chambre non indiquée','Zimmer nicht angegeben'],
+ ['Nuevo','New','Nouveau','Neu'],
+ ['Creado en las últimas 24 horas; no indica lectura.','Created in the last 24 hours; this does not indicate read status.','Créé dans les dernières 24 heures ; ne représente pas la lecture.','In den letzten 24 Stunden erstellt; keine Aussage zum Lesestatus.'],
+ ['No hay tickets pendientes en este origen.','No pending tickets for this origin.','Aucun ticket en attente pour cette origine.','Keine offenen Tickets für diese Herkunft.'],
+ ['Ver todos los pendientes','View all pending tickets','Voir tous les tickets en attente','Alle offenen Tickets anzeigen'],
+ ['Volver al Dashboard','Back to Dashboard','Retour au tableau de bord','Zurück zum Dashboard'],
+ ['Se excluyen tickets completados, resueltos, cerrados y cancelados.','Completed, resolved, closed and cancelled tickets are excluded.','Les tickets terminés, résolus, fermés et annulés sont exclus.','Abgeschlossene, gelöste, geschlossene und stornierte Tickets sind ausgeschlossen.']
+];

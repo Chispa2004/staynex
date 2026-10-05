@@ -64,6 +64,8 @@ jobs:
         run: npm run test:accessibility-browser
       - name: Production Inbox selection history and refresh regressions
         run: npm run test:inbox-stability-browser
+      - name: Dashboard pending tickets layout keyboard and isolation regressions
+        run: npm run test:dashboard-pending-browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -73,6 +75,7 @@ jobs:
             .npm-cache/density-browser-results
             .npm-cache/accessibility-browser-results
             .npm-cache/inbox-stability-results
+            .npm-cache/pending-ticket-browser-results
           include-hidden-files: true
           retention-days: 7
 

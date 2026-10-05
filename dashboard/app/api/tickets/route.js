@@ -4,10 +4,19 @@ import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess } from '@/lib/permissions';
 import { getTickets, getTicketsByCategories } from '@/lib/tickets';
+import {loadDashboardPendingTickets} from '@/lib/pending-tickets';
 
 export async function GET(request) {
   try {
     const { supabase, hotel, role, accessDenied } = await getCurrentHotelForRequest(request, { readOnly: true, includeDirectory: false });
+    if (new URL(request.url).searchParams.get('view') === 'pending') {
+      const params=new URL(request.url).searchParams;
+      if (accessDenied || !hotel?.id || !canAccess(role,'tickets') || (params.get('hotelId') && params.get('hotelId')!==hotel.id))
+        return NextResponse.json({error:'Acceso al hotel denegado.'},{status:403});
+      const origin=params.get('ticketOrigin') || 'other';
+      if(!['other','simulated'].includes(origin)) return NextResponse.json({error:'Filtro de tickets no válido.'},{status:400});
+      return NextResponse.json(await loadDashboardPendingTickets({supabase,hotel,origin}),{headers:{'Cache-Control':'no-store'}});
+    }
     if (new URL(request.url).searchParams.get('view') === 'metrics') {
       if (accessDenied || !hotel?.id || !canAccess(role, 'tickets')) return NextResponse.json({error:'Acceso al hotel denegado.'},{status:403});
       const filter = parseOperationalFilter(new URL(request.url).searchParams, 'tickets');

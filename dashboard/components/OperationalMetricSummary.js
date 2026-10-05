@@ -5,7 +5,7 @@ import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 export const operationalLabels = {
   urgent_risk:'Riesgo urgente', satisfaction_risk:'Satisfacción en riesgo', ai_prioritized:'Priorizados por IA',
   total:'Reservas totales',arrivingSoon:'Llegadas en 7 días',stayingNow:'Alojados ahora',completed:'Estancias completadas',
-  all:'Todos',upcoming:'Próximas',in_house:'Alojados ahora',cancelled:'Canceladas',today_arrivals:'Llegadas hoy',today_departures:'Salidas hoy'
+  pending:'Tickets pendientes',all:'Todos',upcoming:'Próximas',in_house:'Alojados ahora',cancelled:'Canceladas',today_arrivals:'Llegadas hoy',today_departures:'Salidas hoy'
 };
 export const OperationalMetricSummary = ({metrics,kind,href,loading,error,compact=false}) => {
   const {tx:t}=useDashboardLanguage(),{theme}=useDashboardTheme();
@@ -15,11 +15,12 @@ export const OperationalMetricSummary = ({metrics,kind,href,loading,error,compac
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <p className="font-semibold">{t('Filtro operativo')}: {t(operationalLabels[filter.metric])}</p>
       <p role="status">{t(kind==='tickets'?'{count} tickets':'{count} reservas',{count:total})}</p>
-      <p>{kind==='tickets'?t('Estado actual · todos los estados del ticket'): `${filter.date} · ${timezone}`}</p>
+      <p>{kind==='tickets'?t(filter.metric==='pending'?'Abiertos, pendientes y en curso':'Estado actual · todos los estados del ticket'): `${filter.date} · ${timezone}`}</p>
+      {kind==='tickets' && filter.metric==='pending'?<p>{t(filter.ticketOrigin==='simulated'?'SIMULADO':filter.ticketOrigin==='other'?'Sin marca de simulación':'Todos los orígenes')}</p>:null}
       <Link href={href({metric:'all',q:null,status:null,priority:null,category:null})} className="rounded py-1 underline focus-visible:ring-2 focus-visible:ring-emerald-500">{t('Retirar filtros')}</Link>
     <details onKeyDown={event=>{if(event.key==='Escape'&&event.currentTarget.open&&!event.isComposing){event.preventDefault();event.stopPropagation();event.currentTarget.open=false;event.currentTarget.querySelector('summary')?.focus();}}} className="min-w-0 open:basis-full">
       <summary className="w-fit cursor-pointer rounded py-1 underline focus-visible:ring-2 focus-visible:ring-emerald-500">{t('Acerca de estos resultados')}</summary>
-      {kind==='tickets'?<p>{t('Estos recuentos incluyen tickets de cualquier estado; utiliza los filtros para acotar la cola.')}</p>:null}
+      {kind==='tickets'?<p>{t(filter.metric==='pending'?'Se excluyen tickets completados, resueltos, cerrados y cancelados.':'Estos recuentos incluyen tickets de cualquier estado; utiliza los filtros para acotar la cola.')}</p>:null}
       {filter.metric==='arrivingSoon'?<p>{t('Desde la fecha indicada hasta siete días después, ambos inclusive.')}</p>:null}
       <p>{t('El resultado se actualiza al consultar; puede cambiar respecto a la tarjeta.')}</p>
     </details>

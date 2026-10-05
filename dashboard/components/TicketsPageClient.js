@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import {DashboardReturnLink} from './DashboardReturnLink';
 import { AlertCircle, BrainCircuit, ShieldAlert, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { TicketsTable } from '@/components/TicketsTable';
@@ -17,6 +18,7 @@ export const TicketsPageClient = () => {
   const surface=isLight?'border-slate-200 bg-white text-slate-900':'border-white/10 bg-white/[0.04] text-slate-100';
   const insights=[['urgent_risk',ShieldAlert],['satisfaction_risk',AlertCircle],['ai_prioritized',BrainCircuit]];
   return <section data-density-page className="space-y-4">
+    <DashboardReturnLink />
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <PageHeader titleKey="screens.tickets" descriptionKey="screens.ticketsDescription" />
       <button type="button" onClick={list.load} className={`rounded-lg border px-4 py-2 text-sm font-semibold focus-visible:ring-2 focus-visible:ring-emerald-500 ${surface}`}>{t('buttons.refresh')}</button>

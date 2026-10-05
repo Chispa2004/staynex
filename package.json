@@ -118,7 +118,9 @@
     "test:accessibility-browser": "node scripts/accessibility-lab.cjs build && playwright test --config scripts/accessibility-browser.config.js",
     "test:inbox-stability-browser": "playwright test --config scripts/inbox-stability-browser.config.js",
     "test:operational-requests": "node scripts/test-operational-requests.js",
-    "test:operational-requests-postgres": "node scripts/test-operational-requests-postgres.js"
+    "test:operational-requests-postgres": "node scripts/test-operational-requests-postgres.js",
+    "test:dashboard-pending-tickets": "node scripts/test-dashboard-pending-tickets.js",
+    "test:dashboard-pending-browser": "node scripts/pending-tickets-lab.cjs build && playwright test --config scripts/pending-tickets-browser.config.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

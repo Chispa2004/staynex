@@ -6,9 +6,9 @@ import { getTicketDetail } from '@/lib/tickets';
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
-    const { supabase, hotel, role } = await getCurrentHotelForRequest(request);
+    const { supabase, hotel, role, accessDenied } = await getCurrentHotelForRequest(request, {readOnly:true,includeDirectory:false});
 
-    if (!canAccess(role, 'tickets') && !canAccess(role, 'housekeeping') && !canAccess(role, 'maintenance')) {
+    if (accessDenied || !hotel?.id || (!canAccess(role, 'tickets') && !canAccess(role, 'housekeeping') && !canAccess(role, 'maintenance'))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
