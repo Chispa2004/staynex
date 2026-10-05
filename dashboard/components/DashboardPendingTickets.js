@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import {TicketStatusBadge} from './TicketStatus';
 import {useSearchParams} from 'next/navigation';
 import {TicketCheck,RefreshCw,ChevronRight} from 'lucide-react';
 import {usePendingTickets} from '@/lib/usePendingTickets';
@@ -8,7 +9,6 @@ import {dashboardTicketContext} from '../../shared/pending-tickets.js';
 import styles from './HotelOperations.module.css';
 
 const priorities={urgent:'Urgente',high:'Alta',normal:'Normal',low:'Baja'};
-const statuses={open:'Abierto',pending:'Pendiente',in_progress:'En curso'};
 export function DashboardPendingTickets({refreshVersion=0}) {
   const params=useSearchParams(),{tx,language}=useDashboardLanguage();
   const origin=params.get('ticketOrigin')==='simulated'?'simulated':'other';
@@ -34,7 +34,7 @@ export function DashboardPendingTickets({refreshVersion=0}) {
         <p className={styles.subtitle}>{ticket.room_number?tx('Habitación {room}',{room:ticket.room_number}):tx('Habitación no indicada')}{ticket.guest_name?' · '+ticket.guest_name:''}</p>
         <div className={styles.ticketMeta}>
           <span className={styles.badge} data-tone={ticket.effectivePriority==='urgent'?'red':ticket.effectivePriority==='high'?'amber':'slate'}>{tx(priorities[ticket.effectivePriority]||'Normal')}</span>
-          <span className={styles.badge}>{tx(statuses[ticket.status]||ticket.status)}</span>
+          <TicketStatusBadge status={ticket.status}/>
           {ticket.isNew?<span className={styles.badge} data-tone="sky" title={tx('Creado en las últimas 24 horas; no indica lectura.')}>{tx('Nuevo')}</span>:null}
           {origin==='simulated'?<span className={styles.time}>{tx('SIMULADO')}</span>:null}
           <time className={styles.time} dateTime={ticket.created_at}>{date(ticket.created_at)}</time>

@@ -1,5 +1,6 @@
 'use client';
 
+import {ticketStatusLabel} from './TicketStatus';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 
@@ -17,7 +18,7 @@ export const TicketFilters = ({
   priorities,
   statuses
 }) => {
-  const { t } = useDashboardLanguage();
+  const { t,tx } = useDashboardLanguage();
   const {theme}=useDashboardTheme();
   const filterClass = `rounded-lg border px-3 py-2.5 text-sm focus-visible:ring-2 focus-visible:ring-emerald-500 ${theme==='light'?'border-slate-200 bg-white text-slate-900':'border-white/10 bg-[#0b1019] text-slate-200'}`;
 
@@ -32,7 +33,7 @@ export const TicketFilters = ({
         >
           <option value="all">{t('filters.all')}</option>
           {statuses.map((status) => (
-            <option key={status} value={status}>{t(`status.${status}`)}</option>
+            <option key={status} value={status}>{tx(ticketStatusLabel(status))}</option>
           ))}
         </select>
       </label>

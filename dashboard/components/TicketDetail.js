@@ -5,16 +5,11 @@ import {DashboardReturnLink} from './DashboardReturnLink';
 import { getTicketResolutionCopy } from '@/lib/ticket-resolution';
 import {useDashboardLanguage} from '@/lib/i18n/useDashboardLanguage';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BrainCircuit, CheckCircle2, Circle, Loader2, PlayCircle, ShieldAlert } from 'lucide-react';
-import { PriorityBadge, StatusBadge } from './Badge';
-import { getAuthHeaders } from '@/lib/auth-headers';
+import { ArrowLeft, BrainCircuit, ShieldAlert } from 'lucide-react';
+import { PriorityBadge } from './Badge';
+import {TicketStatusBadge,TicketStatusActions} from './TicketStatus';
+import {useTicketStatusMutation} from '@/lib/useTicketStatusMutation';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-
-const STATUS_ACTIONS = [
-  { value: 'open', label: 'Abrir', icon: Circle },
-  { value: 'in_progress', label: 'En progreso', icon: PlayCircle },
-  { value: 'completed', label: 'Completar', icon: CheckCircle2 }
-];
 
 const formatDate = (value) => {
   if (!value) {
@@ -118,8 +113,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
   const {tx}=useDashboardLanguage();
   const [ticket, setTicket] = useState(initialTicket);
   const [messages, setMessages] = useState(initialMessages);
-  const [updating, setUpdating] = useState(false);
-  const [error, setError] = useState(null);
+  const mutation=useTicketStatusMutation({hotelId:initialTicket.hotel_id,onConfirmed:updated=>setTicket(current=>({...current,...updated}))});
   const realtimeEnabled = useMemo(() => Boolean(getSupabaseBrowser()), []);
 
   useEffect(() => {
@@ -180,34 +174,6 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
     };
   }, [initialTicket.id, initialTicket.conversation_id, initialTicket.hotel_id]);
 
-  const updateStatus = async (status) => {
-    setUpdating(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/tickets/${ticket.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          ...(await getAuthHeaders()),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status })
-      });
-
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'No se pudo actualizar el estado del ticket');
-      }
-
-      setTicket((current) => ({ ...current, ...body.ticket }));
-    } catch (caughtError) {
-      setError(caughtError.message);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -239,42 +205,8 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {STATUS_ACTIONS.map((action) => {
-              const Icon = action.icon;
-              const active = ticket.status === action.value;
-
-              return (
-                <button
-                  key={action.value}
-                  type="button"
-                  disabled={active || updating}
-                  onClick={() => updateStatus(action.value)}
-                  className={[
-                    'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
-                    active
-                      ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100'
-                      : 'border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08] hover:text-white',
-                    updating ? 'cursor-wait opacity-70' : ''
-                  ].join(' ')}
-                >
-                  {updating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  )}
-                  {action.label}
-                </button>
-              );
-            })}
-          </div>
+          <TicketStatusActions ticket={ticket} pending={mutation.pending[ticket.id]} error={mutation.errors[ticket.id]} onChange={status=>mutation.change(ticket,status)}/>
         </div>
-
-        {error ? (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            No se pudo actualizar el ticket. Vuelve a intentarlo desde la cola.
-          </div>
-        ) : null}
 
         <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
@@ -291,7 +223,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
           </div>
           <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
             <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Estado</dt>
-            <dd className="mt-2"><StatusBadge status={ticket.status} /></dd>
+            <dd className="mt-2"><TicketStatusBadge status={ticket.status} /></dd>
           </div>
           <div className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
             <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Fecha</dt>

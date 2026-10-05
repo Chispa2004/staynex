@@ -1,0 +1,29 @@
+.list { min-width:0; }
+.count { margin:0 0 8px; color:#94a3b8; font-size:12px; }
+.desktop,.card { border:1px solid #334155; border-radius:10px; background:#0b1019; }
+.desktop { overflow:hidden; }
+.table { width:100%; table-layout:fixed; border-collapse:collapse; }
+.table th { padding:10px; text-align:left; font-size:11px; font-weight:600; text-transform:uppercase; color:#94a3b8; overflow-wrap:anywhere; }
+.table td { padding:12px 10px; vertical-align:top; border-top:1px solid #334155; }
+.title { margin:0; font-size:14px; font-weight:600; color:#f1f5f9; overflow-wrap:anywhere; }
+.title a { border-radius:3px; }
+.title a:focus-visible { outline:3px solid #38bdf8; outline-offset:3px; }
+.room { margin:4px 0 0; font-size:12px; font-weight:600; color:#cbd5e1; overflow-wrap:anywhere; }
+.description { margin:6px 0 0; font-size:12px; line-height:1.5; color:#94a3b8; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+.category { display:flex; flex-wrap:wrap; gap:5px; align-items:center; font-size:12px; color:#cbd5e1; overflow-wrap:anywhere; }
+.date { display:flex; flex-direction:column; align-items:flex-start; gap:6px; color:#94a3b8; font-size:12px; overflow-wrap:anywhere; }
+.mobile { display:none; }
+.empty { padding:24px; border:1px dashed #64748b; border-radius:10px; color:#cbd5e1; }
+:global(.theme-light) .desktop,:global(.theme-light) .card { background:#fff; border-color:#cbd5e1; }
+:global(.theme-light) .table td { border-color:#e2e8f0; }
+:global(.theme-light) .title { color:#0f172a; }
+:global(.theme-light) .room,:global(.theme-light) .category,:global(.theme-light) .empty { color:#334155; }
+:global(.theme-light) .meta { color:#475569; }
+:global(.theme-light) .description,:global(.theme-light) .date,:global(.theme-light) .count,:global(.theme-light) .table th { color:#475569; }
+@media(max-width:1100px) {
+ .desktop { display:none; }
+ .mobile { display:grid; gap:10px; }
+ .card { padding:12px; min-width:0; }
+ .meta { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0; font-size:12px; color:#94a3b8; }
+ .card .date { flex-direction:row; flex-wrap:wrap; margin-bottom:12px; }
+}
