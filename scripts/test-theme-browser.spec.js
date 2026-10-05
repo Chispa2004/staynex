@@ -71,6 +71,12 @@ for(const selected of ['light','dark']) for(const width of [1366,390]) {
       const endpoint={'/dashboard':'/api/executive-dashboard','/dashboard/inbox':'/api/inbox','/dashboard/tickets':'/api/tickets?','/dashboard/reservations':'/api/reservations?','/dashboard/health':'/api/health/hotel','/dashboard/onboarding':'/api/onboarding/state','/dashboard/settings/pms':'/api/pms-connections'}[url];
       const response=page.waitForResponse(r=>r.url().includes(endpoint)&&r.status()===200);await page.goto(url);await response;await expect(page.locator('main').first()).toBeVisible();await expect(page.locator('[data-workspace-loading]')).toHaveCount(0);await expect(page.getByRole('status').filter({hasText:/Consultando|Preparando|Comprobando/})).toHaveCount(0);
       console.log('Contrast screen',selected,width,url);
+      if(url==='/dashboard/settings/pms') {
+        // The response arrives before React reenables this button and its
+        // disabled-opacity transition finishes. Measure the settled control.
+        const refresh=page.getByRole('button',{name:'Actualizar estado',exact:true});
+        await expect(refresh).toBeEnabled();await expect(refresh).toHaveCSS('opacity','1');
+      }
       await expect.poll(async()=> (await page.evaluate(measureContrast)).length).toBeGreaterThan(20);
       const rows=await page.evaluate(measureContrast);
       expect(rows.length,`${url} rendered meaningful content`).toBeGreaterThan(20);
