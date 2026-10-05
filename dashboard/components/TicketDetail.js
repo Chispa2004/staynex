@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {DashboardReturnLink} from './DashboardReturnLink';
 import { getTicketResolutionCopy } from '@/lib/ticket-resolution';
 import {useDashboardLanguage} from '@/lib/i18n/useDashboardLanguage';
 import { useEffect, useMemo, useState } from 'react';
@@ -217,6 +218,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Volver a tickets
         </Link>
+        <DashboardReturnLink />
 
         {ticket.conversation_id ? <Link href={'/dashboard/inbox?conversationId='+encodeURIComponent(ticket.conversation_id)}
           className="text-sm underline">{tx('Volver a la conversación')}</Link> : null}

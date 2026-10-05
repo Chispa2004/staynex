@@ -1,3 +1,5 @@
+import * as pages from '../dashboard/lib/operational-pages.js';
+import * as pendingTickets from '../dashboard/lib/pending-tickets.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -43,7 +45,7 @@ let calls=[],failPage=false,changeDetail=false;
 const many=Array.from({length:1207},(_,n)=>reservation(n,{guest_id:id(5000+n),arrival_date:'2026-09-30'}));
 function dbFor(allRows){return {from(table){let eqs=[],ids=null;const q={select(){return q},eq(k,v){eqs.push([k,v]);return q},in(k,v){ids=[k,v];return q},order(){return q},limit(){return q},then(resolve,reject){return Promise.resolve(q.range(0,10000)).then(resolve,reject)},async range(a,b){calls.push({table,a,b,eqs});assert(eqs.some(([k,v])=>k==='hotel_id'&&v===hotelId));if(failPage && a===500)return {error:{message:'partial read failed'}};let rows=table==='reservations'?allRows:table==='tickets'?allRows:[];if(ids)rows=rows.filter(r=>ids[1].includes(r[ids[0]]));if(changeDetail&&ids&&table==='reservations')rows=rows.map(r=>({...r,status:'cancelled'}));return {data:rows.slice(a,b+1)}}};return q}};}
 const ticketLibrary=await compile('../dashboard/lib/tickets.js',{'./supabase':{getSupabaseAdmin:()=>{throw Error('No live database')}},'./enterprise-audit':{writeEnterpriseAuditLog:()=>{throw Error('No writes')}},'./ai-copilot':{buildTicketCopilot}});
-const loader=await compile('../dashboard/lib/operational-metrics.js',{'./ai-copilot.js':{buildTicketCopilot},'./tickets.js':ticketLibrary,'../../shared/operational-metrics.js':contract});
+const loader=await compile('../dashboard/lib/operational-metrics.js',{'./ai-copilot.js':{buildTicketCopilot},'./tickets.js':ticketLibrary,'./operational-pages.js':pages,'./pending-tickets.js':pendingTickets,'../../shared/operational-metrics.js':contract});
 result=await loader.loadOperationalMetrics({supabase:dbFor(many),hotel,kind:'reservations',filter:parse('reservations','metric=total&page=121'),now});
 assert.equal(result.total,1207);assert.equal(result.page,121);assert.equal(result.items.length,7);assert(calls.some(c=>c.a===1000));assert.equal(result.stats.total,1207);
 const larger=Array.from({length:1207},(_,n)=>ticket(n,{priority:n%2?'urgent':'low'}));result=await loader.loadOperationalMetrics({supabase:dbFor(larger),hotel,kind:'tickets',filter:parse('tickets','metric=urgent_risk&page=2'),now});assert.equal(result.total,603);assert.equal(result.items.length,10);
@@ -53,7 +55,7 @@ result=await loader.loadOperationalMetrics({supabase:dbFor(many),hotel,kind:'res
 pass('partial source failure never succeeds; changed membership refused, zero distinct from errors, recovery');
 let role='admin',accessDenied=false,contextHotel=hotel,readOptions,loaderCalls=0;
 for(const kind of ['tickets','reservations']){
- const route=await compile('../dashboard/app/api/'+kind+'/route.js',{'next/server':{NextResponse:Response},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,options)=>{readOptions=options;return {hotel:contextHotel,role,accessDenied,supabase:dbFor(kind==='tickets'?larger:many)}}},'@/lib/permissions':permissions,'@/lib/tickets':ticketLibrary,'../../../../shared/operational-metrics.js':contract,'@/lib/operational-metrics':{loadOperationalMetrics:args=>{loaderCalls++;return loader.loadOperationalMetrics({...args,now})}}});
+ const route=await compile('../dashboard/app/api/'+kind+'/route.js',{'next/server':{NextResponse:Response},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,options)=>{readOptions=options;return {hotel:contextHotel,role,accessDenied,supabase:dbFor(kind==='tickets'?larger:many)}}},'@/lib/permissions':permissions,'@/lib/tickets':ticketLibrary,'@/lib/pending-tickets':pendingTickets,'../../../../shared/operational-metrics.js':contract,'@/lib/operational-metrics':{loadOperationalMetrics:args=>{loaderCalls++;return loader.loadOperationalMetrics({...args,now})}}});
  const req=()=>new Request('https://synthetic.invalid/api/'+kind+'?view=metrics&metric='+OPERATIONAL_CARDS[kind][0]+'&hotelId='+hotelId);
  let response=await route.GET(req());assert.equal(response.status,200);assert.deepEqual(readOptions,{readOnly:true,includeDirectory:false});assert.equal(response.headers.get('Cache-Control'),'no-store');const body=await response.json();assert(body[kind].length<=10);
  const before=loaderCalls;accessDenied=true;assert.equal((await route.GET(req())).status,403);accessDenied=false;contextHotel={...hotel,id:other};assert.equal((await route.GET(req())).status,403);contextHotel=hotel;role='housekeeping';assert.equal((await route.GET(req())).status,403);role='admin';assert.equal(loaderCalls,before);

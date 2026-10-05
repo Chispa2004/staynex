@@ -2,27 +2,17 @@ import { buildTicketCopilot } from './ai-copilot.js';
 import { attachTicketCopilot } from './tickets.js';
 import { reservationState, selectOperationalRows } from '../../shared/operational-metrics.js';
 
-// Server-only complete scan. Never return the full inventory to the browser.
-export async function readOperationalPages(supabase, table, columns, hotelId, configure = q => q) {
-  const rows = [];
-  for (let offset = 0;; offset += 500) {
-    const {data,error} = await configure(supabase.from(table).select(columns).eq('hotel_id',hotelId)).order('id',{ascending:true}).range(offset,offset+499);
-    if (error) throw error;
-    if (!Array.isArray(data)) throw new Error('Lectura operativa incompleta.');
-    if (data.some(row => row.hotel_id && row.hotel_id !== hotelId)) throw Object.assign(new Error('Acceso al hotel denegado.'),{status:403});
-    rows.push(...data);
-    if (data.length < 500) {
-      if (new Set(rows.map(row=>row.id)).size !== rows.length) throw new Error('Los registros cambiaron durante la lectura. Actualiza para reintentar.');
-      return rows;
-    }
-  }
-}
+import {readOperationalPages} from './operational-pages.js';
+export {readOperationalPages} from './operational-pages.js';
+import {loadPendingTicketRows} from './pending-tickets.js';
 export async function loadOperationalMetrics({supabase,hotel,kind,filter,now}) {
   const hotelId = hotel.id;
   const columns = kind === 'tickets'
     ? 'id,hotel_id,room_number,category,priority,status,created_at,completed_at,title,description,conversation_id,guest_id'
     : 'id,hotel_id,status,arrival_date,departure_date,guest_name,guest_email,guest_phone,pms_reservation_id,reservation_access_token';
-  let rows = await readOperationalPages(supabase,kind,columns,hotelId);
+  let rows = kind === 'tickets' && filter.metric === 'pending'
+    ? await loadPendingTicketRows({supabase,hotel,origin:filter.ticketOrigin,now})
+    : await readOperationalPages(supabase,kind,columns,hotelId);
   if (kind === 'tickets') rows = rows.map(row=>({...row,copilot:buildTicketCopilot(row,[])}));
   rows.sort(kind === 'tickets'
     ? (a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')) || a.id.localeCompare(b.id)

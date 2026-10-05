@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import Link from 'next/link';
+import {DashboardPendingTickets} from './DashboardPendingTickets';
 import { useSearchParams } from 'next/navigation';
 import { messageMetricHref } from '../../shared/message-attention/metrics.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -145,6 +146,7 @@ export const ExecutiveDashboardClient = () => {
   const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
   const [data, setData] = useState(null);
+  const [ticketRefresh,setTicketRefresh]=useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -257,7 +259,7 @@ export const ExecutiveDashboardClient = () => {
         role={role}
         loading={loading}
         refreshing={refreshing}
-        onRefresh={() => loadDashboard()}
+        onRefresh={() => {loadDashboard();setTicketRefresh(v=>v+1);}}
       />
 
       {error ? (
@@ -284,8 +286,9 @@ export const ExecutiveDashboardClient = () => {
             urgentOnly={urgentOnly} nextCursor={operationalWorkspace.messageWorkspace?.nextCursor} hasCursor={Boolean(attentionCursor)}
             onPage={cursor => {setLoading(true);setAttentionCursor(cursor);}} />
         </div>
-        <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
+        <DashboardPendingTickets refreshVersion={ticketRefresh} />
       </div>
+      <ServiceStatusStrip services={serviceStrip} loading={loading} permissions={permissions} />
     </section>
   );
 };

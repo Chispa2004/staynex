@@ -1,3 +1,4 @@
+import {isPendingTicket} from './pending-tickets.js';
 // Read-only, shared definitions for the existing Tickets and Reservations cards.
 export const OPERATIONAL_CARDS = {
   tickets: ['urgent_risk', 'satisfaction_risk', 'ai_prioritized'],
@@ -22,6 +23,7 @@ export const reservationState = (row, day) => {
 export function operationalMatch(kind, row, metric, day) {
   if (metric === 'all' || metric === 'total') return true;
   if (kind === 'tickets') {
+    if (metric === 'pending') return isPendingTicket(row);
     if (metric === 'urgent_risk') return row.copilot?.aiPriority?.level === 'urgent' || row.priority === 'urgent';
     if (metric === 'satisfaction_risk') return row.copilot?.satisfactionRisk?.level === 'high';
     if (metric === 'ai_prioritized') return Boolean(row.copilot?.aiPriority?.level && row.copilot.aiPriority.level !== 'low');
@@ -36,19 +38,21 @@ export function operationalMatch(kind, row, metric, day) {
 }
 const invalid = () => Object.assign(new Error('Filtro operativo no válido.'), { status: 400 });
 export function parseOperationalFilter(params, kind) {
-  const allowed = kind === 'tickets' ? [...OPERATIONAL_CARDS.tickets, 'all'] : [...OPERATIONAL_CARDS.reservations, 'all', 'upcoming', 'in_house', 'cancelled', 'today_arrivals', 'today_departures'];
+  const allowed = kind === 'tickets' ? [...OPERATIONAL_CARDS.tickets, 'all', 'pending'] : [...OPERATIONAL_CARDS.reservations, 'all', 'upcoming', 'in_house', 'cancelled', 'today_arrivals', 'today_departures'];
   const metric = params.get('metric') || (kind === 'tickets' ? 'all' : 'upcoming');
   const date = params.get('date');
   const hotelId = params.get('hotelId');
   const page = Number(params.get('page') || 1), pageSize = Number(params.get('pageSize') || 10);
   const q = params.get('q') || '';
+  const ticketOrigin = params.get('ticketOrigin') || 'all';
+  if (!['all','other','simulated'].includes(ticketOrigin) || (kind !== 'tickets' && ticketOrigin !== 'all')) throw invalid();
   const status = params.get('status') || 'all', priority = params.get('priority') || 'all', category = params.get('category') || 'all';
   if (!allowed.includes(metric) || !Number.isSafeInteger(page) || page < 1 || ![10,25,50].includes(pageSize) || q.length > 200) throw invalid();
   if (hotelId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(hotelId)) throw invalid();
   if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0,10) !== date)) throw invalid();
   if (!['all','open','in_progress','completed'].includes(status) || !['all','low','normal','high','urgent'].includes(priority) || !/^[a-z_]{1,50}$/.test(category)) throw invalid();
   if (kind === 'reservations' && (status !== 'all' || priority !== 'all' || category !== 'all')) throw invalid();
-  return {metric,date,hotelId,page,pageSize,q,status,priority,category};
+  return {metric,date,hotelId,page,pageSize,q,status,priority,category,ticketOrigin};
 }
 export function selectOperationalRows(kind, rows, filter, {hotelId, timezone, now = new Date().toISOString()}) {
   if (!hotelId || (filter.hotelId && filter.hotelId !== hotelId) || rows.some(r => r.hotel_id !== hotelId)) throw Object.assign(new Error('Acceso al hotel denegado.'), {status:403});
