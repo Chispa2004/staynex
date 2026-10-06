@@ -1,3 +1,4 @@
+import * as demoView from '../shared/checkin-demo-view.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -48,7 +49,7 @@ console.log('PASS same pending criterion in full list and bounded Dashboard retu
 let role='admin',accessDenied=false,contextHotel=hotel,reads=0,options;
 const source=readFileSync(new URL('../dashboard/app/api/tickets/route.js',import.meta.url),'utf8');
 const {code}=await swc.transform(source,{filename:'route.js',jsc:{parser:{syntax:'ecmascript'}},module:{type:'commonjs'}});
-const mocks={'next/server':{NextResponse:Response},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,opts)=>{options=opts;return {supabase:db,hotel:contextHotel,role,accessDenied}}},'@/lib/permissions':permissions,'@/lib/tickets':{},'../../../../shared/operational-metrics.js':metrics,'@/lib/operational-metrics':{},'@/lib/pending-tickets':{loadDashboardPendingTickets:args=>{reads++;return pending.loadDashboardPendingTickets(args)}}};
+const mocks={'../../../../shared/checkin-demo-view.js':demoView,'next/server':{NextResponse:Response},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,opts)=>{options=opts;return {supabase:db,hotel:contextHotel,role,accessDenied}}},'@/lib/permissions':permissions,'@/lib/tickets':{},'../../../../shared/operational-metrics.js':metrics,'@/lib/operational-metrics':{},'@/lib/pending-tickets':{loadDashboardPendingTickets:args=>{reads++;return pending.loadDashboardPendingTickets(args)}}};
 const module={exports:{}};new Function('require','module','exports',code)(name=>{assert(name in mocks,name);return mocks[name]},module,module.exports);
 const get=query=>module.exports.GET(new Request('https://synthetic.invalid/api/tickets?view=pending&'+query));
 assert.equal((await get('hotelId='+h)).status,200);assert.deepEqual(options,{readOnly:true,includeDirectory:false});

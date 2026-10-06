@@ -18,7 +18,7 @@ export async function GET(request) {
     if(detailId && !/^[0-9a-f-]{36}$/i.test(detailId))return NextResponse.json({error:'Conversación inválida'},{status:400});
     const filter=detailId ? null : parseMessageMetric(params);
     if (filter && filter.hotelId!==hotel.id) return NextResponse.json({error:'El filtro pertenece a otro hotel.'},{status:403});
-    const metric=filter ? selectMessageMetric(await loadMessageMetrics({supabase,hotel,origin:filter.origin,date:filter.date || undefined}),filter) : null;
+    const metric=filter ? selectMessageMetric(await loadMessageMetrics({supabase,hotel,origin:filter.origin,date:filter.date || undefined,period:filter.period}),filter) : null;
     const conversations = await getInboxConversations({
       supabase,
       hotel,

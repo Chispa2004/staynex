@@ -1,3 +1,7 @@
+import {loadMessageMetrics} from '../../dashboard/lib/message-metrics.js';
+import {attentionOrigin} from '../../shared/message-attention/metrics.js';
+import {isAttentionMessage,attentionDashboardUnavailable} from '../../shared/message-attention/contract.js';
+import {isCheckinDemoHotel} from '../../shared/checkin-demo-view.js';
 import * as boundary from '../../shared/guest-memory/personalization-boundary.js';
 import * as serviceQuality from '../../shared/guest-service/quality.js';
 import assert from 'node:assert/strict';
@@ -31,8 +35,9 @@ const spyDb = () => {
 
 export const assertExecutiveMemoryOff = async () => {
   const supabase = spyDb();
+  const {loadDashboardMessages}=load('dashboard/lib/dashboard-messages.js',{loadMessageMetrics,attentionOrigin,isAttentionMessage,attentionDashboardUnavailable,isCheckinDemoHotel,getInboxConversations:async()=>{throw Error('No messages to enrich')}},['loadDashboardMessages']);
   const { GET } = load('dashboard/app/api/executive-dashboard/route.js', {
-    NextResponse, canAccess, getCurrentHotelForRequest: async () => ({ supabase, hotel: { id: 'synthetic', timezone: 'UTC' }, role: 'admin' }),
+    NextResponse, canAccess, loadDashboardMessages, isCheckinDemoHotel, getCurrentHotelForRequest: async () => ({ supabase, hotel: { id: 'synthetic', timezone: 'UTC' }, role: 'admin' }),
     buildConversationDashboard, loadConversationDashboardSources, loadAttentionDashboard,
     pmsConnectionSelectForSurface, serializePmsConnectionsSafe, getPilotAiSafetyReadiness
   }, ['GET']);

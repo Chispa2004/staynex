@@ -1,3 +1,4 @@
+import * as demoView from '../shared/checkin-demo-view.js';
 import * as pages from '../dashboard/lib/operational-pages.js';
 import * as pendingTickets from '../dashboard/lib/pending-tickets.js';
 import assert from 'node:assert/strict';
@@ -55,7 +56,7 @@ result=await loader.loadOperationalMetrics({supabase:dbFor(many),hotel,kind:'res
 pass('partial source failure never succeeds; changed membership refused, zero distinct from errors, recovery');
 let role='admin',accessDenied=false,contextHotel=hotel,readOptions,loaderCalls=0;
 for(const kind of ['tickets','reservations']){
- const route=await compile('../dashboard/app/api/'+kind+'/route.js',{'next/server':{NextResponse:Response},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,options)=>{readOptions=options;return {hotel:contextHotel,role,accessDenied,supabase:dbFor(kind==='tickets'?larger:many)}}},'@/lib/permissions':permissions,'@/lib/tickets':ticketLibrary,'@/lib/pending-tickets':pendingTickets,'../../../../shared/operational-metrics.js':contract,'@/lib/operational-metrics':{loadOperationalMetrics:args=>{loaderCalls++;return loader.loadOperationalMetrics({...args,now})}}});
+ const route=await compile('../dashboard/app/api/'+kind+'/route.js',{'../../../../shared/checkin-demo-view.js':demoView,'next/server':{NextResponse:Response},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,options)=>{readOptions=options;return {hotel:contextHotel,role,accessDenied,supabase:dbFor(kind==='tickets'?larger:many)}}},'@/lib/permissions':permissions,'@/lib/tickets':ticketLibrary,'@/lib/pending-tickets':pendingTickets,'../../../../shared/operational-metrics.js':contract,'@/lib/operational-metrics':{loadOperationalMetrics:args=>{loaderCalls++;return loader.loadOperationalMetrics({...args,now})}}});
  const req=()=>new Request('https://synthetic.invalid/api/'+kind+'?view=metrics&metric='+OPERATIONAL_CARDS[kind][0]+'&hotelId='+hotelId);
  let response=await route.GET(req());assert.equal(response.status,200);assert.deepEqual(readOptions,{readOnly:true,includeDirectory:false});assert.equal(response.headers.get('Cache-Control'),'no-store');const body=await response.json();assert(body[kind].length<=10);
  const before=loaderCalls;accessDenied=true;assert.equal((await route.GET(req())).status,403);accessDenied=false;contextHotel={...hotel,id:other};assert.equal((await route.GET(req())).status,403);contextHotel=hotel;role='housekeeping';assert.equal((await route.GET(req())).status,403);role='admin';assert.equal(loaderCalls,before);

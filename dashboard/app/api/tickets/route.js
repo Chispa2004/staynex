@@ -1,3 +1,4 @@
+import {isCheckinDemoHotel} from '../../../../shared/checkin-demo-view.js';
 import { parseOperationalFilter } from '../../../../shared/operational-metrics.js';
 import { loadOperationalMetrics } from '@/lib/operational-metrics';
 import { NextResponse } from 'next/server';
@@ -13,8 +14,8 @@ export async function GET(request) {
       const params=new URL(request.url).searchParams;
       if (accessDenied || !hotel?.id || !canAccess(role,'tickets') || (params.get('hotelId') && params.get('hotelId')!==hotel.id))
         return NextResponse.json({error:'Acceso al hotel denegado.'},{status:403});
-      const origin=params.get('ticketOrigin') || 'other';
-      if(!['other','simulated'].includes(origin)) return NextResponse.json({error:'Filtro de tickets no válido.'},{status:400});
+      const origin=isCheckinDemoHotel(hotel)?'all':params.get('ticketOrigin') || 'other';
+      if(!['other','simulated'].includes(origin) && !(origin==='all' && isCheckinDemoHotel(hotel))) return NextResponse.json({error:'Filtro de tickets no válido.'},{status:400});
       return NextResponse.json(await loadDashboardPendingTickets({supabase,hotel,origin}),{headers:{'Cache-Control':'no-store'}});
     }
     if (new URL(request.url).searchParams.get('view') === 'metrics') {
