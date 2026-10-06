@@ -10,7 +10,7 @@ assert.equal(process.env.SEND_AUTOMATIONS, 'false');
 const require = createRequire(new URL('../dashboard/package.json', import.meta.url));
 const swc = require('next/dist/build/swc');
 const compile = async (path, mocks, suffix='') => {
-  const {code} = await swc.transform(readFileSync(new URL(path, import.meta.url),'utf8')+suffix, {filename:path,jsc:{parser:{syntax:'ecmascript',jsx:true},transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
+  const {code} = await swc.transform(readFileSync(new URL(path, import.meta.url),'utf8')+suffix, {filename:path,jsc:{target:'es2022',parser:{syntax:'ecmascript',jsx:true},transform:{react:{runtime:'automatic'}}},module:{type:'commonjs'}});
   const module={exports:{}};
   new Function('require','module','exports',code)(name=>{assert(name in mocks, `Missing ${name}`);return mocks[name];},module,module.exports);
   return module.exports;
@@ -39,6 +39,7 @@ const a='00000000-0000-4000-8000-000000000010',b='00000000-0000-4000-8000-000000
 const session={access_token:'synthetic',user:{id:'actor'}};
 let getSession,signOuts=0,requests=[],transport;
 const mocks={
+  '@/lib/workspace-ready':{WorkspaceReadyContext:{Provider:'workspace-provider'}},
   '@/lib/compact-routes':compactRoutes,
   react:React,'react/jsx-runtime':{jsx,jsxs:jsx},'next/link':{default:'a'},'next/navigation':{usePathname:()=>pathname,useRouter:()=>router},
   'lucide-react':{},'@/lib/onboarding-navigation':navigation,'./AppShell.module.css':{default:{}},'@/lib/shell-navigation':{ShellNavigationContext:{Provider:'provider'}},
@@ -74,7 +75,7 @@ assert(text().includes('Preparando tu espacio'));assert(!shellVisible());assert(
 window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('pageshow'));await flush();
 assert.equal(requests.filter(r=>r.url==='/api/current-hotel').length,1);
 core.resolve(Response.json(base));await flush();
-assert(shellVisible());assert(!protectedVisible());assert(text().includes('Consultando otros hoteles'));
+assert(!shellVisible());assert(!protectedVisible());assert(text().includes('Preparando tu espacio'));assert(!text().includes('Finish onboarding'));
 gate.resolve(Response.json({state:{hotel_id:a,onboarding_completed:true}}));await flush();
 assert(protectedVisible(),'secondary directory cannot block authorized content');
 directory.reject(Error('Directory offline'));await flush();assert(protectedVisible());assert(text().includes('Reintentar selector'));
@@ -121,7 +122,7 @@ globalThis.fetch=(url,options={})=>{requests.push({url,options});return Promise.
 console.log('PASS logout invalidates pending context and switch persistence');
 
 gate=deferred();await reset({fetch:(url,o)=>url==='/api/onboarding/state'?gate.promise:normal(url,o)});
-await fireTimeouts();assert(shellVisible());assert(!protectedVisible());assert(text().includes('Reintenta o abre el asistente'));
+await fireTimeouts();assert(!shellVisible());assert(!protectedVisible());assert(text().includes('Reintenta o abre el asistente'));
 pathname='/dashboard/health';dirty=true;await flush();assert(protectedVisible(),'authorized remediation remains available while gate is unavailable');
 await reset({fetch:(url,o)=>url==='/api/onboarding/state'?Response.json({state:{hotel_id:a,onboarding_completed:false}}):normal(url,o)});
 assert.equal(pathname,'/dashboard/onboarding');assert(protectedVisible());
@@ -156,11 +157,11 @@ for(const h of hooks)h?.cleanup?.();
 const next={'next/server':{NextResponse:{json:(body,options)=>Response.json(body,options)}}};
 let contextOptions,summaryCalls=0,contextError=null,schemaReady=true;
 const currentRoute=await compile('../dashboard/app/api/current-hotel/route.js',{
-  ...next,'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,options)=>{contextOptions=options;return base}},
+  ...next,'@/lib/permissions':permissions,'@/lib/onboarding':{getOnboardingState:async()=>({hotel_id:a,onboarding_completed:true})},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,options)=>{contextOptions=options;return base}},
   '@/lib/enterprise-audit':{},'../../../../shared/guest-memory/feature-flag.js':{isGuestMemoryEnabled:()=>false}
 });
 let response=await currentRoute.GET(new Request('https://synthetic.invalid/api/current-hotel',{headers:{'x-staynex-context-only':'1'}}));
-assert.equal(response.status,200);assert.deepEqual(contextOptions,{readOnly:true,includeDirectory:false});assert.equal((await response.json()).directoryDeferred,true);
+assert.equal(response.status,200);assert.deepEqual(contextOptions,{readOnly:true,includeDirectory:false});const initialBody=await response.json();assert.equal(initialBody.directoryDeferred,true);assert.deepEqual(initialBody.onboardingGate,{hotelId:a,completed:true});
 await currentRoute.GET(new Request('https://synthetic.invalid/api/current-hotel'));assert.deepEqual(contextOptions,{readOnly:true,includeDirectory:true});
 const stateRoute=await compile('../dashboard/app/api/onboarding/state/route.js',{
   ...next,'../../../../../shared/location/hotel-location-integrity.js':{},'../../../../../shared/onboarding/hotel-fields.js':{},'@/lib/enterprise-audit':{},'@/lib/pilot-onboarding':{},
@@ -176,3 +177,10 @@ contextError=Object.assign(Error('Forbidden'),{status:403});assert.equal((await 
 assert.equal(summaryCalls,1);
 console.log('PASS actual GET handlers use read-only context and scoped minimal gate; no health/catalog dependency; schema/auth errors preserved');
 console.log('11 workspace progressive loading behavior groups passed');
+
+await reset({fetch:(url,o)=>url==='/api/current-hotel'?Response.json({...base,onboardingGate:{hotelId:a,completed:true}}):normal(url,o)});
+assert(protectedVisible());assert.equal(requests.filter(r=>r.url==='/api/onboarding/state').length,0,'combined context reuses authorized gate');
+await reset({fetch:(url,o)=>url==='/api/current-hotel'?Response.json({...base,onboardingGate:{hotelId:a,error:true}}):normal(url,o)});
+assert(!protectedVisible());assert(text().includes('Reintenta o abre el asistente'));assert.equal(requests.filter(r=>r.url==='/api/onboarding/state').length,0);
+transport=normal;await click('Retry');assert(protectedVisible());
+console.log('PASS combined gate avoids duplicate authorization round trip; unknown is not incomplete; error retry recovers');

@@ -3,17 +3,8 @@ import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess } from '@/lib/permissions';
 import { pmsConnectionSelectForSurface, serializePmsConnectionsSafe } from '../../../../shared/pms/safe-connection.js';
 import { getPilotAiSafetyReadiness } from '../../../../shared/pilot/ai-safety.js';
-import { buildConversationDashboard, loadConversationDashboardSources } from '@/lib/hotel-operations-workspace';
-import { loadAttentionDashboard } from '@/lib/message-attention';
-import { loadMessageMetrics } from '@/lib/message-metrics';
-
-const readActiveCount = async (supabase, hotelId) => {
-  try {
-    const { count, error } = await supabase.from('conversations').select('id', { count: 'exact', head: true })
-      .eq('hotel_id', hotelId).eq('status', 'active');
-    return !error && Number.isInteger(count) ? count : null;
-  } catch { return null; }
-};
+import {loadDashboardMessages} from '@/lib/dashboard-messages';
+import {isCheckinDemoHotel} from '../../../../shared/checkin-demo-view.js';
 
 const readPmsSummary = async (supabase, hotelId) => {
   try {
@@ -38,30 +29,17 @@ export async function GET(request) {
     if (!hotelId) return NextResponse.json({ error: 'Hotel context required' }, { status: 403 });
     const params = new URL(request.url).searchParams;
     const origin = params.get('attentionOrigin') || 'traced';
-    const cursor = params.get('attentionBefore') && params.get('attentionId') ? {at:params.get('attentionBefore'),id:params.get('attentionId')} : null;
-    const [sources, activeConversationsCount, pmsSnapshot, attentionSnapshot] = await Promise.all([
-      loadConversationDashboardSources(supabase, hotelId),
-      readActiveCount(supabase, hotelId),
+    const [pmsSnapshot, attentionSnapshot] = await Promise.all([
       readPmsSummary(supabase, hotelId),
-      loadAttentionDashboard({supabase,hotelId,origin,urgentOnly:params.get('attentionUrgent') === 'true',cursor})
+      loadDashboardMessages({supabase,hotel,origin,urgentOnly:params.get('attentionUrgent') === 'true'})
     ]);
-    if (attentionSnapshot.coverage === 'complete') {
-      try {
-        const snapshot=await loadMessageMetrics({supabase,hotel,origin,verified:true});
-        for (const key of Object.keys(snapshot.counters)) attentionSnapshot.counters[key].value=snapshot.counters[key];
-        attentionSnapshot.metricDate=snapshot.date;
-        attentionSnapshot.timezone=snapshot.timezone;
-      } catch {
-        for (const counter of Object.values(attentionSnapshot.counters)) { counter.value=null; counter.detail='Seguimiento no disponible'; }
-      }
-    }
     // Serialize only the presentation DTO, never AI log bodies or provider errors.
     return NextResponse.json({
       hotel: { id: hotel.id, name: hotel.name, slug: hotel.slug, timezone: hotel.timezone, city: hotel.city, country: hotel.country, country_code: hotel.country_code },
-      role, permissions, fallback,
+      role, permissions, fallback, demoView:isCheckinDemoHotel(hotel),
       pilotAiSafety: getPilotAiSafetyReadiness({ hotel, env: process.env }),
       refreshedAt: new Date().toISOString(),
-      conversationDashboard: buildConversationDashboard({ hotelId, timezone: hotel.timezone, sources, activeCount: activeConversationsCount, attentionSnapshot }),
+      conversationDashboard: {messageWorkspace:attentionSnapshot},
       pmsSnapshot,
       onboardingHealth: { whatsappConfigured: Boolean(hotel.whatsapp_number) }
     });

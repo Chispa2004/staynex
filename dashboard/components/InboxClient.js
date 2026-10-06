@@ -502,7 +502,9 @@ export const InboxClient = ({ conversations }) => {
   const isLight = theme === 'light';
   const sortedConversations = useMemo(() => normalizeInboxConversations(conversations), [conversations]);
   const requestedConversationId = searchParams.get('conversationId');
-  const metricKey = searchParams.has('metric') ? new URLSearchParams(['metric','metricOrigin','metricDate','hotelId'].flatMap(key=>searchParams.getAll(key).map(value=>[key,value]))).toString() : '';
+  const requestedMessageId=searchParams.get('messageId');
+  const locatedMessage=useRef(null);
+  const metricKey = searchParams.has('metric') ? new URLSearchParams(['metric','metricOrigin','metricDate','metricPeriod','hotelId'].flatMap(key=>searchParams.getAll(key).map(value=>[key,value]))).toString() : '';
   const metricKeyRef=useRef(metricKey); metricKeyRef.current=metricKey;
   const [metricState,setMetricState]=useState({key:metricKey,status:'loading'});
   const [itemsState, setItems] = useState(sortedConversations);
@@ -1034,6 +1036,13 @@ export const InboxClient = ({ conversations }) => {
     if(!panel || !key)return;
     panel.scrollTop=historyPositions.current.get(key) ?? panel.scrollHeight;
   }, [draftKey]);
+
+  useLayoutEffect(()=>{
+    const key=currentHotel?.id+':'+requestedConversationId+':'+requestedMessageId;
+    if(!requestedMessageId || selectedConversation?.id!==requestedConversationId || locatedMessage.current===key)return;
+    const node=messagesScrollRef.current?.querySelector('[data-dashboard-message="'+CSS.escape(requestedMessageId)+'"]');
+    if(node){node.scrollIntoView({block:'center',behavior:'instant'});locatedMessage.current=key;}
+  },[currentHotel?.id,requestedConversationId,requestedMessageId,selectedConversation?.id,selectedConversation?.messages]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowser();
@@ -1983,6 +1992,7 @@ export const InboxClient = ({ conversations }) => {
             return (
               <div
                 key={item.id}
+                data-dashboard-message={item.id}
                 className={[
                   `${ergonomics.messageRow} flex items-end gap-2`,
                   isStaff || isAi ? 'justify-end' : 'justify-start'
@@ -2049,6 +2059,7 @@ export const InboxClient = ({ conversations }) => {
                         {t('inbox.original')}
                       </p> : null}
                       <p className={ergonomics.messageText}>{item.content}</p>
+                      {requestedMessageId===item.id && requestedConversationId===selectedConversation.id ? <p className="mt-2 rounded border border-sky-400 bg-sky-50 p-2 text-xs font-semibold text-sky-900">{tx('Mensaje abierto desde el Dashboard')}</p> : null}
                       <AttentionMessage message={item} />
                       {metricKey && metricState.data?.byConversation?.[selectedConversation.id]?.includes(item.id)
                         ? <p className="mt-2 rounded border border-emerald-300 bg-emerald-50 p-2 text-xs font-semibold text-emerald-900" data-metric-match={item.id}>{tx('Coincide con la tarjeta del Dashboard')}</p> : null}

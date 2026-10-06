@@ -1,3 +1,5 @@
+import {getOnboardingState} from '@/lib/onboarding';
+import {canAccess} from '@/lib/permissions';
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
@@ -35,6 +37,7 @@ export async function GET(request) {
   try {
     const directoryDeferred = request.headers.get('x-staynex-context-only') === '1';
     const {
+      supabase,
       hotel,
       hotelUser,
       role,
@@ -52,7 +55,17 @@ export async function GET(request) {
       archivedHotelId
     } = await getCurrentHotelForRequest(request, {readOnly:true, includeDirectory:!directoryDeferred});
 
+    let onboardingGate=null;
+    if(directoryDeferred && hotel?.id && !accessDenied && canAccess(role,'onboarding')
+      && !request.headers.get('x-staynex-workspace-path')?.startsWith('/platform')) {
+      try {
+        const state=await getOnboardingState({supabase,hotelId:hotel.id});
+        if(state.hotel_id!==hotel.id || typeof state.onboarding_completed!=='boolean') throw new Error('Incomplete gate');
+        onboardingGate={hotelId:hotel.id,completed:state.onboarding_completed};
+      } catch { onboardingGate={hotelId:hotel.id,error:true}; }
+    }
     return NextResponse.json({
+      onboardingGate,
       hotel,
       directoryDeferred: directoryDeferred && Boolean(canSwitchWorkspaces) && platformRole !== 'none',
       hotelUser,

@@ -1,3 +1,4 @@
+import {CHECKIN_DEMO_HOTEL_ID} from '../checkin-demo-view.js';
 import { ATTENTION_ORIGINS, attentionError, isAttentionId, isAttentionMessage } from './contract.js';
 
 export const MESSAGE_METRICS = {
@@ -16,30 +17,32 @@ const validDay = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && Number.isFi
 export function parseMessageMetric(params) {
   if (!params.has('metric')) return null;
   const metric = params.get('metric'), origin = params.get('metricOrigin'), hotelId = params.get('hotelId'), date = params.get('metricDate');
-  if (!Object.hasOwn(MESSAGE_METRICS,metric) || !ATTENTION_ORIGINS.includes(origin) || !isAttentionId(hotelId)
-    || ['metric','metricOrigin','hotelId','metricDate'].some(k=>params.getAll(k).length>1)
-    || (['received','resolved'].includes(metric) ? !validDay(date) : date !== null)) throw attentionError('Filtro de mensajes no válido.',400);
+  const history=params.get('metricPeriod')==='history' && origin==='all' && hotelId===CHECKIN_DEMO_HOTEL_ID;
+  if ((params.has('metricPeriod') && !history) || !Object.hasOwn(MESSAGE_METRICS,metric) || (!ATTENTION_ORIGINS.includes(origin) && !history) || !isAttentionId(hotelId)
+    || ['metric','metricOrigin','hotelId','metricDate','metricPeriod'].some(k=>params.getAll(k).length>1)
+    || (history ? date!==null : ['received','resolved'].includes(metric) ? !validDay(date) : date !== null)) throw attentionError('Filtro de mensajes no válido.',400);
   if (params.has('stage') && !['all','pre','stay','post','unknown'].includes(params.get('stage'))
     || params.has('origin') && !['all','simulated','other'].includes(params.get('origin'))
     || params.has('filter') && !['all','unread','human','urgent','vip','ai'].includes(params.get('filter'))
     || (params.get('q') || '').length>200
     || params.has('page') && !/^[1-9]\d{0,6}$/.test(params.get('page'))) throw attentionError('Filtro adicional no válido.',400);
-  return {metric,origin,hotelId,date};
+  return {metric,origin,hotelId,date,...(history?{period:'history'}:{})};
 }
 export const metricMatchingIds = (conversation,metric,stage='all',origin='all') => {
   const ids=new Set(metric?.byConversation?.[conversation.id] || []);
   return (conversation.messages || []).filter(m=>ids.has(m.id) && (stage==='all' || (m.stayStage || 'unknown')===stage)
     && (origin==='all' || m.inboxOrigin===origin)).map(m=>m.id);
 };
-export function messageMetricHref({metric,origin,hotelId,date}) {
+export function messageMetricHref({metric,origin,hotelId,date,period}) {
   const params = new URLSearchParams({metric,metricOrigin:origin,hotelId});
-  if (['received','resolved'].includes(metric)) params.set('metricDate',date);
+  if(period==='history')params.set('metricPeriod',period);
+  else if (['received','resolved'].includes(metric)) params.set('metricDate',date);
   parseMessageMetric(params);
   return '/dashboard/inbox?'+params;
 }
 export function removeMessageMetric(href) {
   const url=new URL(href);
-  for (const key of ['metric','metricOrigin','metricDate','conversationId','q','stage','origin','filter','page']) url.searchParams.delete(key);
+  for (const key of ['metric','metricOrigin','metricDate','metricPeriod','messageId','conversationId','q','stage','origin','filter','page']) url.searchParams.delete(key);
   return url.pathname+url.search;
 }
 // Mirrors the installed canonical SQL origin contract, not Inbox's broader "other" group.
@@ -52,18 +55,18 @@ export function attentionOrigin(message, claimedIds) {
 }
 // Shared by the four Dashboard counts and Inbox results. Attention snapshots come
 // from the existing backend-only RPC, never a delivery/read/control inference.
-export function buildMessageMetrics({hotelId,timezone,origin,messages,conversations,attention,alerts,claimedIds,now=new Date().toISOString(),date=metricDay(now,timezone)}) {
+export function buildMessageMetrics({hotelId,timezone,origin,period,messages,conversations,attention,alerts,claimedIds,now=new Date().toISOString(),date=metricDay(now,timezone)}) {
   const conversationIds=new Set(conversations.filter(c=>c.hotel_id===hotelId).map(c=>c.id));
   const result={received:[],resolved:[],pending:[],urgent:[]};
   let urgentKnown=true;
   const nowMs=Date.parse(now);
   for (const m of messages) {
-    if (m.hotel_id!==hotelId || !conversationIds.has(m.conversation_id) || !isAttentionMessage(m) || attentionOrigin(m,claimedIds)!==origin) continue;
+    if (m.hotel_id!==hotelId || !conversationIds.has(m.conversation_id) || !isAttentionMessage(m) || (origin!=='all' && attentionOrigin(m,claimedIds)!==origin)) continue;
     const state=attention.get(m.id), alert=alerts.get(m.conversation_id);
     if (!state) throw attentionError('Seguimiento no disponible. Actualiza para reintentar.',503);
     const created=Date.parse(m.created_at), changed=Date.parse(state.changedAt);
-    if (created<=nowMs && date && metricDay(m.created_at,timezone)===date) result.received.push(m);
-    if (state.status==='resolved' && changed<=nowMs && date && metricDay(state.changedAt,timezone)===date) result.resolved.push(m);
+    if (created<=nowMs && (period==='history' || date && metricDay(m.created_at,timezone)===date)) result.received.push(m);
+    if (state.status==='resolved' && changed<=nowMs && (period==='history' || date && metricDay(state.changedAt,timezone)===date)) result.resolved.push(m);
     if (state.status==='pending') {
       if (alert && (alert.updated_at===null || Date.parse(alert.updated_at)>nowMs)) urgentKnown=false;
       if (created<=nowMs) {
@@ -72,12 +75,12 @@ export function buildMessageMetrics({hotelId,timezone,origin,messages,conversati
       }
     }
   }
-  if (!date || !metricDay(now,timezone)) result.received=result.resolved=null;
+  if (period!=='history' && (!date || !metricDay(now,timezone))) result.received=result.resolved=null;
   if (!urgentKnown) result.urgent=null;
-  return {hotelId,origin,date,timezone,readAt:now,sets:result,counters:Object.fromEntries(Object.entries(result).map(([key,rows])=>[key,rows?.length ?? null]))};
+  return {hotelId,origin,date:period==='history'?null:date,...(period?{period}:{}),timezone,readAt:now,sets:result,counters:Object.fromEntries(Object.entries(result).map(([key,rows])=>[key,rows?.length ?? null]))};
 }
 export function selectMessageMetric(snapshot,filter) {
-  if (snapshot.hotelId!==filter.hotelId || snapshot.origin!==filter.origin) throw attentionError('El filtro pertenece a otro hotel.',403);
+  if (snapshot.hotelId!==filter.hotelId || snapshot.origin!==filter.origin || snapshot.period!==filter.period) throw attentionError('El filtro pertenece a otro hotel.',403);
   const matches=snapshot.sets[filter.metric];
   if (!matches) throw attentionError('Fuente o periodo no disponible. No se confirma un resultado vacío.',503);
   const byConversation={};

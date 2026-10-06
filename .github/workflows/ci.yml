@@ -66,6 +66,8 @@ jobs:
         run: npm run test:inbox-stability-browser
       - name: Dashboard pending tickets layout keyboard and isolation regressions
         run: npm run test:dashboard-pending-browser
+      - name: Dashboard initial loading and demo message scope regressions
+        run: npm run test:dashboard-demo-browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -76,6 +78,7 @@ jobs:
             .npm-cache/accessibility-browser-results
             .npm-cache/inbox-stability-results
             .npm-cache/pending-ticket-browser-results
+            .npm-cache/dashboard-demo-browser-results
           include-hidden-files: true
           retention-days: 7
 

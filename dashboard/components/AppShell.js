@@ -39,6 +39,7 @@ import {
   Wrench,
   X
 } from 'lucide-react';
+import {WorkspaceReadyContext} from '@/lib/workspace-ready';
 import { ONBOARDING_DESTINATIONS, shouldRedirectToOnboarding } from '@/lib/onboarding-navigation';
 import shellStyles from './AppShell.module.css';
 import { ShellNavigationContext } from '@/lib/shell-navigation';
@@ -456,6 +457,14 @@ const AppShellContent = ({ children }) => {
           if (!body.accessDenied && (!body.hotel?.id || !body.role)) throw new Error('Incomplete workspace context');
           if (body.hotel?.id) setArchiveNotice(false);
           setCurrentHotel(body.hotel || null);
+          if(body.hotel?.id && body.onboardingGate?.hotelId===body.hotel.id) {
+            checkedGate.current=`${sessionActorId}:${body.hotel.id}:${sessionAccessToken}:${workspaceRetryNonce}:${onboardingRetry}`;
+            if(typeof body.onboardingGate.completed==='boolean') {
+              setOnboardingCompleted(body.onboardingGate.completed);setOnboardingChecked(true);setOnboardingError(null);
+            } else if(body.onboardingGate.error) {
+              setOnboardingError('No se pudo comprobar la preparación del hotel. Reintenta o abre el asistente.');
+            }
+          }
           if (body.hotel?.id) {
             persistWorkspaceSelection({
               hotelId: body.hotel.id,
@@ -629,6 +638,7 @@ const AppShellContent = ({ children }) => {
     }
 
     const gateKey=`${sessionActorId}:${currentHotel.id}:${sessionAccessToken}:${workspaceRetryNonce}:${onboardingRetry}`;
+    if (onboardingError && checkedGate.current===gateKey) return undefined;
     if (onboardingChecked && checkedGate.current===gateKey) {
       if (shouldRedirectToOnboarding({ pathname, completed: onboardingCompleted, role: activeRole, platformRole: hotelContext.platformRole })) {
         router.replace('/dashboard/onboarding');
@@ -1067,15 +1077,21 @@ const AppShellContent = ({ children }) => {
     );
   }
 
-  if (authError || authLoading || !isAuthenticated || !hotelContextLoaded) {
+  const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
+  const onboardingGatesRoute = shouldRedirectToOnboarding({pathname, completed:false, role:activeRole, platformRole:hotelContext.platformRole});
+  const routeAuthorized = isPlatformContext || canAccessRouteForContext(activeRole, pathname, hotelContext.platformRole);
+  const contentReady = routeAuthorized && (!onboardingGatesRoute || (onboardingChecked && onboardingCompleted));
+  const initialGatePending=hotelContextLoaded && currentHotel?.id && !hotelContext.accessDenied && !workspaceError && routeAuthorized && !contentReady;
+  if (authError || authLoading || !isAuthenticated || !hotelContextLoaded || initialGatePending) {
     return (
       <div data-workspace-loading="true" className={`${theme === 'light' ? 'theme-light' : 'theme-dark'} min-h-dvh bg-midnight p-4 sm:p-8 ${isLight ? 'text-slate-700' : 'text-slate-200'}`}>
         <header className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4"><StaynexLogo/><LanguageSelector/></header>
         <main className={cn("mx-auto mt-8 max-w-3xl rounded-xl border p-6", isLight ? 'border-slate-200 bg-white text-slate-700' : 'border-white/10 bg-[#0b1019] text-slate-200')}>
           <h1 className="text-xl font-semibold">{tx('Preparando tu espacio de trabajo')}</h1>
-          <p role={authError ? 'alert' : 'status'} className="mt-3">{tx(authError || (authLoading ? 'Comprobando la sesión…' : 'Comprobando acceso al workspace…'))}</p>
+          <p role={authError || onboardingError ? 'alert' : 'status'} className="mt-3">{tx(authError || onboardingError || 'Comprobando acceso al workspace…')}</p>
           <p className="mt-2 text-sm">{tx('El contenido del hotel aparecerá después de verificar tu acceso.')}</p>
-          {authError ? <button className="mt-4 rounded border px-4 py-2" onClick={() => setAuthRetryNonce(n=>n+1)}>{tx('Retry')}</button> : <div aria-hidden="true" className="mt-6 grid gap-3 sm:grid-cols-2"><div className={cn("h-28 rounded-lg", isLight ? "bg-slate-100" : "bg-slate-800")}/><div className={cn("h-28 rounded-lg", isLight ? "bg-slate-100" : "bg-slate-800")}/></div>}
+          {authError || onboardingError ? <button className="mt-4 rounded border px-4 py-2" onClick={() => {if(authError)setAuthRetryNonce(n=>n+1);else {setOnboardingError(null);setOnboardingRetry(n=>n+1);}}}>{tx('Retry')}</button> : <div aria-hidden="true" className="mt-6 grid gap-3 sm:grid-cols-2"><div className={cn("h-28 rounded-lg", isLight ? "bg-slate-100" : "bg-slate-800")}/><div className={cn("h-28 rounded-lg", isLight ? "bg-slate-100" : "bg-slate-800")}/></div>}
+          {onboardingError && canAccess(activeRole,'onboarding') ? <Link className="ml-3 underline" href="/dashboard/onboarding">{tx('Abrir el asistente')}</Link> : null}
         </main>
       </div>
     );
@@ -1178,7 +1194,6 @@ const AppShellContent = ({ children }) => {
   }
 
   const sidebarHotelName = currentHotel?.name || 'Staynex';
-  const isPlatformContext = canAccessPlatformConsole && pathname.startsWith('/platform');
   const isInboxRoute = pathname === '/dashboard/inbox';
   const isOperationsDashboard = pathname === '/dashboard';
   const isCompactPage = usesCompactLayout(pathname);
@@ -1203,9 +1218,6 @@ const AppShellContent = ({ children }) => {
     }));
   };
 
-  const onboardingGatesRoute = shouldRedirectToOnboarding({pathname, completed:false, role:activeRole, platformRole:hotelContext.platformRole});
-  const routeAuthorized = isPlatformContext || canAccessRouteForContext(activeRole, pathname, hotelContext.platformRole);
-  const contentReady = routeAuthorized && (!onboardingGatesRoute || (onboardingChecked && onboardingCompleted));
 
   return (
     <ShellNavigationContext.Provider value={{ open: desktopNavigation ? !desktopSidebarCollapsed : mobileSidebarOpen, toggleNavigation }}>
@@ -1334,7 +1346,7 @@ const AppShellContent = ({ children }) => {
             </div>
           ) : (
             <>
-              {!onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding') ? (
+              {onboardingChecked && !onboardingCompleted && !isOnboardingPage && canAccess(activeRole, 'onboarding') ? (
                 <div className="px-4 pb-5">
                   <Link
                     href="/dashboard/onboarding"
@@ -1629,7 +1641,7 @@ const AppShellContent = ({ children }) => {
               className={isInboxRoute ? 'min-h-0 flex-1' : undefined}
             >
               {onboardingNotice === currentHotel?.id && pathname === '/dashboard/health' ? <div role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">{tx('Configuración guardada y completada. No se han activado proveedores ni envíos.')}</div> : null}
-              {!isOnboardingPage && !onboardingCompleted && canAccess(activeRole, 'onboarding') && ONBOARDING_DESTINATIONS.includes(pathname) ? (
+              {!isOnboardingPage && onboardingChecked && !onboardingCompleted && canAccess(activeRole, 'onboarding') && ONBOARDING_DESTINATIONS.includes(pathname) ? (
                 <nav aria-label={tx('Preparación del hotel')} className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-slate-900">
                   <Link href="/dashboard/onboarding" className="font-semibold underline">{tx('Volver al asistente')}</Link>
                   <p className="mt-1">{tx('Guarda los cambios y vuelve al asistente para actualizar los requisitos. Abrir esta pantalla no los completa.')}</p>
@@ -1637,7 +1649,7 @@ const AppShellContent = ({ children }) => {
               ) : null}
               {archiveNotice ? <p role="status" tabIndex={-1} data-lifecycle-focus className="mb-4 rounded-xl border p-4">{tx('Hotel archivado. Los datos se conservan y la actividad automática permanece suspendida. Selecciona un hotel para abrir sus operaciones.')}</p> : null}
               {workspaceRefreshError || (onboardingError && onboardingChecked) ? <div role="status" className="border-b border-amber-500/40 px-3 py-2 text-sm">{tx('No se pudo actualizar la comprobación del hotel. Se conserva la última información confirmada.')} <button className="underline" onClick={()=>setWorkspaceRetryNonce(n=>n+1)}>{tx('Reintentar')}</button></div> : null}
-              {contentReady ? children : <section aria-busy={!onboardingError} className="rounded-xl border border-slate-200 bg-white p-6 text-slate-800">
+              {contentReady ? <WorkspaceReadyContext.Provider key={currentHotel?.id} value={{hotel:currentHotel,role:activeRole}}>{children}</WorkspaceReadyContext.Provider> : <section aria-busy={!onboardingError} className="rounded-xl border border-slate-200 bg-white p-6 text-slate-800">
                 <h1 className="text-xl font-semibold">{tx('Preparando esta pantalla')}</h1>
                 <p role={onboardingError ? 'alert' : 'status'} className="mt-3">{tx(onboardingError || 'Comprobando la preparación del hotel…')}</p>
                 {onboardingError ? <button className="mt-4 rounded border px-4 py-2" onClick={()=>{setOnboardingError(null);setOnboardingChecked(false);setOnboardingRetry(n=>n+1);}}>{tx('Retry')}</button> : null}

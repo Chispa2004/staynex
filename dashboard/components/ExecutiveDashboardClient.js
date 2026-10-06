@@ -1,6 +1,8 @@
 ﻿'use client';
 
 import Link from 'next/link';
+import {useWorkspaceReady} from '@/lib/workspace-ready';
+import {isCheckinDemoHotel} from '../../shared/checkin-demo-view.js';
 import {DashboardPendingTickets} from './DashboardPendingTickets';
 import { useSearchParams } from 'next/navigation';
 import { messageMetricHref } from '../../shared/message-attention/metrics.js';
@@ -150,11 +152,13 @@ export const ExecutiveDashboardClient = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const ready=useWorkspaceReady();
+  const demo=isCheckinDemoHotel(ready?.hotel);
   const dashboardParams=useSearchParams();
   const attentionOrigin=['traced','simulated','unknown'].includes(dashboardParams.get('attentionOrigin')) ? dashboardParams.get('attentionOrigin') : 'traced';
   const setAttentionOrigin=value=>{const url=new URL(document.URL);url.searchParams.set('attentionOrigin',value);window.history.pushState(null,'',url.pathname+url.search);};
   const [urgentOnly, setUrgentOnly] = useState(false);
-  const [attentionCursor, setAttentionCursor] = useState(null);
+  const requestController=useRef(null);
   const dashboardRequestInFlightRef = useRef(false);
   const dashboardRequestIdRef = useRef(0);
   const activeHotelIdRef = useRef(null);
@@ -164,6 +168,9 @@ export const ExecutiveDashboardClient = () => {
       return;
     }
 
+    requestController.current?.abort();
+    const controller=new AbortController();requestController.current=controller;
+    const timeout=setTimeout(()=>controller.abort(),15000);
     dashboardRequestInFlightRef.current = true;
     const requestId = dashboardRequestIdRef.current + 1;
     dashboardRequestIdRef.current = requestId;
@@ -174,21 +181,21 @@ export const ExecutiveDashboardClient = () => {
 
     try {
       const attentionParams = new URLSearchParams({attentionOrigin,attentionUrgent:String(urgentOnly)});
-      if (attentionCursor) { attentionParams.set('attentionBefore',attentionCursor.at); attentionParams.set('attentionId',attentionCursor.id); }
       const headers=await getAuthHeaders();
       const response = await fetch('/api/executive-dashboard?' + attentionParams, {
         headers,
-        cache: 'no-store'
+        cache: 'no-store',signal:controller.signal
       });
       const payload = await response.json();
-      if (headers.Authorization!==(await getAuthHeaders()).Authorization) return;
+      if (requestId !== dashboardRequestIdRef.current || headers.Authorization!==(await getAuthHeaders()).Authorization) return;
 
       if (!response.ok) {
+        if([401,403].includes(response.status)){setData(null);activeHotelIdRef.current=null;}
         throw new Error(payload.error || 'No se pudo cargar el dashboard');
       }
 
       if (!shouldAcceptTenantPayload(payload, 'executive-dashboard')) {
-        return;
+        setData(null);throw new Error('El contexto cambió. Actualiza para reintentar.');
       }
 
       const payloadHotelId = payload.hotel?.id || null;
@@ -201,20 +208,26 @@ export const ExecutiveDashboardClient = () => {
         setData(null);
       }
 
+      if(payload.conversationDashboard?.messageWorkspace?.coverage!=='complete') {
+        setData(previous=>previous?.hotel?.id===payloadHotelId ? {...payload,conversationDashboard:previous.conversationDashboard} : payload);
+        setError(activeHotelIdRef.current===payloadHotelId ? 'No se pudieron actualizar los mensajes. Se muestran los últimos datos confirmados.' : 'No se pudieron cargar los mensajes. Reintenta.');
+        return;
+      }
       activeHotelIdRef.current = payloadHotelId;
       setData(payload);
       setError(null);
     } catch (caughtError) {
       console.error('Executive dashboard refresh failed', caughtError);
-      setError(caughtError.message);
+      if(requestId===dashboardRequestIdRef.current)setError(caughtError.name==='AbortError'?'No se pudo cargar a tiempo. Reintenta.':caughtError.message);
     } finally {
+      clearTimeout(timeout);
       if (requestId === dashboardRequestIdRef.current) {
         dashboardRequestInFlightRef.current = false;
         setLoading(false);
         setRefreshing(false);
       }
     }
-  }, [attentionOrigin, urgentOnly, attentionCursor]);
+  }, [attentionOrigin, urgentOnly]);
 
   useEffect(() => {
     getActiveTenantId();
@@ -225,11 +238,11 @@ export const ExecutiveDashboardClient = () => {
       }
     }, 15000);
 
-    return () => window.clearInterval(intervalId);
+    return () => {window.clearInterval(intervalId);dashboardRequestIdRef.current++;requestController.current?.abort();dashboardRequestInFlightRef.current=false;};
   }, [loadDashboard]);
 
-  const role = data?.role || 'receptionist';
-  const hotel = data?.hotel || {};
+  const role = ready?.role || data?.role || 'receptionist';
+  const hotel = ready?.hotel || data?.hotel || {};
   const hotelName = hotel.name || 'Staynex';
   const timezone = hotel.timezone || 'Europe/Madrid';
   const permissions = useMemo(() => ({
@@ -248,6 +261,7 @@ export const ExecutiveDashboardClient = () => {
   }), [role]);
 
   const operationalWorkspace = data?.conversationDashboard || {};
+  const messageScopeMatches=operationalWorkspace.messageWorkspace?.origin===(demo?'all':attentionOrigin) && operationalWorkspace.messageWorkspace?.urgentOnly===urgentOnly;
   const serviceStrip = useMemo(() => buildServiceStrip(data), [data]);
 
   return (
@@ -257,34 +271,32 @@ export const ExecutiveDashboardClient = () => {
         hotelName={hotelName}
         timezone={timezone}
         role={role}
-        loading={loading}
+        loading={!hotel.id}
         refreshing={refreshing}
         onRefresh={() => {loadDashboard();setTicketRefresh(v=>v+1);}}
       />
 
       {error ? (
         <ExecutiveCard className="border-red-300/25 p-4">
-          <p className="text-sm font-semibold text-red-400">{tx('Dashboard data could not be refreshed.')}</p>
-          <p className={cn('mt-1', ui.text.body(isLight))}>Revisa la sesión del hotel y vuelve a actualizar.</p>
+          <p role="alert" className="text-sm font-semibold text-red-400">{tx(error || 'Dashboard data could not be refreshed.')}</p>
         </ExecutiveCard>
       ) : null}
 
       <OperationalIndicatorGrid
         data={data}
-        loading={loading}
+        loading={loading || (!demo && data?.conversationDashboard?.messageWorkspace?.origin!==attentionOrigin)}
         workspace={operationalWorkspace.messageWorkspace || {}}
         permissions={permissions}
       />
 
-      <p className={styles.scope}><label>{tx('Origen de los indicadores')}: <select value={attentionOrigin} onChange={event => { setLoading(true); setAttentionCursor(null); setAttentionOrigin(event.target.value); }} className="rounded border bg-transparent px-2 py-1">
+      {!demo?<p className={styles.scope}><label>{tx('Origen de los indicadores')}: <select value={attentionOrigin} onChange={event => { setAttentionOrigin(event.target.value); }} className="rounded border bg-transparent px-2 py-1">
         <option value="traced">{tx('Entradas trazables')}</option><option value="simulated">{tx('SIMULADO')}</option><option value="unknown">{tx('Origen no confirmado')}</option>
-      </select></label> · {tx(operationalWorkspace.messageWorkspace?.scope || 'Seguimiento no disponible. No se asumen estados ni totales.')}</p>
+      </select></label> · {tx(operationalWorkspace.messageWorkspace?.scope || 'Seguimiento no disponible. No se asumen estados ni totales.')}</p>:null}
       <div className={styles.columns}>
         <div className={styles.leftColumn}>
-          <WorkQueuePanel items={operationalWorkspace.messageWorkspace?.messages || []} coverage={operationalWorkspace.messageWorkspace?.coverage} loading={loading} timezone={timezone} permissions={permissions}
-            onUrgent={() => { setLoading(true); setAttentionCursor(null); setUrgentOnly(value => !value); }}
-            urgentOnly={urgentOnly} nextCursor={operationalWorkspace.messageWorkspace?.nextCursor} hasCursor={Boolean(attentionCursor)}
-            onPage={cursor => {setLoading(true);setAttentionCursor(cursor);}} />
+          <WorkQueuePanel items={messageScopeMatches ? operationalWorkspace.messageWorkspace?.messages || [] : []} coverage={error?'incomplete':operationalWorkspace.messageWorkspace?.coverage} loading={loading || refreshing && !messageScopeMatches} timezone={timezone} permissions={permissions}
+            onUrgent={value => { setUrgentOnly(value); }} demo={demo}
+            urgentOnly={urgentOnly} />
         </div>
         <DashboardPendingTickets refreshVersion={ticketRefresh} />
       </div>
@@ -341,10 +353,7 @@ const formatStatusLabel = (status) => ({
   urgent: 'Urgente'
 }[String(status || '').toLowerCase()] || formatProfileLabel(status || 'Sin estado'));
 
-const isCheckinDemoWorkspace = (hotel = {}) => (
-  hotel.slug === 'hotel-demo-checkin'
-  || String(hotel.name || '').toLowerCase() === 'hotel demo checkin'
-);
+const isCheckinDemoWorkspace = isCheckinDemoHotel;
 
 const buildServiceStrip = (data = {}) => {
   const hotel = data?.hotel || {};
@@ -451,7 +460,7 @@ const OperationalIndicatorGrid = ({ data, loading, workspace, permissions }) => 
   const isLight = theme === 'light';
   const counters = workspace?.counters || {};
   const href = metric => !loading && permissions.inbox && Number.isSafeInteger(counters[metric]?.value) && workspace.origin && data?.hotel?.id
-    ? messageMetricHref({metric,origin:workspace.origin,hotelId:data.hotel.id,date:workspace.metricDate}) : null;
+    ? messageMetricHref({metric,origin:workspace.origin,hotelId:data.hotel.id,date:workspace.metricDate,period:workspace.period}) : null;
   const cards = [
     { label: 'Mensajes recibidos', metric: counters.received, href: href('received'), icon: Inbox, tone: 'sky' },
     { label: 'Mensajes resueltos', metric: counters.resolved, href: href('resolved'), icon: CheckCircle2, tone: 'emerald' },
@@ -485,10 +494,9 @@ const QueueRequest = ({ title = '' }) => {
   return <details className={styles.request}><summary>{title.slice(0, 100)}…</summary><p>{title}</p></details>;
 };
 
-const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, urgentOnly, nextCursor, hasCursor, onPage, onUrgent }) => {
+const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, urgentOnly, onUrgent, demo }) => {
   const { tx, language } = useDashboardLanguage();
-  const [expanded, setExpanded] = useState(false);
-  const visibleItems = expanded ? items : items.slice(0, 5);
+  const visibleItems = items.slice(0,5);
   const attentionTime = (value) => {
     if (!value || !Number.isFinite(new Date(value).getTime())) return '—';
     try {
@@ -500,19 +508,19 @@ const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, 
       <div className={styles.panelHeader}>
         <div>
           <h2 className={styles.panelTitle}><ConciergeBell aria-hidden="true" />{tx('Mensajes')}</h2>
-          <p className={styles.subtitle}>{tx(urgentOnly ? 'Solo urgentes' : 'Muestra · urgentes, pendientes y resueltos')}</p>
+          <p className={styles.subtitle}>{tx(urgentOnly ? 'Hasta cinco mensajes con urgencia vigente' : 'Los cinco mensajes entrantes más recientes')}</p>
         </div>
         <div className={styles.queueActions}>
-          <button type="button" className={styles.link} onClick={onUrgent} aria-pressed={urgentOnly} aria-controls="attention-pending-list">{tx('Solo urgentes')}</button>
-          {hasCursor ? <button className={styles.link} onClick={() => onPage(null)}>{tx('Primera página')}</button> : null}
-          {nextCursor ? <button className={styles.link} onClick={() => onPage(nextCursor)}>{tx('Siguiente página')}</button> : null}
           {permissions.inbox ? <Link className={styles.link} href="/dashboard/inbox">{tx('Ver Inbox')}</Link> : null}
           {permissions.tickets ? <Link className={styles.link} href="/dashboard/tickets">{tx('Ver tickets')}</Link> : null}
-        {items.length > 5 ? <button className={styles.link} onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
-          {tx(expanded ? 'Ver menos' : 'Ampliar muestra')}<ChevronRight className="h-4 w-4" aria-hidden="true" />
-        </button> : null}
         </div>
       </div>
+      <div role="tablist" aria-label={tx('Mensajes')} className={styles.queueTabs}>
+        {[['Últimos',false],['Urgentes',true]].map(([label,urgent])=><button key={label} type="button" role="tab" id={'messages-tab-'+urgent}
+          aria-selected={urgentOnly===urgent} aria-controls="messages-tab-panel" tabIndex={urgentOnly===urgent?0:-1}
+          onClick={()=>onUrgent(urgent)} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const next=event.key==='Home'?false:event.key==='End'?true:!urgent;onUrgent(next);event.currentTarget.parentElement.querySelector('#messages-tab-'+next)?.focus();}}}>{tx(label)}</button>)}
+      </div>
+      <div role="tabpanel" id="messages-tab-panel" aria-labelledby={'messages-tab-'+urgentOnly}>
       {coverage !== 'complete' && !loading ? <p className={styles.coverage}>{tx('Cobertura incompleta · muestra disponible')}</p> : null}
       {loading ? <div className={styles.empty}><SkeletonList /></div> : items.length ? <>
         <div className={styles.queueBody}>
@@ -523,7 +531,7 @@ const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, 
                 <span className={styles.avatar} aria-hidden="true">{initialsFor(item.guest) || '?'}</span>
                 <div><p className={styles.guestName}>{item.guest || tx('Huésped sin identificar')}
                   {['urgent', 'high'].includes(item.priority) ? <span className={styles.critical}><AlertTriangle className="h-3 w-3" aria-hidden="true" />{tx(formatStatusLabel(item.priority))}</span> : null}
-                </p><QueueRequest title={item.title} /><p className={styles.time}>{tx(item.stayStage || 'Estancia no identificada')}</p><span className={styles.time}>{tx(originLabels[item.origin] || originLabels.unknown)}</span>{item.linkedTickets ? <p className={styles.time}>{tx('Tickets vinculados')}: {item.linkedTickets}</p> : null}</div>
+                </p><QueueRequest title={item.title} />{item.stayStage ? <p className={styles.time}>{tx(item.stayStage)}</p> : null}{!demo?<span className={styles.time}>{tx(originLabels[item.origin] || originLabels.unknown)}</span>:null}{item.linkedTickets ? <p className={styles.time}>{tx('Tickets vinculados')}: {item.linkedTickets}</p> : null}</div>
               </div></td>
               <td data-label={tx('Habitación')}>{item.room || '—'}</td>
               <td data-label={tx('Estado')}><span className={styles.badge} data-tone={item.priority === 'urgent' ? 'red' : item.status === 'Resuelto' ? 'emerald' : 'amber'}>{tx(item.priority === 'urgent' ? 'Urgente · pendiente' : item.status)}</span></td>
@@ -532,7 +540,8 @@ const WorkQueuePanel = ({ items = [], coverage, loading, timezone, permissions, 
             </tr>)}</tbody>
           </table>
         </div>
-      </> : <div className={styles.empty}><EmptyState icon={CheckCircle2} title={coverage === 'complete' ? 'Sin mensajes en la muestra' : 'Mensajes no disponibles'} description="No acredita que todos los asuntos estén resueltos." /></div>}
+      </> : <div className={styles.empty}><EmptyState icon={CheckCircle2} title={coverage === 'complete' ? urgentOnly?'No hay mensajes urgentes.':'No hay mensajes entrantes.' : 'Mensajes no disponibles'} description="No acredita que todos los asuntos estén resueltos." /></div>}
+      </div>
     </section>
   );
 };

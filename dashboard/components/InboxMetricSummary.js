@@ -10,7 +10,7 @@ export function InboxMetricSummary({active,state,visibleConversations,visibleMes
   return <section aria-label={tx('Filtro del Dashboard')} className="my-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-slate-800">
     <p className="font-semibold">{tx('Filtro del Dashboard')}{metric ? ': '+tx(MESSAGE_METRICS[metric.metric]) : ''}</p>
     {state?.status==='ready' && metric ? <>
-      <p>{tx(METRIC_ORIGINS[metric.origin])} · {metric.date || tx('Estado actual')} · {metric.timezone || tx('Zona horaria no disponible')}</p>
+      <p>{metric.origin==='all' ? tx('Historial disponible') : tx(METRIC_ORIGINS[metric.origin])} · {metric.date || tx(['received','resolved'].includes(metric.metric) && metric.period==='history' ? 'Sin límite de día' : 'Estado actual')} · {metric.timezone || tx('Zona horaria no disponible')}</p>
       <p role="status">{tx('{messages} mensajes en {conversations} conversaciones',{messages:metric.messageCount,conversations:metric.conversationCount})}</p>
       {visibleConversations!==undefined && (visibleConversations!==metric.conversationCount || visibleMessages!==metric.messageCount) ? <p>{tx('Con los filtros adicionales: {messages} mensajes en {conversations} conversaciones',{messages:visibleMessages,conversations:visibleConversations})}</p> : null}
       <p>{tx(metric.messageCount===0 ? 'No hay mensajes que cumplan este criterio.' : 'Los mensajes coincidentes están señalados dentro del contexto completo.')}</p>

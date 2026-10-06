@@ -13,7 +13,7 @@ export const isNewTicket = (row, now) => {
 };
 export function dashboardTicketContext(params, hotelId) {
   const result = new URLSearchParams({from:'dashboard',hotelId});
-  for (const [key,allowed] of [['attentionOrigin',['traced','simulated','unknown']],['ticketOrigin',['other','simulated']]]) {
+  for (const [key,allowed] of [['attentionOrigin',['traced','simulated','unknown']],['ticketOrigin',['other','simulated','all']]]) {
     const value=params.get(key); if(allowed.includes(value)) result.set(key,value);
   }
   return result;

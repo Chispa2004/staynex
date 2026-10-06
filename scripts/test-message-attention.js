@@ -172,7 +172,7 @@ assert.equal(acceptsAttentionResponse(started,{...started}),true);
 assert.equal(acceptsAttentionResponse(started,{...started,hotelId:otherHotel}),false);
 assert.equal(acceptsAttentionResponse(started,{...started,authorization:'synthetic-session-b'}),false);
 assert.equal(acceptsAttentionResponse(started,{...started,generation:2}),false,'old context cannot supply attention state');
-assert.match(dashboardSource,/aria-controls="attention-pending-list"/);
+assert.match(dashboardSource,/aria-controls="messages-tab-panel"/);
 assert.match(dashboardSource,/attentionUrgent:String\(urgentOnly\)/);
 assert.equal(isAttentionMessage({sender_type:'guest',content:'',metadata:{attachments:[{}]}}),true);
 console.log('Message attention: productive persistence/API/DTO with controlled dependencies PASS (20 contract scenarios).');

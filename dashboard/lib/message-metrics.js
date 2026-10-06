@@ -1,12 +1,14 @@
+import {isCheckinDemoHotel} from '../../shared/checkin-demo-view.js';
 import { readAllInboxRows } from '../../shared/inbox/stay-stage.js';
 import { isAttentionMessage, validAttentionSnapshot, attentionError } from '../../shared/message-attention/contract.js';
 import { buildMessageMetrics, attentionOrigin } from '../../shared/message-attention/metrics.js';
 
 // Read-only, scoped, paginated queries. No raw claims, message bodies or actors are
 // returned in the metric DTO. Existing RPC checks the enabled attention contract.
-export async function loadMessageMetrics({supabase,hotel,origin,date,verified=false,now=new Date().toISOString()}) {
+export async function loadMessageMetrics({supabase,hotel,origin,date,period,includeSource=false,verified=false,now=new Date().toISOString()}) {
+  if((origin==='all' || period==='history') && (!isCheckinDemoHotel(hotel) || origin!=='all' || period!=='history')) throw attentionError('Ámbito de demo no autorizado.',403);
   if (!verified) {
-    const {data,error}=await supabase.rpc('staynex_attention_dashboard_v1',{p_hotel:hotel.id,p_origin:origin});
+    const {data,error}=await supabase.rpc('staynex_attention_dashboard_v1',{p_hotel:hotel.id,p_origin:origin==='all'?'traced':origin});
     if (error || data?.contract!==1 || data.hotelId!==hotel.id) throw attentionError('Seguimiento no disponible.',503);
   }
   const rows=(table,select,order='id')=>readAllInboxRows(()=>supabase.from(table).select(select).eq('hotel_id',hotel.id).order(order,{ascending:true}));
@@ -18,7 +20,7 @@ export async function loadMessageMetrics({supabase,hotel,origin,date,verified=fa
   ]);
   const claimedIds=new Set(claims.map(c=>c.message_id).filter(Boolean));
   const groups=new Map(), validConversations=new Set(conversations.map(c=>c.id));
-  for (const m of messages) if (isAttentionMessage(m) && validConversations.has(m.conversation_id) && attentionOrigin(m,claimedIds)===origin) {
+  for (const m of messages) if (isAttentionMessage(m) && validConversations.has(m.conversation_id) && (origin==='all' || attentionOrigin(m,claimedIds)===origin)) {
     if (!groups.has(m.conversation_id)) groups.set(m.conversation_id,[]);
     groups.get(m.conversation_id).push(m.id);
   }
@@ -29,6 +31,7 @@ export async function loadMessageMetrics({supabase,hotel,origin,date,verified=fa
     if(error || !validAttentionSnapshot(data,hotel.id,job.conversationId,job.ids)) throw attentionError('Seguimiento no disponible. Actualiza para reintentar.',503);
     for(const item of data.items) attention.set(item.messageId,item);
   }));
-  return buildMessageMetrics({hotelId:hotel.id,timezone:hotel.timezone,origin,date,now,messages,conversations,attention,
+  const snapshot=buildMessageMetrics({hotelId:hotel.id,timezone:hotel.timezone,origin,date,period,now,messages,conversations,attention,
     alerts:new Map(states.map(s=>[s.conversation_id,s])),claimedIds});
+  return includeSource ? {...snapshot,source:{messages,attention,claimedIds,states}} : snapshot;
 }
