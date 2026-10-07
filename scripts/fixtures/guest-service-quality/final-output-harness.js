@@ -16,7 +16,7 @@ const segment = (start, end) => {
 const finalBody=segment('  const operationalRequest = await recordOperationalRequest(', '  const previousLastProviderExperience');
 const transportBody=segment('  let twilioMessage = null;\n\n  if (sendReply)', "  logger.info('Guest message processed'");
 const ticketSource=read('src/services/ticket.service.js').replace(/^import[^;]+;\r?\n/gm,'').replace('export const ','const ');
-export async function captureFinalOutput(input, primaryOutput, {conciergeOutput=null, failTicket=false, foreignTicket=false, finalizer=quality.finalizeServiceReply}={}) {
+export async function captureFinalOutput(input, primaryOutput, {conciergeOutput=null, failTicket=false, foreignTicket=false, finalizer=quality.finalizeServiceReply,composeReceipt=async()=>null}={}) {
   const calls=[];
   const raw={...primaryOutput,ai_provider:'openai',fallback_used:false};
   const primary=quality.applyServiceCapabilities(raw,input.conversationContext);
@@ -33,7 +33,7 @@ export async function captureFinalOutput(input, primaryOutput, {conciergeOutput=
     try{stored=await createTicketRecord({hotelId:input.hotel.id,guestId:input.guest.id,conversationId:'synthetic-conversation',category:p_request.category});
     return {data:{ticket:stored,source_message_id:sourceMessage.id}};}catch(error){return {error};}
   },from:()=>{const q={select:()=>q,eq:()=>q,single:async()=>({data:stored})};return q}};
-  const bindings={...quality,finalizeServiceReply:finalizer,rawAiResponse:primary,aiResponseWithUpsell:processed,
+  const bindings={...quality,composeRecordedGuestReply:composeReceipt,finalizeServiceReply:finalizer,rawAiResponse:primary,aiResponseWithUpsell:processed,
     recordOperationalRequest:values=>recordRequest({...values,client}),guestMessage:sourceMessage,
     activeHotel:input.hotel,guest:input.guest,conversation:{id:'synthetic-conversation'},
     conversationContext:{...input.conversationContext,hotelKnowledge:input.hotelKnowledge,knownRoom:input.guest.current_room,operationalContext:{hotel_id:input.hotel.id,guest_id:input.guest.id,conversation_id:'synthetic-conversation',known_room:input.guest.current_room}},

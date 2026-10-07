@@ -55,3 +55,12 @@ states.length=0;assert.equal((await module.exports.loadDashboardMessages({supaba
 fail=true;assert.equal((await module.exports.loadDashboardMessages({supabase:db,hotel})).coverage,'incomplete');
 fail=false;assert.equal((await module.exports.loadDashboardMessages({supabase:db,hotel})).messages.length,5);
 console.log('PASS real loader: five incoming messages, history, stable order, urgent empty never falls back, scoped links, partial failure and recovery');
+
+conversations[0].status='closed';
+const retired=await loadMessageMetrics({supabase:db,hotel,origin:'all',period:'history',includeSource:true,now});
+assert(retired.source.messages.every(m=>m.conversation_id!==conversations[0].id));
+assert.equal(retired.counters.received,messages.filter(m=>m.conversation_id===conversations[1].id && contract.isAttentionMessage(m)).length);
+assert(demo.currentDemoConversation(conversations[0],{...hotel,id:id(900)}));
+assert(!demo.currentDemoConversation(conversations[0],hotel));
+assert.equal(messages.length,16);assert.equal(conversations.length,2);
+console.log('PASS retired demo threads excluded consistently from metrics/source without deletion or effect on other hotels');

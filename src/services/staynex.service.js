@@ -1,3 +1,4 @@
+import { composeRecordedGuestReply } from './openai.service.js';
 import {assertHotelOperationsAvailable} from '../../shared/hotels/lifecycle.js';
 import { finalizeServiceReply, arrivalBookingTopic, guestFacingKnowledge } from '../../shared/guest-service/quality.js';
 import {
@@ -1725,11 +1726,15 @@ export const processGuestMessage = async ({
     });
   }
 
+  const receiptReply = !(providerExperienceOwnsResponse || experienceBookingIntent.detected || experienceBookingRequest)
+    ? await composeRecordedGuestReply({ticket,operationalRequest,hotelId:activeHotel.id,guestId:guest.id,
+      conversationId:conversation.id,language:conversationContext.language,message,context:conversationContext}) : null;
+
   aiResponseWithUpsell = finalizeServiceReply({primary:rawAiResponse, processed:aiResponseWithUpsell, ticket,
     hotel:activeHotel, hotelId:activeHotel.id, guestId:guest.id, conversationId:conversation.id, language:conversationContext.language,
     providerOwned:Boolean(providerExperienceOwnsResponse || experienceBookingIntent.detected || experienceBookingRequest),
     preferPrimary:!finalOfferSuppression.suppress && humanEscalation.humanReason !== 'human_requested' && !smarterResponse.metadata.repair_mode_activated,
-    emergency:aiResponseWithUpsell.emergency, knownRoom:conversationContext.knownRoom, context:conversationContext, message,operationalRequest});
+    emergency:aiResponseWithUpsell.emergency, knownRoom:conversationContext.knownRoom, context:conversationContext, message,operationalRequest,receiptReply});
 
   const aiMessage = await createMessage({
     conversationId: conversation.id,

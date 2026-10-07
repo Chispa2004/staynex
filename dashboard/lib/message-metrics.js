@@ -1,4 +1,4 @@
-import {isCheckinDemoHotel} from '../../shared/checkin-demo-view.js';
+import {isCheckinDemoHotel,currentDemoConversation} from '../../shared/checkin-demo-view.js';
 import { readAllInboxRows } from '../../shared/inbox/stay-stage.js';
 import { isAttentionMessage, validAttentionSnapshot, attentionError } from '../../shared/message-attention/contract.js';
 import { buildMessageMetrics, attentionOrigin } from '../../shared/message-attention/metrics.js';
@@ -14,12 +14,14 @@ export async function loadMessageMetrics({supabase,hotel,origin,date,period,incl
   const rows=(table,select,order='id')=>readAllInboxRows(()=>supabase.from(table).select(select).eq('hotel_id',hotel.id).order(order,{ascending:true}));
   const [messages,conversations,claims,states]=await Promise.all([
     rows('messages','id,hotel_id,conversation_id,sender_type,metadata,created_at'),
-    rows('conversations','id,hotel_id'),
+    rows('conversations','id,hotel_id,status'),
     rows('twilio_inbound_message_claims','id:message_sid,message_id','message_sid'),
     rows('conversation_ai_state','id:conversation_id,conversation_id,hotel_id,escalation_level,updated_at','conversation_id')
   ]);
   const claimedIds=new Set(claims.map(c=>c.message_id).filter(Boolean));
-  const groups=new Map(), validConversations=new Set(conversations.map(c=>c.id));
+  const currentConversations=conversations.filter(c=>currentDemoConversation(c,hotel));
+  const groups=new Map(), validConversations=new Set(currentConversations.map(c=>c.id));
+  const currentMessages=messages.filter(m=>validConversations.has(m.conversation_id));
   for (const m of messages) if (isAttentionMessage(m) && validConversations.has(m.conversation_id) && (origin==='all' || attentionOrigin(m,claimedIds)===origin)) {
     if (!groups.has(m.conversation_id)) groups.set(m.conversation_id,[]);
     groups.get(m.conversation_id).push(m.id);
@@ -31,7 +33,7 @@ export async function loadMessageMetrics({supabase,hotel,origin,date,period,incl
     if(error || !validAttentionSnapshot(data,hotel.id,job.conversationId,job.ids)) throw attentionError('Seguimiento no disponible. Actualiza para reintentar.',503);
     for(const item of data.items) attention.set(item.messageId,item);
   }));
-  const snapshot=buildMessageMetrics({hotelId:hotel.id,timezone:hotel.timezone,origin,date,period,now,messages,conversations,attention,
+  const snapshot=buildMessageMetrics({hotelId:hotel.id,timezone:hotel.timezone,origin,date,period,now,messages:currentMessages,conversations:currentConversations,attention,
     alerts:new Map(states.map(s=>[s.conversation_id,s])),claimedIds});
-  return includeSource ? {...snapshot,source:{messages,attention,claimedIds,states}} : snapshot;
+  return includeSource ? {...snapshot,source:{messages:currentMessages,attention,claimedIds,states}} : snapshot;
 }

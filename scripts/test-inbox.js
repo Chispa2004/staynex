@@ -1,3 +1,4 @@
+import {currentDemoConversation} from '../shared/checkin-demo-view.js';
 import {resolveOperationalContext} from '../shared/guest-service/operational-context.js';
 import { operationalStayContext } from '../shared/guest-memory/personalization-boundary.js';
 import { controlFromState, attentionReadText } from '../dashboard/lib/inbox-tracking-state.js';
@@ -25,16 +26,17 @@ const loadInboxModuleForTest = () => {
     .replace("import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';\n", '')
     .replace("import { sanitizeInboxMessageTranslations } from './inbox-message-presentation.js';\n", '')
     .replace("import { controlFromState } from './inbox-tracking-state.js';\n", '')
+    .replace("import { currentDemoConversation } from '../../shared/checkin-demo-view.js';\n", '')
     .replaceAll('export const ', 'const ');
 
   return new Function(
-    'resolveOperationalContext','operationalStayContext','controlFromState','guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
+    'currentDemoConversation','resolveOperationalContext','operationalStayContext','controlFromState','guestFacingKnowledge','messageStayStage','readAllInboxRows','getSupabaseAdmin',
     'buildConversationCopilot',
     'isGuestMemoryEnabled',
     'sanitizeInboxMessageTranslations',
     `${source}\nreturn { getInboxConversations };`
   )(
-    resolveOperationalContext,operationalStayContext,controlFromState,guestFacingKnowledge,messageStayStage,readAllInboxRows,
+    currentDemoConversation,resolveOperationalContext,operationalStayContext,controlFromState,guestFacingKnowledge,messageStayStage,readAllInboxRows,
     () => {
       throw new Error('Unexpected default Supabase admin access in inbox test');
     },
@@ -636,3 +638,13 @@ assert.ok(safeKnowledgeInbox.every(c=>c.hotelKnowledge.length===1 && c.hotelKnow
 assert.ok(safeKnowledgeInbox.every(c=>c.hotelProfile.id===hotelA && c.hotelProfile.timezone==='Europe/Madrid'));
 assert.ok(safeKnowledgeInbox.every(c=>Number.isFinite(Date.parse(c.contextReadAt))));
 console.log('PASS Inbox production loader includes only active guest-facing Knowledge from the authorized hotel');
+
+const retiredHotel={id:'1ef60a40-b65f-4bff-9bd3-22654e5029f2',slug:'hotel-demo-checkin'};
+const retiredTables=JSON.parse(JSON.stringify(baseTables).replaceAll(hotelA,retiredHotel.id));
+retiredTables.conversations[0].status='closed';
+const retiredId=retiredTables.conversations[0].id;
+assert.equal((await getInboxConversations({supabase:createFakeSupabase(retiredTables),hotelId:retiredHotel.id,hotel:retiredHotel})).length,0);
+assert.equal((await getInboxConversations({supabase:createFakeSupabase(retiredTables),hotelId:retiredHotel.id,hotel:retiredHotel,includeClosedId:retiredId}))[0].id,retiredId);
+assert.equal((await getInboxConversations({supabase:createFakeSupabase(retiredTables),hotelId:retiredHotel.id,hotel:retiredHotel,conversationIds:[retiredId]}))[0].id,retiredId);
+assert.equal(retiredTables.conversations[0].status,'closed');
+console.log('PASS retired demo is absent from directory but authorized historical ticket/detail links preserve source traceability');

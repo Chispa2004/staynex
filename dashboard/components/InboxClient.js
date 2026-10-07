@@ -788,7 +788,7 @@ export const InboxClient = ({ conversations }) => {
       const headers=await getAuthHeaders();
       const startedMetric=metricKey;
       if (metricKey) setMetricState(current=>current.key===metricKey && current.status==='ready' ? {...current,refreshing:true} : {key:metricKey,status:'loading'});
-      const response = await fetch('/api/inbox?view=summary'+(metricKey?'&'+metricKey:''), {
+      const response = await fetch('/api/inbox?view=summary'+(metricKey?'&'+metricKey:'')+(requestedIdRef.current?'&conversationId='+encodeURIComponent(requestedIdRef.current):''), {
         headers,
         cache: 'no-store'
       });

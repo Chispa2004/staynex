@@ -43,7 +43,9 @@ const localClock = (now, timezone) => {
 // Free-text Knowledge has no promotion validity schema. Recognize explicit ISO
 // bounds only; all other validity/eligibility must be checked, not inferred.
 const promotionStatus = (row, today) => {
-  const text = normalize(row.value);
+  const raw = normalize(row.value);
+  const bookingWindow=raw.match(/(?:when booked|book(?:ing)?|reservar|reservando|reservas?)\s+(?:from|desde)[^.!]+/);
+  const text=bookingWindow?.[0] || raw;
   const end = text.match(/(?:hasta|until|expires?|caduca|valid_to)\s*:?\s*(\d{4}-\d{2}-\d{2})/)?.[1];
   const start = text.match(/(?:desde|from|valid_from)\s*:?\s*(\d{4}-\d{2}-\d{2})/)?.[1];
   return !today ? 'validity_unconfirmed' : end && end < today ? 'expired' : start && start > today ? 'not_started' : end ? 'within_documented_window' : 'validity_unconfirmed';
@@ -88,7 +90,7 @@ ARRIVAL AND NEW-BOOKING CONTRACT:
 `;
 
 const copy = {
- es:{policy:'Información del hotel:',room:'El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel.',date:'¿A qué fecha corresponde esa llegada después de medianoche?',unknownArrival:'No consta aquí un procedimiento confirmado de acceso a esa hora; el hotel debe confirmar cómo entrar antes de la llegada.',unknownOffer:'No tengo información de descuentos para esa estancia; puede haber ofertas que no consten aquí.',expired:'La oferta documentada ha caducado o todavía no ha comenzado.',terms:'La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.',link:'Puedes consultar disponibilidad, condiciones y reservar en la web del hotel:',contact:'El siguiente paso es consultar el procedimiento y las condiciones con el hotel en',none:'Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.',request:'Los datos de la nueva estancia permiten preparar una solicitud para que el hotel revise disponibilidad y condiciones; todavía no hay reserva confirmada.',details:'¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?'},
+ es:{policy:'Información del hotel:',room:'El horario de check-in no garantiza que la habitación esté lista. El acceso, sobre todo antes del inicio de tu estancia, necesita confirmación del hotel.',date:'¿A qué fecha corresponde esa llegada después de medianoche?',unknownArrival:'No consta aquí un procedimiento confirmado de acceso a esa hora; el hotel debe confirmar cómo entrar antes de la llegada.',unknownOffer:'No tengo una promoción confirmada para esas fechas; puede haber ofertas que no consten aquí.',expired:'La oferta documentada ha caducado o todavía no ha comenzado.',terms:'La vigencia y las condiciones aplicables a tu estancia deben comprobarse antes de aplicar una oferta.',link:'Puedes consultar disponibilidad, condiciones y reservar en la web del hotel:',contact:'El siguiente paso es consultar el procedimiento y las condiciones con el hotel en',none:'Aquí no puedo consultar disponibilidad ni confirmar una reserva. El hotel debe confirmar cómo puedes reservar.',request:'Podemos recoger aquí tu solicitud para revisar fechas y condiciones, sin confirmar aún la reserva.',details:'¿Qué fechas de llegada y salida y cuántas personas deseas incluir en esa solicitud?'},
  en:{policy:'Hotel information:',room:'Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation.',date:'Which calendar date is that arrival after midnight?',unknownArrival:'There is no confirmed access procedure for that time here; the hotel needs to confirm how to enter before arrival.',unknownOffer:'I do not have discount information for that stay; the hotel may have offers that are not listed here.',expired:'The documented offer has expired or has not started yet.',terms:'Validity and the conditions applicable to your stay need checking before applying an offer.',link:'You can check availability and terms and book on the hotel website:',contact:'The next step is to check the procedure and terms with the hotel at',none:'I cannot check availability or confirm a booking here. The hotel needs to confirm how you can book.',request:'The new stay details allow a request for the hotel to review availability and terms; no reservation is confirmed yet.',details:'What arrival and departure dates and party size would you like included in that request?'}
 };
 const midnightCopy = {
@@ -107,6 +109,31 @@ const missingBookingDetails = (plan, language) => {
   return '';
 };
 
+// Keep a generated night-access answer only when its bounded factual anchors
+// agree with the scoped policy. Rich promotion conditions still use the complete
+// documented fallback. This is a guard for supported patterns, not an LLM judge.
+export function groundedArrivalReply(reply, plan, message, history=[]) {
+  if(plan.topic!=='arrival' || typeof reply!=='string')return false;
+  const text=normalize(reply), facts=normalize(plan.knowledge.map(r=>r.value).join(' '));
+  const guestFacts=normalize([...history.filter(m=>m.sender_type==='guest').map(m=>m.content),message].join(' '));
+  if(/(?:habitacion|room).{0,18}(?:estara lista|esta lista|will be ready|is ready|garantiz)|(?:garantiz|guarantee).{0,35}(?:habitacion|room)/.test(text))return false;
+  if(/\b(?:24)\s*(?:h|horas|hours)/.test(text) && !/24\s*(?:h|horas|hours)/.test(facts))return false;
+  const entrances=[['principal',/entrada principal|main entrance/],['lateral',/entrada lateral|side entrance/],['norte',/entrada norte|north entrance/]];
+  const declared=entrances.filter(([,p])=>p.test(facts));
+  if(declared.length!==1 || !declared[0][1].test(text) || entrances.some(([key,p])=>key!==declared[0][0]&&p.test(text)))return false;
+  if(/(?:previa|requiere|after).{0,30}confirm|confirm.{0,30}(?:acceso|access)/.test(facts)
+    && !/confirm|no.{0,25}garant|not guaranteed/.test(text))return false;
+  const allowedTimes=new Set((facts+' '+guestFacts).match(/\b\d{1,2}:\d{2}\b/g)||[]);
+  if((text.match(/\b\d{1,2}:\d{2}\b/g)||[]).some(t=>!allowedTimes.has(t)))return false;
+  const cutoff=facts.match(/(?:antes de|before)\s*(?:las\s*)?(\d{1,2}:\d{2})/)?.[1];
+  if(cutoff && (!text.includes(cutoff) || !/antes|before/.test(text)))return false;
+  if(cutoff && /\b00:\d\d\b/.test(guestFacts) && !/dia anterior|previous (?:day|evening)|before (?:your )?arrival|antes de (?:tu |su |la )?llegada/.test(text))return false;
+  const dates=[...new Set(guestFacts.match(/\b\d{4}-\d{2}-\d{2}\b/g)||[])];
+  if(!dates.length && /medianoche|midnight|0[0-5]:\d\d/.test(guestFacts) && !/\?/.test(reply))return false;
+  if(/habitacion|room/.test(text) && !/no.{0,40}garant|not guaranteed|necesita.{0,20}confirm|requires?.{0,20}confirm|sujet.{0,20}disponib/.test(text))return false;
+  return true;
+}
+
 // Inbox is a deterministic staff draft, not another LLM or a booking action.
 // Quote hotel facts as facts; explicitly label what still requires verification.
 export const buildArrivalBookingDraft = (args = {}) => {
@@ -114,6 +141,18 @@ export const buildArrivalBookingDraft = (args = {}) => {
   const language = String(args.conversationContext?.language || args.guest?.preferred_language || 'es').slice(0,2);
   const t = copy[language];
   if (!plan.topic || !t) return null;
+  // A focused room-readiness follow-up must not repeat the whole night-access
+  // policy or turn a building entrance into a room guarantee.
+  const current=normalize(args.message);
+  const previous=(args.conversationContext?.recentMessages||[]).filter(m=>m.sender_type==='guest').map(m=>normalize(m.content)).join(' ');
+  if(plan.topic==='arrival' && /habitacion|room/.test(current) && !/entrada|entrance|por donde|how to enter/.test(current) && night.test(previous)) {
+    const checkIn=plan.knowledge.find(r=>/check.?in/.test(normalize(r.key+' '+r.value)))?.value;
+    const time=String(checkIn||'').match(/\b\d{1,2}:\d{2}\b/)?.[0];
+    const text=language==='es'
+      ? `El acceso al edificio no confirma que la habitación esté disponible${time?`; el check-in empieza a las ${time}`:''}. La entrada anticipada a la habitación necesita confirmación.`
+      : `Building access does not confirm that the room is available${time?`; check-in starts at ${time}`:''}. Early room access needs confirmation.`;
+    return {text,language,draft:true,confidence:.6,source:'documented_hotel_context'};
+  }
   const parts=[];
   const facts=plan.knowledge.filter(r=>!['expired','not_started'].includes(r.promotion_status));
   if (facts.length) parts.push(t.policy+' '+facts.map(r=>r.value).join(' '));

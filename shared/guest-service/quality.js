@@ -1,4 +1,5 @@
-import { ARRIVAL_BOOKING_POLICY, arrivalBookingTopic, buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge } from './arrival-booking.js';
+import { receiptFacts, safeReceiptReply } from './receipt-reply.js';
+import { ARRIVAL_BOOKING_POLICY, arrivalBookingTopic, buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge, groundedArrivalReply } from './arrival-booking.js';
 export { buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge };
 export { arrivalBookingTopic };
 // Shared by primary generation, optional Concierge refinement and isolated evaluation.
@@ -6,6 +7,8 @@ export { arrivalBookingTopic };
 export const GUEST_SERVICE_POLICY = `
 ${ARRIVAL_BOOKING_POLICY}
 GUEST SERVICE CONTRACT (takes precedence over style suggestions):
+- Speak as the hotel team: natural, cordial and concise, normally 1–3 sentences. Answer first. No repetitive greetings, apologies, generic offers or procedural disclaimers. Preserve quantities, dates and details from earlier turns.
+- Do not repeat the whole hotel policy on a follow-up. Address only the new question. Explain uncertainty only when it changes the guest’s next step.
 - The reply field is PRE-EXECUTION text: include only the factual answer or a missing-detail question. NEVER write that you have acted, are acting or will act (notify, arrange, forward, deliver, check with a team, issue an invoice). The application supplies any verified request receipt after persistence.
 - A check-in time is a policy boundary, NEVER a guarantee that a specific room will be ready. If the arrival night differs from the booked arrival date, clarify the date and keep room access pending hotel confirmation.
 - Resolve the current question directly from this hotel's verified knowledge. If the answer is sufficient, stop: do not append a referral to reception.
@@ -14,6 +17,7 @@ GUEST SERVICE CONTRACT (takes precedence over style suggestions):
 - Distinguish information, missing details, a request requiring hotel confirmation, and completed action. A proposed ticket or department action is NOT a saved request. A saved ticket does NOT prove notification, acceptance, delivery, availability, payment, issue resolution or invoice issuance.
 - service_capabilities.request_recording=true means the application can attempt an internal ticket AFTER this response is generated. For an actual operational request, propose create_ticket with the known room/context and a useful title/description; do not tell the guest to repeat the conversation through another channel. The application, not the model, adds the receipt after a successful write. Do not say it is registered yet or promise a notification/action.
 - If request_recording is false, collect only useful missing facts and explain the actual next step. Do not claim tools, notifications or access you do not have. In a staff draft, address the guest but leave decisions to the authorized staff member.
+- A confirmed hotel stay is never a confirmed airport transfer. On follow-ups keep the current service topic; do not answer a transfer reservation question with the accommodation reservation status.
 - Requests for an invoice, lost-property search, towels or maintenance are operational requests: when request_recording=true propose a ticket, including reception category for invoices or lost property. Do not invent security rules requiring email or a visit to reception. An informational discount enquiry without reliable terms must state that availability/rates are unconfirmed. Ask for future dates/party size only for an available request workflow or a documented next step, explaining their purpose. Do not reuse an unrelated current reservation for a new stay. Do not divert the guest to reception when you can collect those details here.
 - Do not add ancillary services (e.g. luggage storage), alternative meals or contact channels unless documented for this hotel.
 - For requests needing availability or authorization (cot, early arrival, transport, reservation, discount), keep confirmation pending. A reception open at night does not establish early room availability. An invoice request is not an issued invoice; an object description is not proof it was found.
@@ -53,12 +57,12 @@ export function applyServiceCapabilities(response, context = {}) {
 }
 
 const copy = {
-  it:{saved:'La richiesta è stata registrata per la verifica dell’hotel; intervento o disponibilità restano da confermare.',pending:'La richiesta richiede la verifica del personale dell’hotel; nessun intervento è ancora confermato.',urgent:'In caso di pericolo immediato, contatta subito la reception o i servizi di emergenza.',missing:'Non ho questa informazione confermata per questo hotel.',clarify:'Quale dettaglio desideri confermare?',room:'Quale camera è interessata?',lost:'Puoi descrivere l’oggetto e dove pensi di averlo lasciato?',cot:'Quanti mesi o anni ha il bambino?',invoice:'Devi richiedere una fattura o correggerne una già emessa?'},
-  pt:{saved:'O pedido ficou registado para análise do hotel; a intervenção ou disponibilidade aguarda confirmação.',pending:'O pedido precisa de análise pela equipa do hotel; ainda não há intervenção confirmada.',urgent:'Em caso de perigo imediato, contacte agora a receção ou os serviços de emergência.',missing:'Não tenho essa informação confirmada para este hotel.',clarify:'Que detalhe pretende confirmar?',room:'Qual é o quarto afetado?',lost:'Pode descrever o objeto e onde pensa que o deixou?',cot:'Qual é a idade do bebé?',invoice:'Precisa de pedir uma fatura ou corrigir uma já emitida?'},
-  es:{saved:'La solicitud ha quedado registrada para revisión del hotel; la actuación o disponibilidad sigue pendiente de confirmación.',pending:'La petición necesita revisión del equipo del hotel; todavía no hay una actuación confirmada.',urgent:'Si hay peligro inmediato, contacta ahora con recepción o con los servicios de emergencia.',missing:'No tengo ese dato confirmado para este hotel.',clarify:'¿Qué detalle necesitas confirmar?',room:'¿En qué habitación ocurre?',lost:'¿Puedes describir el objeto y dónde crees que lo dejaste?',cot:'¿Qué edad tiene el bebé?',invoice:'¿Necesitas solicitar una factura o corregir una ya emitida?'},
-  en:{saved:'Your request has been recorded for hotel review; action or availability still needs confirmation.',pending:'This request needs the hotel team’s review; no action has been confirmed yet.',urgent:'If there is immediate danger, contact reception or emergency services now.',missing:'I do not have that detail confirmed for this hotel.',clarify:'Which detail would you like to confirm?',room:'Which room is affected?',lost:'Could you describe the item and where you think you left it?',cot:'How old is the baby?',invoice:'Do you need to request an invoice or correct one already issued?'},
-  fr:{saved:'Votre demande est enregistrée pour examen par l’hôtel ; l’intervention ou la disponibilité reste à confirmer.',pending:'Cette demande nécessite un examen par l’équipe de l’hôtel ; aucune intervention n’est encore confirmée.',urgent:'En cas de danger immédiat, contactez la réception ou les services d’urgence.',missing:'Je ne dispose pas de cette information confirmée pour cet hôtel.',clarify:'Quel détail souhaitez-vous confirmer ?',room:'Quelle chambre est concernée ?',lost:'Pouvez-vous décrire l’objet et où vous pensez l’avoir laissé ?',cot:'Quel âge a le bébé ?',invoice:'Souhaitez-vous demander une facture ou corriger une facture déjà émise ?'},
-  de:{saved:'Ihre Anfrage wurde zur Prüfung durch das Hotel erfasst; Durchführung oder Verfügbarkeit sind noch nicht bestätigt.',pending:'Diese Anfrage muss das Hotelteam prüfen; eine Durchführung ist noch nicht bestätigt.',urgent:'Bei unmittelbarer Gefahr kontaktieren Sie sofort die Rezeption oder den Notdienst.',missing:'Diese Information liegt mir für dieses Hotel nicht bestätigt vor.',clarify:'Welche Angabe möchten Sie bestätigen lassen?',room:'Welches Zimmer ist betroffen?',lost:'Können Sie den Gegenstand und den vermuteten Ort beschreiben?',cot:'Wie alt ist das Baby?',invoice:'Möchten Sie eine Rechnung anfordern oder eine bereits ausgestellte korrigieren?'}
+  it:{saved:'Abbiamo ricevuto la tua richiesta.',pending:'La richiesta richiede la verifica del personale dell’hotel; nessun intervento è ancora confermato.',urgent:'In caso di pericolo immediato, contatta subito la reception o i servizi di emergenza.',missing:'Non ho questa informazione confermata per questo hotel.',clarify:'Quale dettaglio desideri confermare?',room:'Quale camera è interessata?',lost:'Puoi descrivere l’oggetto e dove pensi di averlo lasciato?',cot:'Quanti mesi o anni ha il bambino?',invoice:'Devi richiedere una fattura o correggerne una già emessa?'},
+  pt:{saved:'Recebemos o seu pedido.',pending:'O pedido precisa de análise pela equipa do hotel; ainda não há intervenção confirmada.',urgent:'Em caso de perigo imediato, contacte agora a receção ou os serviços de emergência.',missing:'Não tenho essa informação confirmada para este hotel.',clarify:'Que detalhe pretende confirmar?',room:'Qual é o quarto afetado?',lost:'Pode descrever o objeto e onde pensa que o deixou?',cot:'Qual é a idade do bebé?',invoice:'Precisa de pedir uma fatura ou corrigir uma já emitida?'},
+  es:{saved:'Ya tenemos registrada tu solicitud.',pending:'Podemos recoger los detalles aquí para revisar tu petición.',urgent:'Si hay peligro inmediato, contacta ahora con recepción o con los servicios de emergencia.',missing:'No tengo ese dato confirmado para este hotel.',clarify:'¿Qué detalle necesitas confirmar?',room:'¿En qué habitación ocurre?',lost:'¿Puedes describir el objeto y dónde crees que lo dejaste?',cot:'¿Qué edad tiene el bebé?',invoice:'¿Necesitas solicitar una factura o corregir una ya emitida?'},
+  en:{saved:'We have recorded your request.',pending:'We can collect the details here to review your request.',urgent:'If there is immediate danger, contact reception or emergency services now.',missing:'I do not have that detail confirmed for this hotel.',clarify:'Which detail would you like to confirm?',room:'Which room is affected?',lost:'Could you describe the item and where you think you left it?',cot:'How old is the baby?',invoice:'Do you need to request an invoice or correct one already issued?'},
+  fr:{saved:'Nous avons bien reçu votre demande.',pending:'Cette demande nécessite un examen par l’équipe de l’hôtel ; aucune intervention n’est encore confirmée.',urgent:'En cas de danger immédiat, contactez la réception ou les services d’urgence.',missing:'Je ne dispose pas de cette information confirmée pour cet hôtel.',clarify:'Quel détail souhaitez-vous confirmer ?',room:'Quelle chambre est concernée ?',lost:'Pouvez-vous décrire l’objet et où vous pensez l’avoir laissé ?',cot:'Quel âge a le bébé ?',invoice:'Souhaitez-vous demander une facture ou corriger une facture déjà émise ?'},
+  de:{saved:'Wir haben Ihre Anfrage erhalten.',pending:'Diese Anfrage muss das Hotelteam prüfen; eine Durchführung ist noch nicht bestätigt.',urgent:'Bei unmittelbarer Gefahr kontaktieren Sie sofort die Rezeption oder den Notdienst.',missing:'Diese Information liegt mir für dieses Hotel nicht bestätigt vor.',clarify:'Welche Angabe möchten Sie bestätigen lassen?',room:'Welches Zimmer ist betroffen?',lost:'Können Sie den Gegenstand und den vermuteten Ort beschreiben?',cot:'Wie alt ist das Baby?',invoice:'Möchten Sie eine Rechnung anfordern oder eine bereits ausgestellte korrigieren?'}
 };
 export const serviceCopy = language => copy[String(language).slice(0,2)] || null;
 
@@ -71,7 +75,7 @@ export function hasKnownChildAge(text = '') {
 
 // This is a conservative guard for known unsupported commitment patterns, not a
 // semantic proof of arbitrary natural language. Prompt/evaluation remain necessary.
-export const hasUnverifiedActionClaim = text => /\b(he|hemos|ya hemos)\s+(registrado|solicitado|avisado|enviado|reservado|confirmado|emitido|pasado|informado|organizado)|\b(voy a|vamos a)\s+(derivar|avisar|informar|enviar|pasar|registrar|coordinar|organizar)|\b(enviamos|enviaremos)\b|\b(avis[oó]|avisar[eé]|derivo|enviar[eé]|notificar[eé]|informar[eé]|informo|organizo)\b|\b(i(?:’|')?(?:ve|m)|i have|we have|we(?:’|')ve)\s+(registered|noted|notified|sent|booked|confirmed|issued|alerting|forwarding|arranged|reported|reporting)|\b(i will|we will|i[’']ll|we[’']ll)\s+(notify|inform|create|prepare|review|send|book|alert|forward|check|arrange|deliver)|\b(je transmets|je pr[eé]viens|nous avons (envoy[eé]|confirm[eé])|ich leite|ich informiere|wir haben .*best[aä]tigt)\b/i.test(text || '');
+export const hasUnverifiedActionClaim = text => /\b(?:hemos recibido|ya tenemos|estamos gestion[aá]ndo|estamos atendiendo|estamos revisando|nos estamos encargando|we have received|we are (?:handling|processing|working))\b|\b(he|hemos|ya hemos)\s+(registrado|solicitado|avisado|enviado|reservado|confirmado|emitido|pasado|informado|organizado)|\b(voy a|vamos a)\s+(derivar|avisar|informar|enviar|pasar|registrar|coordinar|organizar)|\b(enviamos|enviaremos)\b|\b(avis[oó]|avisar[eé]|derivo|enviar[eé]|notificar[eé]|informar[eé]|informo|organizo)\b|\b(i(?:’|')?(?:ve|m)|i have|we have|we(?:’|')ve)\s+(registered|noted|notified|sent|booked|confirmed|issued|alerting|forwarding|arranged|reported|reporting)|\b(i will|we will|i[’']ll|we[’']ll)\s+(notify|inform|create|prepare|review|send|book|alert|forward|check|arrange|deliver)|\b(je transmets|je pr[eé]viens|nous avons (envoy[eé]|confirm[eé])|ich leite|ich informiere|wir haben .*best[aä]tigt)\b/i.test(text || '');
 
 export function missingServiceQuestion(reply = '', {knownRoom = null, reservation = null, recentMessages = [], message = '', requestRecorded = false} = {}) {
   const questions=reply.match(/¿[^?]+\?|(?:^|[.!]\s+)([^.!?]+\?)/g) || [];
@@ -79,12 +83,30 @@ export function missingServiceQuestion(reply = '', {knownRoom = null, reservatio
   return questions.map(q=>q.replace(/^[.!]\s*/, '').trim()).find(q=>!hasUnverifiedActionClaim(q)
     && !(requestRecorded && /(?:prepar|cre[ae]|registr|abr|open|record|submit).{0,35}(?:ticket|solicitud|petici[oó]n|request)/i.test(q))
     && !/datos completos|complete (?:personal )?details|document|passport|pasaporte|credit card|tarjeta|fiscales|fiscal|tax details|tax information|email|e-mail/i.test(q)
+    && !(reservation?.guest_name && /nombre|name|nom\b/i.test(q))
     && !(knownRoom && /habitaci[oó]n|room|chambre|zimmer/i.test(q))
-    && !(arrivalBookingTopic(message,recentMessages)!=='booking' && reservation?.arrival_date && reservation?.departure_date && /fechas|dates|arrival|departure|llegada|salida/i.test(q))
+    && !(arrivalBookingTopic(message,recentMessages)!=='booking' && reservation?.arrival_date && reservation?.departure_date && /fechas?|dates|arrival date|departure date|fecha.{0,20}(?:llegada|salida)/i.test(q))
     && !(/edad|old|[aâ]ge|alt/i.test(q) && hasKnownChildAge(facts))) || null;
 }
 
-export function finalizeServiceReply({primary, processed = primary, ticket = null, hotelId, guestId, conversationId, language = 'es', providerOwned = false, preferPrimary = true, emergency = false, knownRoom = null, context = {}, message = '', hotel = {},operationalRequest=null}) {
+// A stay reservation is not evidence of an airport-transfer reservation. This
+// bounded negative policy also applies to confirmation follow-ups.
+export function unavailableTransferReply({message='',context={},hotelId,language='es'}) {
+  const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const current=norm(message), history=context.recentMessages||[];
+  const previous=[...history].reverse().find(m=>m.sender_type==='guest' && (!m.hotel_id||m.hotel_id===hotelId));
+  const transfer=/traslado|transfer|shuttle|aeropuerto|airport/;
+  if(!transfer.test(current) && !(/reservad|confirmad|booked|confirmed|vuelo|flight/.test(current)&&transfer.test(norm(previous?.content))))return null;
+  const policy=guestFacingKnowledge(context.hotelKnowledge,hotelId).find(r=>/transfer|traslado|shuttle/.test(norm(r.key+' '+r.title))
+    && /does not (?:operate|offer)|no (?:ofrece|opera|dispone de)/.test(norm(r.value)));
+  if(!policy)return null;
+  const taxi=/taxi/.test(norm(policy.value)) && /taxi rank|parada/.test(norm(policy.value));
+  if(String(language).startsWith('es'))return 'No ofrecemos ese traslado ni se ha reservado desde aquí.'+(taxi?' Puedes utilizar la parada de taxis del aeropuerto.':'');
+  if(String(language).startsWith('en'))return 'We do not offer that transfer and no transfer has been booked here.'+(taxi?' You can use the airport taxi rank.':'');
+  return null;
+}
+
+export function finalizeServiceReply({primary, processed = primary, ticket = null, hotelId, guestId, conversationId, language = 'es', providerOwned = false, preferPrimary = true, emergency = false, knownRoom = null, context = {}, message = '', hotel = {},operationalRequest=null,receiptReply=null}) {
   // Existing provider booking receipts are handled by their own verified workflow.
   if(providerOwned) return processed;
   const t = serviceCopy(language);
@@ -92,17 +114,27 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
   if(actual && operationalRequest?.status==='recorded' && Object.hasOwn(ticket,'room_number'))knownRoom=ticket.room_number||null;
   const genuine = preferPrimary && !primary?.upsell_opportunity && primary?.ai_provider === 'openai' && !primary.fallback_used && Number(primary.confidence)>=0.65;
   let reply = genuine ? primary.reply : processed?.reply;
+  let usedReceiptGeneration=false;
   if(actual && t) {
     // Only the persisted, scoped record authorizes this acknowledgement. Discard
     // pre-execution operational prose: a model cannot certify its own actions.
     reply=t.saved;
-    if(operationalRequest?.status==='recorded' && language==='es')reply=`He registrado tu solicitud${knownRoom?` para la habitación ${knownRoom}`:''} para que el equipo del hotel la atienda. La actuación todavía no está confirmada.`;
-    if(operationalRequest?.status==='recorded' && language==='en')reply=`I have recorded your request${knownRoom?` for room ${knownRoom}`:''} for the hotel team to review. Action has not yet been confirmed.`;
-    const question=missingServiceQuestion(primary?.reply,{knownRoom,...context,message,requestRecorded:true});
+    if(operationalRequest?.status==='recorded' && language==='es')reply=`Ya tenemos registrada tu solicitud${knownRoom?` para la habitación ${knownRoom}`:''}.`;
+    if(operationalRequest?.status==='recorded' && language==='en')reply=`We have recorded your request${knownRoom?` for room ${knownRoom}`:''}.`;
+    const facts=receiptFacts({ticket,hotelId,guestId,conversationId,operationalRequest});
+    const generated=receiptReply && receiptReply.ticketId===ticket.id && receiptReply.hotelId===hotelId
+      && receiptReply.guestId===guestId && receiptReply.conversationId===conversationId
+      && receiptReply.sourceMessageId===operationalRequest?.sourceMessageId && receiptReply.status===facts?.status
+      && safeReceiptReply(receiptReply.reply,facts,language);
+    usedReceiptGeneration=Boolean(generated);
+    if(generated)reply=receiptReply.reply.split(/(?<=[.!?])\s+/u).filter(sentence=>!sentence.includes('?') && !/ind[ií]qu|confirme|provide|please (?:tell|confirm)/i.test(sentence)
+      || missingServiceQuestion(sentence.includes('?')?sentence:sentence+'?',{knownRoom,...context,message,requestRecorded:true})).join(' ');
+    const question=reply.includes('?')?null:missingServiceQuestion(primary?.reply,{knownRoom,...context,message,requestRecorded:true});
     if(question)reply+=' '+question;
-    if(!knownRoom && !question && ['maintenance','housekeeping','complaint'].includes(ticket.category))reply+=' '+t.room;
+    if(!reply.includes('?') && operationalRequest?.request?.key==='lost_property' && /(?:dej[eé]|perd[ií]|forgot|left).{0,20}(?:algo|something)/i.test(message))reply+=' '+(language==='es' && /\b(?:su|usted|le)\b/i.test(reply)?'¿Puede describir el objeto y dónde cree que lo dejó?':t.lost);
+    if(!generated && !knownRoom && !question && ['maintenance','housekeeping','complaint'].includes(ticket.category))reply+=' '+t.room;
   } else if(operationalRequest?.status==='unconfirmed') {
-    const failure={es:'Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Sigue pendiente de revisión por el equipo del hotel.',en:'Your message is preserved, but I could not confirm that the request was recorded. It still needs the hotel team’s review.',fr:'Votre message est conservé, mais l’enregistrement de la demande n’a pas pu être confirmé. L’équipe de l’hôtel doit encore l’examiner.',de:'Ihre Nachricht bleibt erhalten, aber die Erfassung der Anfrage konnte nicht bestätigt werden. Das Hotelteam muss sie noch prüfen.',it:'Il messaggio è conservato, ma non è stato possibile confermare la registrazione della richiesta. Deve ancora essere esaminata dall’hotel.',pt:'A mensagem foi preservada, mas não foi possível confirmar o registo do pedido. A equipa do hotel ainda precisa de o analisar.'};
+    const failure={es:'Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.',en:'Your message is preserved, but I could not confirm that the request was recorded. You can retry here; for immediate help, contact reception.',fr:'Votre message est conservé, mais l’enregistrement de la demande n’a pas pu être confirmé. L’équipe de l’hôtel doit encore l’examiner.',de:'Ihre Nachricht bleibt erhalten, aber die Erfassung der Anfrage konnte nicht bestätigt werden. Das Hotelteam muss sie noch prüfen.',it:'Il messaggio è conservato, ma non è stato possibile confermare la registrazione della richiesta. Deve ancora essere esaminata dall’hotel.',pt:'A mensagem foi preservada, mas não foi possível confirmar o registo do pedido. A equipa do hotel ainda precisa de o analisar.'};
     reply=failure[String(language).slice(0,2)]||t?.pending||'';
   } else if(hasUnverifiedActionClaim(reply)) reply = t?.pending || '';
   if(!actual && /habitaci[oó]n (?:estar[aá]|est[aá]) (?:lista|disponible)|room (?:will be|is) (?:ready|available)/i.test(reply || '')) {
@@ -121,15 +153,16 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     // Real evaluation still produced wrong midnight deadlines and incomplete or
     // overconfident offer terms. Present the scoped documented policy in these
     // bounded cases rather than trusting a paraphrase to preserve its conditions.
-    const needsGrounding = preferPrimary && !primary?.upsell_opportunity && (travel.topic==='arrival'
+    const needsGrounding = preferPrimary && !primary?.upsell_opportunity && (travel.topic==='arrival' && !groundedArrivalReply(reply,travel,message,context.recentMessages)
       || travel.topic==='booking' && (travel.knowledge.some(row=>row.promotion_status) || travel.booking_route!=='official_link'));
     if(needsGrounding || travel.topic && urls(reply).some(url=>!documented.has(url))) {
       reply = buildArrivalBookingDraft({hotel,guest:{id:guestId},message,hotelKnowledge:context.hotelKnowledge,conversationContext:{...context,language}})?.text || t?.pending || '';
     }
   }
+  if(!actual && operationalRequest?.status!=='unconfirmed')reply=unavailableTransferReply({message,context,hotelId,language})||reply;
   if(!reply) throw new Error('No safe service reply in the guest language');
   if(emergency && t && !reply.includes(t.urgent)) reply = `${t.urgent} ${reply}`;
-  return {...processed, reply, service_quality:{version:2,request_status:actual?'recorded':operationalRequest?.status||'not_recorded',ticket_id:actual?ticket.id:null,source_message_id:operationalRequest?.sourceMessageId||null,notification_confirmed:false}};
+  return {...processed, reply, service_quality:{version:3,receipt_generation:usedReceiptGeneration,request_status:actual?'recorded':operationalRequest?.status||'not_recorded',ticket_id:actual?ticket.id:null,source_message_id:operationalRequest?.sourceMessageId||null,notification_confirmed:false}};
 }
 
 // Inbox currently supplies deterministic drafts, not a provider generation. Keep

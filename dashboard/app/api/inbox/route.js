@@ -15,6 +15,8 @@ export async function GET(request) {
     }
     const params=new URL(request.url).searchParams;
     const detailId=params.get('detail');
+    const selectedId=params.get('conversationId');
+    if(selectedId && !/^[0-9a-f-]{36}$/i.test(selectedId))return NextResponse.json({error:'Conversación inválida'},{status:400});
     if(detailId && !/^[0-9a-f-]{36}$/i.test(detailId))return NextResponse.json({error:'Conversación inválida'},{status:400});
     const filter=detailId ? null : parseMessageMetric(params);
     if (filter && filter.hotelId!==hotel.id) return NextResponse.json({error:'El filtro pertenece a otro hotel.'},{status:403});
@@ -24,6 +26,7 @@ export async function GET(request) {
       hotel,
       hotelId: hotel?.id || null,
       conversationIds: detailId ? [detailId] : metric ? Object.keys(metric.byConversation) : null,
+      includeClosedId:filter ? null : selectedId,
       includeDetails:params.get('view')!=='summary'
     });
     if (metric) {
