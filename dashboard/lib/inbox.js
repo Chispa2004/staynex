@@ -7,6 +7,7 @@ import { buildConversationCopilot } from './ai-copilot';
 import { isGuestMemoryEnabled } from '../../shared/guest-memory/feature-flag.js';
 import { sanitizeInboxMessageTranslations } from './inbox-message-presentation.js';
 import { controlFromState } from './inbox-tracking-state.js';
+import { currentDemoConversation } from '../../shared/checkin-demo-view.js';
 
 
 const groupMessagesByConversation = (messages) => messages.reduce((groups, message) => {
@@ -547,12 +548,13 @@ const getGuestIntelligenceByGuest = async ({ supabase, guestIds, hotelId }) => {
   }
 };
 
-export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null, hotel = null, conversationIds = null, includeDetails = true } = {}) => {
+export const getInboxConversations = async ({ supabase = getSupabaseAdmin(), hotelId = null, hotel = null, conversationIds = null, includeClosedId = null, includeDetails = true } = {}) => {
   if (!hotelId) return [];
   const allConversations = await readAllInboxRows(() => supabase.from('conversations')
     .select('id, hotel_id, guest_id, status, last_message_at, created_at').eq('hotel_id', hotelId).order('id', {ascending:true}));
   const allowedIds=conversationIds && new Set(conversationIds);
-  const conversations=allowedIds ? allConversations.filter(c=>allowedIds.has(c.id)) : allConversations;
+  const conversations=allowedIds ? allConversations.filter(c=>allowedIds.has(c.id))
+    : allConversations.filter(c=>currentDemoConversation(c,hotel) || c.id===includeClosedId);
   let hotelKnowledge = [];
   try {
     if (includeDetails) hotelKnowledge = guestFacingKnowledge(await readAllInboxRows(() => supabase.from('hotel_knowledge')

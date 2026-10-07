@@ -84,7 +84,7 @@ try {
        assert.equal(outcome.status,'recorded',input.id);assert.equal(outcome.ticket.room_number,input.conversationContext.knownRoom);assert.match(outcome.ticket.description,/toallas|towels|aire acondicionado|air conditioning/i);
        if(firstTicket)assert.equal(outcome.ticket.id,firstTicket);firstTicket=outcome.ticket.id;
        assert.equal(sql('SELECT count(*) FROM tickets;'),'1');assert.equal(final.service_quality.notification_confirmed,false);
-       assert.match(final.reply,/registrado|recorded/i);assert.doesNotMatch(final.reply,/avisado|informado|ya van|cinco minutos|will notify|shortly|promptly|a la brevedad|en breve|se pondr[aá]n? en contacto/i);
+       assert.match(final.reply,/registrad[oa]|recorded/i);assert.doesNotMatch(final.reply,/avisado|informado|ya van|cinco minutos|will notify|shortly|promptly|a la brevedad|en breve|se pondr[aá]n? en contacto/i);
        if(input.conversationContext.knownRoom){assert(final.reply.includes(input.conversationContext.knownRoom));assert.doesNotMatch(final.reply,/qu[eé].*habitaci[oó]n|confirm your room|provide your room/i);}
        else assert.match(final.reply,/habitaci[oó]n|room/i);
        if(processed.reply!==final.reply)unfavorable++;

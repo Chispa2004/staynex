@@ -123,7 +123,8 @@
     "test:dashboard-pending-tickets": "node scripts/test-dashboard-pending-tickets.js",
     "test:dashboard-pending-browser": "node scripts/pending-tickets-lab.cjs build && playwright test --config scripts/pending-tickets-browser.config.js",
     "test:dashboard-demo-scope": "node scripts/test-dashboard-demo-scope.js",
-    "test:dashboard-demo-browser": "node scripts/dashboard-demo-lab.cjs build && playwright test --config scripts/dashboard-demo-browser.config.js"
+    "test:dashboard-demo-browser": "node scripts/dashboard-demo-lab.cjs build && playwright test --config scripts/dashboard-demo-browser.config.js",
+    "test:guest-service-receipts": "node scripts/test-guest-service-receipts.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",
