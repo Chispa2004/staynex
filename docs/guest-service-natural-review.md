@@ -36,3 +36,7 @@ Nueve conversaciones nuevas usarán identidades sintéticas protegidas, y las re
 Publicar rama/PR, comprobar los tres jobs y logs para su SHA, merge normal, CI main, Vercel y Railway. Verificar versiones y flags antes de sustituir datos demo. La sustitución solo se habilita después de validar el conjunto completo y conservar el respaldo. Recuperación: reabrir las conversaciones anteriores y cerrar las nuevas, sin eliminar tickets ni recibos ni reencolar envíos. Guest Memory OFF y SEND_AUTOMATIONS=false; no se usan proveedores de transporte ni conectores.
 
 La publicación, la carga final y la comprobación pública se registrarán al terminar. Este informe no acredita todavía esas fases.
+
+## Ajuste de CI de la PR #43
+
+El primer job PostgreSQL ejecutó correctamente los diez grupos operativos, pero la fixture de métricas carecía de la columna `conversations.status` presente en el catálogo. Se añadió esa columna a la base desechable y una comprobación de que los hoteles ordinarios conservan el histórico cerrado. Los seis grupos de métricas pasan con la red del contenedor deshabilitada. Ninguna expectativa ni política de acceso se relajó.
