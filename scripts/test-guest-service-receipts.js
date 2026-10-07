@@ -92,3 +92,42 @@ assert.equal(delivered.calls.find(c=>c.kind==='message').values.content,natural)
 assert.equal(delivered.calls.find(c=>c.kind==='transport').values.body,natural);
 assert(delivered.calls.findIndex(c=>c.kind==='ticket')<delivered.calls.findIndex(c=>c.kind==='message'));
 console.log('PASS production finalization persists and transports the post-commit reply unchanged; only controlled transport used');
+
+// Unfavorable first public-demo batch: preserve the raw promise as a regression.
+const unsupported='El equipo encargado lo revisará a la mayor brevedad posible.';
+assert.equal(safeReceiptReply(unsupported,receiptFacts(args),'es'),false);
+assert.equal(sanitizeReceiptReply(ack+'. '+unsupported,receiptFacts(args),'es'),ack+'.');
+const transfer=evaluation.find(r=>r.round===1&&r.id==='1-transfer');
+const ct=transfer.input, ot=transfer.outcome;
+const transferArgs={primary:{reply:'Por favor confirme el día y hora de llegada.',ai_provider:'openai',confidence:.9},ticket:ot.ticket,operationalRequest:ot,
+ hotel:ct.hotel,hotelId:ct.hotel.id,guestId:ct.guest.id,conversationId:ct.conversation.id,language:'es',message:ct.message,
+ context:{...ct.conversationContext,hotelKnowledge:ct.hotelKnowledge}};
+const reply=await generateReceiptReply(transferArgs,async()=>({reply:'Hemos recibido su solicitud de traslado para dos adultos. ¿Podría indicarnos la fecha y hora aproximada de llegada?'}));
+const missing=finalizeServiceReply({...transferArgs,receiptReply:reply});
+assert.match(missing.reply,/vuelo.*hora/);assert.doesNotMatch(missing.reply,/indicar.*fecha/);
+const provided=finalizeServiceReply({...transferArgs,message:'Llegamos en el vuelo DEMO123 a las 18:00. ¿Queda reservado?',receiptReply:reply});
+assert.doesNotMatch(provided.reply,/¿.*(?:vuelo|hora).*\?/);assert.match(provided.reply,/traslado está por confirmar/);
+const {buildArrivalBookingContext,groundedArrivalReply}=await import('../shared/guest-service/arrival-booking.js');
+const arrival=evaluation.find(r=>r.round===1&&r.id==='1-night').input;
+const travel=buildArrivalBookingContext(arrival);
+assert(groundedArrivalReply('Puede acceder por la entrada principal; recepción abre 24 horas. No se garantiza disponibilidad anticipada de habitación antes de las 15:00.',travel,arrival.message));
+assert(!groundedArrivalReply('La habitación estará lista a las 00:30. Recepción abre 24 horas en la entrada principal.',travel,arrival.message));
+console.log('PASS observed future staff promise, known-date/missing-flight question, explicit unconfirmed outcome and negative room guarantee');
+
+const {breakfastTimeFollowup}=await import('../shared/guest-service/quality.js');
+for(const n of [1,2]){const c=evaluation.find(r=>r.round===2&&r.id===n+'-breakfast').input;
+ const reply=breakfastTimeFollowup({message:c.message,context:{...c.conversationContext,hotelKnowledge:c.hotelKnowledge},hotelId:c.hotel.id});
+ assert.match(reply,/10:15/);assert.match(reply,n===1?/10:30/:/11:00/);assert.doesNotMatch(reply,/piscina|recepci/);
+ assert.equal(breakfastTimeFollowup({message:'Necesito ayuda, no puedo bajar a las 10:15',context:{...c.conversationContext,hotelKnowledge:c.hotelKnowledge},hotelId:c.hotel.id}),null);
+ assert.equal(breakfastTimeFollowup({message:c.message,context:{...c.conversationContext,hotelKnowledge:c.hotelKnowledge},hotelId:'foreign'}),null);
+}
+console.log('PASS breakfast time-only follow-up uses only the authorized window, without inventing another amenity or referral');
+
+for(const line of ['La confirmación depende del equipo de recepción, le recomendamos verificar directamente con ellos.','Por favor, pregunte en recepción para confirmar la reserva de su traslado.'])assert.equal(safeReceiptReply(line,receiptFacts(args),'es'),false);
+for(const [id,question] of [['1-towels','¿Desea que sean entregadas en alguna hora específica?'],['1-leak','¿Desea que le proporcionemos toallas extra mientras se soluciona el problema?'],['1-invoice','¿Podría proporcionarnos el número de habitación para localizar su estancia anterior?']]) {
+ const r=evaluation.find(x=>x.round===2&&x.id===id),c=r.input;
+ const a={primary:{reply:question},ticket:r.outcome.ticket,operationalRequest:r.outcome,hotelId:c.hotel.id,guestId:c.guest.id,conversationId:c.conversation.id,language:'es',message:c.message,context:{...c.conversationContext,hotelKnowledge:c.hotelKnowledge}};
+ const receiptReply=await generateReceiptReply(a,async()=>({reply:'Hemos registrado su solicitud. '+question}));
+ assert.doesNotMatch(finalizeServiceReply({...a,receiptReply}).reply,/¿/);
+}
+console.log('PASS observed redundant reception referrals, delivery scheduling, unrelated offers and repeat stay identification removed');
