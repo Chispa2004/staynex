@@ -32,8 +32,9 @@ export function safeReceiptReply(reply, facts, language='es') {
   if (!facts || !['es','en'].includes(String(language).slice(0,2)) || typeof reply!=='string'
     || !reply.trim() || reply.length>800) return false;
   const text=normalize(reply);
+  if (/\b(?:pregunte|consulte|contacte|contacta|contact reception|ask reception|check directly|recomendamos verificar|confirmacion depende del equipo)\b/.test(text))return false;
   if (/https?:|\b(?:avisad[oa]|notificad[oa]|informad[oa]|de camino|en camino|en breve|enseguida|inmediatamente|cinco minutos|entregad[oa]|enviad[oa]|emitid[oa]|encontrad[oa]|reservad[oa]|notified|alerted|on (?:their|the) way|shortly|immediately|delivered|sent|issued|found|booked)\b/.test(text)) return false;
-  if (/\b(?:vamos a|voy a|avisaremos|informaremos|enviaremos|llevaremos|llevamos|enviamos|mandamos|revisaremos|comprobaremos|gestionaremos|nos encargaremos|pronto|cuanto antes|lo antes posible|i will|we will|we'll|i'll|soon|promptly)\b/.test(text)) return false;
+  if (/\b(?:vamos a|voy a|avisaremos|informaremos|enviaremos|llevaremos|llevamos|enviamos|mandamos|revisaremos|comprobaremos|gestionaremos|revisara|gestionara|atendera|se encargara|entregara|notificara|mayor brevedad|nos encargaremos|pronto|cuanto antes|lo antes posible|i will|we will|we'll|i'll|soon|promptly)\b/.test(text)) return false;
   if (/\b(?:confirmad[oa]|confirmed|disponible|available|garantiz|guarantee)/.test(text)
     && !/(?:pendiente|por confirmar|sin confirmar|sujeta|sujeto|no (?:esta|hay|puedo|podemos)|aun no|todavia no|not |subject to|unconfirmed|pending)/.test(text)) return false;
   if (/\b(?:estamos (?:atendiendo|resolviendo|reparando|ocupandonos|encargandonos|gestionando(?:lo|la)?|revisando(?:lo|la)?|buscando(?:lo|la)?|comprobando(?:lo|la)?)|nos estamos encargando|atendemos|gestion esta en curso|en curso la gestion|en proceso(?: de (?:atencion|emision))?|siendo gestionad[oa]|nos ocupamos|nos encargamos|working on|attending to|taking care of|processing|handling)\b/.test(text)

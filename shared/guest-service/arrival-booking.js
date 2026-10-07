@@ -116,7 +116,8 @@ export function groundedArrivalReply(reply, plan, message, history=[]) {
   if(plan.topic!=='arrival' || typeof reply!=='string')return false;
   const text=normalize(reply), facts=normalize(plan.knowledge.map(r=>r.value).join(' '));
   const guestFacts=normalize([...history.filter(m=>m.sender_type==='guest').map(m=>m.content),message].join(' '));
-  if(/(?:habitacion|room).{0,18}(?:estara lista|esta lista|will be ready|is ready|garantiz)|(?:garantiz|guarantee).{0,35}(?:habitacion|room)/.test(text))return false;
+  const claims=text.replace(/no (?:se )?garantiza(?:mos)? (?:la )?(?:disponibilidad|entrada) anticipada(?: de (?:la )?habitacion)?/g,'');
+  if(/(?:habitacion|room).{0,18}(?:estara lista|esta lista|will be ready|is ready|garantiz)|(?:garantiz|guarantee).{0,35}(?:habitacion|room)/.test(claims))return false;
   if(/\b(?:24)\s*(?:h|horas|hours)/.test(text) && !/24\s*(?:h|horas|hours)/.test(facts))return false;
   const entrances=[['principal',/entrada principal|main entrance/],['lateral',/entrada lateral|side entrance/],['norte',/entrada norte|north entrance/]];
   const declared=entrances.filter(([,p])=>p.test(facts));

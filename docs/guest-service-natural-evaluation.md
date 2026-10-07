@@ -162,7 +162,7 @@ Huésped: Sí, una cuna para toda la estancia. ¿Ya está confirmada?
 
 Antes: He registrado tu solicitud para que el equipo del hotel la atienda. La actuación todavía no está confirmada.
 
-Después: Hemos recibido la solicitud de una cuna para toda la estancia.
+Después: Hemos recibido la solicitud de una cuna para toda la estancia. La disponibilidad de la cuna está por confirmar.
 
 ## 1-transfer, turno 2
 
@@ -170,7 +170,7 @@ Huésped: Llegamos en el vuelo ficticio DEMO123 a las 18:00 del 2026-09-16. ¿Qu
 
 Antes: He registrado tu solicitud para que el equipo del hotel la atienda. La actuación todavía no está confirmada.
 
-Después: Hemos recibido su solicitud de traslado desde el aeropuerto con llegada el 16 de septiembre a las 18:00.
+Después: Hemos recibido su solicitud de traslado desde el aeropuerto con llegada el 16 de septiembre a las 18:00. La reserva del traslado está por confirmar.
 
 ## 1-towels, turno 2
 
@@ -194,7 +194,7 @@ Huésped: ¿Podemos bajar a las 10:15?
 
 Antes: El desayuno termina a las 10:30, así que pueden bajar a las 10:15 sin problema para aprovecharlo tranquilamente.
 
-Después: El desayuno termina a las 10:30, así que pueden bajar a las 10:15 sin problema para aprovecharlo tranquilamente.
+Después: Sí, las 10:15 están dentro del horario de desayuno, de 07:30 a 10:30.
 
 ## 1-lost, turno 2
 
@@ -202,7 +202,7 @@ Huésped: Era una bufanda azul en el armario de la habitación 301. ¿La habéis
 
 Antes: He registrado tu solicitud para que el equipo del hotel la atienda. La actuación todavía no está confirmada.
 
-Después: Hemos registrado su solicitud para buscar la bufanda azul en el armario de la habitación 301.
+Después: Hemos registrado su solicitud para buscar la bufanda azul en el armario de la habitación 301. Aún no consta que se haya encontrado.
 
 ## 1-invoice, turno 2
 
@@ -210,7 +210,7 @@ Huésped: Es la factura de la estancia completa a mi nombre. ¿Ya está emitida?
 
 Antes: He registrado tu solicitud para que el equipo del hotel la atienda. La actuación todavía no está confirmada.
 
-Después: Hemos registrado su solicitud para la factura completa de su estancia a su nombre. ¿Podría facilitarnos el nombre completo con el que se realizó la reserva para localizarla correctamente?
+Después: Hemos registrado su solicitud para la factura completa de su estancia a su nombre. ¿Podría facilitarnos el nombre completo con el que se realizó la reserva para localizarla correctamente? La emisión de la factura está por confirmar.
 
 ## 1-return, turno 2
 
@@ -234,7 +234,7 @@ Huésped: Sí, una cuna para toda la estancia. ¿Ya está confirmada?
 
 Antes: He registrado tu solicitud para que el equipo del hotel la atienda. La actuación todavía no está confirmada.
 
-Después: Hemos registrado su solicitud de cuna para toda la estancia. Esto nos ayudará a gestionar mejor su petición.
+Después: Hemos registrado su solicitud de cuna para toda la estancia. Esto nos ayudará a gestionar mejor su petición. La disponibilidad de la cuna está por confirmar.
 
 ## 2-transfer, turno 2
 
@@ -266,7 +266,7 @@ Huésped: ¿Podemos bajar a las 10:15?
 
 Antes: Sí, pueden bajar a desayunar a las 10:15, está dentro del horario de 08:00 a 11:00 en el salón jardín.
 
-Después: Sí, pueden bajar a desayunar a las 10:15, está dentro del horario de 08:00 a 11:00 en el salón jardín.
+Después: Sí, las 10:15 están dentro del horario de desayuno, de 08:00 a 11:00.
 
 ## 2-lost, turno 2
 
@@ -274,7 +274,7 @@ Huésped: Era una bufanda azul en el armario de la habitación 301. ¿La habéis
 
 Antes: He registrado tu solicitud para que el equipo del hotel la atienda. La actuación todavía no está confirmada.
 
-Después: Hemos recibido su solicitud para buscar la bufanda azul en el armario de la habitación 301 y está en nuestra lista para verificar.
+Después: Hemos recibido su solicitud para buscar la bufanda azul en el armario de la habitación 301 y está en nuestra lista para verificar. Aún no consta que se haya encontrado.
 
 ## 2-invoice, turno 2
 
@@ -282,7 +282,7 @@ Huésped: Es la factura de la estancia completa a mi nombre. ¿Ya está emitida?
 
 Antes: He registrado tu solicitud para que el equipo del hotel la atienda. La actuación todavía no está confirmada.
 
-Después: Hemos recibido su solicitud de la factura de su estancia completa. ¿Podría facilitar el nombre exacto a que debe figurar la factura para agilizar el proceso?
+Después: Hemos recibido su solicitud de la factura de su estancia completa. ¿Podría facilitar el nombre exacto a que debe figurar la factura para agilizar el proceso? La emisión de la factura está por confirmar.
 
 ## 2-return, turno 2
 
