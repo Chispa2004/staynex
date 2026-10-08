@@ -71,6 +71,9 @@ for(const theme of ['light','dark']) for(const width of [1366,390]) {
 }
 
 test('field errors, native row actions and confirmation fallback remain usable',async({page})=>{
+  // The density fixture fixes reservation dates to October 1; keep the browser
+  // on that same day so this keyboard test still exercises a real row later.
+  await page.clock.setFixedTime(new Date('2026-10-01T12:00:00Z'));
   await ready(page,'/dashboard/onboarding');
   const name=page.getByLabel('Nombre del hotel',{exact:false});await name.fill('');await page.getByRole('button',{name:'Guardar hotel',exact:true}).click();await expect(name).toHaveAttribute('aria-invalid','true');await expect(name).toHaveAccessibleDescription(/obligatorio|vacío|nombre|requerido/i);
   await ready(page,'/dashboard/tickets');
