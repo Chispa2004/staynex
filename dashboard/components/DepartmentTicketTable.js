@@ -74,7 +74,7 @@ export const DepartmentTicketTable = ({ tickets, categories }) => {
   });
 
   useEffect(() => {
-    setItems(sortByNewest(tickets));
+    setItems(current=>sortByNewest(tickets.map(next=>{const previous=current.find(item=>item.id===next.id && item.hotel_id===next.hotel_id);return previous?mergeTicketVersion(previous,next):next;})));
   }, [tickets]);
 
   const filteredTickets = useMemo(() => items.filter((ticket) => (

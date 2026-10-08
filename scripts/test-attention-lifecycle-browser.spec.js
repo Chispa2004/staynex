@@ -32,6 +32,7 @@ for(const width of [1366,390])for(const theme of ['light','dark'])test(`attentio
  await expect(page.getByRole('dialog')).toContainText('Marcar como resueltos (2)');await expect(page.getByRole('dialog')).toContainText('Las dos son de baño.');
  await page.getByRole('button',{name:'Confirmar',exact:true}).press('Enter');await expect(first).toContainText('Resuelto');await expect(page.locator('[data-message-attention="'+id(42)+'"]')).toContainText('Pendiente');
  await page.getByRole('button',{name:'Recargar seguimiento'}).click();await expect(first).toContainText('Resuelto');
+ await expect(page.getByRole('button',{name:'Hecho · Estado actual',exact:true}).filter({visible:true})).toBeVisible();
  const dimensions=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));expect(dimensions.width).toBe(width);expect(dimensions.scroll).toBeLessThanOrEqual(width);
  await page.screenshot({path:info.outputPath(`lifecycle-${width}-${theme}.png`),fullPage:true});
 });

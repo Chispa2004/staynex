@@ -63,7 +63,7 @@ const getTicketRowClass = (ticket) => {
 export const TicketsTable=({tickets,compact=false,hotelId=null,onUpdated=null})=>{
   const router=useRouter(),{t,tx}=useDashboardLanguage();
   const [items,setItems]=useState(()=>sortByNewest(tickets));
-  useEffect(()=>{setItems(sortByNewest(tickets));},[tickets]);
+  useEffect(()=>{setItems(current=>sortByNewest(tickets.map(next=>{const previous=current.find(item=>item.id===next.id && item.hotel_id===next.hotel_id);return previous?mergeTicketVersion(previous,next):next;})));},[tickets]);
   const mutation=useTicketStatusMutation({hotelId,onConfirmed:ticket=>{
     setItems(current=>current.map(item=>item.id===ticket.id?mergeTicketVersion(item,ticket):item));
     onUpdated?.();
