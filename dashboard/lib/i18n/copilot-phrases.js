@@ -482,6 +482,7 @@ export const copilotPhrases = [
 
 export function localizeCopilotText(value, tx) {
   const text = String(value || '');
+  if (copilotPhrases.some(([, english]) => english === text && !english.includes('{value}'))) return tx(text);
   const prefixes = ['Latest guest message: ', 'Room ', 'Detected intent: ', 'Experience request: ', 'Memory signal: '];
   for (const prefix of prefixes) if (text.startsWith(prefix)) return tx(prefix + '{value}', {value:text.slice(prefix.length)});
   const revenue = text.match(/^Guest may respond well to (.+)\. Keep it contextual and optional\.$/);

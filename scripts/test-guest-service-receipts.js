@@ -220,3 +220,8 @@ assert.equal(serviceTurn('Es la factura de la estancia completa a mi nombre. ¿Y
 const initialDetails='Seríamos dos adultos. Quiero una nueva reserva.';
 assert.doesNotMatch(ticketReplyPlan({ticket:{...scopedTicket,description:initialDetails,request_context:{request_key:'new_booking'}},message:initialDetails,detailConfirmed:true}).text,/añadido/);
 console.log('PASS 193 retained real synthetic generations: 34 contexts / 68 final routes; clarification, no-update, completed, failure, ambiguity, distinct policies and all promotion conditions');
+const {localizeCopilotText,copilotPhrases}=await import('../dashboard/lib/i18n/copilot-phrases.js');
+const staffTranslate=(text,values={})=>(copilotPhrases.find(([,en])=>en===text)?.[0]||text).replace('{value}',values.value||'');
+assert.equal(localizeCopilotText('Room in this request',staffTranslate),'Habitación de esta petición');
+assert.equal(localizeCopilotText('Room QA-417',staffTranslate),'Habitación QA-417');
+console.log('PASS exact linked-request label translation precedes dynamic room prefix; room value preserved');
