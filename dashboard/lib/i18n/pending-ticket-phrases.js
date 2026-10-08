@@ -1,4 +1,5 @@
 export const pendingTicketPhrases = [
+ ['Demostración simulada: no acredita actuaciones ni envíos reales.','Simulated demonstration: it does not confirm real actions or sends.','Démonstration simulée : ne confirme aucune action ni aucun envoi réel.','Simulierte Demonstration: bestätigt keine tatsächlichen Aktionen oder Sendungen.'],
  ['Ámbito de tickets de demo','Demo ticket scope','Périmètre des tickets de démonstration','Umfang der Demo-Tickets'],
  ['Demo actual y procedencia por revisar','Current demo and origin to review','Démo actuelle et origine à vérifier','Aktuelle Demo und zu prüfende Herkunft'],
  ['Históricos acreditados','Verified history','Historique vérifié','Belegte Historie'],

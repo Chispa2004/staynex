@@ -1,4 +1,5 @@
 'use client';
+import {CHECKIN_DEMO_HOTEL_ID} from '../../shared/checkin-demo-view.js';
 import {mergeTicketVersion} from '../../shared/attention-lifecycle.js';
 
 import Link from 'next/link';
@@ -208,6 +209,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
 
           <p className="text-sm">{tx(ticket.status==='completed'?'Actuación hecha. Revisa la comunicación al huésped en Inbox; este estado no acredita ningún envío.':'Actuación pendiente. Registrar la petición no significa haberla realizado.')}</p>
           <Link className="text-sm underline" href={'/dashboard/inbox?conversationId='+ticket.conversation_id}>{tx('Revisar atención en Inbox')}</Link>
+          {ticket.hotel_id===CHECKIN_DEMO_HOTEL_ID?<p className="text-sm font-semibold">{tx('Demostración simulada: no acredita actuaciones ni envíos reales.')}</p>:null}
           <TicketStatusActions ticket={ticket} pending={mutation.pending[ticket.id]} error={mutation.errors[ticket.id]} onChange={status=>mutation.change(ticket,status)}/>
         </div>
 
