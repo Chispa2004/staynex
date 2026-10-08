@@ -7,6 +7,22 @@ const sample=async(page,fn)=>{const start=Date.now();await fn();return Date.now(
 test.beforeEach(async({context})=>{
  await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
 });
+test('direct entry: tenant initialization during the first read cannot strand loading',async({page})=>{
+ let reads=0,releaseFirst,firstReady;const pending=new Promise(resolve=>{releaseFirst=resolve;});
+ const ready=new Promise(resolve=>{firstReady=resolve;});
+ await page.route('**/api/inbox?*',async route=>{
+   const response=await route.fetch(),body=await response.json();reads++;
+   if(reads===1){firstReady(body.hotelId);await pending;}
+   await route.fulfill({response,json:body});
+ });
+ await page.goto(path);const hotelId=await ready;
+ await page.evaluate(hotelId=>window.dispatchEvent(new CustomEvent('staynex:tenant-changed',{detail:{hotelId}})),hotelId);
+ releaseFirst();
+ await expect(page.locator('[data-inbox-conversation]')).toHaveCount(28,{timeout:8000});
+ await expect(page.getByRole('status').filter({hasText:'Cargando conversaciones'})).toHaveCount(0);
+ expect(reads).toBeGreaterThan(1);
+ await page.reload();await expect(page.locator('[data-inbox-conversation]')).toHaveCount(28);
+});
 for(const width of [1366,390])for(const theme of ['light','dark'])test(`${width} ${theme}: stable selection, drafts, history and recoverable reads`,async({page},info)=>{
  await page.setViewportSize({width,height:width===390?844:900});
  await page.addInitScript(theme=>localStorage.setItem('staynex_dashboard_theme',theme),theme);

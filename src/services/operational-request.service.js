@@ -15,8 +15,10 @@ export async function recordOperationalRequest({hotel,guest,conversation,sourceM
     return {status:'unconfirmed',ticket:null,sourceMessageId:sourceMessage.id,errorCode:'REQUEST_NOT_OPEN_FOR_DETAILS'};
   }
   if(relevant.ticket && turn.clarification && ['open','in_progress'].includes(relevant.ticket.status)) {
+    const priorities=['low','normal','high','urgent'];
+    const raised=priorities.indexOf(request?.priority)>priorities.indexOf(relevant.ticket.priority);
     request={key:relevant.ticket.request_context?.request_key,category:relevant.ticket.category,
-      priority:relevant.ticket.priority,title:relevant.ticket.title,details:message,priority_reason:'guest_clarification',new_incident:false};
+      priority:raised?request.priority:relevant.ticket.priority,title:relevant.ticket.title,details:message,priority_reason:raised?request.priority_reason:'guest_clarification',new_incident:false};
     if(!request.key)return {status:'unconfirmed',ticket:null,sourceMessageId:sourceMessage.id};
   }
   // A progress enquiry reads the current ticket; it never reopens completed work
