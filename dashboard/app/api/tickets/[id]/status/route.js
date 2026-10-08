@@ -1,14 +1,15 @@
+import {validTicketOperation} from '../../../../../../shared/attention-lifecycle.js';
 import { NextResponse } from 'next/server';
 import { updateTicketStatus } from '@/lib/tickets';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess } from '@/lib/permissions';
 
-const ALLOWED_STATUSES = ['open', 'in_progress', 'completed'];
 
 export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
-    const { status } = await request.json();
+    const body = await request.json();
+    const {status,expectedVersion,expectedStatus,operationId}=body;
     const { supabase, hotel, role, platformRole, user } = await getCurrentHotelForRequest(request);
 
     if (!canAccess(role, 'tickets') && !canAccess(role, 'housekeeping') && !canAccess(role, 'maintenance')) {
@@ -19,7 +20,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: 'Support sessions are read-only by default' }, { status: 403 });
     }
 
-    if (!ALLOWED_STATUSES.includes(status)) {
+    if (!validTicketOperation(body)) {
       return NextResponse.json(
         { error: 'Invalid status' },
         { status: 400 }
@@ -28,7 +29,7 @@ export async function PATCH(request, { params }) {
 
     const ticket = await updateTicketStatus({
       ticketId: id,
-      status,
+      status, expectedVersion, expectedStatus, operationId,
       supabase,
       hotelId: hotel?.id,
       actor: user,
@@ -41,7 +42,7 @@ export async function PATCH(request, { params }) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message },
-      { status: 500 }
+      { status: error.status || error.statusCode || 500 }
     );
   }
 }

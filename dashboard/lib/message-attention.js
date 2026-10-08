@@ -9,6 +9,7 @@ export const canManageMessageAttention = context => Boolean(context?.user?.id &&
   && canAccess(context.role,'inbox_human_takeover') && canManageHumanTakeover(context));
 const rpcError = error => {
   if (['40001','23505'].includes(error?.code)) return attentionError('El estado cambió. Actualiza y revisa los mensajes.',409);
+  if (error?.code === '23514') return attentionError('Revisa la petición completa: su actuación debe estar hecha y todos sus mensajes pendientes incluidos.',409);
   if (error?.code === '42501') return attentionError('No tienes permiso para estos mensajes.',403);
   if (['22023','22P02'].includes(error?.code)) return attentionError('Revisa el alcance de la selección.',400);
   return attentionError('Seguimiento no disponible. No se ha confirmado el cambio.',503);
@@ -29,7 +30,9 @@ export const handleAttentionRequest = async ({ request, getContext }) => {
     if (error) throw rpcError(error);
     if (!validAttentionSnapshot(data,context.hotel.id,body.conversationId,body.action==='read'?body.messageIds:body.items.map(item=>item.messageId)))
       throw Object.assign(attentionError('Seguimiento no disponible. Actualiza antes de continuar.',503),{kind:'incompatible'});
-    return { status:200, body:{...data,canManage} };
+    const groups=await context.supabase.rpc('staynex_attention_ticket_groups_v1',args);
+    if(groups.error || !Array.isArray(groups.data)) throw rpcError(groups.error);
+    return { status:200, body:{...data,canManage,ticketGroups:groups.data} };
   } catch (error) {
     return {status:error.status || error.statusCode || 503,body:{kind:error.kind, error: error.status ? error.message : 'Seguimiento no disponible. No se ha confirmado el cambio.'}};
   }

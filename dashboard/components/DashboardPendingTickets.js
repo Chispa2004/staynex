@@ -38,12 +38,14 @@ export function DashboardPendingTickets({refreshVersion=0}) {
         <div className={styles.ticketMeta}>
           <span className={styles.badge} data-tone={ticket.effectivePriority==='urgent'?'red':ticket.effectivePriority==='high'?'amber':'slate'}>{tx(priorities[ticket.effectivePriority]||'Normal')}</span>
           <TicketStatusBadge status={ticket.status}/>
+          {ticket.demoProvenance==='review'?<span className={styles.badge}>{tx('Procedencia por revisar')}</span>:null}
           {ticket.isNew?<span className={styles.badge} data-tone="sky" title={tx('Creado en las últimas 24 horas; no indica lectura.')}>{tx('Nuevo')}</span>:null}
           {origin==='simulated'?<span className={styles.time}>{tx('SIMULADO')}</span>:null}
           <time className={styles.time} dateTime={ticket.created_at}>{date(ticket.created_at)}</time>
         </div>
       </Link>
     </li>)}</ul>:data && !loading && !error?<p className={styles.ticketNotice}>{tx(demo?'No hay tickets pendientes.':'No hay tickets pendientes en este origen.')}</p>:null}
+    {demo?<Link className={styles.link} href="/dashboard/tickets?demoScope=history">{tx('Ver tickets históricos de demo')}</Link>:null}
     {data?<div className={styles.ticketFooter}><Link className={styles.link} href={'/dashboard/tickets?'+context+'&metric=pending'}>{tx('Ver todos los pendientes')}<ChevronRight className="h-4 w-4" aria-hidden="true"/></Link></div>:null}
   </section>;
 }

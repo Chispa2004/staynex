@@ -87,6 +87,7 @@ export class AttentionStore {
       nextCursor:candidates.length>8?{at:page[7].created_at,id:page[7].id}:null};
   }
   async rpc(name,args){
+    if(name==='staynex_attention_ticket_groups_v1')return {data:[],error:null};
     const run=async()=>{try{return {data:copy(name==='staynex_attention_read_v1'?this.read(args):name==='staynex_attention_transition_v1'?this.transition(args):this.dashboard(args)),error:null};}catch(error){return {data:null,error:{code:error.code||'XX000',message:error.message}};}};
     const next=this.queue.then(run);this.queue=next.then(()=>{});return next;
   }

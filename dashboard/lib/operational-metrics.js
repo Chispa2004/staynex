@@ -1,3 +1,4 @@
+import {scopeDemoTickets} from './demo-ticket-scope.js';
 import { buildTicketCopilot } from './ai-copilot.js';
 import { attachTicketCopilot } from './tickets.js';
 import { reservationState, selectOperationalRows } from '../../shared/operational-metrics.js';
@@ -8,11 +9,12 @@ import {loadPendingTicketRows} from './pending-tickets.js';
 export async function loadOperationalMetrics({supabase,hotel,kind,filter,now}) {
   const hotelId = hotel.id;
   const columns = kind === 'tickets'
-    ? 'id,hotel_id,room_number,category,priority,status,created_at,completed_at,title,description,conversation_id,guest_id'
+    ? 'id,hotel_id,room_number,category,priority,status,created_at,completed_at,title,description,conversation_id,guest_id,request_context,status_version'
     : 'id,hotel_id,status,arrival_date,departure_date,guest_name,guest_email,guest_phone,pms_reservation_id,reservation_access_token';
   let rows = kind === 'tickets' && filter.metric === 'pending'
-    ? await loadPendingTicketRows({supabase,hotel,origin:filter.ticketOrigin,now})
+    ? await loadPendingTicketRows({supabase,hotel,origin:filter.ticketOrigin,demoScope:filter.demoScope,now})
     : await readOperationalPages(supabase,kind,columns,hotelId);
+  if(kind==='tickets' && filter.metric!=='pending')rows=await scopeDemoTickets({supabase,hotel,tickets:rows,scope:filter.demoScope});
   if (kind === 'tickets') rows = rows.map(row=>({...row,copilot:buildTicketCopilot(row,[])}));
   rows.sort(kind === 'tickets'
     ? (a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')) || a.id.localeCompare(b.id)

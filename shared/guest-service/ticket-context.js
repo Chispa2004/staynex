@@ -22,12 +22,14 @@ export const requestTopics=[
 export const requestTopic=message=>requestTopics.find(([, ,pattern])=>pattern.test(normalizeServiceText(message)))?.[0]||null;
 export function serviceTurn(message='') {
   const text=normalizeServiceText(message);
+  const human=/(?:me atienda|me ayude) (?:una persona|alguien)|hablar con (?:una persona|alguien|un humano)|(?:atencion|ayuda) (?:humana|de una persona)|speak (?:to|with) (?:a person|someone|a human)|human (?:help|support)/.test(text);
+  const unresolved=/(?:sigue|todavia|aun).*(?:sin funcionar|no funciona|fallando|problema)|still (?:not working|broken|leaking)|not fixed/.test(text);
   const receipt=/teneis|tienen (?:mi|la)|lo teneis|lo habeis (?:anotado|apuntado)|have (?:you|we)|do you have|did you (?:get|receive)|got (?:it|my)|is (?:my|the) request/.test(text);
   const progress=/novedad|como (?:va|esta)|ya (?:esta|han)|sigue|todavia|aun |confirmad|reservad|emitid|encontrad|terminad|hecho|actualizaci|news|update|progress|ready|finished|done|confirmed|booked|issued|found|still|status/.test(text);
   const clarification=/\b(?:son de|las dos|los dos|ambas|ambos|me refiero|en concreto|era una?|es (?:una?|la|el)|el numero|a nombre|para toda|llegamos en|ser[ií]amos|prefiero|la prefiero|lo prefiero|estare fuera|son (?:dos|tres|\d+) cargos|both|all (?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+)|i mean|to clarify|specifically|they are|it's a|it is a|flight is|our flight|for the whole|the name is|i prefer|i will be out|i'll be out|the charges are)\b/.test(text)
     || /(?:agua.*(?:suelo|acumulada)|water.*(?:floor|pooling))/.test(text);
   const newIncident=/\b(?:otra incidencia|otro problema|nueva peticion|new issue|different problem|another request)\b/.test(text);
-  return {kind:clarification?'clarification':receipt?'receipt':progress?'progress':'initial',receipt,progress,clarification,newIncident,topic:requestTopic(message)};
+  return {human,unresolved,kind:human?'human_request':clarification?'clarification':receipt?'receipt':progress?'progress':'initial',receipt,progress,clarification,newIncident,topic:requestTopic(message)};
 }
 
 export function selectRelevantTicket({tickets=[],receipts=[],hotelId,guestId,conversationId,message,history=[],sourceMessageId,coverage='ready'}) {
@@ -64,7 +66,7 @@ export function ticketTurn(ticket,message) {
   const turn=serviceTurn(message);
   // Supplying the first actionable details creates an initial request even if
   // the sentence is grammatically a clarification of an earlier information query.
-  if(!ticket?.request_context?.last_source_message_id
+  if(!turn.human && !turn.unresolved && !ticket?.request_context?.last_source_message_id
     && normalizeServiceText(ticket?.description)===normalizeServiceText(message))return {...turn,kind:'initial',clarification:false};
   return turn;
 }
@@ -73,6 +75,10 @@ export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=fa
   const turn=ticketTurn(ticket,message), status=ticket?.status;
   const en=language.startsWith('en');
   if(!['es','en'].includes(language.slice(0,2)))return null;
+  if(turn.unresolved && status==='completed')return {turn,text:en?'I’m sorry it is still not working. Our previous request is marked complete, but your new message needs review.':'Siento que siga sin funcionar. La petición anterior figura hecha, pero tu nuevo mensaje necesita revisión.'};
+  if(turn.human)return {turn,text:turn.unresolved
+    ? en?'Of course. I’m sorry it is still not working. We have your request to speak with a person.':'Claro. Siento que siga sin funcionar. Tenemos tu petición de hablar con una persona.'
+    : en?'Of course, we have your request to speak with a person.':'Claro, tenemos tu petición de hablar con una persona.'};
   if(status==='completed')return {turn,...{text:en?'We’ve completed this request.':'Hemos completado esta petición.'}};
   if(status==='in_progress')return {turn,text:en?'We’re working on it.':'Nos estamos ocupando de ello.'};
   if(['closed','cancelled','canceled'].includes(status))return {turn,text:en?'This request is closed; that does not confirm it was completed.':'Esta petición está cerrada; no consta por ello que se haya completado.'};
