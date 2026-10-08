@@ -56,3 +56,5 @@ Recuperación: antes de commit SQL, cualquier error revierte toda la migración.
 ## Publicación y evidencia pública
 
 Pendiente de completar en esta misma publicación: PR/SHA, CI para el SHA final, aplicación exacta, versiones activas, los tres recorridos simulados y comparación final del inventario. No se acredita producción con pruebas locales. Cualquier escritura pública se limita a esos tres casos por los controles normales y queda inventariada con sus auditorías; los cambios de esquema no son cambios de los estados de otros hoteles.
+
+CI inicial de PR #50: dos transportes sintéticos de test-ticket-actions-browser todavía omitían status_version y esperaban el PATCH antiguo. Se adaptaron al contrato CAS con aserción de expectedStatus, expectedVersion, hotel e identidad, manteniendo errores, transiciones, concurrencia, colores y foco. Las 9 pruebas afectadas pasan localmente; se exige de nuevo CI del SHA final.
