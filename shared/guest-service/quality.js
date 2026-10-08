@@ -151,7 +151,7 @@ export function breakfastTimeFollowup({message='',context={},hotelId,language='e
 export function earlyLuggageReply({message='',context={},hotelId,language='es'}) {
   if(!['es','en'].includes(language))return null;
   const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const prior=[...(context.recentMessages||[])].reverse().find(m=>m.sender_type==='guest'&&(!m.hotel_id||m.hotel_id===hotelId));
+  const prior=[...(context.recentMessages||[])].reverse().find(m=>m.sender_type==='guest'&&(!m.hotel_id||m.hotel_id===hotelId)&&normalize(m.content)!==normalize(message));
   const topic=normalize(message+' '+(prior?.content||''));
   if(!/equipaje|maletas?|luggage|bags/.test(normalize(message)) || !/antes|anticipad|early|before/.test(topic))return null;
   const rows=guestFacingKnowledge(context.hotelKnowledge,hotelId),policy=rows.find(r=>/check.?in|arrival|llegada|equipaje|luggage/.test(normalize(r.key+' '+r.title))
