@@ -59,7 +59,7 @@ export function sanitizeReceiptReply(reply,facts,language='es') {
   // unsupported action clause). Never rewrite a provider's claim into evidence.
   const sentences=reply.replace(/ y (?=(?:lo atendemos|se (?:la |lo )?atender[aá]|(?:la |lo )?estamos|est[aá] en (?:proceso|curso))\b)/gi,'. ')
     .split(/(?<=[.!?])\s+/u).filter(s=>safeReceiptReply(s,facts,language));
-  const result=sentences.join(' ').trim();
+  const result=sentences.map(s=>s.replace(/^\p{Ll}/u,c=>c.toLocaleUpperCase())).join(' ').trim();
   const text=normalize(result);
   const receipt=/\b(?:tenemos|recibid[oa]|registrad[oa]|anotad[oa]|apuntad[oa]|anadido|tomado nota|tomamos nota|received|recorded|registered|noted|added|have (?:it|your|the|this))\b/.test(text);
   const minimizePaymentData=/tarjeta|card/.test(normalize(facts?.request))
