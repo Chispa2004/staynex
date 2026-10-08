@@ -131,7 +131,7 @@ assert(platform('gdpr_cleanup_ready').help.includes('autorización separadas'));
 console.log('PASS rendered actions, permission explanation, real destinations and external dependencies');
 
 const detailView = await compile('../dashboard/components/PlatformHotelDetailClient.js', {
-  '../../shared/onboarding/hotel-fields.js': fields, '@/components/HotelFieldErrors': {}, 'next/navigation': {}, '@/lib/supabase-browser': {}, '@/lib/workspace-context': {},
+  '../../shared/onboarding/hotel-fields.js': fields, '@/components/HotelFieldErrors': {}, 'next/navigation': {}, '@/lib/supabase-browser': {}, '@/lib/workspace-context': {}, '@/lib/use-support-workspace-entry': {},
   '@/lib/theme/useDashboardTheme': {}, '@/lib/ui/styles': styles,
   './PremiumEmptyState': {}, './ExperienceProvidersPanel': {},
   '@/lib/onboarding-navigation': navigation,

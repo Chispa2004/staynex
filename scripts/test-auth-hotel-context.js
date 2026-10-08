@@ -698,3 +698,30 @@ for (const platformRole of ['platform_admin','none']) {
  assert.equal(context.availableHotels.length,platformRole==='none'?1:2);
 }
 console.log('Explicit deselection never selects another hotel; hotel users receive only assigned choices');
+
+// Execute the Platform authorization function and both existing support handlers
+// with the real tenant resolver; only DB/auth/audit transports are synthetic.
+const platformSource=readFileSync(join(root,'dashboard/lib/platform.js'),'utf8');
+const contextFunction=platformSource.slice(platformSource.indexOf('export const getPlatformContext'),platformSource.indexOf('export const writePlatformAuditLog')).replace('export const ','const ');
+for (const scenario of [
+ {name:'internal admin without target assignment',role:'platform_admin',token:'valid',allowed:true},
+ {name:'ordinary hotel admin',role:'none',token:'valid',allowed:false},
+ {name:'expired session',role:'platform_admin',token:'expired',allowed:false},
+ {name:'missing session',role:'platform_admin',token:null,allowed:false}
+]) {
+ const harness=contextHarness({assignments:[hotelAssignment({hotel:hotelA,role:'admin',platformRole:scenario.role})]});
+ const platformContext=new Function('getCurrentHotelForRequest','canAccessPlatform','INTERNAL_PLATFORM_ROLES',contextFunction+';return getPlatformContext;')(
+   harness.getCurrentHotelForRequest,canAccessPlatform,['platform_admin','super_admin','internal_only']);
+ for(const route of ['support','support-access']) {
+  let audits=0,optionsSeen;
+  const source=readFileSync(join(root,`dashboard/app/api/platform/hotels/[id]/${route}/route.js`),'utf8').replace(/import[\s\S]*?;\r?\n/g,'').replace(/export const dynamic.*?;\r?\n/,'').replace('export async function POST','async function POST');
+  const post=new Function('NextResponse','getPlatformContext','getHotelPlatformDetail','writePlatformAuditLog',source+';return POST;')(
+   {json:(body,options)=>Response.json(body,options)},async(req,options)=>{optionsSeen=options;return platformContext(req,options)},async()=>({hotel:hotelB}),async()=>{audits++});
+  const response=await post(makeRequest({token:scenario.token}),{params:Promise.resolve({id:hotelB.id})});
+  const body=await response.json();assert.equal(response.status,scenario.allowed?200:scenario.token!=='valid'?401:403,scenario.name);
+  assert.deepEqual(optionsSeen,{readOnly:true});assert.equal(audits,scenario.allowed?1:0);
+  if(scenario.allowed){assert.equal(body.hotel.id,hotelB.id);assert.equal(body.supportSession.readonly,true)}
+ }
+ assert(!harness.calls.some(c=>c.type==='update'),'support navigation must not bind or alter assignments');
+}
+console.log('PASS actual Platform support handlers: server-verified internal access without target assignment; ordinary/expired/missing denied; readonly resolution and audit retained');

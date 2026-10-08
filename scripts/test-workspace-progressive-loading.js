@@ -184,3 +184,76 @@ await reset({fetch:(url,o)=>url==='/api/current-hotel'?Response.json({...base,on
 assert(!protectedVisible());assert(text().includes('Reintenta o abre el asistente'));assert.equal(requests.filter(r=>r.url==='/api/onboarding/state').length,0);
 transport=normal;await click('Retry');assert(protectedVisible());
 console.log('PASS combined gate avoids duplicate authorization round trip; unknown is not incomplete; error retry recovers');
+
+// Platform's context-only response intentionally contains no operational hotel.
+const platformContext={...base,hotel:null,role:'blocked',permissions:[],accessDenied:true,accessDeniedReason:'workspace_required'};
+const platformTransport=(url,o)=>url==='/api/current-hotel' && o.headers['x-staynex-workspace-path'].startsWith('/platform') ? Response.json(platformContext) : normal(url,o);
+await reset({path:'/platform/hotels',fetch:platformTransport});
+assert(protectedVisible());
+workspace.persistWorkspaceSelection({hotelId:a,notify:true});
+await flush(); // Next router navigation can commit after the selection event.
+pathname='/dashboard';dirty=true;await flush();
+assert.equal(pathname,'/dashboard','Platform-only denial must not redirect a newly selected hotel back to Platform');
+assert(protectedVisible());assert.equal(workspace.getActiveWorkspace().hotelId,a);
+console.log('PASS Platform directory entry resolves operational context after route transition');
+
+// A delayed Platform response cannot overwrite the destination context.
+core=deferred();await reset({path:'/platform/hotels',fetch:(url,o)=>url==='/api/current-hotel'?core.promise:normal(url,o)});
+pathname='/dashboard';transport=normal;dirty=true;await flush();assert(protectedVisible());
+core.resolve(Response.json(platformContext));await flush();assert.equal(pathname,'/dashboard');assert(protectedVisible());
+pathname='/platform/hotels';transport=platformTransport;dirty=true;await flush();assert(protectedVisible());
+assert(!text().includes('Authorized A'),'Platform must not retain operational hotel data');
+pathname='/dashboard';dirty=true;await flush();assert(protectedVisible());
+console.log('PASS old Platform response ignored; return and browser Back revalidate each context');
+
+// Back between explicit hotel URLs must resolve the historical selection.
+transport=(url,o)=>url==='/api/current-hotel'||url==='/api/workspace-directory'?Response.json({...base,hotel:{id:o.headers['x-staynex-hotel-id'],name:o.headers['x-staynex-hotel-id']===a?'Authorized A':'Authorized B'}}):normal(url,o);
+window.location.search='?hotelId='+b;window.dispatchEvent(new Event('popstate'));await flush();
+assert(protectedVisible());assert(!text().includes('Authorized A'));assert.equal(workspace.getActiveWorkspace().hotelId,b);
+window.location.search='?hotelId='+a;window.dispatchEvent(new Event('popstate'));await flush();
+assert(protectedVisible());assert(!text().includes('Authorized B'));window.location.search='';
+console.log('PASS explicit hotel history resolves again without cross-hotel content');
+for(const h of hooks)h?.cleanup?.();
+
+// Execute the shared entry hook used by all three original controls.
+let supportHook, entryErrors=[], pushes=[];
+router.push=path=>pushes.push(path);
+const {useSupportWorkspaceEntry}=await compile('../dashboard/lib/use-support-workspace-entry.js',{
+ react:React,'next/navigation':{useRouter:()=>router},'./workspace-context':workspace,
+ './supabase-browser':mocks['@/lib/supabase-browser']
+});
+const hookRender=()=>{cursor=0;effects=[];dirty=false;supportHook=useSupportWorkspaceEntry({onError:e=>entryErrors.push(e)});for(const effect of effects)effect()};
+const resetHook=()=>{for(const h of hooks)h?.cleanup?.();hooks=[];timers.clear();entryErrors=[];pushes=[];window.localStorage=memory();hookRender()};
+const supportBody=id=>({ok:true,hotel:{id},supportSession:{hotelId:id,readonly:true}});
+resetHook();let first=deferred(),second=deferred();
+globalThis.fetch=url=>url.includes(a)?first.promise:second.promise;
+const firstEntry=supportHook.enterWorkspace(a);hookRender();assert.equal(supportHook.pendingHotelId,a);
+const secondEntry=supportHook.enterWorkspace(b);await new Promise(r=>setImmediate(r));
+second.resolve(Response.json(supportBody(b)));await secondEntry;
+first.resolve(Response.json(supportBody(a)));await firstEntry;
+assert.deepEqual(pushes,['/dashboard?hotelId='+b]);assert.equal(workspace.getActiveWorkspace().hotelId,b);
+assert.equal(JSON.parse(window.sessionStorage.getItem('staynex_support_session')).hotelId,b);
+console.log('PASS shared support entry: latest attempt wins and matching readonly session persists');
+for(const status of [401,403,503]){
+ resetHook();globalThis.fetch=async()=>Response.json({error:'Private details not shown'},{status});
+ await supportHook.enterWorkspace(a);assert(entryErrors.at(-1));assert.equal(pushes.length,0);assert.equal(workspace.getActiveWorkspace().hotelId,null);
+ globalThis.fetch=async()=>Response.json(supportBody(a));await supportHook.enterWorkspace(a);assert.equal(pushes.length,1);
+}
+console.log('PASS expired/forbidden/transient entry errors remain visible and retryable without granting access');
+resetHook();first=deferred();globalThis.fetch=()=>first.promise;
+const timeoutEntry=supportHook.enterWorkspace(a);await new Promise(r=>setImmediate(r));
+[...timers.values()].forEach(fn=>fn());await timeoutEntry;assert(entryErrors.at(-1).includes('timed out'));
+first.resolve(Response.json(supportBody(a)));await new Promise(r=>setImmediate(r));assert.equal(pushes.length,0);
+console.log('PASS entry timeout rejects late success without selection or navigation');
+resetHook();globalThis.fetch=async()=>Response.json(supportBody(b));await supportHook.enterWorkspace(a);
+assert.equal(pushes.length,0);assert.equal(workspace.getActiveWorkspace().hotelId,null);
+resetHook();first=deferred();let calls=0;globalThis.fetch=()=>{calls++;return first.promise};
+const original=supportHook.enterWorkspace(a);await supportHook.enterWorkspace(a);await new Promise(r=>setImmediate(r));assert.equal(calls,1);
+for(const h of hooks)h?.cleanup?.();first.resolve(Response.json(supportBody(a)));await original;assert.equal(pushes.length,0);
+console.log('PASS mismatched support response, duplicate click and unmount cannot commit an obsolete selection');
+
+resetHook();first=deferred();globalThis.fetch=()=>first.promise;
+const oldEntry=supportHook.enterWorkspace(a);await new Promise(r=>setImmediate(r));
+workspace.persistWorkspaceSelection({hotelId:b});first.resolve(Response.json(supportBody(a)));await oldEntry;
+assert.equal(pushes.length,0);assert.equal(workspace.getActiveWorkspace().hotelId,b);
+console.log('PASS another selection made outside this control cannot be overwritten by its older response');

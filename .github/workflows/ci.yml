@@ -70,11 +70,14 @@ jobs:
         run: npm run test:dashboard-demo-browser
       - name: Attention lifecycle confirmation and grouping regressions
         run: npm run test:attention-lifecycle-browser
+      - name: Platform workspace entry and context transition regressions
+        run: npm run test:platform-workspace-entry-browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: synthetic-theme-evidence
           path: |
+            .npm-cache/platform-workspace-entry-results
             .npm-cache/attention-lifecycle-browser-results
             .npm-cache/theme-browser-results
             .npm-cache/density-browser-results

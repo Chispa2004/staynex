@@ -78,8 +78,14 @@ export const safeCount = async (query, tableName = null, fallback = 0) => {
   return count || fallback;
 };
 
-export const getPlatformContext = async (request, { requireAdmin = false } = {}) => {
-  const context = await getCurrentHotelForRequest(request);
+export const getPlatformContext = async (request, { requireAdmin = false, readOnly = false } = {}) => {
+  const context = await getCurrentHotelForRequest(request, { readOnly });
+
+  if (['missing_session', 'invalid_session'].includes(context.accessDeniedReason)) {
+    const error = new Error('Your session has expired. Sign in again.');
+    error.status = 401;
+    throw error;
+  }
 
   if (!canAccessPlatform(context.platformRole, 'platform_console')) {
     const error = new Error('Access denied');

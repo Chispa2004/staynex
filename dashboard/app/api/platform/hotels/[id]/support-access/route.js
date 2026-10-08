@@ -4,7 +4,7 @@ import { getHotelPlatformDetail, getPlatformContext, writePlatformAuditLog } fro
 export async function POST(request, { params }) {
   try {
     const { id } = await params;
-    const { supabase, user, platformRole } = await getPlatformContext(request);
+    const { supabase, user, platformRole } = await getPlatformContext(request, { readOnly: true });
     const detail = await getHotelPlatformDetail(supabase, id);
 
     await writePlatformAuditLog({
