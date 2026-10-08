@@ -16,6 +16,18 @@
   --theme-warning: #fff8ec;
   --theme-danger: #b42318;
   --theme-focus: #087f5b;
+  /* Shared light navigation/chrome palette; content and dark tokens are independent. */
+  --shell-nav-background: #14243b;
+  --shell-nav-active: #243d5b;
+  --shell-nav-hover: #1d334e;
+  --shell-nav-text: #f8fafc;
+  --shell-nav-muted: #bed0e5;
+  --shell-nav-border: #526d8c;
+  --shell-nav-accent: #6ee7b7;
+  --shell-header-background: #f1f5f9;
+  --shell-header-text: #14243b;
+  --shell-header-muted: #465a70;
+  --shell-header-border: #d5e0e9;
   --staynex-radius-card: 0.75rem;
   --staynex-radius-control: 0.5rem;
   --staynex-transition: 180ms ease;
@@ -179,7 +191,7 @@ button:disabled {
   color: #0f172a !important;
 }
 
-.theme-light aside {
+.theme-light aside:not([data-shell-navigation]) {
   background: var(--staynex-sidebar-light) !important;
   border-color: var(--staynex-border-light) !important;
   box-shadow: 12px 0 34px rgba(15, 23, 42, 0.09) !important;

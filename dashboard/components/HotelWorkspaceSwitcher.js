@@ -1,5 +1,6 @@
 'use client';
 
+import shellStyles from './AppShell.module.css';
 import { Building2, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { submitHotelCreation, hasPendingHotelCreation } from '@/lib/hotel-creation-client';
@@ -43,6 +44,7 @@ const WorkspaceLogo = ({ hotel, size = 'md' }) => {
 
 export const HotelWorkspaceSwitcher = ({
   compact = false,
+  navigationAppearance = false,
   iconOnly = false,
   currentHotel,
   availableHotels = [],
@@ -141,7 +143,7 @@ export const HotelWorkspaceSwitcher = ({
         className={[
           'group flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition',
           isLight
-            ? 'border-slate-200 bg-slate-50 text-slate-950 hover:border-slate-300 hover:bg-white'
+            ? navigationAppearance ? shellStyles.navControl : 'border-slate-200 bg-slate-50 text-slate-950 hover:border-slate-300 hover:bg-white'
             : 'border-white/10 bg-white/[0.035] text-white hover:border-white/15 hover:bg-white/[0.06]',
           canOpenMenu ? 'cursor-pointer' : 'cursor-default'
         ].join(' ')}
@@ -155,7 +157,7 @@ export const HotelWorkspaceSwitcher = ({
           <p className="truncate text-sm font-semibold leading-5">
             {currentHotel?.name || 'Staynex Workspace'}
           </p>
-          <p className={isLight ? 'mt-0.5 truncate text-xs text-slate-500' : 'mt-0.5 truncate text-xs text-slate-400'}>
+          <p className={isLight ? navigationAppearance ? `${shellStyles.navMuted} mt-0.5 truncate text-xs` : 'mt-0.5 truncate text-xs text-slate-500' : 'mt-0.5 truncate text-xs text-slate-400'}>
             {currentHotel?.brand_name || currentHotel?.workspace_slug || currentHotel?.slug || 'Hotel operations'}
           </p>
           {!compact ? <p className={isLight ? 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700' : 'mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-300'}>

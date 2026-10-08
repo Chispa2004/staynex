@@ -38,7 +38,7 @@ export function measureContrast() {
     const size=Number.parseFloat(s.fontSize),weight=Number.parseInt(s.fontWeight);
     const required=size>=24||(size>=18.6667&&weight>=700)?3:4.5;
     const ratios=background.colors.map(bg=>ratio(over(fg,bg),bg));
-    results.push({text:(placeholder?e.getAttribute('placeholder'):direct||e.value||'').slice(0,100),tag:e.tagName,classes:e.getAttribute('class'),foreground:fg,backgrounds:background.colors,ratio:Math.min(...ratios),required,size,weight,complex:background.complex});
+    results.push({chrome:Boolean(e.closest('[data-shell-navigation],[data-shell-header]')),text:(placeholder?e.getAttribute('placeholder'):direct||e.value||'').slice(0,100),tag:e.tagName,classes:e.getAttribute('class'),foreground:fg,backgrounds:background.colors,ratio:Math.min(...ratios),required,size,weight,complex:background.complex});
   }
   return results;
 }

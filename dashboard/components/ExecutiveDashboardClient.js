@@ -421,7 +421,7 @@ const OperationalHeader = ({ hotel, hotelName, timezone, role, loading, refreshi
   const location = [hotel.city, country].filter(Boolean).join(', ');
   return (
     <>
-      <header className={styles.topbar}>
+      <header data-shell-header="dashboard" className={styles.topbar}>
         <div>
           <p className={styles.greeting}>{displayName ? `${tx(getHotelGreeting(timezone))}, ${displayName}` : tx('Bienvenido')}</p>
           <p className={styles.subtitle}>{tx('Aquí tienes el resumen operativo de tu hotel.')}</p>
