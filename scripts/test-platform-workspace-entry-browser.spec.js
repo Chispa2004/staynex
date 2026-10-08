@@ -4,6 +4,7 @@ import {attentionDashboardDTO} from '../shared/message-attention/contract.js';
 const a='1ef60a40-b65f-4bff-9bd3-22654e5029f2',b='00000000-0000-4000-8000-000000000002';
 const hotel=id=>({id,name:id===a?'Hotel QA demo · datos sintéticos':'Hotel B sintético',timezone:'Europe/Madrid',healthStatus:'Onboarding',stats:{},readiness:{}});
 async function prepare(page,{pending=false}={}) {
+  page.on('pageerror', error => { throw error; });
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
   await page.route('**/api/platform/hotels',route=>route.fulfill({json:{hotels:[hotel(a),hotel(b)],metrics:{totalHotels:2}}}));
   await page.route('**/api/platform/hotels/*/support',route=>{
@@ -25,7 +26,7 @@ async function prepare(page,{pending=false}={}) {
   // The second hotel's data transport is deliberately empty, not copied from A.
   await page.route('**/api/executive-dashboard?*',async route=>{
     if(route.request().headers()['x-staynex-hotel-id']!==b)return route.continue();
-    await route.fulfill({json:{hotel:hotel(b),role:'admin',permissions:[],conversationDashboard:buildConversationDashboard({hotelId:b,timezone:'Europe/Madrid',attentionSnapshot:attentionDashboardDTO({contract:2,hotelId:b,origin:'traced',urgentOnly:false,messages:[],counters:{received:0,resolved:0,pending:0,urgent:0}},b)}),pmsSnapshot:{available:false}}});
+    await route.fulfill({json:{hotel:hotel(b),role:'admin',permissions:[],conversationDashboard:buildConversationDashboard({hotelId:b,timezone:'Europe/Madrid',attentionSnapshot:{...attentionDashboardDTO({contract:2,hotelId:b,origin:'traced',urgentOnly:false,messages:[],counters:{received:0,resolved:0,pending:0,urgent:0}},b),metricDate:'2026-10-08',timezone:'Europe/Madrid'}}),pmsSnapshot:{available:false}}});
   });
 }
 for(const width of [1366,390])test(`original Platform entry ${width}: authorized selection, reload, Inbox and return`,async({page},info)=>{
@@ -49,6 +50,7 @@ for(const width of [1366,390])test(`original Platform entry ${width}: authorized
   await expect(page.getByRole('heading',{name:'Hotel B sintético',exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:hotel(a).name,exact:true})).toHaveCount(0);
   expect(await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}))).toEqual({width,scroll:width});
+  await expect(page.getByText('No hay mensajes entrantes.',{exact:true})).toBeVisible();
   await page.screenshot({path:info.outputPath('workspace-'+width+'.png'),fullPage:true});
 });
 test('pending onboarding follows the existing authorized destination after the original button',async({page})=>{
