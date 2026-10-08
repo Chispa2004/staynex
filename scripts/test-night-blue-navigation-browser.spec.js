@@ -54,9 +54,18 @@ for(const theme of ['light','dark'])for(const width of [1366,390])test(`hotel me
  await page.route('**/api/current-hotel',async r=>{const original=await r.fetch(),body=await original.json();await r.fulfill({json:{...body,canSwitchWorkspaces:true,directoryDeferred:false,availableHotels:[{hotel:body.hotel,role:'admin'},{hotel:{...body.hotel,id:'00000000-0000-4000-8000-000000000002',name:'Otro hotel sintético'},role:'receptionist'}]}});});
  await page.goto('/dashboard');await expect(page.getByText('No hay mensajes entrantes.',{exact:true})).toBeVisible();const nav=page.locator('#staynex-sidebar');
  if(width===390)await page.getByRole('button',{name:'Abrir navegación',exact:true}).click();
- const trigger=nav.locator('[data-icon-only] > button');await trigger.focus();await trigger.press('Enter');const group=nav.getByRole('group',{name:'Cambiar hotel',exact:true});await expect(group).toBeVisible();
+ const trigger=nav.locator('[data-icon-only] > button');await trigger.focus();await trigger.press('Enter');const group=nav.getByRole('group',{name:'Cambiar hotel',exact:true});await expect(group).toBeVisible();if(theme==='light')await expect(group).toHaveCSS('box-shadow','none');
  const rows=await page.evaluate(measureContrast);await fs.writeFile(info.outputPath('menu-contrast.json'),JSON.stringify(rows,null,2));expect(rows.filter(r=>r.chrome&&!r.complex&&r.ratio<r.required)).toEqual([]);
  await page.screenshot({path:info.outputPath('hotel-menu.png')});await group.getByRole('button',{name:/Otro hotel sintético/}).focus();await page.keyboard.press('Escape');await expect(group).toHaveCount(0);await expect(trigger).toBeFocused();
  if(width===1366){await nav.getByRole('button',{name:'Contraer menú lateral'}).click();await trigger.click();await expect(group).toBeVisible();const bounds=await group.boundingBox();expect(bounds.width).toBeGreaterThan(200);expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(width);await page.screenshot({path:info.outputPath('compact-hotel-menu.png')});await page.keyboard.press('Escape');await expect(trigger).toBeFocused();}
  else {await expect(nav).not.toHaveAttribute('inert','');await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:'Abrir navegación',exact:true})).toBeFocused();}
+});
+for(const theme of ['light','dark'])test(`compact Inbox language popup ${theme}: bounds and focus`,async({page},info)=>{
+ await page.setViewportSize({width:1366,height:900});await page.emulateMedia({reducedMotion:'reduce'});await page.addInitScript(t=>localStorage.setItem('staynex_dashboard_theme',t),theme);
+ await page.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
+ await page.goto('/dashboard/inbox');await expect(page.getByRole('textbox',{name:'Buscar huésped, habitación, mensaje o idioma'})).toBeVisible();
+ const nav=page.locator('#staynex-sidebar');await nav.getByRole('button',{name:'Contraer menú lateral'}).click();
+ const trigger=nav.getByRole('button',{name:'Idioma: Español'});await trigger.focus();await trigger.press('Enter');const group=nav.getByRole('group',{name:'Idioma',exact:true});
+ const box=await group.boundingBox();expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(1366);
+ await page.screenshot({path:info.outputPath('compact-inbox-language.png')});await trigger.press('Tab');await page.keyboard.press('Escape');await expect(trigger).toBeFocused();await expect(group).toHaveCount(0);
 });

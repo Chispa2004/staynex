@@ -174,6 +174,7 @@ export const HotelWorkspaceSwitcher = ({
       {open ? (
         <div
           className={[
+            navigationAppearance && isLight ? shellStyles.navPopover : '',
             compact ? 'absolute left-0 right-0 bottom-full z-50 mb-2 overflow-hidden rounded-xl border shadow-2xl' : 'absolute left-4 right-4 top-full z-50 mt-2 overflow-hidden rounded-xl border shadow-2xl',
             isLight
               ? 'border-slate-200 bg-white text-slate-950 shadow-slate-200/80'
