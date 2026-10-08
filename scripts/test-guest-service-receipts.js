@@ -260,3 +260,12 @@ const privacyReply='Hemos anotado el importe y que no necesitas facilitar el nú
 const privacyReceipt=await generateReceiptReply(args,async()=>({reply:privacyReply}));
 assert.equal(finalizeServiceReply({...args,primary:{reply:'Confirme su tarjeta.'},receiptReply:privacyReceipt}).reply,privacyReply);
 console.log('PASS a statement declining payment details is not removed as an imperative request');
+
+const {informationServiceDraft}=await import('../shared/guest-service/quality.js');
+const luggageFollowup='Llegaremos a las 10:45. ¿Podemos dejar entonces las maletas sin entrar aún en la habitación?';
+const luggageHistory=[{hotel_id:'a',sender_type:'guest',content:'¿Podemos dejar el equipaje antes del check-in?'},{hotel_id:'a',sender_type:'ai',content:'Podemos guardar el equipaje.'},{hotel_id:'a',sender_type:'guest',content:luggageFollowup}];
+const luggageDraft=informationServiceDraft({message:luggageFollowup,history:luggageHistory,knowledge:luggageContext.hotelKnowledge,hotelId:'a',language:'es'});
+assert.match(luggageDraft.text,/16:30.*necesita confirmación/);
+assert.equal(luggageDraft.draft,true);
+assert.equal(informationServiceDraft({message:luggageFollowup,history:luggageHistory.map(m=>({...m,hotel_id:'b'})),knowledge:luggageContext.hotelKnowledge,hotelId:'a',language:'es'}),null);
+console.log('PASS staff luggage draft retains prior guest context when history includes the current turn, without cross-hotel context');
