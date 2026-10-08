@@ -72,7 +72,7 @@ for(const theme of ['light','dark']) for(const width of [1366,390]) {
 
 test('field errors, native row actions and confirmation fallback remain usable',async({page})=>{
   // The density fixture fixes reservation dates to October 1; keep the browser
-  // on that same day so this keyboard test still exercises a real row later.
+  // on that same day and pin the server query below to exercise a real row later.
   await page.clock.setFixedTime(new Date('2026-10-01T12:00:00Z'));
   await ready(page,'/dashboard/onboarding');
   const name=page.getByLabel('Nombre del hotel',{exact:false});await name.fill('');await page.getByRole('button',{name:'Guardar hotel',exact:true}).click();await expect(name).toHaveAttribute('aria-invalid','true');await expect(name).toHaveAccessibleDescription(/obligatorio|vacío|nombre|requerido/i);
@@ -82,7 +82,7 @@ test('field errors, native row actions and confirmation fallback remain usable',
   const update=page.waitForResponse(r=>r.url().includes('/status')&&r.request().method()==='PATCH');
   await action.press('Enter');await update;await expect(action).toBeEnabled();await expect(page).toHaveURL(/\/dashboard\/tickets$/);
   const ticket=page.locator('tbody').getByRole('link').first();await expect(ticket).toHaveAccessibleName(/QA/);await ticket.focus();await page.keyboard.press('Enter');await expect(page).toHaveURL(/\/dashboard\/tickets\/000/);
-  await ready(page,'/dashboard/reservations');const rowButton=page.locator('tbody tr').first().getByRole('button').first();await rowButton.focus();await page.keyboard.press('Space');await expect(rowButton).toHaveAttribute('aria-pressed','true');
+  await ready(page,'/dashboard/reservations?date=2026-10-01');const rowButton=page.locator('tbody tr').first().getByRole('button').first();await rowButton.focus();await page.keyboard.press('Space');await expect(rowButton).toHaveAttribute('aria-pressed','true');
   await ready(page,'/accessibility-probe');const opener=page.getByRole('button',{name:'Archivar hotel sintético',exact:true});await opener.click();const confirmation=page.getByRole('dialog');await trapped(page,confirmation);await opener.evaluate(e=>e.remove());await page.keyboard.press('Escape');await expect(confirmation).toHaveCount(0);await expect(page.getByRole('heading',{name:'Confirmación sintética'})).toBeFocused();
   await ready(page,'/login');await page.getByRole('textbox',{name:'Email',exact:true}).fill('qa@example.invalid');await page.getByLabel('Password',{exact:true}).fill('synthetic-only');await page.getByRole('button',{name:'Login',exact:true}).click();await expect(page.getByRole('alert').filter({hasText:'Acceso sintético rechazado'})).toHaveText('Acceso sintético rechazado');await expect(page.getByLabel('Password',{exact:true})).toHaveAccessibleDescription('Acceso sintético rechazado');
 });
