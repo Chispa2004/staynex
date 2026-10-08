@@ -199,3 +199,10 @@
 .queueTabs button[aria-selected="true"] {background:#164e63;color:#ecfeff;border-color:#22d3ee;}
 .queueTabs button:focus-visible {outline:3px solid #0ea5e9;outline-offset:3px;}
 :global(.theme-light) .queueTabs button[aria-selected="true"] {background:#e0f2fe;color:#075985;border-color:#0284c7;}
+
+.dashboard[data-theme='light'] .topbar { background: var(--shell-header-background); color: var(--shell-header-text); border-color: var(--shell-header-border); }
+.dashboard[data-theme='light'] .topbar .subtitle,
+.dashboard[data-theme='light'] .toolbar > time,
+.dashboard[data-theme='light'] .userAccount span:not(.userAvatar) { color: var(--shell-header-muted); }
+.dashboard[data-theme='light'] .refresh { background: #fff; color: var(--shell-header-muted); border-color: var(--shell-header-border); }
+.dashboard[data-theme='light'] .refresh:hover:not(:disabled) { background: var(--shell-header-background); }

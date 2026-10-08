@@ -11,7 +11,7 @@
 .navigation a { min-height: 46px; padding: 8px 12px; gap: 12px; }
 .navigation a > span:nth-last-child(n+2):has(> svg) { border: 0; background: transparent; }
 .navigation a svg { width: 20px; height: 20px; }
-.shell:global(.theme-light) .navigation a:has(> span.absolute) { color: #007b55; background: #e7f7f1; box-shadow: none; }
+
 .account { margin-top: auto; flex-shrink: 0; padding: 12px 18px 18px; }
 .account > button { box-shadow: none; }
 .account > button > span:first-child { border: 0; background: transparent; }
@@ -61,7 +61,7 @@
   .compact [data-icon-only='true'] > button { padding: 6px; justify-content: center; }
   .compact [data-icon-only='true'] > button > div:not(:first-child), .compact [data-icon-only='true'] > button > svg { display: none; }
   .compact [data-icon-only='true'] > button > :first-child { width: 36px; height: 36px; }
-  .compact [data-icon-only='true'] > [role='listbox'] { width: 260px; right: auto; }
+  .compact [data-icon-only='true'] > [role='group'] { width: 260px; right: auto; }
 }
 
 @media (max-width: 1023px) { .inboxContext[data-admin='false'] { display: none; } }
@@ -84,4 +84,43 @@
 
 @media(max-width:1023px) {
   .compactToolbar:not(:has(.compactWorkspace)) { display:none; }
+}
+
+/* Light chrome only. Shared controls retain their own light popover surfaces. */
+.shell:global(.theme-light) .navSurface { background: var(--shell-nav-background); color: var(--shell-nav-text); border-color: var(--shell-nav-border); }
+.shell:global(.theme-light) .navDivider { border-color: var(--shell-nav-border); }
+.shell:global(.theme-light) .navText { color: var(--shell-nav-text); }
+.shell:global(.theme-light) .navMuted { color: var(--shell-nav-muted); }
+.shell:global(.theme-light) .navItem { color: var(--shell-nav-muted); background: transparent; }
+.shell:global(.theme-light) .navItem:hover { color: var(--shell-nav-text); background: var(--shell-nav-hover); }
+.shell:global(.theme-light) .navActive { color: var(--shell-nav-text); background: var(--shell-nav-active); box-shadow: none; }
+.shell:global(.theme-light) .navIndicator { background: var(--shell-nav-accent); }
+.shell:global(.theme-light) .navIcon { color: var(--shell-nav-muted); background: transparent; border-color: transparent; }
+.shell:global(.theme-light) .navActiveIcon { color: var(--shell-nav-accent); background: transparent; border-color: transparent; }
+.shell:global(.theme-light) .navGroupActive { color: var(--shell-nav-text); background: var(--shell-nav-hover); }
+.shell:global(.theme-light) .navControl,
+.shell:global(.theme-light) .platformLink { color: var(--shell-nav-text); background: var(--shell-nav-background); border-color: var(--shell-nav-border); }
+.shell:global(.theme-light) .navControl:hover:not(:disabled),
+.shell:global(.theme-light) .platformLink:hover { background: var(--shell-nav-hover); }
+.shell:global(.theme-light) .navControl:disabled { color: var(--shell-nav-muted); border-style: dashed; opacity: 1; }
+.shell:global(.theme-light) .collapseToggle { color: var(--shell-nav-muted); }
+.shell:global(.theme-light) .collapseToggle:hover { color: var(--shell-nav-accent); background: var(--shell-nav-active); }
+.shell:global(.theme-light) .sidebar :is(button,a):focus-visible { outline-color: var(--shell-nav-accent); }
+/* Popovers are light surfaces; their focus ring must keep its light-surface contrast. */
+.shell:global(.theme-light) .sidebar [role='group'] button:focus-visible { outline-color: var(--theme-focus); }
+.shell:global(.theme-light) .compact .navigation > section { border-color: var(--shell-nav-border); }
+.shell:global(.theme-light) .navigation { scrollbar-color: var(--shell-nav-border) var(--shell-nav-background); }
+.shell:global(.theme-light) .navigation::-webkit-scrollbar-track { background: var(--shell-nav-background); }
+.shell:global(.theme-light) .navigation::-webkit-scrollbar-thumb { background: var(--shell-nav-border); border-color: var(--shell-nav-background); }
+.shell:global(.theme-light) .navTooltip { background: var(--shell-nav-background); color: var(--shell-nav-text); }
+.shell:global(.theme-light) [data-shell-header='mobile'],
+.shell:global(.theme-light) .inboxContext { background: var(--shell-header-background); color: var(--shell-header-text); border-color: var(--shell-header-border); }
+
+.shell:global(.theme-light) .compactToolbar { background: var(--shell-header-background); color: var(--shell-header-text); }
+
+.shell:global(.theme-light) .sidebar [data-theme-toggle] { box-shadow: none; }
+
+.shell:global(.theme-light) .navPopover { box-shadow: none; }
+@media (min-width: 1024px) {
+  .compact [data-language-selector] > [role='group'] { left: 0; right: auto; }
 }

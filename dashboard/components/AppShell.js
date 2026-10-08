@@ -1243,7 +1243,7 @@ const AppShellContent = ({ children }) => {
       }}
     >
       <div data-desktop-restore={false} className="flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
-        <header inert={mobileSidebarOpen && !desktopNavigation}
+        <header data-shell-header="mobile" inert={mobileSidebarOpen && !desktopNavigation}
           className={[
             'sticky top-0 z-30 flex shrink-0 items-center justify-between gap-3 border-b px-3 py-3 backdrop-blur-xl',
             'lg:hidden',
@@ -1301,23 +1301,23 @@ const AppShellContent = ({ children }) => {
           />
         ) : null}
 
-        <aside ref={navigationPanel} role={mobileSidebarOpen && !desktopNavigation ? 'dialog' : undefined} aria-modal={mobileSidebarOpen && !desktopNavigation ? true : undefined} aria-label={tx('Navegación principal')} tabIndex={-1} id="staynex-sidebar" data-desktop-collapsed={desktopSidebarCollapsed} inert={!desktopNavigation && !mobileSidebarOpen} className={[
+        <aside ref={navigationPanel} role={mobileSidebarOpen && !desktopNavigation ? 'dialog' : undefined} aria-modal={mobileSidebarOpen && !desktopNavigation ? true : undefined} aria-label={tx('Navegación principal')} tabIndex={-1} id="staynex-sidebar" data-shell-navigation data-desktop-collapsed={desktopSidebarCollapsed} inert={!desktopNavigation && !mobileSidebarOpen} className={[
           shellStyles.sidebar,
           desktopSidebarCollapsed ? shellStyles.compact : '',
           'fixed inset-y-0 left-0 z-50 flex w-[min(86vw,320px)] shrink-0 flex-col border-r shadow-2xl backdrop-blur-xl transition-transform duration-200 ease-out lg:static lg:z-auto lg:h-full lg:w-72 lg:translate-x-0',
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
           isLight
-            ? 'border-slate-200 bg-white/95 shadow-slate-200/80'
+            ? shellStyles.navSurface
             : 'border-white/10 bg-[#070b12]/95 shadow-black/30'
         ].join(' ')}
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <div className={isLight ? 'flex items-center justify-between border-b border-slate-200 px-4 py-3 lg:hidden' : 'flex items-center justify-between border-b border-white/10 px-4 py-3 lg:hidden'}>
+          <div className={isLight ? `${shellStyles.navDivider} flex items-center justify-between border-b px-4 py-3 lg:hidden` : 'flex items-center justify-between border-b border-white/10 px-4 py-3 lg:hidden'}>
             <StaynexWordmark logoSize="xs" />
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(false)}
-              className={isLight ? 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600' : 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-slate-200'}
+              className={isLight ? `${shellStyles.navControl} inline-flex h-10 w-10 items-center justify-center rounded-lg border` : 'inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-slate-200'}
               aria-label={tx('Close navigation')}
             >
               <X className="h-4 w-4" aria-hidden="true" />
@@ -1327,12 +1327,12 @@ const AppShellContent = ({ children }) => {
           <div className={cn(
             shellStyles.brand,
             'hidden items-center border-b px-4 py-4 lg:flex',
-            isLight ? 'border-slate-200' : 'border-white/10'
+            isLight ? shellStyles.navDivider : 'border-white/10'
           )}>
             <span className={shellStyles.fullBrand}><StaynexWordmark
               logoSize="sm"
               subtitle={isPlatformContext ? tx('Platform operations') : tx('Hotel operations system')}
-              className={isLight ? 'text-slate-950' : 'text-white'}
+              className={isLight ? shellStyles.navText : 'text-white'}
             /></span>
             <span className={shellStyles.compactBrand}><StaynexLogo size="xs" /></span>
             <button type="button" className={shellStyles.collapseToggle} onClick={toggleNavigation} aria-label={desktopSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'} title={desktopSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'} aria-expanded={!desktopSidebarCollapsed} aria-controls="staynex-sidebar">{desktopSidebarCollapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}</button>
@@ -1343,7 +1343,7 @@ const AppShellContent = ({ children }) => {
               <div className={[
                 'rounded-xl border p-4',
                 isLight
-                  ? 'border-slate-200 bg-slate-50 text-slate-800'
+                  ? shellStyles.navControl
                   : 'border-white/10 bg-white/[0.035] text-slate-200'
               ].join(' ')}
               >
@@ -1351,7 +1351,7 @@ const AppShellContent = ({ children }) => {
                   <StaynexLogo size="sm" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{tx('Platform context')}</p>
-                    <p className={isLight ? 'mt-0.5 text-xs text-slate-500' : 'mt-0.5 text-xs text-slate-500'}>
+                    <p className={isLight ? `${shellStyles.navMuted} mt-0.5 text-xs` : 'mt-0.5 text-xs text-slate-500'}>
                       {tx('Global multi-hotel operations')}
                     </p>
                   </div>
@@ -1391,24 +1391,24 @@ const AppShellContent = ({ children }) => {
                         'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition',
                         active
                           ? isLight
-                            ? 'bg-emerald-50 text-slate-950 shadow-sm shadow-emerald-100'
+                            ? shellStyles.navActive
                             : 'bg-white/[0.075] text-white shadow-lg shadow-black/10'
                           : isLight
-                            ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                            ? shellStyles.navItem
                             : 'text-slate-300 hover:bg-white/[0.045] hover:text-slate-100'
                       ].join(' ')}
                     >
                       {active ? (
-                        <span className={cn("absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full", isLight ? "bg-emerald-700" : "bg-emerald-300")} />
+                        <span className={cn("absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full", isLight ? shellStyles.navIndicator : "bg-emerald-300")} />
                       ) : null}
                       <span className={[
                         'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
                         active
                           ? isLight
-                            ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
+                            ? shellStyles.navActiveIcon
                             : 'border-emerald-300/20 bg-emerald-300/15 text-emerald-200'
                           : isLight
-                            ? 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-900'
+                            ? shellStyles.navIcon
                             : 'border-white/5 bg-white/[0.025] text-slate-500 group-hover:text-slate-200'
                       ].join(' ')}
                       >
@@ -1434,8 +1434,8 @@ const AppShellContent = ({ children }) => {
                       'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.14em] transition',
                       isLight
                         ? activeGroup
-                          ? 'bg-slate-100 text-slate-800'
-                          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                          ? shellStyles.navGroupActive
+                          : shellStyles.navItem
                         : activeGroup
                           ? 'bg-white/[0.045] text-slate-200'
                           : 'text-slate-500 hover:bg-white/[0.035] hover:text-slate-300'
@@ -1470,22 +1470,22 @@ const AppShellContent = ({ children }) => {
                               'group relative flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
                               isLight
                                 ? active
-                                  ? 'bg-emerald-50 text-slate-950 shadow-sm shadow-emerald-100'
-                                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                                  ? shellStyles.navActive
+                                  : shellStyles.navItem
                                 : active
                                   ? 'bg-white/[0.075] text-white shadow-lg shadow-black/10'
                                   : 'text-slate-400 hover:bg-white/[0.045] hover:text-slate-100'
                             ].join(' ')}
                           >
                             {active ? (
-                              <span className={cn("absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full", isLight ? "bg-emerald-700" : "bg-emerald-300")} />
+                              <span className={cn("absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full", isLight ? shellStyles.navIndicator : "bg-emerald-300")} />
                             ) : null}
                             <span className={[
                               'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition',
                               isLight
                                 ? active
-                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
-                                  : 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-900'
+                                  ? shellStyles.navActiveIcon
+                                  : shellStyles.navIcon
                                 : active
                                   ? 'border-emerald-300/20 bg-emerald-300/15 text-emerald-200'
                                   : 'border-white/5 bg-white/[0.025] text-slate-500 group-hover:text-slate-200'
@@ -1523,6 +1523,7 @@ const AppShellContent = ({ children }) => {
             <div className={cn("mb-3 flex flex-wrap items-center gap-2", !isInboxRoute && "lg:hidden")}><ThemeToggle compact={desktopNavigation && desktopSidebarCollapsed} /><LanguageSelector placement="top" /></div>
             {!isPlatformContext ? <>
               <HotelWorkspaceSwitcher
+                navigationAppearance
                 iconOnly={desktopNavigation && desktopSidebarCollapsed}
                 compact
                 currentHotel={currentHotel}
@@ -1539,7 +1540,7 @@ const AppShellContent = ({ children }) => {
               {directoryState.status === 'pending' ? <p role="status" className="mt-2 text-xs">{tx('Consultando otros hoteles autorizados…')}</p> : null}
               {directoryState.status === 'error' ? <div role="status" className="mt-2 text-xs"><p>{tx('No se pudo actualizar el selector de hoteles. El hotel actual sigue disponible.')}</p><button className="mt-2 underline" onClick={()=>{setDirectoryState({status:'pending'});setDirectoryRetry(n=>n+1);}}>{tx('Reintentar selector de hoteles')}</button></div> : null}
               {showBackToPlatform ? <>
-                <p className={cn(shellStyles.navLabel, "mb-2 text-xs text-slate-500")}>{tx('Hotel workspace view')}</p>
+                <p className={cn(shellStyles.navLabel, "mb-2 text-xs", isLight ? shellStyles.navMuted : "text-slate-500")}>{tx('Hotel workspace view')}</p>
                 <Link href="/platform/hotels" aria-label={tx('Back to Platform')} onMouseEnter={showNavigationHint} onFocus={showNavigationHint} onMouseLeave={hideNavigationHint} onBlur={hideNavigationHint} className={shellStyles.platformLink}><ArrowLeft className="h-4 w-4" aria-hidden="true" /><span className={shellStyles.navLabel}>{tx('Back to Platform')}</span></Link>
               </> : null}
               {urgentCount > 0 && !canAccess(activeRole, 'tickets') ? <div className={shellStyles.urgent}><AlertTriangle className="h-4 w-4" aria-hidden="true" />{t('app.urgent')}: {urgentCount}</div> : null}
@@ -1552,11 +1553,11 @@ const AppShellContent = ({ children }) => {
               className={[
                 'flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60',
                 isLight
-                  ? 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                  ? shellStyles.navControl
                   : 'border-white/10 bg-white/[0.025] text-slate-400 hover:bg-white/[0.06] hover:text-slate-100'
               ].join(' ')}
             >
-              <span className={isLight ? 'flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500' : 'flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-white/[0.025] text-slate-500'}>
+              <span className={isLight ? `${shellStyles.navIcon} flex h-8 w-8 items-center justify-center rounded-lg border` : 'flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-white/[0.025] text-slate-500'}>
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </span>
               <span className={shellStyles.navLabel}>{logoutLoading ? t('buttons.signingOut') : t('buttons.logout')}</span>
@@ -1575,7 +1576,7 @@ const AppShellContent = ({ children }) => {
               : isCompactPage ? shellStyles.compactContent
               : 'mx-auto w-full max-w-7xl px-3 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4 sm:px-5 lg:px-10 lg:pb-8 lg:pt-8'
           )}>
-            {isCompactPage ? <div className={shellStyles.compactToolbar}>
+            {isCompactPage ? <div data-shell-header="compact" className={shellStyles.compactToolbar}>
               {showBackToPlatform ? <div className={cn(shellStyles.compactWorkspace, isLight ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-emerald-300/20 bg-emerald-300/10 text-emerald-100')}>
                 <p className="font-semibold">{tx('{hotel} · Administración interna de Staynex', {hotel:sidebarHotelName})}</p>
                 <Link href="/platform/hotels" className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-current px-3 py-2 text-sm font-semibold focus-visible:ring-2"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{tx('Back to Platform')}</Link>
@@ -1588,7 +1589,7 @@ const AppShellContent = ({ children }) => {
                 <LanguageSelector />
               </div>
             ) : null}
-            {isInboxRoute ? <div className={shellStyles.inboxContext} data-admin={showBackToPlatform}>
+            {isInboxRoute ? <div data-shell-header="inbox" className={shellStyles.inboxContext} data-admin={showBackToPlatform}>
               <span><Building2 size={14} aria-hidden="true" /> {sidebarHotelName}</span>
               <span>{ROLE_LABELS[activeRole] || activeRole}{showBackToPlatform ? ' · Administración Staynex' : ''}</span>
             </div> : null}

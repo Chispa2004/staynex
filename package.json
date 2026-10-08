@@ -128,7 +128,8 @@
     "test:attention-lifecycle-postgres": "node scripts/test-attention-lifecycle-postgres.js",
     "test:attention-lifecycle": "node scripts/test-attention-lifecycle.js",
     "test:attention-lifecycle-browser": "playwright test --config scripts/attention-lifecycle-browser.config.js",
-    "test:platform-workspace-entry-browser": "node scripts/accessibility-lab.cjs build && playwright test --config scripts/platform-workspace-entry-browser.config.js"
+    "test:platform-workspace-entry-browser": "node scripts/accessibility-lab.cjs build && playwright test --config scripts/platform-workspace-entry-browser.config.js",
+    "test:night-blue-navigation-browser": "playwright test --config scripts/night-blue-navigation-browser.config.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

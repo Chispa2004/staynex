@@ -27,7 +27,7 @@ export const LanguageSelector = ({ placement = 'bottom' }) => {
   }, [visible]);
 
   return (
-    <div ref={root} className="relative shrink-0"
+    <div ref={root} data-language-selector className="relative shrink-0"
       onPointerEnter={(event) => { if (event.pointerType === 'mouse') setHovered(true); }}
       onPointerLeave={() => setHovered(false)}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) close(); }}

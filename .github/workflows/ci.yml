@@ -72,11 +72,14 @@ jobs:
         run: npm run test:attention-lifecycle-browser
       - name: Platform workspace entry and context transition regressions
         run: npm run test:platform-workspace-entry-browser
+      - name: Night blue shared navigation and header regressions
+        run: npm run test:night-blue-navigation-browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: synthetic-theme-evidence
           path: |
+            .npm-cache/night-blue-browser-results
             .npm-cache/platform-workspace-entry-results
             .npm-cache/attention-lifecycle-browser-results
             .npm-cache/theme-browser-results
