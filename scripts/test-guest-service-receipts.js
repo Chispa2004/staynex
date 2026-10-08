@@ -251,7 +251,8 @@ const luggage=finalizeServiceReply({primary:{ai_provider:'openai',confidence:1,r
 assert.match(luggage.reply,/16:30/);assert.match(luggage.reply,/necesita confirmación/);assert.doesNotMatch(luggage.reply,/no estará lista hasta/);
 assert.equal(earlyLuggageReply({message:'¿Podemos dejar las maletas antes?',hotelId:'b',context:luggageContext}),null);
 assert.equal(earlyLuggageReply({message:'¿Podemos dejar las maletas antes?',hotelId:'a',context:{hotelKnowledge:[]}}),null);
-assert.match(earlyLuggageReply({message:'Can we leave our bags before check-in?',hotelId:'b',language:'en',context:{hotelKnowledge:[{hotel_id:'b',key:'check_in',value:'Check-in starts at 14:15. We can store your luggage.'}]}}),/14:15.*needs confirmation/);
+assert.match(earlyLuggageReply({message:'Can we leave our bags before check-in?',hotelId:'b',language:'en',context:{hotelKnowledge:[{hotel_id:'b',key:'check_in',value:'Check-in starts at 14:15. We can store your luggage before check-in.'}]}}),/14:15.*needs confirmation/);
+assert.equal(earlyLuggageReply({message:'Can we leave our bags before check-in?',hotelId:'b',language:'en',context:{hotelKnowledge:[{hotel_id:'b',key:'check_in',value:'We can store your luggage after check-out only.'}]}}),null);
 assert.equal(sanitizeReceiptReply('Tenemos tu petición y estamos al tanto.',receiptFacts(args),'es'),'Tenemos tu petición. Estamos al tanto.');
 console.log('PASS luggage storage never certifies room readiness, distinct hotel policies and safe clause capitalization');
 

@@ -156,6 +156,7 @@ export function earlyLuggageReply({message='',context={},hotelId,language='es'})
   if(!/equipaje|maletas?|luggage|bags/.test(normalize(message)) || !/antes|anticipad|early|before/.test(topic))return null;
   const rows=guestFacingKnowledge(context.hotelKnowledge,hotelId),policy=rows.find(r=>/check.?in|arrival|llegada|equipaje|luggage/.test(normalize(r.key+' '+r.title))
     && /(?:puede|podemos) guardar (?:el )?equipaje|(?:can|may) (?:store|keep) (?:your |the )?(?:luggage|bags)/.test(normalize(r.value))
+    && /antes|before/.test(normalize(r.value))
     && !/no (?:se )?puede|cannot|can't/.test(normalize(r.value)));
   if(!policy)return null;
   const checkin=rows.find(r=>/check.?in/.test(normalize(r.key+' '+r.title)))?.value;
