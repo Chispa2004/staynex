@@ -115,5 +115,30 @@ try {
  }
  assert.equal(realPaths,24);assert.equal(unfavorable,20);
  pass(`${realPaths} real synthetic AI outputs replayed against committed tickets; ${unfavorable} unfavorable action promises preserved and corrected after persistence`);
+ // Reformulations outside the demo, through the real recorder and database.
+ sql('TRUNCATE operational_request_receipts,tickets;');
+ const scenarios=[
+  ['Could we have another pillow for our next stay?', 'I prefer a firm one.', 'pillow','pre','normal'],
+  ['Necesito ayuda: el desagüe de la ducha está obstruido.', 'Hay agua por el suelo junto al plato.', 'shower_drain','stay','high'],
+  ['Please clean the room tomorrow.', 'I will be out between 9 and 11.', 'cleaning','stay','normal'],
+  ['Necesito revisar unos cobros de la estancia pasada.', 'Son tres cargos de 61 EUR del día 5.', 'billing_review','post','normal'],
+  ['Please provide a proof of stay.', 'The name is Test Recipient.', 'stay_certificate','post','normal']
+ ];
+ let sequence=800;
+ for(const [initial,detail,key,phase,priority] of scenarios){
+   sql('TRUNCATE operational_request_receipts,tickets;');
+   const op={...operation,context:{...operation.context,tickets:[],operationalContext:{...operation.context.operationalContext,phase,known_room:phase==='stay'?'A-101':null,reservation:{id:id(31)}}}};
+   const apply=async(message,tickets=[])=>{
+     const mid=id(sequence++);
+     sql(`INSERT INTO messages(id,hotel_id,conversation_id,sender_type,content)VALUES('${mid}','${id(1)}','${id(21)}','guest',${quote(message)});`);
+     return recordOperationalRequest({...op,message,sourceMessage:{...op.sourceMessage,id:mid},context:{...op.context,tickets}});
+   };
+   const saved=await apply(initial);assert.equal(saved.status,'recorded',initial);assert.equal(saved.ticket.request_context.request_key,key);
+   const amended=await apply(detail,[saved.ticket]);assert.equal(amended.status,'recorded',detail);assert.equal(amended.ticket.id,saved.ticket.id);assert.equal(amended.ticket.priority,priority);assert(amended.ticket.description.includes(detail));assert.equal(amended.detailConfirmed,true);
+   assert.equal(sql('SELECT count(*) FROM tickets;'),'1');
+   const reply=finalizeServiceReply({primary:{reply:'We will arrange it immediately.'},ticket:amended.ticket,operationalRequest:amended,hotelId:id(1),guestId:id(11),conversationId:id(21),message:detail,context:op.context,language:'en'});
+   assert.doesNotMatch(reply.reply,/immediately|on their way|appointment|booked|refund|issued|sent/i);
+   pass(`${key}: ${phase} request and detail share one committed ticket; priority ${priority}`);
+ }
  console.log(`${groups} operational request PostgreSQL groups passed`);
 } finally {db.cleanup();}

@@ -918,6 +918,9 @@ export const InboxClient = ({ conversations }) => {
       setTranslationOverrides({});
       setTranslatingMessages({});
       setSearchQuery('');
+      // Initialization can arrive while the first Inbox read is in flight.
+      // Its response is now obsolete; start an authorized read for this scope.
+      loadInbox({ silent: true, force: true });
     };
 
     window.addEventListener('staynex:tenant-changed', handleTenantChanged);
@@ -927,7 +930,7 @@ export const InboxClient = ({ conversations }) => {
       window.removeEventListener('staynex:tenant-changed', handleTenantChanged);
       window.removeEventListener(WORKSPACE_SELECTION_EVENT, handleTenantChanged);
     };
-  }, [currentHotel?.id]);
+  }, [currentHotel?.id, loadInbox]);
 
   const markConversationAsRead = useCallback((conversationId) => {
     if (!conversationId) {

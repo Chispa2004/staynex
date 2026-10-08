@@ -5,20 +5,27 @@ export const requestTopics=[
   ['cot','reception',/cuna|\bcot\b|crib|lit bebe|babybett/],
   ['invoice','reception',/factura|invoice|rechnung|facture|fatura/],
   ['airport_transfer','reception',/traslado|transfer|shuttle/],
-  ['new_booking','reception',/nueva (?:reserva|estancia)|proxima (?:reserva|estancia)|new (?:booking|reservation)|next stay/],
+  ['pillow','housekeeping',/almohadas?|pillows?/],
+  ['parking','reception',/aparcamiento|parking|plaza de garaje|parking space/],
+  ['billing_review','reception',/cargos?|cobros?|charges?|billing|charged twice/],
+  ['stay_certificate','reception',/justificante|certificado de estancia|proof of stay|stay certificate/],
+  ['wifi_support','reception',/wi[ -]?fi|internet/],
+  ['shower_drain','maintenance',/ducha|desag[uü]e|desagua|shower|drain/],
   ['air_conditioning','maintenance',/aire acondicionado|air condition|climatis|klimaanlage|aria condizion|ar condicionado/],
-  ['water_leak','maintenance',/fuga|gote|inund|water leak|leaking|fuite|wasseraustritt|perdita d.acqua/],
+  ['water_leak','maintenance',/fuga|gote|inund|water leak|leaking|fuite|wasseraustritt|perdita d.acqua|agua.*suelo|water.*floor/],
   ['towels','housekeeping',/toallas?|towels?|serviettes?|handtuch|handtucher|asciugaman|toalhas?/],
   ['cleaning','housekeeping',/limpiez|limpiar|clean (?:my |the )?room|nettoy|reinig|pulizi|limpeza/],
   ['noise','complaint',/ruido|noise|bruit|larm|rumore|barulho/],
-  ['lost_property','reception',/olvid|perdid|lost|left (?:my|a|the)|oublie|verlor|dimentic|esquec/]
+  ['lost_property','reception',/olvid|perdid|lost|left (?:my|a|the)|oublie|verlor|dimentic|esquec/],
+  ['new_booking','reception',/nueva (?:reserva|estancia)|proxima (?:reserva|estancia)|new (?:booking|reservation)|next stay/]
 ];
 export const requestTopic=message=>requestTopics.find(([, ,pattern])=>pattern.test(normalizeServiceText(message)))?.[0]||null;
 export function serviceTurn(message='') {
   const text=normalizeServiceText(message);
   const receipt=/teneis|tienen (?:mi|la)|lo teneis|lo habeis (?:anotado|apuntado)|have (?:you|we)|do you have|did you (?:get|receive)|got (?:it|my)|is (?:my|the) request/.test(text);
   const progress=/novedad|como (?:va|esta)|ya (?:esta|han)|sigue|todavia|aun |confirmad|reservad|emitid|encontrad|terminad|hecho|actualizaci|news|update|progress|ready|finished|done|confirmed|booked|issued|found|still|status/.test(text);
-  const clarification=/\b(?:son de|las dos|los dos|ambas|ambos|me refiero|en concreto|era una?|es (?:una?|la|el)|el numero|a nombre|para toda|llegamos en|ser[ií]amos|both|all (?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+)|i mean|to clarify|specifically|they are|it's a|it is a|flight is|our flight|for the whole|the name is)\b/.test(text);
+  const clarification=/\b(?:son de|las dos|los dos|ambas|ambos|me refiero|en concreto|era una?|es (?:una?|la|el)|el numero|a nombre|para toda|llegamos en|ser[ií]amos|prefiero|la prefiero|lo prefiero|estare fuera|son (?:dos|tres|\d+) cargos|both|all (?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+)|i mean|to clarify|specifically|they are|it's a|it is a|flight is|our flight|for the whole|the name is|i prefer|i will be out|i'll be out|the charges are)\b/.test(text)
+    || /(?:agua.*(?:suelo|acumulada)|water.*(?:floor|pooling))/.test(text);
   const newIncident=/\b(?:otra incidencia|otro problema|nueva peticion|new issue|different problem|another request)\b/.test(text);
   return {kind:clarification?'clarification':receipt?'receipt':progress?'progress':'initial',receipt,progress,clarification,newIncident,topic:requestTopic(message)};
 }
@@ -32,6 +39,9 @@ export function selectRelevantTicket({tickets=[],receipts=[],hotelId,guestId,con
   const turn=serviceTurn(message);
   if(turn.newIncident)return {status:'none',ticket:null,candidates:[]};
   let candidates=scoped.filter(t=>turn.topic && (t.request_context?.request_key===turn.topic || requestTopic(t.title+' '+t.description)===turn.topic));
+  // A new observation of water on the floor can describe the existing shower
+  // or appliance incident. Reuse only an unambiguous scoped maintenance request.
+  if(!candidates.length && turn.clarification && turn.topic==='water_leak')candidates=scoped.filter(t=>t.category==='maintenance');
   // A follow-up with a pronoun is usable only with one scoped candidate. Do not
   // choose "latest" when several requests could be meant.
   if(!turn.topic && turn.kind!=='initial')candidates=scoped;
@@ -45,11 +55,16 @@ export function detailIsPersisted(ticket,message) {
   return detail.length>0 && normalizeServiceText(ticket?.description).includes(detail);
 }
 
+export function requiresCurrentRoom(ticket) {
+  const phase=ticket?.request_context?.operational_context?.phase;
+  return !['pre','post'].includes(phase) && ['maintenance','housekeeping','complaint'].includes(ticket?.category);
+}
+
 export function ticketTurn(ticket,message) {
   const turn=serviceTurn(message);
   // Supplying the first actionable details creates an initial request even if
   // the sentence is grammatically a clarification of an earlier information query.
-  if(turn.clarification && !ticket?.request_context?.last_source_message_id
+  if(!ticket?.request_context?.last_source_message_id
     && normalizeServiceText(ticket?.description)===normalizeServiceText(message))return {...turn,kind:'initial',clarification:false};
   return turn;
 }
@@ -68,10 +83,10 @@ export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=fa
   if(turn.progress)return {turn,text:en?'We have it, but there’s no further update recorded yet.':'La tenemos, pero todavía no consta ninguna novedad.'};
   if(turn.receipt)return {turn,text:en?'Yes, we have it!':'¡Sí, la tenemos!'};
   const topic=ticket.request_context?.request_key||requestTopic(message);
-  const labels=en?{cot:'a cot',invoice:'an invoice',airport_transfer:'an airport transfer',new_booking:'a new booking',air_conditioning:'the air conditioning issue',water_leak:'the leak',towels:'towels',cleaning:'room cleaning',noise:'the noise',lost_property:'the lost item'}:{cot:'una cuna',invoice:'la factura',airport_transfer:'el traslado',new_booking:'una nueva reserva',air_conditioning:'la incidencia del aire acondicionado',water_leak:'la fuga',towels:'toallas',cleaning:'limpieza',noise:'el ruido',lost_property:'el objeto perdido'};
+  const labels=en?{pillow:'an extra pillow',parking:'a parking space',billing_review:'reviewing the charges',stay_certificate:'a proof of stay',wifi_support:'help with Wi-Fi',shower_drain:'the shower drainage issue',cot:'a cot',invoice:'an invoice',airport_transfer:'an airport transfer',new_booking:'a new booking',air_conditioning:'the air conditioning issue',water_leak:'the leak',towels:'towels',cleaning:'room cleaning',noise:'the noise',lost_property:'the lost item'}:{pillow:'una almohada adicional',parking:'una plaza de aparcamiento',billing_review:'la revisión de los cargos',stay_certificate:'el justificante de estancia',wifi_support:'la ayuda con el wifi',shower_drain:'el desagüe de la ducha',cot:'una cuna',invoice:'la factura',airport_transfer:'el traslado',new_booking:'una nueva reserva',air_conditioning:'la incidencia del aire acondicionado',water_leak:'la fuga',towels:'toallas',cleaning:'limpieza',noise:'el ruido',lost_property:'el objeto perdido'};
   const subject=labels[topic] ? (en?` about ${labels[topic]}`:` sobre ${labels[topic]}`):'';
   const room=ticket.room_number ? (en?` for room ${ticket.room_number}`:` para la habitación ${ticket.room_number}`):'';
   if(['air_conditioning','water_leak'].includes(topic) && /fuga|gote|mojad|pierde agua|leak|wet floor/.test(normalizeServiceText(message+' '+ticket.description)))return {turn,text:en?`I’m sorry about the inconvenience. We have your report${room}. Please keep clear of the wet floor.`:`Siento las molestias. Tenemos tu aviso${room}. Evita pisar la zona mojada.`};
-  const missingRoom=!room&&['maintenance','housekeeping','complaint'].includes(ticket.category) ? (en?' Which room is affected?':' ¿En qué habitación ocurre?'):'';
+  const missingRoom=!room&&requiresCurrentRoom(ticket) ? (en?' Which room is affected?':' ¿En qué habitación ocurre?'):'';
   return {turn,text:(en?`We have your request${subject}${room}.`:`Ya tenemos tu petición${subject}${room}.`)+missingRoom};
 }

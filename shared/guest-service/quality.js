@@ -1,5 +1,5 @@
 import { receiptFacts, safeReceiptReply } from './receipt-reply.js';
-import {ticketReplyPlan,detailIsPersisted,serviceTurn} from './ticket-context.js';
+import {ticketReplyPlan,detailIsPersisted,serviceTurn,requiresCurrentRoom} from './ticket-context.js';
 import { ARRIVAL_BOOKING_POLICY, arrivalBookingTopic, buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge, groundedArrivalReply } from './arrival-booking.js';
 export { buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge };
 export { arrivalBookingTopic };
@@ -82,7 +82,7 @@ export function hasKnownChildAge(text = '') {
 // semantic proof of arbitrary natural language. Prompt/evaluation remain necessary.
 export const hasUnverifiedActionClaim = text => /\b(?:hemos recibido|ya tenemos|estamos gestion[aá]ndo|estamos atendiendo|estamos revisando|nos estamos encargando|we have received|we are (?:handling|processing|working))\b|\b(he|hemos|ya hemos)\s+(registrado|solicitado|avisado|enviado|reservado|confirmado|emitido|pasado|informado|organizado)|\b(voy a|vamos a)\s+(derivar|avisar|informar|enviar|pasar|registrar|coordinar|organizar)|\b(enviamos|enviaremos)\b|\b(avis[oó]|avisar[eé]|derivo|enviar[eé]|notificar[eé]|informar[eé]|informo|organizo)\b|\b(i(?:’|')?(?:ve|m)|i have|we have|we(?:’|')ve)\s+(registered|noted|notified|sent|booked|confirmed|issued|alerting|forwarding|arranged|reported|reporting)|\b(i will|we will|i[’']ll|we[’']ll)\s+(notify|inform|create|prepare|review|send|book|alert|forward|check|arrange|deliver)|\b(je transmets|je pr[eé]viens|nous avons (envoy[eé]|confirm[eé])|ich leite|ich informiere|wir haben .*best[aä]tigt)\b/i.test(text || '');
 
-export function missingServiceQuestion(reply = '', {knownRoom = null, reservation = null, recentMessages = [], message = '', requestRecorded = false, requestKey = null} = {}) {
+export function missingServiceQuestion(reply = '', {knownRoom = null, reservation = null, operationalContext = null, recentMessages = [], message = '', requestRecorded = false, requestKey = null} = {}) {
   const questions=reply.match(/¿[^?]+\?|(?:^|[.!]\s+)([^.!?]+\?)/g) || [];
   const facts=[message,...recentMessages.filter(m=>m.sender_type==='guest').map(m=>m.content)].join(' ');
   return questions.map(q=>q.replace(/^[.!]\s*/, '').trim()).find(q=>!hasUnverifiedActionClaim(q)
@@ -90,7 +90,7 @@ export function missingServiceQuestion(reply = '', {knownRoom = null, reservatio
     && !(requestRecorded && /(?:prepar|cre[ae]|registr|abr|open|record|submit).{0,35}(?:ticket|solicitud|petici[oó]n|request)/i.test(q))
     && !/datos completos|complete (?:personal )?details|document|passport|pasaporte|credit card|tarjeta|fiscales|fiscal|tax details|tax information|email|e-mail/i.test(q)
     && !(reservation?.guest_name && /nombre|name|nom\b/i.test(q))
-    && !((knownRoom || /habitaci[oó]n\s+(?:[A-Z]+-)?\d/i.test(facts) || reservation?.id && ['invoice','cot','airport_transfer','new_booking'].includes(requestKey)) && /habitaci[oó]n|room|chambre|zimmer/i.test(q))
+    && !((knownRoom || ['pre','post'].includes(operationalContext?.phase) || /habitaci[oó]n\s+(?:[A-Z]+-)?\d/i.test(facts) || reservation?.id && ['invoice','cot','airport_transfer','new_booking'].includes(requestKey)) && /habitaci[oó]n|room|chambre|zimmer/i.test(q))
     && !(arrivalBookingTopic(message,recentMessages)!=='booking' && reservation?.arrival_date && reservation?.departure_date && /fechas?|dates|arrival date|departure date|fecha.{0,20}(?:llegada|salida)/i.test(q))
     && !(/edad|old|[aâ]ge|alt/i.test(q) && hasKnownChildAge(facts))) || null;
 }
@@ -186,7 +186,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
       const pending={cot:'La disponibilidad de la cuna está por confirmar.',airport_transfer:'La reserva del traslado está por confirmar.',invoice:'La emisión de la factura está por confirmar.',lost_property:'Aún no consta que se haya encontrado.'};
       if(pending[operationalRequest?.request?.key])reply+=' '+pending[operationalRequest.request.key];
     }
-    if(!knownRoom && ['maintenance','housekeeping','complaint'].includes(ticket.category)) {
+    if(!knownRoom && requiresCurrentRoom(ticket)) {
       const roomQuestion=reply.includes('?') && /habitaci[oó]n|room|chambre|zimmer/i.test(reply.split(/(?<=[.!])\s+/u).find(s=>s.includes('?'))||'');
       if(!roomQuestion)reply=reply.split(/(?<=[.!?])\s+/u).filter(s=>!s.includes('?')).join(' ')+' '+t.room;
     }
@@ -219,6 +219,13 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     }
   }
   if(!actual && preferPrimary && !primary?.upsell_opportunity && operationalRequest?.status!=='unconfirmed')reply=breakfastTimeFollowup({message,context,hotelId,language})||unavailableTransferReply({message,context,hotelId,language})||reply;
+  // Remove an optional generic referral after an answered information query.
+  // Keep explicit human requests, emergencies and genuine missing information.
+  if(!actual && !emergency && operationalRequest?.status==='not_requested'
+    && primary?.escalate_to_human!==true && !/persona|humano|recepci[oó]n|human|reception/i.test(message)) {
+    const sentences=String(reply||'').split(/(?<=[.!?])\s+/u);
+    if(sentences.length>1)reply=sentences.filter(s=>!/^si necesita(?:s)? (?:m[aá]s )?ayuda,.*(?:recepci[oó]n|disposici[oó]n)|^si (?:quiere|quieres|lo desea),.*puedo.*recepci[oó]n|^if you need (?:more )?help,.*reception/i.test(s.trim())).join(' ');
+  }
   if(!reply) throw new Error('No safe service reply in the guest language');
   if(emergency && t && !reply.includes(t.urgent)) reply = `${t.urgent} ${reply}`;
   return {...processed, reply, service_quality:{version:3,receipt_generation:usedReceiptGeneration,request_status:actual?'recorded':operationalRequest?.status||'not_recorded',ticket_id:actual?ticket.id:null,source_message_id:operationalRequest?.sourceMessageId||null,notification_confirmed:false}};

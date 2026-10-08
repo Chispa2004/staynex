@@ -225,3 +225,22 @@ const staffTranslate=(text,values={})=>(copilotPhrases.find(([,en])=>en===text)?
 assert.equal(localizeCopilotText('Room in this request',staffTranslate),'Habitación de esta petición');
 assert.equal(localizeCopilotText('Room QA-417',staffTranslate),'Habitación QA-417');
 console.log('PASS exact linked-request label translation precedes dynamic room prefix; room value preserved');
+
+for(const phase of ['pre','post']){
+ const planned={...scopedTicket,room_number:null,category:'housekeeping',request_context:{request_key:'pillow',operational_context:{phase}}};
+ assert.doesNotMatch(ticketReplyPlan({ticket:planned,message:'An extra pillow for our next stay, please.',language:'en'}).text,/Which room/);
+}
+for(const message of ['What are the parking restrictions?', 'How can I connect to Wi-Fi?'])assert.equal(interpretOperationalRequest({message,aiResponse:{create_ticket:false}}),null);
+assert.equal(interpretOperationalRequest({message:'Could we have another pillow for our next stay?',aiResponse:{create_ticket:false}}).key,'pillow');
+assert.equal(selectRelevantTicket({tickets:[scopedTicket,{...scopedTicket,id:'second'}].map(t=>({...t,category:'maintenance'})),hotelId:scopedTicket.hotel_id,guestId:scopedTicket.guest_id,conversationId:scopedTicket.conversation_id,message:'Hay agua por el suelo.'}).status,'ambiguous');
+console.log('PASS future stay service classification, phase-aware room question, informative parking/Wi-Fi and ambiguous damage followup');
+
+assert.equal(safeReceiptReply('Tendremos en cuenta su horario.',receiptFacts(args),'es'),false);
+assert.equal(safeReceiptReply('Podemos preparar otra almohada.',receiptFacts(args),'es'),false);
+assert(sanitizeReceiptReply('Hemos tomado nota del destinatario.',receiptFacts(args),'es'));
+const focusedArgs={...args,knowledge:[{hotel_id:'a',value:'UNRELATED_POLICY_SHOULD_NOT_REACH_RECEIPT'}]};
+await generateReceiptReply(focusedArgs,async payload=>{assert(!JSON.stringify(payload).includes('UNRELATED_POLICY'));return {reply:'Tenemos tu petición.'};});
+assert.equal(ticketReplyPlan({ticket:{...scopedTicket,description:'Sigue sin funcionar; necesito atención humana.',request_context:{request_key:'wifi_support'}},message:'Sigue sin funcionar; necesito atención humana.'}).turn.kind,'initial');
+const info=finalizeServiceReply({primary:{ai_provider:'openai',confidence:1,reply:'La red es Example. Si necesitas ayuda, estamos a tu disposición en recepción.'},message:'¿Cómo me conecto?',hotelId:'a',operationalRequest:{status:'not_requested'}});
+assert.equal(info.reply,'La red es Example.');
+console.log('PASS focused post-commit context, recipient acknowledgement, unsupported future action and initial human-assistance receipt');
