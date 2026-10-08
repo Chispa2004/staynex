@@ -1,5 +1,6 @@
 import { operationalPmsContext } from '../../shared/guest-memory/personalization-boundary.js';
-import { buildServiceDraft, buildArrivalBookingDraft } from '../../shared/guest-service/quality.js';
+import { informationServiceDraft, buildServiceDraft, buildArrivalBookingDraft } from '../../shared/guest-service/quality.js';
+import {selectRelevantTicket} from '../../shared/guest-service/ticket-context.js';
 const normalizeText = (value = '') => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -349,11 +350,24 @@ export const buildConversationCopilot = (conversation = {}) => {
   const sentiment = classifySentiment({ conversation });
   const revenueOpportunity = detectRevenueOpportunity(conversation);
   const vip = detectVip(conversation);
-  const priority = priorityFromSignals({ sentiment, conversation, vip });
-  const recordedTicket = (conversation.tickets || []).find(t => t.hotel_id === conversation.hotel_id && t.conversation_id === conversation.id && t.guest_id === conversation.guest_id && [t.request_context?.last_source_message_id, t.request_context?.source_message_id].filter(Boolean).includes(lastGuestMessage(conversation.messages || [])?.id));
-  const suggestedAction = suggestedActionFor({ priority, sentiment, revenueOpportunity, conversation, ticket: recordedTicket });
+  const inferredPriority = priorityFromSignals({ sentiment, conversation, vip });
+  const latestGuest=lastGuestMessage(conversation.messages || []);
+  const ticketContext=selectRelevantTicket({tickets:conversation.tickets,receipts:conversation.operationalReceipts,
+    hotelId:conversation.hotel_id,guestId:conversation.guest_id,conversationId:conversation.id,
+    message:latestGuest?.content,sourceMessageId:latestGuest?.id,history:conversation.messages,
+    coverage:conversation.ticketCoverage || (conversation.detailsLoaded===false?'not_loaded':'ready')});
+  const recordedTicket=ticketContext.ticket;
+  const priority=recordedTicket ? {level:recordedTicket.priority,tone:({urgent:'red',high:'orange',normal:'sky',low:'slate'})[recordedTicket.priority]||'slate',confidence:null,source:'ticket'} : {...inferredPriority,source:'inferred'};
+  let suggestedAction = suggestedActionFor({ priority, sentiment, revenueOpportunity, conversation, ticket: recordedTicket });
+  if(recordedTicket)suggestedAction={title:'Review linked ticket',tone:priority.tone,detail:({open:'Request received. Assign or review the next action; no work in progress is confirmed.',pending:'Request pending. Review the next action without claiming it has started.',in_progress:'Work is in progress. Check the latest update before replying.',completed:'Work is marked completed. Review the outcome and answer the guest.',closed:'Ticket closed. Closure does not prove completion.',cancelled:'Ticket cancelled. Review the reason before replying.'})[recordedTicket.status]||'Ticket status unknown. Refresh before giving a progress update.'};
+  if(recordedTicket?.status==='open' && recordedTicket.request_context?.responsible_role==='reception')suggestedAction.title='Review recorded request';
+  if(ticketContext.status==='ambiguous')suggestedAction={title:'Clarify the relevant request',detail:'More than one ticket could match. Review the linked tickets before proposing an action.',tone:'amber'};
+  if(ticketContext.status==='unavailable')suggestedAction={title:'Operational context unavailable',detail:'Ticket data has not been confirmed. Refresh before using a recommendation.',tone:'amber'};
+  // An explicit current safety signal still requires attention; it does not
+  // rewrite the persisted ticket priority or fabricate a message alert.
+  if(inferredPriority.level==='urgent')suggestedAction=suggestedActionFor({priority:inferredPriority,sentiment,revenueOpportunity,conversation});
   const escalationRisk = escalationRiskFor({ priority, sentiment, conversation });
-  const suggestedReply = (priority.level !== 'urgent' && buildArrivalBookingDraft({hotel:conversation.hotelProfile || {id:conversation.hotel_id},
+  const suggestedReply = ticketContext.status==='unavailable' ? {text:'',language,draft:true,confidence:0} : ticketContext.status==='ambiguous' ? {text:language==='en'?'Which request do you mean?':'¿A qué petición te refieres?',language,draft:true,confidence:0} : (recordedTicket && buildServiceDraft({message:latestGuest?.content,language,recordedTicket,history:conversation.messages})) || informationServiceDraft({message:latestGuest?.content,history:conversation.messages,knowledge:conversation.hotelKnowledge,hotelId:conversation.hotel_id,language}) || (priority.level !== 'urgent' && buildArrivalBookingDraft({hotel:conversation.hotelProfile || {id:conversation.hotel_id},
     guest:conversation.guest || {},message:lastGuestMessage(conversation.messages || [])?.content,
     hotelKnowledge:conversation.hotelKnowledge || [],conversationContext:{language,recentMessages:conversation.messages || [],
       reservation:conversation.reservation,referenceTime:conversation.contextReadAt,serviceCapabilities:{requestRecording:false,mode:'staff_draft'}}})) || buildServiceDraft({message:lastGuestMessage(conversation.messages || [])?.content, language,
@@ -366,6 +380,8 @@ export const buildConversationCopilot = (conversation = {}) => {
   return {
     sentiment,
     priority,
+    inferredPriority,
+    ticketContext,
     suggestedAction,
     suggestedReply,
     summary,

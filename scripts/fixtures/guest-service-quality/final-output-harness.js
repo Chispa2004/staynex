@@ -24,7 +24,7 @@ export async function captureFinalOutput(input, primaryOutput, {conciergeOutput=
   const createTicketRecord=async values=>{
     calls.push({kind:'ticket',values});
     if(failTicket)throw Error('Synthetic ticket write failure');
-    return {id:'synthetic-ticket',hotel_id:foreignTicket?'other-hotel':values.hotelId,guest_id:values.guestId,conversation_id:values.conversationId,category:values.category};
+    return {id:'synthetic-ticket',hotel_id:foreignTicket?'other-hotel':values.hotelId,guest_id:values.guestId,conversation_id:values.conversationId,category:values.category,status:'open'};
   };
   const createTicketFromAiResponse=new Function('createTicketRecord',ticketSource+';return createTicketFromAiResponse;')(createTicketRecord);
   const sourceMessage={id:'synthetic-source',hotel_id:input.hotel.id,conversation_id:'synthetic-conversation',sender_type:'guest'};

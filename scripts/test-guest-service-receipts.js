@@ -27,7 +27,7 @@ for(const reply of ['Ya hemos avisado a mantenimiento.','Ya van de camino.','Te 
   assert.equal(safeReceiptReply(reply,receiptFacts(args),'es'),false,reply);
   assert.equal(await generateReceiptReply(args,async()=>({reply})),null);
 }
-for(const [status,reply] of [['in_progress','Estamos atendiendo la incidencia.'],['completed','La incidencia está resuelta.']]){
+for(const [status,reply] of [['in_progress','Estamos atendiendo la incidencia.'],['completed','Hemos completado esta petición.']]){
   const updated={...args,ticket:{...ticket,status},operationalRequest:{...args.operationalRequest,ticket:{...ticket,status}}};
   assert(await generateReceiptReply(updated,async()=>({reply})));
 }
@@ -131,3 +131,92 @@ for(const [id,question] of [['1-towels','¿Desea que sean entregadas en alguna h
  assert.doesNotMatch(finalizeServiceReply({...a,receiptReply}).reply,/¿/);
 }
 console.log('PASS observed redundant reception referrals, delivery scheduling, unrelated offers and repeat stay identification removed');
+
+const {selectRelevantTicket,serviceTurn,ticketReplyPlan}=await import('../shared/guest-service/ticket-context.js');
+const {recordOperationalRequest}=await import('../src/services/operational-request.service.js');
+const {buildConversationCopilot}=await import('../dashboard/lib/ai-copilot.js');
+const followup='Las dos son de baño. ¿Tenéis la petición?';
+assert.equal(serviceTurn(followup).kind,'clarification');
+const scopedTicket={...ticket,title:'Dos toallas',description:'Dos toallas, por favor.',request_context:{request_key:'towels',source_message_id:'first'}};
+const selection={tickets:[scopedTicket],hotelId:'a',guestId:'g',conversationId:'c',message:followup,sourceMessageId:'followup'};
+assert.equal(selectRelevantTicket(selection).ticket.id,'t');
+assert.equal(selectRelevantTicket({...selection,hotelId:'b'}).ticket,null);
+assert.equal(selectRelevantTicket({...selection,coverage:'error'}).status,'unavailable');
+const another={...scopedTicket,id:'t2',title:'Fuga',description:'Fuga',request_context:{request_key:'water_leak'}};
+assert.equal(selectRelevantTicket({...selection,tickets:[scopedTicket,another],message:'¿Alguna novedad?'}).status,'ambiguous');
+assert.equal(selectRelevantTicket({...selection,tickets:[scopedTicket,another],receipts:[{hotel_id:'a',ticket_id:'t',source_message_id:'followup'}]}).ticket.id,'t');
+let writeCalls=0,current=structuredClone(scopedTicket),failDetail=false;
+const readonlyClient={from:()=>{const filters={};const q={select:()=>q,eq:(k,v)=>{filters[k]=v;return q;},single:async()=>({data:Object.entries(filters).every(([k,v])=>current[k]===v)?current:null})};return q;},rpc:async(name,p)=>{
+  writeCalls++;if(!failDetail)current={...current,description:current.description+'\n'+followup,request_context:{...current.request_context,last_source_message_id:p.p_message_id}};
+  return {data:{ticket:current,source_message_id:p.p_message_id,target_ticket_enforced:true}};
+}};
+const operation={hotel:{id:'a'},guest:{id:'g'},conversation:{id:'c'},sourceMessage:{id:'followup',hotel_id:'a',conversation_id:'c',sender_type:'guest'},message:followup,
+ context:{operationalContext:{hotel_id:'a',guest_id:'g',conversation_id:'c',known_room:'209'},tickets:[scopedTicket],serviceCapabilities:{requestRecording:true}},aiResponse:{create_ticket:false},client:readonlyClient};
+failDetail=true;assert.equal((await recordOperationalRequest(operation)).status,'unconfirmed');
+failDetail=false;const clarified=await recordOperationalRequest(operation);assert.equal(clarified.ticket.id,'t');assert.equal(clarified.detailConfirmed,true);assert(current.description.includes(followup));
+const receiptInput={...args,message:followup,ticket:current,operationalRequest:clarified};
+let payload;
+const warm=await generateReceiptReply(receiptInput,async input=>{payload=input;return {reply:'¡Sí, la tenemos! Dos toallas de baño.'};});
+assert.equal(payload.turn.kind,'clarification');assert.equal(payload.facts.detail_confirmed,true);
+assert.equal(finalizeServiceReply({...receiptInput,primary:{reply:'¿En qué habitación?'},receiptReply:warm}).reply,'¡Sí, la tenemos! Dos toallas de baño.');
+assert.equal(safeReceiptReply('Hemos añadido ese detalle.',{...receiptFacts(args),detail_confirmed:false}),false);
+for(const status of ['open','in_progress','completed']){
+ current={...current,status};const beforeWrites=writeCalls;
+ const observed=await recordOperationalRequest({...operation,message:'¿Alguna novedad?',context:{...operation.context,tickets:[current]}});
+ assert.equal(observed.status,'observed');assert.equal(writeCalls,beforeWrites);assert.equal(observed.ticket.status,status);
+ const plan=ticketReplyPlan({ticket:current,message:'¿Alguna novedad?'});
+ assert.match(plan.text,({open:/no consta/,in_progress:/ocupando/,completed:/completado/})[status]);
+}
+const conversation={id:'c',hotel_id:'a',guest_id:'g',guest:{id:'g',hotel_id:'a',preferred_language:'es'},ticketCoverage:'ready',
+ messages:[{id:'followup',sender_type:'guest',content:followup}],tickets:[{...current,status:'open',priority:'high'}]};
+const insights=buildConversationCopilot(conversation);
+assert.equal(insights.priority.level,'high');assert.equal(insights.priority.source,'ticket');assert.equal(insights.priority.confidence,null);
+assert.equal(insights.suggestedReply.ticketId,'t');assert.match(insights.suggestedReply.text,/añadido/);
+assert.equal(buildConversationCopilot({...conversation,ticketCoverage:'error'}).suggestedReply.text,'');
+assert.equal(buildConversationCopilot({...conversation,tickets:[scopedTicket,another],messages:[{sender_type:'guest',content:'Any update?'}]}).ticketContext.status,'ambiguous');
+assert.equal(writeCalls,2,'read-only progress and copilot must not write');
+console.log('PASS contextual followup: persisted clarification before acknowledgement, scoped/ambiguous tickets, progress without writes, official priority and unavailable draft');
+
+assert.equal(sanitizeReceiptReply('Tenemos su petición.',receiptFacts(args),'en'),null);
+assert.equal(safeReceiptReply('We will keep you informed.',receiptFacts(args),'en'),false);
+assert.equal(safeReceiptReply('Allow us some time to arrange it.',receiptFacts(args),'en'),false);
+assert(groundedArrivalReply('Recepción abre 24 horas; acceda por la entrada principal. La habitación puede no estar lista antes del check-in a las 15:00.',travel,arrival.message));
+assert(!groundedArrivalReply('Recepción abre 24 horas; acceda por la entrada principal. Su habitación estará lista a las 00:30.',travel,arrival.message));
+const noRoom=ticketReplyPlan({ticket:{...scopedTicket,room_number:null,category:'housekeeping'},message:'Can I have clean towels?',language:'en'});
+assert.match(noRoom.text,/Which room/);assert.doesNotMatch(noRoom.text,/209/);
+const transferOutcome=evaluation.find(r=>r.round===2&&r.id==='1-transfer').outcome;
+const pendingOnce=finalizeServiceReply({...transferArgs,message:'¿Queda reservado?',ticket:transferOutcome.ticket,operationalRequest:transferOutcome,
+ receiptReply:{reply:'Tenemos su solicitud. Actualmente no podemos confirmar la reserva del traslado.',ticketId:transferOutcome.ticket.id,hotelId:ct.hotel.id,guestId:ct.guest.id,conversationId:ct.conversation.id,sourceMessageId:transferOutcome.sourceMessageId,status:transferOutcome.ticket.status}});
+assert.equal((pendingOnce.reply.match(/confirmar/g)||[]).length,1,'do not append the same uncertainty twice');
+console.log('PASS observed language mismatch, future-update promise, known room, negative arrival guarantee and duplicate uncertainty regressions');
+
+const contextEvaluation=JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/contextual-evaluation.json',import.meta.url),'utf8'));
+assert.equal(contextEvaluation.rows.length,34);
+assert.equal(contextEvaluation.receiptIterations.reduce((n,r)=>n+r.outputs.length,0),125);
+let contextualPaths=0;
+for(const row of contextEvaluation.rows){
+ const c=row.input,o=row.outcome;
+ const a={ticket:o.ticket,operationalRequest:o,hotelId:c.hotel.id,guestId:c.guest.id,conversationId:c.conversation.id,
+   message:c.message,language:c.conversationContext.language,knownRoom:c.conversationContext.knownRoom,hotel:c.hotel,context:{...c.conversationContext,hotelKnowledge:c.hotelKnowledge}};
+ const postCommit=await generateReceiptReply(a,async()=>row.receipt?.output);
+ for(const raw of row.raw){
+  const p=row.raw.find(r=>r.path==='primary').output;
+  const primary={...p,reply:raw.path==='primary'?p.reply:raw.output.suggested_response};
+  const f=finalizeServiceReply({...a,primary,receiptReply:postCommit});contextualPaths++;
+  assert(f.reply.length>0);assert.equal(f.service_quality.notification_confirmed,false);
+  assert.doesNotMatch(f.reply,/QA-417.*QB-628|will check|are checking|verificaremos|de camino|on their way/i);
+  if(c.key==='clarification'){assert.equal(o.status,'recorded');assert(o.ticket.description.includes(c.message));assert.match(f.reply,/sí|yes/i);}
+  if(c.key==='progress'){assert.equal(o.status,'observed');assert.match(f.reply,/no consta|no further update/i);}
+  if(c.key==='inprogress'){assert.equal(o.ticket.status,'in_progress');assert.match(f.reply,/atendiendo|attending|working on/i);}
+  if(c.key==='completed'){assert.equal(o.ticket.status,'completed');assert.match(f.reply,/hemos completado|we.ve completed/i);}
+  if(c.key==='failure'){assert.equal(o.status,'unconfirmed');assert.equal(f.service_quality.ticket_id,null);assert.match(f.reply,/no he podido confirmar|could not confirm/i);}
+  if(c.key==='multiple'){assert.equal(o.status,'ambiguous');assert.match(f.reply,/qué petición|which request/i);}
+  if(c.key==='ambiguous'){assert.equal(o.ticket.room_number,null);assert.match(f.reply,/habitación|which room/i);assert.doesNotMatch(f.reply,/QA-417|QB-628/);}
+  if(c.id==='2-return'){for(const fact of ['10%','2026-11-01','2026-11-30','2026-09-01','2026-10-31','Non-combinable','availability'])assert(f.reply.includes(fact),fact);}
+ }
+}
+assert.equal(contextualPaths,68);
+assert.equal(serviceTurn('Es la factura de la estancia completa a mi nombre. ¿Ya está emitida?').kind,'clarification');
+const initialDetails='Seríamos dos adultos. Quiero una nueva reserva.';
+assert.doesNotMatch(ticketReplyPlan({ticket:{...scopedTicket,description:initialDetails,request_context:{request_key:'new_booking'}},message:initialDetails,detailConfirmed:true}).text,/añadido/);
+console.log('PASS 193 retained real synthetic generations: 34 contexts / 68 final routes; clarification, no-update, completed, failure, ambiguity, distinct policies and all promotion conditions');

@@ -35,7 +35,7 @@ try {
  INSERT INTO messages(id,hotel_id,conversation_id,sender_type,content) SELECT ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'${id(1)}','${id(21)}','guest','Necesito dos toallas. Detalle '||n FROM generate_series(41,49)n;
  INSERT INTO messages(id,hotel_id,conversation_id,sender_type,content)VALUES('${id(50)}','${id(2)}','${id(22)}','guest','El aire pierde agua');`);
  const migration=readFileSync(new URL('../supabase/sql/add_operational_request_receipts.sql',import.meta.url),'utf8');
- sql(migration);sql(migration);pass('additive migration repeats safely');
+ sql(migration);sql(migration);sql(readFileSync(new URL('../supabase/sql/guard_operational_request_clarification.sql',import.meta.url),'utf8'));pass('additive migration repeats safely');
  for(const role of ['anon','authenticated'])assert.equal(sql(`SELECT has_function_privilege('${role}','record_guest_operational_request_v1(uuid,uuid,uuid,jsonb)','execute');`),'f');
  assert.equal(sql("SELECT has_table_privilege('authenticated','operational_request_receipts','select,insert,update,delete');"),'f');
  sql('GRANT SELECT,UPDATE ON tickets TO authenticated;');
@@ -61,6 +61,27 @@ try {
  sql(`CREATE FUNCTION fail_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic failure';END $$;CREATE TRIGGER fail_receipt BEFORE INSERT ON operational_request_receipts FOR EACH ROW EXECUTE FUNCTION fail_receipt();`);
  assert.throws(()=>run(45));assert.equal(sql('SELECT jsonb_agg(t ORDER BY id) FROM tickets t;'),before);
  sql('DROP TRIGGER fail_receipt ON operational_request_receipts;DROP FUNCTION fail_receipt();');assert.equal(run(45).replayed,false);pass('failure after ticket update rolls back all writes and retry recovers');
+ const clarification='Las dos son de baño. ¿Tenéis la petición?';
+ sql(`UPDATE messages SET content=${quote(clarification)} WHERE id='${id(47)}';`);
+ const current=JSON.parse(sql(`SELECT to_jsonb(t) FROM tickets t WHERE id='${first.ticket.id}';`));
+ let writes=0;
+ const contextClient={rpc:async(name,p)=>{writes++;try{return {data:JSON.parse(sql(`SET ROLE service_role; SELECT record_guest_operational_request_v1(${quote(p.p_hotel_id)},${quote(p.p_conversation_id)},${quote(p.p_message_id)},${quote(JSON.stringify(p.p_request))}::jsonb);`))};}catch(error){return {error};}},from:()=>{const filters={};const q={select:()=>q,eq:(k,v)=>{filters[k]=v;return q;},single:async()=>({data:JSON.parse(sql(`SELECT to_jsonb(t) FROM tickets t WHERE ${Object.entries(filters).map(([k,v])=>k+'='+quote(v)).join(' AND ')};`))})};return q;}};
+ const operation={hotel:{id:id(1)},guest:{id:id(11)},conversation:{id:id(21)},sourceMessage:{id:id(47),hotel_id:id(1),conversation_id:id(21),sender_type:'guest'},message:clarification,
+   aiResponse:{create_ticket:false},context:{tickets:[current],operationalContext:{hotel_id:id(1),guest_id:id(11),conversation_id:id(21),known_room:'A-101'},serviceCapabilities:{requestRecording:true}},client:contextClient};
+ const clarified=await recordOperationalRequest(operation);assert.equal(clarified.status,'recorded');assert.equal(clarified.ticket.id,first.ticket.id);assert.equal(clarified.detailConfirmed,true);
+ assert.equal((await recordOperationalRequest(operation)).ticket.id,clarified.ticket.id);
+ assert.equal((run(47).ticket.description.match(/Las dos son de baño/g)||[]).length,1);
+ const beforeProgress=sql('SELECT jsonb_agg(t ORDER BY id) FROM tickets t;'),beforeWrites=writes;
+ assert.equal((await recordOperationalRequest({...operation,message:'¿Hay alguna novedad?',context:{...operation.context,tickets:[clarified.ticket]}})).status,'observed');
+ assert.equal(writes,beforeWrites);assert.equal(sql('SELECT jsonb_agg(t ORDER BY id) FROM tickets t;'),beforeProgress);
+ const countBefore=sql('SELECT count(*) FROM tickets;');
+ sql(`UPDATE tickets SET status='completed' WHERE id='${first.ticket.id}';`);
+ const racedClosed=await recordOperationalRequest({...operation,sourceMessage:{...operation.sourceMessage,id:id(48)}});
+ assert.equal(racedClosed.status,'unconfirmed');assert.equal(sql('SELECT count(*) FROM tickets;'),countBefore);
+ assert.throws(()=>run(48,{expected_ticket_id:other.ticket.id}));
+ assert.throws(()=>run(47,{expected_ticket_id:other.ticket.id}));
+ sql(`UPDATE tickets SET status='open' WHERE id='${first.ticket.id}';`);
+ pass('real clarification persists once before acknowledgement; follow-up progress has zero RPC writes');
  sql(`UPDATE tickets SET status='completed' WHERE hotel_id='${id(1)}';`);assert.notEqual(run(46).ticket.id,first.ticket.id);pass('closed history preserved, later request gets a new ticket');
  // Replay every retained real generation through the production recording and
  // finalization services backed by this disposable PostgreSQL transaction.
@@ -84,7 +105,7 @@ try {
        assert.equal(outcome.status,'recorded',input.id);assert.equal(outcome.ticket.room_number,input.conversationContext.knownRoom);assert.match(outcome.ticket.description,/toallas|towels|aire acondicionado|air conditioning/i);
        if(firstTicket)assert.equal(outcome.ticket.id,firstTicket);firstTicket=outcome.ticket.id;
        assert.equal(sql('SELECT count(*) FROM tickets;'),'1');assert.equal(final.service_quality.notification_confirmed,false);
-       assert.match(final.reply,/registrad[oa]|recorded/i);assert.doesNotMatch(final.reply,/avisado|informado|ya van|cinco minutos|will notify|shortly|promptly|a la brevedad|en breve|se pondr[aá]n? en contacto/i);
+       assert.match(final.reply,/tenemos tu (?:petición|aviso)|have your (?:request|report)/i);assert.doesNotMatch(final.reply,/avisado|informado|ya van|cinco minutos|will notify|shortly|promptly|a la brevedad|en breve|se pondr[aá]n? en contacto/i);
        if(input.conversationContext.knownRoom){assert(final.reply.includes(input.conversationContext.knownRoom));assert.doesNotMatch(final.reply,/qu[eé].*habitaci[oó]n|confirm your room|provide your room/i);}
        else assert.match(final.reply,/habitaci[oó]n|room/i);
        if(processed.reply!==final.reply)unfavorable++;

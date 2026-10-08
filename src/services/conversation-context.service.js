@@ -1,6 +1,6 @@
 import {
   getSupabase,
-  getOpenTicketsForGuest,
+  getTicketsForConversation,
   getRecentMessages
 } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
@@ -385,16 +385,16 @@ export const buildConversationContext = async ({
   reservation = null,
   sourceMessage = null
 }) => {
-  const [recentMessages, openTickets, hotelProfile, guestMemory] = await Promise.all([
+  const [recentMessages, tickets, hotelProfile, guestMemory] = await Promise.all([
     getRecentMessages({
       conversationId: conversation.id,
       hotelId: hotel?.id || null,
       limit: 8
     }),
-    getOpenTicketsForGuest({
+    getTicketsForConversation({
       guestId: guest.id,
       hotelId: hotel?.id,
-      limit: 5
+      conversationId:conversation.id
     }),
     hotel?.id ? getHotelProfileForPrompt(hotel.id) : Promise.resolve(null),
     hotel?.id && guest?.id ? getGuestMemory(hotel.id, guest.id) : Promise.resolve([])
@@ -426,7 +426,8 @@ export const buildConversationContext = async ({
     knownRoom: operationalContext.known_room,
     reservationAmbiguous: operationalContext.ambiguous,
     recentMessages,
-    openTickets,
+    tickets,
+    openTickets:tickets.filter(t=>['open','in_progress'].includes(t.status)),
     language,
     hotelProfile,
     guestMemory,
@@ -466,7 +467,7 @@ export const buildConversationContext = async ({
     conversationId: conversation.id,
     knownRoom: context.knownRoom,
     recentMessages: recentMessages.length,
-    openTickets: openTickets.length,
+    openTickets: context.openTickets.length,
     language: context.language,
     hotelId: context.hotelProfile?.id || hotel?.id || null,
     guestMemory: guestMemory.length,

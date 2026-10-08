@@ -483,6 +483,18 @@ export const getOpenTicketsForGuest = async ({ guestId, hotelId = null, limit = 
   return data || [];
 };
 
+export const getTicketsForConversation = async ({guestId,hotelId,conversationId}) => {
+  if(!guestId||!hotelId||!conversationId)throw new Error('Ticket scope required');
+  const rows=[];
+  for(let offset=0;;offset+=250){
+    const {data,error}=await getSupabase().from('tickets')
+      .select('id,hotel_id,guest_id,conversation_id,room_number,category,title,description,priority,status,created_at,request_context')
+      .eq('hotel_id',hotelId).eq('guest_id',guestId).eq('conversation_id',conversationId).order('id').range(offset,offset+249);
+    if(error)throw error;
+    rows.push(...data);if(data.length<250)return rows;
+  }
+};
+
 export const findConversationWithGuest = async (conversationId) => {
   const client = getSupabase();
 
