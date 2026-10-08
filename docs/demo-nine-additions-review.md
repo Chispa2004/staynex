@@ -23,3 +23,9 @@ Publicar código y esperar CI/despliegues antes de incorporar los nuevos registr
 No sobrescribir filas antiguas. Ante interrupción, reanudar con los mismos identificadores y recibos; una discrepancia detiene la operación. La recuperación consiste en ocultar únicamente las nuevas conversaciones, sin borrar históricos ni reencolar envíos. Comparar inventario completo y huellas de otros ámbitos al terminar.
 
 La comprobación pública y el inventario final se documentarán tras el despliegue. El enlace de reseña de Knowledge es ficticio y se presenta como demostración, sin plataforma externa operativa. Guest Memory permanece OFF y `SEND_AUTOMATIONS=false`.
+
+## Hallazgo en la generación posterior a PR #47
+
+PR #47 integrada en `206869cb18f9a36db47c0c9c47966ba9f16322a4`; CI de la PR aprobado y ambos despliegues activos. La segunda generación, aún en conversaciones cerradas, afirmó «la habitación no estará lista hasta el check-in». El horario no demuestra disponibilidad ni indisponibilidad de esa habitación. Se añade una guarda general de equipaje/llegada anticipada, limitada a políticas explícitas del hotel, que distingue consigna y acceso a habitación; también se reutiliza en el borrador de lectura. Regresiones con otro horario, otro hotel, falta de política y formulación en inglés. No se modifica la respuesta manualmente ni se regenera hasta obtener una preferida: se conserva el original y se aplica la guarda del producto. Se corrige además la mayúscula después de separar una cláusula operativa insegura.
+
+El ensayo final detectó que el filtro de preguntas también eliminaba una frase declarativa que rechazaba pedir datos de tarjeta, por contener «facilitar». El detector distingue ahora preguntas e imperativos iniciales de esa declaración. La regresión conserva el acuse completo y el resto de controles.

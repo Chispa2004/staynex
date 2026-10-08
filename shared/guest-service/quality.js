@@ -116,7 +116,7 @@ export function unavailableTransferReply({message='',context={},hotelId,language
 // Never infer a service, stock or operational action from a Knowledge answer.
 export function informationServiceDraft({message='',history=[],knowledge=[],hotelId,language='es'}) {
   const context={recentMessages:history,hotelKnowledge:knowledge};
-  const followup=breakfastTimeFollowup({message,context,hotelId,language})||unavailableTransferReply({message,context,hotelId,language});
+  const followup=breakfastTimeFollowup({message,context,hotelId,language})||unavailableTransferReply({message,context,hotelId,language})||earlyLuggageReply({message,context,hotelId,language});
   if(followup)return {text:followup,language,draft:true,source:'hotel_knowledge'};
   if(!/desayun|breakfast/i.test(message))return null;
   const rows=guestFacingKnowledge(knowledge,hotelId).filter(r=>/desayuno|breakfast/i.test(r.key+' '+r.title));
@@ -146,6 +146,26 @@ export function breakfastTimeFollowup({message='',context={},hotelId,language='e
     :(within?`Yes, ${requested[0]} is within breakfast hours, ${hours[0]} to ${hours[1]}.`:`Breakfast hours are ${hours[0]} to ${hours[1]}; ${requested[0]} is outside that window.`);
 }
 
+// Luggage storage before check-in is a documented capability, never a receipt
+// establishing when a particular room will be ready (or unavailable).
+export function earlyLuggageReply({message='',context={},hotelId,language='es'}) {
+  if(!['es','en'].includes(language))return null;
+  const normalize=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const prior=[...(context.recentMessages||[])].reverse().find(m=>m.sender_type==='guest'&&(!m.hotel_id||m.hotel_id===hotelId));
+  const topic=normalize(message+' '+(prior?.content||''));
+  if(!/equipaje|maletas?|luggage|bags/.test(normalize(message)) || !/antes|anticipad|early|before/.test(topic))return null;
+  const rows=guestFacingKnowledge(context.hotelKnowledge,hotelId),policy=rows.find(r=>/check.?in|arrival|llegada|equipaje|luggage/.test(normalize(r.key+' '+r.title))
+    && /(?:puede|podemos) guardar (?:el )?equipaje|(?:can|may) (?:store|keep) (?:your |the )?(?:luggage|bags)/.test(normalize(r.value))
+    && /antes|before/.test(normalize(r.value))
+    && !/no (?:se )?puede|cannot|can't/.test(normalize(r.value)));
+  if(!policy)return null;
+  const checkin=rows.find(r=>/check.?in/.test(normalize(r.key+' '+r.title)))?.value;
+  const time=String(checkin||'').match(/\b(?:[01]?\d|2[0-3]):[0-5]\d\b/)?.[0];
+  return language==='es'
+    ? `Podemos guardar el equipaje antes del check-in.${time?` El horario de entrada empieza a las ${time}.`:''} La entrada anticipada a la habitación necesita confirmación; dejar el equipaje no confirma que esté disponible.`
+    : `We can store your luggage before check-in.${time?` Check-in starts at ${time}.`:''} Early room access needs confirmation; storing luggage does not establish that the room is ready.`;
+}
+
 export function finalizeServiceReply({primary, processed = primary, ticket = null, hotelId, guestId, conversationId, language = 'es', providerOwned = false, preferPrimary = true, emergency = false, knownRoom = null, context = {}, message = '', hotel = {},operationalRequest=null,receiptReply=null}) {
   // Existing provider booking receipts are handled by their own verified workflow.
   if(providerOwned) return processed;
@@ -169,7 +189,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
       && receiptReply.sourceMessageId===operationalRequest?.sourceMessageId && receiptReply.status===facts?.status
       && safeReceiptReply(receiptReply.reply,facts,language);
     usedReceiptGeneration=Boolean(generated);
-    if(generated)reply=receiptReply.reply.split(/(?<=[.!?])\s+/u).filter(sentence=>!sentence.includes('?') && !/ind[ií]qu|confirme|facil[ií]t|provide|please (?:tell|confirm)/i.test(sentence)
+    if(generated)reply=receiptReply.reply.split(/(?<=[.!?])\s+/u).filter(sentence=>!sentence.includes('?') && !/^(?:por favor[, :]*)?(?:ind[ií]qu|confirme|facilite|provide\b|please (?:tell|confirm))/i.test(sentence.trim())
       || missingServiceQuestion(sentence.includes('?')?sentence:sentence+'?',{knownRoom,...context,message,requestRecorded:true,requestKey:operationalRequest?.request?.key})).join(' ');
     const question=reply.includes('?')||serviceTurn(message).kind!=='initial'?null:missingServiceQuestion(primary?.reply,{knownRoom,...context,message,requestRecorded:true,requestKey:operationalRequest?.request?.key});
     if(question)reply+=' '+question;
@@ -219,6 +239,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     }
   }
   if(!actual && preferPrimary && !primary?.upsell_opportunity && operationalRequest?.status!=='unconfirmed')reply=breakfastTimeFollowup({message,context,hotelId,language})||unavailableTransferReply({message,context,hotelId,language})||reply;
+  if(!actual && operationalRequest?.status==='not_requested')reply=earlyLuggageReply({message,context,hotelId,language})||reply;
   // Remove an optional generic referral after an answered information query.
   // Keep explicit human requests, emergencies and genuine missing information.
   if(!actual && !emergency && operationalRequest?.status==='not_requested'
