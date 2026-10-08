@@ -195,6 +195,7 @@ export const InboxAiCopilotPanel = ({
       </div>
 
       <div className="executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-6">
+        {contextStatus==='loading'?<p role="status">{tx('Cargando contexto de Asistencia IA…')}</p>:null}
         {contextStatus==='error' ? <div role="status" className="rounded-lg border border-amber-500 p-3 text-sm">
           <p>{tx('Asistencia IA sin actualizar.')}</p>
           {onRetry?<button type="button" className="mt-2 underline" onClick={onRetry}>{tx('Reintentar')}</button>:null}

@@ -595,7 +595,7 @@ export const InboxClient = ({ conversations }) => {
   const staffLanguageRef = useRef(staffLanguage);
 
   const selectedBase=items.find(conversation=>conversation.id===selectedId)||null;
-  const detailVersion=selectedBase ? JSON.stringify([selectedBase.hotel_id,selectedBase.id,selectedBase.messages?.map(m=>[m.id,m.updated_at,m.content]),selectedBase.aiState?.updated_at,selectedBase.operationalContext,selectedBase.contextReadAt]) : '';
+  const detailVersion=selectedBase ? JSON.stringify([selectedBase.hotel_id,selectedBase.id,selectedBase.messages?.map(m=>[m.id,m.updated_at,m.content]),selectedBase.aiState?.updated_at,selectedBase.operationalContext]) : '';
   const matchingDetail=detailState?.hotelId===currentHotel?.id && detailState?.id===selectedId ? detailState : null;
   // Secondary results belong to a specific primary snapshot. A late response
   // must never replace newer stay/room facts or regenerate a stale suggestion.
@@ -603,10 +603,13 @@ export const InboxClient = ({ conversations }) => {
     ? {...selectedBase,...matchingDetail.data,messages:selectedBase.messages,lastMessage:selectedBase.lastMessage,control:selectedBase.control,aiState:selectedBase.aiState,operationalContext:selectedBase.operationalContext,roomNumber:selectedBase.roomNumber} : selectedBase;
   useEffect(()=>{
     if(!selectedBase?.id || !currentHotel?.id)return;
-    const controller=new AbortController();let current=true;
+    let controller,refreshTimer;let current=true;
     const id=selectedBase.id,hotelId=currentHotel.id;
     setDetailState(old=>old?.id===id && old?.hotelId===hotelId ? {...old,status:'loading'} : {id,hotelId,status:'loading'});
-    (async()=>{
+    const readDetail=async()=>{
+      controller=new AbortController();
+      const timeout=window.setTimeout(()=>controller.abort(),15000);
+      let succeeded=false;
       try {
         const headers=await getAuthHeaders();
         const response=await fetch('/api/inbox?detail='+encodeURIComponent(id),{headers,cache:'no-store',signal:controller.signal});
@@ -616,13 +619,19 @@ export const InboxClient = ({ conversations }) => {
         if(!current || headers.Authorization!==latest.Authorization || !shouldAcceptTenantPayload(body,'inbox-detail'))return;
         const data=body.conversations?.find(c=>c.id===id && c.hotel_id===hotelId);
         if(!data || body.hotelId!==hotelId)throw new Error('Contexto de conversación no confirmado.');
-        setDetailState({id,hotelId,status:'ready',data,version:detailVersion});
-      }catch(error){if(current && error.name!=='AbortError'){
+        setDetailState({id,hotelId,status:'ready',data,version:detailVersion});succeeded=true;
+      }catch(error){if(current){
         setDetailState(old=>({...(old?.id===id && old?.hotelId===hotelId?old:{}),id,hotelId,status:'error',error:error.message}));
         if([401,403].includes(error.status)){setItems([]);setCapabilities({});setSelectedId(null);setDraftsByConversation({});setMessage('');setDetailState(null);}
-      }}
-    })();
-    return ()=>{current=false;controller.abort();};
+      }}finally{
+        window.clearTimeout(timeout);
+        // Poll only after this read finishes. A fresh primary read timestamp
+        // cannot cancel an otherwise current detail request or hide valid data.
+        if(current && succeeded)refreshTimer=window.setTimeout(readDetail,5000);
+      }
+    };
+    readDetail();
+    return ()=>{current=false;window.clearTimeout(refreshTimer);controller?.abort();};
   },[detailVersion,currentHotel?.id,detailRetry]);
   const unreadTotal = useMemo(() => getTotalUnread(items, readState), [items, readState]);
   const humanTotal = useMemo(() => getHumanTotal(items), [items]);

@@ -14,6 +14,7 @@ export const workspaceLoadingPhrases = [
   ['Mensaje abierto desde el Dashboard','Message opened from the Dashboard'],
   ['No se pudo cargar a tiempo. Reintenta.','Loading timed out. Retry.'],
   ['No se pudo actualizar la comprobación del hotel. Los datos visibles pueden ser anteriores.', 'The hotel check could not be refreshed. Visible data may be from the previous check.'],
+  ['Cargando contexto de Asistencia IA…', 'Loading AI Assistance context…'],
   ['Asistencia IA sin actualizar.', 'AI Assistance could not be refreshed.'],
   ['Solicitud registrada; atención pendiente de confirmar.', 'Request recorded; staff attention is not confirmed.'],
   ['Acción propuesta; abrir o copiar este borrador no crea una solicitud.', 'Proposed action; opening or copying this draft does not create a request.'],
