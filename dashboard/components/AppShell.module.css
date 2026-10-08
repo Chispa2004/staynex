@@ -117,3 +117,5 @@
 .shell:global(.theme-light) .inboxContext { background: var(--shell-header-background); color: var(--shell-header-text); border-color: var(--shell-header-border); }
 
 .shell:global(.theme-light) .compactToolbar { background: var(--shell-header-background); color: var(--shell-header-text); }
+
+.shell:global(.theme-light) .sidebar [data-theme-toggle] { box-shadow: none; }

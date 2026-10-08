@@ -40,6 +40,7 @@ for(const theme of ['light','dark'])for(const width of [1920,1366,390])test(`sha
  // Existing selector may be disabled when no other authorized hotel is available.
  const hotel=sidebar.locator('[data-icon-only] > button');await expect(hotel).toBeDisabled();if(theme==='light')await expect(hotel).toHaveCSS('border-top-style','dashed');
  if(width===390){
+  if(theme==='light')await expect(sidebar.locator('[data-theme-toggle]')).toHaveCSS('box-shadow','none');
   const language=sidebar.getByRole('button',{name:'Idioma: Español',exact:true});await language.click();await language.press('Tab');await captureContrast('language popover');await page.keyboard.press('Escape');await expect(language).toBeFocused();await expect(sidebar).not.toHaveAttribute('inert','');await page.keyboard.press('Escape');await expect(sidebar).toHaveAttribute('inert','');
  }else{
   const language=page.getByRole('button',{name:'Idioma: Español',exact:true}).last();await language.click();await language.press('Tab');await captureContrast('header language popover');await page.keyboard.press('Escape');await expect(language).toBeFocused();

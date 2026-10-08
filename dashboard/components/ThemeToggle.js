@@ -11,7 +11,7 @@ export const ThemeToggle = ({ compact = false }) => {
   const isLight = theme === 'light';
 
   return (
-    <button
+    <button data-theme-toggle
       type="button"
       onClick={toggleTheme}
       className={[
