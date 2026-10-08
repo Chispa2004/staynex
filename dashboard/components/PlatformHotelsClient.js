@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowRight,
@@ -18,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { persistWorkspaceSelection, getWorkspaceRevision, assertWorkspaceRevision } from '@/lib/workspace-context';
+import { useSupportWorkspaceEntry } from '@/lib/use-support-workspace-entry';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
@@ -64,7 +63,7 @@ const HealthBar = ({ value = 0, isLight }) => (
   </div>
 );
 
-const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
+const HotelCard = ({ hotel, isLight, onEnterWorkspace, pendingHotelId }) => {
   const { tx } = useDashboardLanguage();
   const warnings = [
     hotel.pms?.lastSyncError ? 'PMS sync warning' : null,
@@ -124,9 +123,9 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
             {tx('View detail')}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
-          <button type="button" onClick={() => onEnterWorkspace(hotel)} className={ui.button(isLight, 'primary')}>
+          <button type="button" disabled={pendingHotelId === hotel.id} aria-busy={pendingHotelId === hotel.id} onClick={() => onEnterWorkspace(hotel)} className={ui.button(isLight, 'primary')}>
             <DoorOpen className="h-4 w-4" aria-hidden="true" />
-            {tx('Enter workspace')}
+            {tx(pendingHotelId === hotel.id ? 'Entering workspace…' : 'Enter workspace')}
           </button>
         </div>
       </div>
@@ -180,7 +179,6 @@ const HotelCard = ({ hotel, isLight, onEnterWorkspace }) => {
 };
 
 export const PlatformHotelsClient = () => {
-  const router = useRouter();
   const { theme } = useDashboardTheme();
   const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
@@ -226,36 +224,8 @@ export const PlatformHotelsClient = () => {
     ].filter(Boolean).join(' ').toLowerCase().includes(search));
   }, [data.hotels, query]);
 
-  const enterWorkspace = async (hotel) => {
-    const revision = getWorkspaceRevision();
-    setError(null);
-    try {
-      const response = await fetch(`/api/platform/hotels/${hotel.id}/support`, {
-        method: 'POST',
-        headers: await getAuthHeaders(),
-        cache: 'no-store'
-      });
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not enter hotel workspace');
-      }
-      assertWorkspaceRevision(revision);
-      window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
-      persistWorkspaceSelection({
-        hotelId: hotel.id,
-        workspace: {
-          hotel: body.hotel,
-          role: 'support',
-          supportSession: body.supportSession
-        },
-        notify: true
-      });
-      router.push(`/dashboard?hotelId=${encodeURIComponent(hotel.id)}`);
-      router.refresh();
-    } catch (caughtError) {
-      setError(caughtError.message);
-    }
-  };
+  const { enterWorkspace: enterHotel, pendingHotelId } = useSupportWorkspaceEntry({ onError: setError });
+  const enterWorkspace = hotel => enterHotel(hotel.id);
 
   return (
     <div className="space-y-6">
@@ -277,7 +247,7 @@ export const PlatformHotelsClient = () => {
       </div>
 
       {error ? (
-        <div className={ui.notice(isLight, 'danger')}>
+        <div role="alert" className={ui.notice(isLight, 'danger')}>
           {tx(error)}
         </div>
       ) : null}
@@ -319,7 +289,7 @@ export const PlatformHotelsClient = () => {
       ) : filteredHotels.length ? (
         <div className="grid gap-4">
           {filteredHotels.map((hotel) => (
-            <HotelCard key={hotel.id} hotel={hotel} isLight={isLight} onEnterWorkspace={enterWorkspace} />
+            <HotelCard key={hotel.id} hotel={hotel} isLight={isLight} onEnterWorkspace={enterWorkspace} pendingHotelId={pendingHotelId} />
           ))}
         </div>
       ) : (

@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { getPlatformReadinessAction } from '@/lib/onboarding-navigation';
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -27,7 +26,7 @@ import { hotelFormInput, validateHotelFields } from '../../shared/onboarding/hot
 import { HotelFieldErrors } from '@/components/HotelFieldErrors';
 import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { persistWorkspaceSelection, getWorkspaceRevision, assertWorkspaceRevision } from '@/lib/workspace-context';
+import { useSupportWorkspaceEntry } from '@/lib/use-support-workspace-entry';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 import { PremiumEmptyState } from './PremiumEmptyState';
@@ -171,7 +170,6 @@ const GoLiveReadinessPanel = ({ readiness, isLight, liveModeEnabled, saving, onE
 
 export const PlatformHotelDetailClient = ({ hotelId }) => {
   const { tx } = useDashboardLanguage();
-  const router = useRouter();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
   const [detail, setDetail] = useState(null);
@@ -362,40 +360,8 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
     }
   };
 
-  const enterSupport = async () => {
-    const revision = getWorkspaceRevision();
-    setError(null);
-    setNotice(null);
-
-    try {
-      const response = await fetch(`/api/platform/hotels/${hotelId}/support`, {
-        method: 'POST',
-        headers: await getAuthHeaders(),
-        cache: 'no-store'
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not enter support session');
-      }
-
-      assertWorkspaceRevision(revision);
-      window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
-      persistWorkspaceSelection({
-        hotelId,
-        workspace: {
-          hotel: body.hotel,
-          role: 'support',
-          supportSession: body.supportSession
-        },
-        notify: true
-      });
-      router.push(`/dashboard?hotelId=${encodeURIComponent(hotelId)}`);
-      router.refresh();
-    } catch (caughtError) {
-      setError(caughtError.message);
-    }
-  };
+  const { enterWorkspace: enterHotel, pendingHotelId } = useSupportWorkspaceEntry({ onError: setError, onStart: () => setNotice(null) });
+  const enterSupport = () => enterHotel(hotelId);
 
   const enableLiveMode = async () => {
     setLiveModeSaving(true);
@@ -463,7 +429,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
             <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
             Refresh
           </button>
-          <button type="button" onClick={enterSupport} className={ui.button(isLight, 'primary')}>
+          <button type="button" disabled={pendingHotelId === hotelId} aria-busy={pendingHotelId === hotelId} onClick={enterSupport} className={ui.button(isLight, 'primary')}>
             <DoorOpen className="h-4 w-4" aria-hidden="true" />
             Enter workspace as support
           </button>

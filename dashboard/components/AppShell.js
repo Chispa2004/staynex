@@ -212,7 +212,12 @@ const AppShellContent = ({ children }) => {
     accessDenied: false,
     accessDeniedReason: null
   });
-  const [hotelContextLoaded, setHotelContextLoaded] = useState(false);
+  // A Platform resolution is not an operational hotel grant (nor its denial).
+  // Invalidate synchronously on route-kind changes, before guards can redirect.
+  const workspaceKind = pathname.startsWith('/platform') ? 'platform' : 'hotel';
+  const [loadedWorkspaceKind, setLoadedWorkspaceKind] = useState(null);
+  const hotelContextLoaded = loadedWorkspaceKind === workspaceKind;
+  const setHotelContextLoaded = loaded => setLoadedWorkspaceKind(loaded ? workspaceKind : null);
   const [workspaceError, setWorkspaceError] = useState(null);
   const [workspaceRefreshError, setWorkspaceRefreshError] = useState(null);
   const confirmedWorkspace = useRef(null);
@@ -262,7 +267,6 @@ const AppShellContent = ({ children }) => {
   const isLight = theme === 'light';
   const isLoginPage = pathname === '/login';
   const isOnboardingPage = pathname === '/dashboard/onboarding';
-  const workspaceKind = pathname.startsWith('/platform') ? 'platform' : 'hotel';
   const activeRole = hotelContext.role || 'blocked';
   const pilotNavigationGroups = useMemo(
     () => filterPilotNavigation(navigationGroups, {
@@ -388,6 +392,13 @@ const AppShellContent = ({ children }) => {
 
   useEffect(() => {
     if (isLoginPage || authLoading || !isAuthenticated) {
+      return undefined;
+    }
+
+    // A confirmed archive retains internal identity and its Platform exit;
+    // it must not wait for (or revive) the retired operational context.
+    if (workspaceKind === 'platform' && archiveNotice && canAccessPlatformConsole && loadedWorkspaceKind !== workspaceKind) {
+      setHotelContextLoaded(true);
       return undefined;
     }
 
@@ -550,7 +561,7 @@ const AppShellContent = ({ children }) => {
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [authLoading, isAuthenticated, isLoginPage, router, sessionAccessToken, sessionActorId, workspaceRetryNonce]);
+  }, [authLoading, isAuthenticated, isLoginPage, router, sessionAccessToken, sessionActorId, workspaceRetryNonce, workspaceKind]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isLoginPage) {
@@ -582,10 +593,13 @@ const AppShellContent = ({ children }) => {
       if (event.key === 'staynex_active_workspace_id') handleWorkspaceSelection({detail:{hotelId:event.newValue}});
     };
     window.addEventListener('storage', selectionStorage);
+    const historySelection = () => handleWorkspaceSelection({detail:{hotelId:getWorkspaceRequestHeaders()['x-staynex-hotel-id'] || null}});
+    window.addEventListener('popstate', historySelection);
 
     return () => {
       window.removeEventListener(WORKSPACE_SELECTION_EVENT, handleWorkspaceSelection);
       window.removeEventListener('storage', selectionStorage);
+      window.removeEventListener('popstate', historySelection);
     };
   }, [currentHotel?.id, isLoginPage]);
 

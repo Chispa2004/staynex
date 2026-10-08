@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import {invalidateArchivedWorkspace} from '@/lib/workspace-context';
 import {HotelLifecycleDialog} from './HotelLifecycleDialog';
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BarChart3,
@@ -30,7 +29,7 @@ import { submitHotelCreation, hasPendingHotelCreation } from '@/lib/hotel-creati
 import { HotelFieldErrors } from '@/components/HotelFieldErrors';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
-import { persistWorkspaceSelection, getWorkspaceRevision, assertWorkspaceRevision } from '@/lib/workspace-context';
+import { useSupportWorkspaceEntry } from '@/lib/use-support-workspace-entry';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { cn, ui } from '@/lib/ui/styles';
@@ -609,7 +608,6 @@ const GoogleSheetsSyncPanel = ({ isLight }) => {
 };
 
 export const PlatformConsoleClient = () => {
-  const router = useRouter();
   const { theme } = useDashboardTheme();
   const { tx } = useDashboardLanguage();
   const isLight = theme === 'light';
@@ -694,40 +692,8 @@ export const PlatformConsoleClient = () => {
     }
   };
 
-  const enterSupport = async (hotel) => {
-    const revision = getWorkspaceRevision();
-    setError(null);
-    setNotice(null);
-
-    try {
-      const response = await fetch(`/api/platform/hotels/${hotel.id}/support`, {
-        method: 'POST',
-        headers: await getAuthHeaders(),
-        cache: 'no-store'
-      });
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not enter support session');
-      }
-
-      assertWorkspaceRevision(revision);
-      window.sessionStorage.setItem('staynex_support_session', JSON.stringify(body.supportSession));
-      persistWorkspaceSelection({
-        hotelId: hotel.id,
-        workspace: {
-          hotel: body.hotel,
-          role: 'support',
-          supportSession: body.supportSession
-        },
-        notify: true
-      });
-      router.push(`/dashboard?hotelId=${encodeURIComponent(hotel.id)}`);
-      router.refresh();
-    } catch (caughtError) {
-      setError(caughtError.message);
-    }
-  };
+  const { enterWorkspace: enterHotel, pendingHotelId } = useSupportWorkspaceEntry({ onError: setError, onStart: () => setNotice(null) });
+  const enterSupport = hotel => enterHotel(hotel.id);
 
   return (
     <div className="space-y-6">
@@ -892,7 +858,7 @@ export const PlatformConsoleClient = () => {
                 </div>
 
                 <div className="flex items-center gap-2 lg:justify-end">
-                  <button type="button" onClick={() => enterSupport(hotel)} className={ui.button(isLight, 'secondary')}>
+                  <button type="button" disabled={pendingHotelId === hotel.id} aria-busy={pendingHotelId === hotel.id} onClick={() => enterSupport(hotel)} className={ui.button(isLight, 'secondary')}>
                     <DoorOpen className="h-4 w-4" aria-hidden="true" />
                     {tx('Support')}
                   </button>
