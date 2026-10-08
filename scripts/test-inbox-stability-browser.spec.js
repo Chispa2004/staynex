@@ -1,7 +1,55 @@
 import {writeFileSync} from 'node:fs';
 import {test,expect} from '@playwright/test';
 test.afterEach(async({page})=>{await page.unrouteAll({behavior:'ignoreErrors'});});
+test('slow detail survives unchanged five-second summary polls and retains confirmed context',async({page})=>{
+ let detailReads=0,summaryReads=0;
+ await page.route('**/api/inbox?*',async route=>{
+  const detail=new URL(route.request().url()).searchParams.has('detail');
+  const response=await route.fetch(),body=await response.json();
+  if(detail)detailReads++;else summaryReads++;
+  for(const c of body.conversations||[]){
+   c.contextReadAt=new Date().toISOString();c.copilot=null;c.guest_id=c.guest_id||c.guest?.id||'synthetic-guest';
+   c.messages=[{...c.messages[0],id:'slow-source-'+c.id,hotel_id:c.hotel_id,conversation_id:c.id,sender_type:'guest',content:'¿Tenéis la petición de toallas?',original_language:'es'}];c.lastMessage=c.messages[0];
+   if(detail){c.ticketCoverage='ready';c.detailsLoaded=true;c.operationalReceipts=[];c.tickets=[{id:'slow-ticket-'+c.id,hotel_id:c.hotel_id,guest_id:c.guest_id,conversation_id:c.id,title:'Toallas confirmadas',status:detailReads>1?'in_progress':'open',priority:'normal',request_context:{request_key:'towels',source_message_id:c.messages[0].id}}];}
+  }
+  if(detail)await new Promise(resolve=>setTimeout(resolve,6500));
+  await route.fulfill({response,json:body});
+ });
+ await page.goto('/dashboard/inbox');await expect(page.locator('[data-inbox-conversation]')).toHaveCount(28);
+ await page.locator('[data-inbox-conversation]').first().click();await page.getByRole('button',{name:/Asistencia IA/}).click();
+ const copy=page.getByRole('button',{name:'Copiar respuesta',exact:true});
+ await expect(copy).toBeEnabled({timeout:11000});
+ await expect(page.getByRole('link',{name:'Toallas confirmadas',exact:true})).toBeVisible();
+ expect(summaryReads).toBeGreaterThan(1);expect(detailReads).toBe(1);
+ // A background refresh must not temporarily replace a valid suggestion with
+ // an unavailable one. Its confirmed later state still reaches the panel.
+ await expect.poll(()=>detailReads,{timeout:9000}).toBe(2);
+ await expect(copy).toBeEnabled();
+ await expect(page.getByText('Estado guardado: En curso · Normal',{exact:true})).toBeVisible({timeout:11000});
+ await expect(copy).toBeEnabled();
+});
 const baseline=process.env.INBOX_BASELINE==='1';
+test('detail timeout exposes retry and does not discard the conversation or draft',async({page})=>{
+ let stall=true,release;
+ const pending=new Promise(resolve=>{release=resolve;});
+ await page.route('**/api/inbox?*',async route=>{
+  if(new URL(route.request().url()).searchParams.has('detail') && stall)await pending;
+  await route.continue();
+ });
+ await page.goto('/dashboard/inbox');await expect(page.locator('[data-inbox-conversation]')).toHaveCount(28);
+ await page.locator('[data-inbox-conversation]').first().click();
+ await page.getByRole('textbox',{name:'Respuesta al huésped'}).fill('Borrador sintético que debe conservarse');
+ await page.getByRole('button',{name:/Asistencia IA/}).click();
+ await expect(page.getByText('Cargando contexto de Asistencia IA…')).toBeVisible();
+ await expect(page.getByText('Asistencia IA sin actualizar.',{exact:true})).toBeVisible({timeout:18000});
+ await expect(page.getByRole('button',{name:'Copiar respuesta',exact:true})).toBeDisabled();
+ stall=false;release();await page.getByRole('dialog').getByRole('button',{name:'Reintentar',exact:true}).click();
+ await expect(page.getByText('Asistencia IA sin actualizar.',{exact:true})).toHaveCount(0);
+ await expect(page.getByText('Cargando contexto de Asistencia IA…')).toHaveCount(0);
+ await page.keyboard.press('Escape');
+ await expect(page.getByRole('textbox',{name:'Respuesta al huésped'})).toHaveValue('Borrador sintético que debe conservarse');
+ await expect(page.locator('[data-inbox-conversation]')).toHaveCount(28);
+});
 const path='/dashboard/inbox?stage=stay&origin=simulated';
 const sample=async(page,fn)=>{const start=Date.now();await fn();return Date.now()-start};
 test.beforeEach(async({context})=>{
