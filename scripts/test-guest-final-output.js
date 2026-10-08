@@ -39,7 +39,7 @@ console.log('PASS all 92 preserved generations replayed through production final
 
 const invoice=rows.find(r=>r.id==='a-invoice' && r.phase==='after');
 const fixed=await captureFinalOutput(inputs.get(invoice.id),invoice.output);
-assert.match(fixed.result.response.reply,/registrad/);
+assert.match(fixed.result.response.reply,/tenemos tu petición/);
 assert.equal(fixed.result.response.service_quality.request_status,'recorded');
 for(const q of ['¿Quieres que registre una solicitud?','Would you like me to create a ticket?','Shall I open a request?']) {
   assert.equal(missingServiceQuestion(q,{requestRecorded:true}),null);

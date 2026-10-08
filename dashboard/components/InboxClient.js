@@ -2302,7 +2302,7 @@ export const InboxClient = ({ conversations }) => {
               {selectedTakeoverMetadata?.activated_by?.role ? <p>Por {selectedTakeoverMetadata.activated_by.role}</p> : null}
             </div> : null}
             <button className={ergonomics.detailToggle} type="button" onClick={() => { setGuestPanelOpen(false); setCopilotOpen(true); }}><Bot size={16} aria-hidden="true" /> Ver asistencia y acciones IA</button>
-          </div> : <InboxAiCopilotPanel conversation={selectedConversation} canReply={capabilities.canReply===true} humanEscalation={selectedHumanEscalation} onOfferAction={capabilities.canManageOffers ? updateOfferAction : undefined} onClose={() => setCopilotOpen(false)} compact />}
+          </div> : <InboxAiCopilotPanel onRetry={()=>setDetailRetry(n=>n+1)} conversation={selectedConversation} contextStatus={matchingDetail?.version===detailVersion && matchingDetail?.status==='ready'?'ready':matchingDetail?.status==='error'?'error':'loading'} canReply={capabilities.canReply===true} humanEscalation={selectedHumanEscalation} onOfferAction={capabilities.canManageOffers ? updateOfferAction : undefined} onClose={() => setCopilotOpen(false)} compact />}
         </InboxDetailPanel>
       ) : null}
       </div>

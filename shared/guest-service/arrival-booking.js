@@ -9,7 +9,7 @@ export const guestFacingKnowledge = (rows = [], hotelId) => scoped(rows, hotelId
 });
 
 const night = /medianoche|madrugada|llegada nocturna|llegada tardia|entrada anticipada|midnight|late arrival|early (arrival|check.?in)|night access|0[0-5]:[0-5]\d/;
-const booking = /descuent|promoci|oferta|discount|promotion|nueva reserva|proxima (visita|estancia)|volver|volveremos|new (booking|reservation)|next (visit|stay)|book a (room|stay)|reservar.{0,18}(habitacion|estancia)|habitaciones disponibles|rooms available|booking (link|url)|enlace.*reserv/;
+const booking = /descuent|promoci|oferta|discount|promotion|\boffers?\b|how.{0,25}book|nueva reserva|proxima (visita|estancia)|volver|volveremos|new (booking|reservation)|next (visit|stay)|book a (room|stay)|reservar.{0,18}(habitacion|estancia)|habitaciones disponibles|rooms available|booking (link|url)|enlace.*reserv/;
 const otherTopic = /desayun|breakfast|cuna|cot\b|toalla|towel|ruido|noise|bufanda|scarf|factura|invoice|aire acondicionado|air condition/;
 export const arrivalBookingTopic = (message = '', history = []) => {
   const text = normalize(message);
@@ -123,7 +123,7 @@ export function groundedArrivalReply(reply, plan, message, history=[]) {
   const declared=entrances.filter(([,p])=>p.test(facts));
   if(declared.length!==1 || !declared[0][1].test(text) || entrances.some(([key,p])=>key!==declared[0][0]&&p.test(text)))return false;
   if(/(?:previa|requiere|after).{0,30}confirm|confirm.{0,30}(?:acceso|access)/.test(facts)
-    && !/confirm|no.{0,25}garant|not guaranteed/.test(text))return false;
+    && !/confirm|no.{0,25}garant|not guaranteed|puede no estar lista|may not be ready/.test(text))return false;
   const allowedTimes=new Set((facts+' '+guestFacts).match(/\b\d{1,2}:\d{2}\b/g)||[]);
   if((text.match(/\b\d{1,2}:\d{2}\b/g)||[]).some(t=>!allowedTimes.has(t)))return false;
   const cutoff=facts.match(/(?:antes de|before)\s*(?:las\s*)?(\d{1,2}:\d{2})/)?.[1];
@@ -131,7 +131,7 @@ export function groundedArrivalReply(reply, plan, message, history=[]) {
   if(cutoff && /\b00:\d\d\b/.test(guestFacts) && !/dia anterior|previous (?:day|evening)|before (?:your )?arrival|antes de (?:tu |su |la )?llegada/.test(text))return false;
   const dates=[...new Set(guestFacts.match(/\b\d{4}-\d{2}-\d{2}\b/g)||[])];
   if(!dates.length && /medianoche|midnight|0[0-5]:\d\d/.test(guestFacts) && !/\?/.test(reply))return false;
-  if(/habitacion|room/.test(text) && !/no.{0,40}garant|not guaranteed|necesita.{0,20}confirm|requires?.{0,20}confirm|sujet.{0,20}disponib/.test(text))return false;
+  if(/habitacion|room/.test(text) && !/no.{0,40}garant|not guaranteed|puede no estar lista|may not be ready|necesita.{0,20}confirm|requires?.{0,20}confirm|sujet.{0,20}disponib/.test(text))return false;
   return true;
 }
 

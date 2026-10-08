@@ -622,6 +622,11 @@ const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, 
     hotelId: resolvedHotelId
   }) : new Map();
   const tickets = includeDetails ? await readAllInboxRows(()=>supabase.from('tickets').select('id,hotel_id,guest_id,conversation_id,room_number,category,title,description,priority,status,request_context').eq('hotel_id',resolvedHotelId).in('conversation_id',conversationIds).order('id',{ascending:true})) : [];
+  const receipts=[];
+  if(includeDetails)for(let i=0;i<messages.length;i+=100){
+    receipts.push(...await readAllInboxRows(()=>supabase.from('operational_request_receipts').select('id:source_message_id,hotel_id,source_message_id,ticket_id,request_key')
+      .eq('hotel_id',resolvedHotelId).in('source_message_id',messages.slice(i,i+100).map(m=>m.id)).order('source_message_id',{ascending:true})));
+  }
   const messagesByConversation = groupMessagesByConversation(messages || []);
 
   return conversations.map((conversation) => {
@@ -652,6 +657,8 @@ const getInboxBatch = async ({supabase, resolvedHotelId, hotel, hotelKnowledge, 
       hotelKnowledge,
       operationalContext,
       tickets:tickets.filter(t=>t.conversation_id===conversation.id && t.guest_id===conversation.guest_id),
+      operationalReceipts:receipts.filter(r=>conversationMessages.some(m=>m.id===r.source_message_id)),
+      ticketCoverage:includeDetails?'ready':'not_loaded',
       detailsLoaded:includeDetails,
       contextReadAt:new Date().toISOString(),
       guestName,

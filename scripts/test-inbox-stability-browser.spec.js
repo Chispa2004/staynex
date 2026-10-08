@@ -96,3 +96,25 @@ test('three comparable trials: first entry, return, selection, refresh',async({p
  writeFileSync(info.outputPath('measurements.json'),JSON.stringify({baseline,latencyMs:180,viewport:{width:1366,height:900},samples},null,2));
  await info.attach('measurements.json',{body:JSON.stringify({baseline,latencyMs:180,viewport:{width:1366,height:900},samples},null,2),contentType:'application/json'});
 });
+for(const width of [1366,390])for(const theme of ['light','dark'])test(`${width} ${theme}: linked request evidence, copy is read-only and stale context is blocked`,async({page},info)=>{
+ await page.setViewportSize({width,height:900});await page.addInitScript(theme=>localStorage.setItem('staynex_dashboard_theme',theme),theme);
+ let fail=false,delay=0;const writes=[];const tickets=new Map();
+ page.on('request',r=>{if(new URL(r.url()).pathname==='/api/inbox/attention' && r.method()==='POST' && r.postDataJSON()?.action==='read')return; if(['POST','PUT','PATCH','DELETE'].includes(r.method()))writes.push(r.method()+' '+r.url());});
+ await page.route('**/api/inbox?*',async route=>{
+  const detail=new URL(route.request().url()).searchParams.has('detail');if(detail&&fail)return route.fulfill({status:503,json:{error:'Lectura sintética interrumpida'}});
+  const response=await route.fetch(),body=await response.json();
+  for(const c of body.conversations||[]){const guestId=c.guest_id||c.guest?.id||'synthetic-guest';c.guest_id=guestId;
+   c.messages=[{...c.messages[0],id:'source-'+c.id,hotel_id:c.hotel_id,conversation_id:c.id,sender_type:'guest',original_language:'es',content:'Sigue la fuga del aire acondicionado. ¿Tenéis la incidencia?'}];c.lastMessage=c.messages[0];c.copilot=null;
+   if(detail){const ticket={id:'request-'+c.id,hotel_id:c.hotel_id,guest_id:guestId,conversation_id:c.id,title:'Fuga verificada '+c.id,description:'Fuga del aire acondicionado; suelo mojado.',room_number:'QA-417',priority:'high',status:'open',category:'maintenance',request_context:{request_key:'air_conditioning',source_message_id:c.messages[0].id}};tickets.set(c.id,ticket);c.tickets=[ticket];c.operationalReceipts=[];c.ticketCoverage='ready';c.detailsLoaded=true;}
+  }if(detail&&delay)await new Promise(r=>setTimeout(r,delay));await route.fulfill({response,json:body});
+ });
+ await page.goto(path);const rows=page.locator('[data-inbox-conversation]');await expect(rows).toHaveCount(28);const first=await rows.first().getAttribute('data-inbox-conversation');await rows.first().click();
+ await page.getByRole('button',{name:/Asistencia IA/}).click();await expect(page.getByText('Prioridad del ticket',{exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Fuga verificada '+first,exact:true})).toBeVisible();await expect(page.getByText('La prioridad del ticket no crea una alerta urgente de mensaje.')).toBeVisible();
+ const copy=page.getByRole('button',{name:'Copiar respuesta',exact:true});await expect(copy).toBeEnabled();
+ const context=page.context();await context.grantPermissions(['clipboard-read','clipboard-write']);await copy.click();await expect(page.getByRole('button',{name:'Copiada',exact:true})).toBeVisible();expect(writes).toEqual([]);
+ expect((await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}))).width).toBe(width);
+ await page.screenshot({path:info.outputPath('linked-request.png'),fullPage:true});
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:'Volver a conversaciones',exact:true}).click();
+ fail=true;await rows.nth(1).click();await page.getByRole('button',{name:/Asistencia IA/}).click();await expect(page.getByRole('button',{name:'Copiar respuesta',exact:true})).toBeDisabled();await expect(page.getByRole('link',{name:'Fuga verificada '+first,exact:true})).toHaveCount(0);await expect(page.getByRole('dialog').getByText('Asistencia IA sin actualizar.')).toBeVisible();
+ fail=false;await page.getByRole('dialog').getByRole('button',{name:'Reintentar',exact:true}).click();await expect(page.getByRole('button',{name:'Copiar respuesta',exact:true})).toBeEnabled();expect(writes).toEqual([]);
+});

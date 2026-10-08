@@ -135,6 +135,8 @@ const ActionButton = ({ children, onClick, disabled = false, tone = 'slate', tit
 
 export const InboxAiCopilotPanel = ({
   conversation,
+  contextStatus = 'ready',
+  onRetry,
   humanEscalation,
   canReply = false,
   onOfferAction,
@@ -151,11 +153,12 @@ export const InboxAiCopilotPanel = ({
   const experienceBookings = conversation?.experienceBookings || [];
   const activeOffer = offers[0] || null;
   const revenuePotential = offers.reduce((total, offer) => total + Number(offer.suggested_price || 0), 0);
-  const copilot = conversation?.copilot || buildConversationCopilot(conversation || {});
+  const copilot = contextStatus==='ready' ? conversation?.copilot || buildConversationCopilot(conversation || {})
+    : buildConversationCopilot({...conversation,ticketCoverage:'unavailable',tickets:[],operationalReceipts:[]});
   const controlAction = copilotControlAction(conversation, canReply);
   const urgentAlert = conversation?.aiState?.escalation_level === 'urgent';
   const suggestedAction = controlAction || (urgentAlert ? {title:'Revisar personalmente',detail:'Alerta urgente activa. Revisa la incidencia aunque el control sea humano.',tone:'red'} : copilot.suggestedAction);
-  const priority = urgentAlert ? { level:'urgent', tone:'red', confidence:null } : copilot.priority;
+  const priority = copilot.priority;
   const summaryBullets = copilot.summary?.bullets || [];
 
   const copySuggestedReply = async () => {
@@ -192,6 +195,10 @@ export const InboxAiCopilotPanel = ({
       </div>
 
       <div className="executive-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-6">
+        {contextStatus==='error' ? <div role="status" className="rounded-lg border border-amber-500 p-3 text-sm">
+          <p>{tx('Asistencia IA sin actualizar.')}</p>
+          {onRetry?<button type="button" className="mt-2 underline" onClick={onRetry}>{tx('Reintentar')}</button>:null}
+        </div>:null}
         <div className="grid grid-cols-2 gap-2">
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Sentimiento")}</p>
@@ -199,8 +206,8 @@ export const InboxAiCopilotPanel = ({
             <p className="mt-2 text-xs text-slate-500">{formatPercent(copilot.sentiment?.confidence)} {tx('fiabilidad')}</p>
           </div>
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{tx("Prioridad")}</p>
-            <div className="mt-2"><Pill tone={priority?.tone}>{tx(translateSignal(priority?.level || 'low', priorityLabels))}</Pill></div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{staffText(priority?.source==='ticket'?'Ticket priority':'Conversation assessment')}</p>
+            <div className="mt-2"><Pill tone={priority?.tone}>{contextStatus!=='ready'?staffText('Not verified'):tx(translateSignal(priority?.level || 'low', priorityLabels))}</Pill></div>
             {priority?.confidence != null ? <p className="mt-2 text-xs text-slate-500">{formatPercent(priority.confidence)} {tx('fiabilidad')}</p> : null}
           </div>
           <div className={isLight ? 'rounded-xl border border-slate-200 bg-white p-3 shadow-sm' : 'rounded-xl border border-white/10 bg-white/[0.025] p-3'}>
@@ -214,9 +221,20 @@ export const InboxAiCopilotPanel = ({
           </div>
         </div>
 
+        {copilot.ticketContext?.candidates?.length ? <Section title={staffText('Linked requests')} icon={ClipboardCheck}>
+          {copilot.ticketContext.candidates.map(ticket=><div key={ticket.id} className="mb-3 space-y-1">
+            <Link className="underline" href={`/dashboard/tickets/${ticket.id}`}>{ticket.title}</Link>
+            <p className="text-sm">{ticket.description}</p>
+            <p className="text-xs">{staffText('Persisted status')}: {staffText(({open:'Open',pending:'Pending',in_progress:'In progress',completed:'Done',closed:'Closed',cancelled:'Cancelled'})[ticket.status]||'Not verified')} · {tx(translateSignal(ticket.priority,priorityLabels))}</p>
+            {ticket.room_number?<p className="text-xs">{staffText('Room in this request')}: {ticket.room_number}</p>:null}
+          </div>)}
+          <p className="text-xs">{staffText('Ticket priority does not create an urgent message alert.')}</p>
+        </Section>:null}
+
         <Section title={tx("Siguiente paso recomendado")} icon={ShieldAlert}>
           {urgentAlert ? <p role="alert" className={isLight ? 'mb-3 font-semibold text-red-700' : 'mb-3 font-semibold text-red-300'}>{tx('Alerta urgente activa. Revisa la incidencia aunque el control sea humano.')}</p> : null}
           <div className="flex flex-wrap gap-2">
+            {urgentAlert ? <Pill tone="red">{tx('Urgente')}</Pill> : null}
             <Pill tone={suggestedAction?.tone}>{staffText(actionLabels[suggestedAction?.title] || suggestedAction?.title || 'Responder con normalidad')}</Pill>
             <Pill tone="sky">{tx('Idioma del huésped')} {String(copilot.language || 'es').toUpperCase()}</Pill>
           </div>
@@ -227,14 +245,14 @@ export const InboxAiCopilotPanel = ({
 
         <Section title={tx("Respuesta sugerida")} icon={MessageSquareText}>
           <p className={isLight ? 'rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm leading-6 text-slate-700' : 'rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3 py-3 text-sm leading-6 text-slate-200'}>
-            {copilot.suggestedReply?.text}
+            {copilot.suggestedReply?.text || staffText('Ticket data has not been confirmed. Refresh before using a recommendation.')}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Pill tone="emerald">{tx('Borrador para revisión · no enviado')}</Pill>
-            <span className="text-xs">{tx(copilot.suggestedReply?.requestStatus==='recorded' ? 'Solicitud registrada; atención pendiente de confirmar.' : 'Acción propuesta; abrir o copiar este borrador no crea una solicitud.')}</span>
+            <span className="text-xs">{copilot.suggestedReply?.requestStatus==='recorded' ? staffText('Draft based on the linked request; no action performed.') : tx('Acción propuesta; abrir o copiar este borrador no crea una solicitud.')}</span>
             {copilot.suggestedReply?.ticketId ? <Link className="text-sm underline" href={'/dashboard/tickets/'+encodeURIComponent(copilot.suggestedReply.ticketId)}>{tx('Ver solicitud registrada')}</Link> : null}
             <Pill tone="sky">{String(copilot.suggestedReply?.language || copilot.language || 'es').toUpperCase()}</Pill>
-            <ActionButton onClick={copySuggestedReply} tone="emerald">
+            <ActionButton onClick={copySuggestedReply} disabled={!copilot.suggestedReply?.text || contextStatus!=='ready'} tone="emerald">
               <ClipboardCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
               {tx(copied ? 'Copiada' : 'Copiar respuesta')}
             </ActionButton>
