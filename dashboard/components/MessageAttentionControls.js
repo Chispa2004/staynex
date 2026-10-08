@@ -1,4 +1,7 @@
 'use client';
+import Link from 'next/link';
+import {attentionSelection} from '../../shared/attention-lifecycle.js';
+import {CHECKIN_DEMO_HOTEL_ID} from '../../shared/checkin-demo-view.js';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFocusLayer } from '@/lib/focus-layer';
 import { getAuthHeaders } from '@/lib/auth-headers';
@@ -81,6 +84,8 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
   const rows = new Map((scopedSnapshot?.items || []).map(item=>[item.messageId,item]));
   const prepare = (action,ids=selected) => {
     if (!scopedSnapshot?.canManage || busyRef.current) return;
+    try {ids=attentionSelection(ids,rows,scopedSnapshot.ticketGroups||[],action);}
+    catch(error){setError(error.message);return;}
     const observed = ids.map(id=>rows.get(id)).filter(Boolean);
     if (!observed.length || observed.length!==ids.length) return;
     try {
@@ -106,7 +111,7 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
       if (caught.status===409) {setConflict(true);await refresh();}
     } finally {if(version===generation.current){busyRef.current=false;setBusy(false);latestRefresh.current?.();}}
   };
-  const value={rows,selected,readState,available:Boolean(scopedSnapshot),canManage:readState.status==='ready' && scopedSnapshot?.canManage===true,busy,prepare,
+  const value={rows,ticketGroups:scopedSnapshot?.ticketGroups||[],selected,readState,available:Boolean(scopedSnapshot),canManage:readState.status==='ready' && scopedSnapshot?.canManage===true,busy,prepare,
     toggle:id=>setSelected(current=>current.includes(id)?current.filter(item=>item!==id):current.length<50?[...current,id]:current),
     error,notice,refresh};
   return <AttentionContext.Provider value={value}>
@@ -115,8 +120,9 @@ export function MessageAttentionProvider({hotelId,conversation,children}) {
       className={'w-[min(94vw,560px)] max-h-[85dvh] rounded-xl border p-5 shadow-xl backdrop:bg-neutral-950/50 '+(theme==='light'?'bg-white text-slate-900':'bg-slate-900 text-white')}>
       <h2 id="attention-confirm-title" className="text-lg font-semibold">{operation.request.action==='resolved'?'Marcar como resueltos':'Volver a pendiente'} ({operation.request.items.length})</h2>
       <p className="mt-2 text-sm">{operation.request.action==='resolved'
-        ? 'Confirma que estos mensajes ya están atendidos. No envía una respuesta ni cierra los tickets relacionados.'
+        ? 'Confirma que has revisado la petición y atendido al huésped. Generar o copiar un borrador no basta. Esta confirmación no envía mensajes ni acredita su entrega.'
         : 'Estos mensajes volverán al seguimiento pendiente. No envía una respuesta ni cambia los tickets relacionados.'}</p>
+      {hotelId===CHECKIN_DEMO_HOTEL_ID?<p className="mt-2 text-sm font-semibold">Demostración simulada: no acredita una actuación ni comunicación real.</p>:null}
       <p className="mt-2 text-xs">Solo los mensajes indicados de {conversation?.guest?.name || 'este huésped'}. Los nuevos mensajes quedan fuera.</p>
       <ul className="my-3 max-h-52 space-y-2 overflow-y-auto text-sm">{operation.preview.map(item=><li key={item.id} className="rounded border p-2">{item.text.slice(0,140)}</li>)}</ul>
       {error ? <p role="alert" className="my-2 text-sm">{error}</p>:null}
@@ -153,6 +159,7 @@ export function AttentionMessage({message}) {
   if(!value || !isAttentionMessage(message))return null;
   const state=value.rows.get(message.id);
   return <div className={styles.messageAttention} data-message-attention={message.id}>
+    {(value.ticketGroups||[]).filter(g=>g.messageIds.includes(message.id)).map(g=><Link key={g.ticketId} href={'/dashboard/tickets/'+g.ticketId} className="underline">{g.title} · {g.status==='completed'?'Actuación hecha; revisar comunicación':'Actuación pendiente'}</Link>)}
     <span>{tx(value.available && state?labels[state.status]:value.readState.status==='loading'?'Cargando seguimiento…':'Estado de atención no confirmado')}</span>
     {(value.canManage && state) || state?.changedAt ? <InboxActionMenu inline label={value.selected.includes(message.id)?'Seleccionado · Opciones':'Opciones'} ariaLabel="Opciones de atención de este mensaje">
     {value.canManage && state ? <label className="flex items-center gap-2"><input type="checkbox" checked={value.selected.includes(message.id)} disabled={value.busy}

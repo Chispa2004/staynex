@@ -39,7 +39,7 @@ exports.runDemoRoutesIntegration=async({pg,env,root,hotelId,otherHotelId,actorId
         }catch(error){reject(error);}}
       };return chain;
     },
-    async rpc(name,args){assert.ok(['staynex_attention_dashboard_v2','staynex_attention_read_v1','staynex_attention_transition_v1'].includes(name));calls.push({rpc:name,args});
+    async rpc(name,args){if(name==='staynex_attention_ticket_groups_v1')return {data:[],error:null};assert.ok(['staynex_attention_dashboard_v2','staynex_attention_read_v1','staynex_attention_transition_v1'].includes(name));calls.push({rpc:name,args});
       const values=Object.entries(args).map(([k,v])=>ident(k)+'=>'+(k==='p_ids'?'array['+v.map(quote).join(',')+']::uuid[]':quote(v)));
       const r=query(`set role service_role;select public.${ident(name)}(${values.join(',')});`);return {data:r.error?null:JSON.parse(r.data),error:r.error};
     }

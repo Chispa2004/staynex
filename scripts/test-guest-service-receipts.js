@@ -240,10 +240,10 @@ assert.equal(safeReceiptReply('Podemos preparar otra almohada.',receiptFacts(arg
 assert(sanitizeReceiptReply('Hemos tomado nota del destinatario.',receiptFacts(args),'es'));
 const focusedArgs={...args,knowledge:[{hotel_id:'a',value:'UNRELATED_POLICY_SHOULD_NOT_REACH_RECEIPT'}]};
 await generateReceiptReply(focusedArgs,async payload=>{assert(!JSON.stringify(payload).includes('UNRELATED_POLICY'));return {reply:'Tenemos tu petición.'};});
-assert.equal(ticketReplyPlan({ticket:{...scopedTicket,description:'Sigue sin funcionar; necesito atención humana.',request_context:{request_key:'wifi_support'}},message:'Sigue sin funcionar; necesito atención humana.'}).turn.kind,'initial');
+assert.equal(ticketReplyPlan({ticket:{...scopedTicket,description:'Sigue sin funcionar; necesito atención humana.',request_context:{request_key:'wifi_support'}},message:'Sigue sin funcionar; necesito atención humana.'}).turn.kind,'human_request');
 const info=finalizeServiceReply({primary:{ai_provider:'openai',confidence:1,reply:'La red es Example. Si necesitas ayuda, estamos a tu disposición en recepción.'},message:'¿Cómo me conecto?',hotelId:'a',operationalRequest:{status:'not_requested'}});
 assert.equal(info.reply,'La red es Example.');
-console.log('PASS focused post-commit context, recipient acknowledgement, unsupported future action and initial human-assistance receipt');
+console.log('PASS focused post-commit context, recipient acknowledgement, unsupported future action and explicit human-assistance receipt distinct from initial incident');
 
 const {earlyLuggageReply}=await import('../shared/guest-service/quality.js');
 const luggageContext={hotelKnowledge:[{hotel_id:'a',key:'check_in',value:'El check-in empieza a las 16:30. Podemos guardar el equipaje antes.'}]};

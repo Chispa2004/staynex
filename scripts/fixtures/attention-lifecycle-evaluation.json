@@ -1,0 +1,3819 @@
+{
+  "syntheticOnly": true,
+  "provider": "openai",
+  "model": "gpt-4.1-mini-2025-04-14",
+  "date": "2026-10-08",
+  "notes": "All 28 generations retained. Human semantic review categories overlap; no measured unnecessary referral or questions about known facts. Round 3 repeats wording; round 4 is final human policy. Other 12 round-1 cases use unchanged general policy. Final text replayed through production filters; database transitions tested separately against disposable PostgreSQL.",
+  "rounds": [
+    {
+      "name": "evaluation-outputs.json",
+      "rows": [
+        {
+          "id": "a-human",
+          "input": {
+            "id": "a-human",
+            "kind": "human",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Quiero que me atienda una persona; el wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-human",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-human",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-human",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Entendemos que desea atención personalizada y que el wifi sigue sin funcionar. Tenemos su solicitud registrada y la estamos revisando."
+            },
+            "usage": {
+              "prompt_tokens": 1364,
+              "completion_tokens": 29,
+              "total_tokens": 1393,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:25.493Z",
+            "durationMs": 1591
+          },
+          "review": [
+            "operational_error",
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro. Siento que siga sin funcionar. Tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-human",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-human-varied",
+          "input": {
+            "id": "a-human-varied",
+            "kind": "human-varied",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Prefiero hablar con alguien del hotel, por favor.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-human-varied",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-human-varied",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-human-varied",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Hemos recibido su preferencia de hablar con alguien del hotel."
+            },
+            "usage": {
+              "prompt_tokens": 1356,
+              "completion_tokens": 17,
+              "total_tokens": 1373,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:25.641Z",
+            "durationMs": 1731
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-human-varied",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-receipt",
+          "input": {
+            "id": "a-receipt",
+            "kind": "receipt",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "¿Tenéis la petición de las toallas?",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-receipt",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "housekeeping",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\n¿Tenéis la petición de las toallas?",
+                "request_context": {
+                  "request_key": "towels",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-receipt",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "housekeeping",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\n¿Tenéis la petición de las toallas?",
+                  "request_context": {
+                    "request_key": "towels",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "Necesitamos dos toallas."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-receipt",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Sí, tenemos la petición de dos toallas."
+            },
+            "usage": {
+              "prompt_tokens": 1358,
+              "completion_tokens": 14,
+              "total_tokens": 1372,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:26.468Z",
+            "durationMs": 967
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "reply": "Sí, tenemos la petición de dos toallas.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-receipt",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-progress",
+          "input": {
+            "id": "a-progress",
+            "kind": "progress",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "¿Hay alguna novedad de las toallas?",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-progress",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "housekeeping",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\n¿Hay alguna novedad de las toallas?",
+                "request_context": {
+                  "request_key": "towels",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-progress",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "housekeeping",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\n¿Hay alguna novedad de las toallas?",
+                  "request_context": {
+                    "request_key": "towels",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "Necesitamos dos toallas."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-progress",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Tenemos la petición para las toallas, pero no hay novedades registradas por el momento."
+            },
+            "usage": {
+              "prompt_tokens": 1356,
+              "completion_tokens": 22,
+              "total_tokens": 1378,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:27.242Z",
+            "durationMs": 773
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "La tenemos, pero todavía no consta ninguna novedad.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-progress",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-clarification",
+          "input": {
+            "id": "a-clarification",
+            "kind": "clarification",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Las dos son de baño.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-clarification",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "housekeeping",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nLas dos son de baño.",
+                "request_context": {
+                  "request_key": "towels",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-clarification",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "housekeeping",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nLas dos son de baño.",
+                  "request_context": {
+                    "request_key": "towels",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "Necesitamos dos toallas."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-clarification",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Hemos anotado que las dos toallas solicitadas son de baño."
+            },
+            "usage": {
+              "prompt_tokens": 1347,
+              "completion_tokens": 19,
+              "total_tokens": 1366,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:27.599Z",
+            "durationMs": 1958
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "reply": "Hemos anotado que las dos toallas solicitadas son de baño.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-clarification",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-done",
+          "input": {
+            "id": "a-done",
+            "kind": "done",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "¿Ya están las toallas?",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-done",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "completed",
+                "category": "housekeeping",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\n¿Ya están las toallas?",
+                "request_context": {
+                  "request_key": "towels",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-done",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "completed",
+                  "category": "housekeeping",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\n¿Ya están las toallas?",
+                  "request_context": {
+                    "request_key": "towels",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "Necesitamos dos toallas."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-done",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Las toallas solicitadas ya han sido entregadas."
+            },
+            "usage": {
+              "prompt_tokens": 1351,
+              "completion_tokens": 15,
+              "total_tokens": 1366,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:28.186Z",
+            "durationMs": 944
+          },
+          "review": [
+            "operational_error"
+          ],
+          "final": {
+            "reply": "Hemos completado esta petición.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-done",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-unresolved",
+          "input": {
+            "id": "a-unresolved",
+            "kind": "unresolved",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "El wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-unresolved",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "completed",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nEl wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-unresolved",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "completed",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nEl wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-unresolved",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "El wifi sigue sin funcionar y estamos al tanto de la situación."
+            },
+            "usage": {
+              "prompt_tokens": 1346,
+              "completion_tokens": 17,
+              "total_tokens": 1363,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:28.272Z",
+            "durationMs": 673
+          },
+          "review": [
+            "operational_error"
+          ],
+          "final": {
+            "reply": "Siento que siga sin funcionar. La petición anterior figura hecha, pero tu nuevo mensaje necesita revisión.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-unresolved",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-information",
+          "input": {
+            "id": "a-information",
+            "kind": "information",
+            "input": {
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "¿A qué hora desayunamos y está incluido?",
+              "hotelKnowledge": [
+                {
+                  "hotel_id": "synthetic-hotel-a",
+                  "key": "breakfast",
+                  "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                },
+                {
+                  "hotel_id": "synthetic-hotel-a",
+                  "key": "cot",
+                  "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                }
+              ],
+              "conversationContext": {
+                "language": "es",
+                "knownRoom": "A-304",
+                "guestMemory": [],
+                "recentMessages": [],
+                "serviceCapabilities": {
+                  "requestRecording": true
+                },
+                "referenceTime": "2026-10-08T12:00:00Z"
+              }
+            }
+          },
+          "raw": {
+            "id": "a-information",
+            "path": "primary",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "intent": "hotel_info",
+              "confidence": 1,
+              "reply": "El desayuno está incluido en su reserva y se sirve de 07:00 a 09:30.",
+              "create_ticket": false,
+              "ticket": {
+                "category": null,
+                "title": null,
+                "description": null,
+                "priority": null
+              },
+              "escalate_to_human": false,
+              "emergency": false,
+              "upsell_opportunity": false
+            },
+            "usage": {
+              "prompt_tokens": 3764,
+              "completion_tokens": 77,
+              "total_tokens": 3841,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:29.283Z",
+            "durationMs": 1097
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "intent": "hotel_info",
+            "confidence": 1,
+            "reply": "El desayuno está incluido en su reserva y se sirve de 07:00 a 09:30.",
+            "create_ticket": false,
+            "ticket": {
+              "category": null,
+              "title": null,
+              "description": null,
+              "priority": null
+            },
+            "escalate_to_human": false,
+            "emergency": false,
+            "upsell_opportunity": false,
+            "ai_provider": "openai",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "not_requested",
+              "ticket_id": null,
+              "source_message_id": null,
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-human",
+          "input": {
+            "id": "b-human",
+            "kind": "human",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Quiero que me atienda una persona; el wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-human",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-human",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-human",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Hemos recibido su solicitud para ser atendido por una persona respecto al problema con el wifi."
+            },
+            "usage": {
+              "prompt_tokens": 1364,
+              "completion_tokens": 23,
+              "total_tokens": 1387,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:29.406Z",
+            "durationMs": 1133
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro. Siento que siga sin funcionar. Tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-human",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-human-varied",
+          "input": {
+            "id": "b-human-varied",
+            "kind": "human-varied",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Prefiero hablar con alguien del hotel, por favor.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-human-varied",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-human-varied",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-human-varied",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Hemos registrado su preferencia para hablar con alguien del hotel."
+            },
+            "usage": {
+              "prompt_tokens": 1356,
+              "completion_tokens": 17,
+              "total_tokens": 1373,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:29.992Z",
+            "durationMs": 709
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-human-varied",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-receipt",
+          "input": {
+            "id": "b-receipt",
+            "kind": "receipt",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "¿Tenéis la petición de las toallas?",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-receipt",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "housekeeping",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\n¿Tenéis la petición de las toallas?",
+                "request_context": {
+                  "request_key": "towels",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-receipt",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "housekeeping",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\n¿Tenéis la petición de las toallas?",
+                  "request_context": {
+                    "request_key": "towels",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "Necesitamos dos toallas."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-receipt",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Sí, tenemos la petición de las toallas."
+            },
+            "usage": {
+              "prompt_tokens": 1358,
+              "completion_tokens": 14,
+              "total_tokens": 1372,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:30.389Z",
+            "durationMs": 983
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "reply": "Sí, tenemos la petición de las toallas.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-receipt",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-clarification",
+          "input": {
+            "id": "b-clarification",
+            "kind": "clarification",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Las dos son de baño.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-clarification",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "housekeeping",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nLas dos son de baño.",
+                "request_context": {
+                  "request_key": "towels",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-clarification",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "housekeeping",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nLas dos son de baño.",
+                  "request_context": {
+                    "request_key": "towels",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "Necesitamos dos toallas."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-clarification",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Hemos anotado que las dos toallas solicitadas son de baño."
+            },
+            "usage": {
+              "prompt_tokens": 1347,
+              "completion_tokens": 19,
+              "total_tokens": 1366,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:30.724Z",
+            "durationMs": 731
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "reply": "Hemos anotado que las dos toallas solicitadas son de baño.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-clarification",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-progress",
+          "input": {
+            "id": "b-progress",
+            "kind": "progress",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "¿Hay alguna novedad de las toallas?",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-progress",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "housekeeping",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\n¿Hay alguna novedad de las toallas?",
+                "request_context": {
+                  "request_key": "towels",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-progress",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "housekeeping",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\n¿Hay alguna novedad de las toallas?",
+                  "request_context": {
+                    "request_key": "towels",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "Necesitamos dos toallas."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-progress",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Tenemos la petición de las toallas, pero no hay ninguna novedad registrada hasta ahora."
+            },
+            "usage": {
+              "prompt_tokens": 1356,
+              "completion_tokens": 22,
+              "total_tokens": 1378,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:31.085Z",
+            "durationMs": 696
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "La tenemos, pero todavía no consta ninguna novedad.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-progress",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-done",
+          "input": {
+            "id": "b-done",
+            "kind": "done",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "¿Ya están las toallas?",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-done",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "completed",
+                "category": "housekeeping",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\n¿Ya están las toallas?",
+                "request_context": {
+                  "request_key": "towels",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-done",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "completed",
+                  "category": "housekeeping",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\n¿Ya están las toallas?",
+                  "request_context": {
+                    "request_key": "towels",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "Necesitamos dos toallas."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-done",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Las toallas ya han sido entregadas."
+            },
+            "usage": {
+              "prompt_tokens": 1351,
+              "completion_tokens": 13,
+              "total_tokens": 1364,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:31.293Z",
+            "durationMs": 568
+          },
+          "review": [
+            "operational_error"
+          ],
+          "final": {
+            "reply": "Hemos completado esta petición.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-done",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-unresolved",
+          "input": {
+            "id": "b-unresolved",
+            "kind": "unresolved",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "El wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-unresolved",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "completed",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nEl wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-unresolved",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "completed",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nEl wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-unresolved",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Tenemos la petición registrada y no hay nuevas actualizaciones sobre el estado del wifi."
+            },
+            "usage": {
+              "prompt_tokens": 1346,
+              "completion_tokens": 20,
+              "total_tokens": 1366,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:31.783Z",
+            "durationMs": 698
+          },
+          "review": [
+            "operational_error",
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Siento que siga sin funcionar. La petición anterior figura hecha, pero tu nuevo mensaje necesita revisión.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-unresolved",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-information",
+          "input": {
+            "id": "b-information",
+            "kind": "information",
+            "input": {
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "¿A qué hora desayunamos y está incluido?",
+              "hotelKnowledge": [
+                {
+                  "hotel_id": "synthetic-hotel-b",
+                  "key": "breakfast",
+                  "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                },
+                {
+                  "hotel_id": "synthetic-hotel-b",
+                  "key": "cot",
+                  "value": "No ofrecemos cunas."
+                }
+              ],
+              "conversationContext": {
+                "language": "es",
+                "knownRoom": "B-812",
+                "guestMemory": [],
+                "recentMessages": [],
+                "serviceCapabilities": {
+                  "requestRecording": true
+                },
+                "referenceTime": "2026-10-08T12:00:00Z"
+              }
+            }
+          },
+          "raw": {
+            "id": "b-information",
+            "path": "primary",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "intent": "hotel_info",
+              "confidence": 0.98,
+              "reply": "El desayuno se sirve de 08:30 a 11:00 y tiene un costo de 14 EUR por persona, no está incluido automáticamente.",
+              "create_ticket": false,
+              "ticket": {
+                "category": null,
+                "title": null,
+                "description": null,
+                "priority": null
+              },
+              "escalate_to_human": false,
+              "emergency": false,
+              "upsell_opportunity": false
+            },
+            "usage": {
+              "prompt_tokens": 3756,
+              "completion_tokens": 88,
+              "total_tokens": 3844,
+              "prompt_tokens_details": {
+                "cached_tokens": 1920,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:52:32.595Z",
+            "durationMs": 1301
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "intent": "hotel_info",
+            "confidence": 0.98,
+            "reply": "El desayuno se sirve de 08:30 a 11:00 y tiene un costo de 14 EUR por persona, no está incluido automáticamente.",
+            "create_ticket": false,
+            "ticket": {
+              "category": null,
+              "title": null,
+              "description": null,
+              "priority": null
+            },
+            "escalate_to_human": false,
+            "emergency": false,
+            "upsell_opportunity": false,
+            "ai_provider": "openai",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "not_requested",
+              "ticket_id": null,
+              "source_message_id": null,
+              "notification_confirmed": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "evaluation-v2-outputs.json",
+      "rows": [
+        {
+          "id": "a-human-varied",
+          "input": {
+            "id": "a-human-varied",
+            "kind": "human-varied",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Prefiero hablar con alguien del hotel, por favor.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-human-varied",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-human-varied",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-human-varied",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, entendemos que prefieres hablar con alguien. Estamos aquí para ayudarte."
+            },
+            "usage": {
+              "prompt_tokens": 507,
+              "completion_tokens": 20,
+              "total_tokens": 527,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:55:54.936Z",
+            "durationMs": 757
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-human-varied",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-human",
+          "input": {
+            "id": "b-human",
+            "kind": "human",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Quiero que me atienda una persona; el wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-human",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-human",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-human",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Entendido, vamos a hacer que alguien te atienda pronto."
+            },
+            "usage": {
+              "prompt_tokens": 515,
+              "completion_tokens": 17,
+              "total_tokens": 532,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:55:55.980Z",
+            "durationMs": 1043
+          },
+          "review": [
+            "operational_error"
+          ],
+          "final": {
+            "reply": "Claro. Siento que siga sin funcionar. Tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-human",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-human",
+          "input": {
+            "id": "a-human",
+            "kind": "human",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Quiero que me atienda una persona; el wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-human",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-human",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-human",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Entiendo que quieres hablar con alguien directamente, vamos a asegurarnos de que te atiendan pronto."
+            },
+            "usage": {
+              "prompt_tokens": 515,
+              "completion_tokens": 24,
+              "total_tokens": 539,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:55:56.233Z",
+            "durationMs": 2054
+          },
+          "review": [
+            "operational_error"
+          ],
+          "final": {
+            "reply": "Claro. Siento que siga sin funcionar. Tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-human",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-human-varied",
+          "input": {
+            "id": "b-human-varied",
+            "kind": "human-varied",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Prefiero hablar con alguien del hotel, por favor.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-human-varied",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-human-varied",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-human-varied",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, entendemos que quieres hablar con alguien del hotel y estamos aquí para ayudarte."
+            },
+            "usage": {
+              "prompt_tokens": 507,
+              "completion_tokens": 21,
+              "total_tokens": 528,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T13:55:56.707Z",
+            "durationMs": 726
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": false,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-human-varied",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "evaluation-v3-outputs.json",
+      "rows": [
+        {
+          "id": "a-human",
+          "input": {
+            "id": "a-human",
+            "kind": "human",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Quiero que me atienda una persona; el wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-human",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-human",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-human",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, tenemos tu petición de hablar con una persona."
+            },
+            "usage": {
+              "prompt_tokens": 621,
+              "completion_tokens": 15,
+              "total_tokens": 636,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T14:05:29.097Z",
+            "durationMs": 931
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-human",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-human-varied",
+          "input": {
+            "id": "a-human-varied",
+            "kind": "human-varied",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Prefiero hablar con alguien del hotel, por favor.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-human-varied",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-human-varied",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-human-varied",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, tenemos tu petición de hablar con una persona."
+            },
+            "usage": {
+              "prompt_tokens": 613,
+              "completion_tokens": 15,
+              "total_tokens": 628,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T14:05:29.112Z",
+            "durationMs": 946
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-human-varied",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-human-varied",
+          "input": {
+            "id": "b-human-varied",
+            "kind": "human-varied",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Prefiero hablar con alguien del hotel, por favor.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-human-varied",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-human-varied",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-human-varied",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, tenemos tu petición de hablar con una persona."
+            },
+            "usage": {
+              "prompt_tokens": 613,
+              "completion_tokens": 15,
+              "total_tokens": 628,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T14:05:29.811Z",
+            "durationMs": 699
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-human-varied",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-human",
+          "input": {
+            "id": "b-human",
+            "kind": "human",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Quiero que me atienda una persona; el wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-human",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-human",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-human",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, tenemos tu petición de hablar con una persona."
+            },
+            "usage": {
+              "prompt_tokens": 621,
+              "completion_tokens": 15,
+              "total_tokens": 636,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T14:05:30.106Z",
+            "durationMs": 1009
+          },
+          "review": [
+            "tone_or_repetition"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-human",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "evaluation-v4-outputs.json",
+      "rows": [
+        {
+          "id": "a-human-varied",
+          "input": {
+            "id": "a-human-varied",
+            "kind": "human-varied",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Prefiero hablar con alguien del hotel, por favor.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-human-varied",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-human-varied",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-human-varied",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, tenemos tu petición de hablar con una persona."
+            },
+            "usage": {
+              "prompt_tokens": 644,
+              "completion_tokens": 15,
+              "total_tokens": 659,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T14:07:28.653Z",
+            "durationMs": 946
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-human-varied",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "a-human",
+          "input": {
+            "id": "a-human",
+            "kind": "human",
+            "args": {
+              "hotelId": "synthetic-hotel-a",
+              "guestId": "synthetic-guest-a",
+              "conversationId": "synthetic-conversation-a",
+              "hotel": {
+                "id": "synthetic-hotel-a",
+                "name": "Synthetic Hotel A",
+                "default_language": "es",
+                "ai_tone": "cercano"
+              },
+              "guest": {
+                "id": "synthetic-guest-a",
+                "hotel_id": "synthetic-hotel-a",
+                "current_room": "A-304"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-a",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a"
+              },
+              "message": "Quiero que me atienda una persona; el wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-a-human",
+                "hotel_id": "synthetic-hotel-a",
+                "guest_id": "synthetic-guest-a",
+                "conversation_id": "synthetic-conversation-a",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "A-304",
+                "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-a-human",
+                  "hotel_id": "synthetic-hotel-a",
+                  "guest_id": "synthetic-guest-a",
+                  "conversation_id": "synthetic-conversation-a",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "A-304",
+                  "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "breakfast",
+                    "value": "Desayuno de 07:00–09:30. Incluido en esta reserva."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "key": "cot",
+                    "value": "Cunas sujetas a disponibilidad; solicitar no confirma."
+                  }
+                ],
+                "knownRoom": "A-304",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-a",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "a-human",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, tenemos tu petición de hablar con una persona. Entendemos lo frustrante que es que el wifi siga sin funcionar."
+            },
+            "usage": {
+              "prompt_tokens": 652,
+              "completion_tokens": 30,
+              "total_tokens": 682,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T14:07:28.747Z",
+            "durationMs": 1039
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona. Entendemos lo frustrante que es que el wifi siga sin funcionar.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-a-human",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-human",
+          "input": {
+            "id": "b-human",
+            "kind": "human",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Quiero que me atienda una persona; el wifi sigue sin funcionar.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-human",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-human",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nQuiero que me atienda una persona; el wifi sigue sin funcionar.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-human",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, entendemos que el wifi siga sin funcionar y tenemos tu petición de hablar con una persona."
+            },
+            "usage": {
+              "prompt_tokens": 652,
+              "completion_tokens": 24,
+              "total_tokens": 676,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T14:07:29.460Z",
+            "durationMs": 806
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "reply": "Claro, entendemos que el wifi siga sin funcionar y tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-human",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        },
+        {
+          "id": "b-human-varied",
+          "input": {
+            "id": "b-human-varied",
+            "kind": "human-varied",
+            "args": {
+              "hotelId": "synthetic-hotel-b",
+              "guestId": "synthetic-guest-b",
+              "conversationId": "synthetic-conversation-b",
+              "hotel": {
+                "id": "synthetic-hotel-b",
+                "name": "Synthetic Hotel B",
+                "default_language": "es",
+                "ai_tone": "cordial"
+              },
+              "guest": {
+                "id": "synthetic-guest-b",
+                "hotel_id": "synthetic-hotel-b",
+                "current_room": "B-812"
+              },
+              "conversation": {
+                "id": "synthetic-conversation-b",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b"
+              },
+              "message": "Prefiero hablar con alguien del hotel, por favor.",
+              "language": "es",
+              "ticket": {
+                "id": "synthetic-ticket-b-human-varied",
+                "hotel_id": "synthetic-hotel-b",
+                "guest_id": "synthetic-guest-b",
+                "conversation_id": "synthetic-conversation-b",
+                "status": "open",
+                "category": "reception",
+                "priority": "normal",
+                "room_number": "B-812",
+                "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                "request_context": {
+                  "request_key": "wifi_support",
+                  "last_source_message_id": "synthetic-source",
+                  "operational_context": {
+                    "phase": "stay"
+                  }
+                }
+              },
+              "operationalRequest": {
+                "status": "recorded",
+                "ticket": {
+                  "id": "synthetic-ticket-b-human-varied",
+                  "hotel_id": "synthetic-hotel-b",
+                  "guest_id": "synthetic-guest-b",
+                  "conversation_id": "synthetic-conversation-b",
+                  "status": "open",
+                  "category": "reception",
+                  "priority": "normal",
+                  "room_number": "B-812",
+                  "description": "Petición anterior del huésped.\nPrefiero hablar con alguien del hotel, por favor.",
+                  "request_context": {
+                    "request_key": "wifi_support",
+                    "last_source_message_id": "synthetic-source",
+                    "operational_context": {
+                      "phase": "stay"
+                    }
+                  }
+                },
+                "sourceMessageId": "synthetic-source"
+              },
+              "context": {
+                "hotelKnowledge": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "breakfast",
+                    "value": "Desayuno de 08:30–11:00. Cuesta 14 EUR por persona."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "key": "cot",
+                    "value": "No ofrecemos cunas."
+                  }
+                ],
+                "knownRoom": "B-812",
+                "recentMessages": [
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "guest",
+                    "content": "No funciona el wifi."
+                  },
+                  {
+                    "hotel_id": "synthetic-hotel-b",
+                    "sender_type": "ai",
+                    "content": "Tenemos tu petición."
+                  }
+                ]
+              }
+            }
+          },
+          "raw": {
+            "id": "b-human-varied",
+            "path": "receipt",
+            "model": "gpt-4.1-mini-2025-04-14",
+            "provider": "openai",
+            "output": {
+              "reply": "Claro, tenemos tu petición de hablar con una persona."
+            },
+            "usage": {
+              "prompt_tokens": 644,
+              "completion_tokens": 15,
+              "total_tokens": 659,
+              "prompt_tokens_details": {
+                "cached_tokens": 0,
+                "audio_tokens": 0
+              },
+              "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "audio_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0
+              }
+            },
+            "generatedAt": "2026-10-08T14:07:29.697Z",
+            "durationMs": 950
+          },
+          "review": [
+            "satisfactory"
+          ],
+          "final": {
+            "reply": "Claro, tenemos tu petición de hablar con una persona.",
+            "service_quality": {
+              "version": 3,
+              "receipt_generation": true,
+              "request_status": "recorded",
+              "ticket_id": "synthetic-ticket-b-human-varied",
+              "source_message_id": "synthetic-source",
+              "notification_confirmed": false
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

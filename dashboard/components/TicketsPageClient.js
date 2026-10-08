@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import {isCheckinDemoHotel} from '../../shared/checkin-demo-view.js';
 import {DashboardReturnLink} from './DashboardReturnLink';
 import { AlertCircle, BrainCircuit, ShieldAlert, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
@@ -33,6 +34,10 @@ export const TicketsPageClient = () => {
         })}
       </div>
     </div>
+    {isCheckinDemoHotel(data?.hotel)?<label className="flex flex-wrap items-center gap-2 text-sm">{tx('Ámbito de tickets de demo')}
+      <select className={surface+' rounded border p-2'} value={list.params.get('demoScope')||'current'} onChange={e=>list.change({demoScope:e.target.value})}>
+        <option value="current">{tx('Demo actual y procedencia por revisar')}</option><option value="history">{tx('Históricos acreditados')}</option><option value="review">{tx('Procedencia por revisar')}</option><option value="all">{tx('Todos')}</option>
+      </select></label>:null}
     <div className={`space-y-2 rounded-xl border p-3 ${surface}`}>
     <OperationalMetricSummary compact metrics={metrics} kind="tickets" href={list.href} loading={loading} error={error} />
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end">

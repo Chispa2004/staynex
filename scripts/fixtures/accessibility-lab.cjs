@@ -14,5 +14,6 @@ import {HotelWorkspaceSwitcher} from '@/components/HotelWorkspaceSwitcher';
 import {useDashboardTheme} from '@/lib/theme/useDashboardTheme';
 const hotels=[{hotel:{id:'00000000-0000-4000-8000-000000000001',name:'Hotel prueba A'},role:'admin'},{hotel:{id:'00000000-0000-4000-8000-000000000002',name:'Hotel prueba B'},role:'reception'}];
 export default function Page(){const [open,setOpen]=useState(false),[current,setCurrent]=useState(hotels[0].hotel),{theme}=useDashboardTheme();return <section><h1 tabIndex={-1} data-lifecycle-focus>Confirmación sintética</h1><button onClick={()=>setOpen(true)}>Archivar hotel sintético</button>{open?<HotelLifecycleDialog hotel={{id:'00000000-0000-4000-8000-000000000001',name:'Hotel sintético'}} isLight={theme==='light'} onClose={()=>setOpen(false)} onSaved={()=>setOpen(false)}/>:null}<HotelWorkspaceSwitcher currentHotel={current} availableHotels={hotels} activeRole="admin" canSwitchWorkspaces canCreateWorkspaces onSwitch={id=>setCurrent(hotels.find(x=>x.hotel.id===id).hotel)} actorId="synthetic-only"/><button>Después del selector</button></section>}`);
+  require('./attention-lifecycle-lab.cjs').prepare(d);
   return d;
 };

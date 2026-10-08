@@ -38,7 +38,7 @@ const context={user:{id:user},hotel:{id:hotel},role:'receptionist',platformRole:
 const request=()=>new Request('http://local/api/inbox/attention',{method:'POST',body:JSON.stringify({action:'read',conversationId:conversation,messageIds:[message]})});
 let writes=0;
 for(const extra of [{},{role:'admin',hotelUser:{...context.hotelUser,role:'admin'}},{platformRole:'support'}]) {
-  const ctx={...context,...extra,supabase:{rpc:async(name,args)=>{assert.equal(name,'staynex_attention_read_v1');assert.equal(args.p_hotel,hotel);return {data:snapshot};}}};
+  const ctx={...context,...extra,supabase:{rpc:async(name,args)=>{if(name==='staynex_attention_ticket_groups_v1')return {data:[]};assert.equal(name,'staynex_attention_read_v1');assert.equal(args.p_hotel,hotel);return {data:snapshot};}}};
   const read=await handleAttentionRequest({request:request(),getContext:async()=>ctx});assert.equal(read.status,200);assert.equal(read.body.canManage,extra.platformRole!=='support');
 }
 for(const [ctx,status] of [[{...context,user:null},401],[{...context,role:'housekeeping'},403]]) {

@@ -124,7 +124,10 @@
     "test:dashboard-pending-browser": "node scripts/pending-tickets-lab.cjs build && playwright test --config scripts/pending-tickets-browser.config.js",
     "test:dashboard-demo-scope": "node scripts/test-dashboard-demo-scope.js",
     "test:dashboard-demo-browser": "node scripts/dashboard-demo-lab.cjs build && playwright test --config scripts/dashboard-demo-browser.config.js",
-    "test:guest-service-receipts": "node scripts/test-guest-service-receipts.js"
+    "test:guest-service-receipts": "node scripts/test-guest-service-receipts.js",
+    "test:attention-lifecycle-postgres": "node scripts/test-attention-lifecycle-postgres.js",
+    "test:attention-lifecycle": "node scripts/test-attention-lifecycle.js",
+    "test:attention-lifecycle-browser": "playwright test --config scripts/attention-lifecycle-browser.config.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

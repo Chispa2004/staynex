@@ -1,4 +1,4 @@
-import { generateReceiptReply, RECEIPT_REPLY_POLICY, receiptReplySchema } from '../../shared/guest-service/receipt-reply.js';
+import { generateReceiptReply, receiptReplyPolicy, receiptReplySchema } from '../../shared/guest-service/receipt-reply.js';
 import { guestFacingKnowledge } from '../../shared/guest-service/arrival-booking.js';
 import { applyServiceCapabilities } from '../../shared/guest-service/quality.js';
 import OpenAI from 'openai';
@@ -251,7 +251,7 @@ export const composeRecordedGuestReply = async args => {
   return generateReceiptReply({...args,knowledge:guestFacingKnowledge(args.context?.hotelKnowledge || [],args.hotelId),
     reservation:null},async payload=>{
     const completion=await getOpenAiClient().chat.completions.create({model:getOpenAiModel(),
-      messages:[{role:'system',content:RECEIPT_REPLY_POLICY},{role:'user',content:JSON.stringify(payload)}],
+      messages:[{role:'system',content:receiptReplyPolicy(payload)},{role:'user',content:JSON.stringify(payload)}],
       response_format:{type:'json_schema',json_schema:{name:'staynex_recorded_reply',strict:true,schema:receiptReplySchema}}});
     return JSON.parse(completion.choices[0]?.message?.content || '{}');
   });

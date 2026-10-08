@@ -1,4 +1,6 @@
 'use client';
+import {CHECKIN_DEMO_HOTEL_ID} from '../../shared/checkin-demo-view.js';
+import {mergeTicketVersion} from '../../shared/attention-lifecycle.js';
 
 import Link from 'next/link';
 import {DashboardReturnLink} from './DashboardReturnLink';
@@ -113,7 +115,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
   const {tx}=useDashboardLanguage();
   const [ticket, setTicket] = useState(initialTicket);
   const [messages, setMessages] = useState(initialMessages);
-  const mutation=useTicketStatusMutation({hotelId:initialTicket.hotel_id,onConfirmed:updated=>setTicket(current=>({...current,...updated}))});
+  const mutation=useTicketStatusMutation({hotelId:initialTicket.hotel_id,onConfirmed:updated=>setTicket(current=>mergeTicketVersion(current,updated))});
   const realtimeEnabled = useMemo(() => Boolean(getSupabaseBrowser()), []);
 
   useEffect(() => {
@@ -135,7 +137,7 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
           filter: `id=eq.${initialTicket.id}`
         },
         (payload) => {
-          setTicket((current) => ({ ...current, ...payload.new }));
+          setTicket(current => mergeTicketVersion(current,payload.new));
         }
       )
       .subscribe();
@@ -205,6 +207,9 @@ export const TicketDetail = ({ initialTicket, initialMessages }) => {
             </p>
           </div>
 
+          <p className="text-sm">{tx(ticket.status==='completed'?'Actuación hecha. Revisa la comunicación al huésped en Inbox; este estado no acredita ningún envío.':'Actuación pendiente. Registrar la petición no significa haberla realizado.')}</p>
+          <Link className="text-sm underline" href={'/dashboard/inbox?conversationId='+ticket.conversation_id}>{tx('Revisar atención en Inbox')}</Link>
+          {ticket.hotel_id===CHECKIN_DEMO_HOTEL_ID?<p className="text-sm font-semibold">{tx('Demostración simulada: no acredita actuaciones ni envíos reales.')}</p>:null}
           <TicketStatusActions ticket={ticket} pending={mutation.pending[ticket.id]} error={mutation.errors[ticket.id]} onChange={status=>mutation.change(ticket,status)}/>
         </div>
 

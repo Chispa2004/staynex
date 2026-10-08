@@ -1,4 +1,5 @@
 'use client';
+import {mergeTicketVersion} from '../../shared/attention-lifecycle.js';
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useRouter} from 'next/navigation';
@@ -62,9 +63,9 @@ const getTicketRowClass = (ticket) => {
 export const TicketsTable=({tickets,compact=false,hotelId=null,onUpdated=null})=>{
   const router=useRouter(),{t,tx}=useDashboardLanguage();
   const [items,setItems]=useState(()=>sortByNewest(tickets));
-  useEffect(()=>{setItems(sortByNewest(tickets));},[tickets]);
+  useEffect(()=>{setItems(current=>sortByNewest(tickets.map(next=>{const previous=current.find(item=>item.id===next.id && item.hotel_id===next.hotel_id);return previous?mergeTicketVersion(previous,next):next;})));},[tickets]);
   const mutation=useTicketStatusMutation({hotelId,onConfirmed:ticket=>{
-    setItems(current=>current.map(item=>item.id===ticket.id?{...item,...ticket}:item));
+    setItems(current=>current.map(item=>item.id===ticket.id?mergeTicketVersion(item,ticket):item));
     onUpdated?.();
   }});
   const href=ticket=>`/dashboard/tickets/${ticket.id}${hotelId?`?hotelId=${encodeURIComponent(hotelId)}`:''}`;
@@ -76,7 +77,7 @@ export const TicketsTable=({tickets,compact=false,hotelId=null,onUpdated=null})=
     <div className={styles.mobile}>
       {items.map(ticket=><article key={ticket.id} className={styles.card} onClick={()=>router.push(href(ticket))}>
         {problem(ticket)}
-        <div className={styles.meta}><TicketCategoryIcon category={ticket.category}/><span>{tx(formatText(ticket.category,t('tickets.noData'),categoryLabels))}</span><PriorityBadge priority={ticket.priority}/><TicketStatusBadge status={ticket.status}/></div>
+        <div className={styles.meta}><TicketCategoryIcon category={ticket.category}/><span>{tx(formatText(ticket.category,t('tickets.noData'),categoryLabels))}</span><PriorityBadge priority={ticket.priority}/><TicketStatusBadge status={ticket.status}/>{ticket.demoProvenance==='review'?<span>{tx('Procedencia por revisar')}</span>:null}</div>
         <div className={styles.date}><span>{formatDate(ticket.created_at)}</span><TicketAgeLabel createdAt={ticket.created_at} urgent={isUrgentTicket(ticket)}/></div>
         {actions(ticket)}
       </article>)}
@@ -89,7 +90,7 @@ export const TicketsTable=({tickets,compact=false,hotelId=null,onUpdated=null})=
           <td>{problem(ticket)}</td>
           <td><div className={styles.category}><TicketCategoryIcon category={ticket.category}/><span>{tx(formatText(ticket.category,t('tickets.noData'),categoryLabels))}</span></div></td>
           <td><PriorityBadge priority={ticket.priority}/></td>
-          <td><TicketStatusBadge status={ticket.status}/></td>
+          <td><TicketStatusBadge status={ticket.status}/>{ticket.demoProvenance==='review'?<span>{tx('Procedencia por revisar')}</span>:null}</td>
           <td><div className={styles.date}><span>{formatDate(ticket.created_at)}</span><TicketAgeLabel createdAt={ticket.created_at} urgent={isUrgentTicket(ticket)}/></div></td>
           <td>{actions(ticket)}</td>
         </tr>)}</tbody>

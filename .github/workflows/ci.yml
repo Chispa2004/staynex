@@ -68,11 +68,14 @@ jobs:
         run: npm run test:dashboard-pending-browser
       - name: Dashboard initial loading and demo message scope regressions
         run: npm run test:dashboard-demo-browser
+      - name: Attention lifecycle confirmation and grouping regressions
+        run: npm run test:attention-lifecycle-browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: synthetic-theme-evidence
           path: |
+            .npm-cache/attention-lifecycle-browser-results
             .npm-cache/theme-browser-results
             .npm-cache/density-browser-results
             .npm-cache/accessibility-browser-results

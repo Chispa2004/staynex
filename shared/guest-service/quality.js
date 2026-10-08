@@ -1,4 +1,4 @@
-import { receiptFacts, safeReceiptReply } from './receipt-reply.js';
+import { receiptFacts, safeReceiptReply, receiptAnswersTurn } from './receipt-reply.js';
 import {ticketReplyPlan,detailIsPersisted,serviceTurn,requiresCurrentRoom} from './ticket-context.js';
 import { ARRIVAL_BOOKING_POLICY, arrivalBookingTopic, buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge, groundedArrivalReply } from './arrival-booking.js';
 export { buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge };
@@ -187,7 +187,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     const generated=receiptReply && receiptReply.ticketId===ticket.id && receiptReply.hotelId===hotelId
       && receiptReply.guestId===guestId && receiptReply.conversationId===conversationId
       && receiptReply.sourceMessageId===operationalRequest?.sourceMessageId && receiptReply.status===facts?.status
-      && safeReceiptReply(receiptReply.reply,facts,language);
+      && safeReceiptReply(receiptReply.reply,facts,language) && (!(plan?.turn?.human || plan?.turn?.unresolved) || receiptAnswersTurn(receiptReply.reply,facts,plan.turn));
     usedReceiptGeneration=Boolean(generated);
     if(generated)reply=receiptReply.reply.split(/(?<=[.!?])\s+/u).filter(sentence=>!sentence.includes('?') && !/^(?:por favor[, :]*)?(?:ind[ií]qu|confirme|facilite|provide\b|please (?:tell|confirm))/i.test(sentence.trim())
       || missingServiceQuestion(sentence.includes('?')?sentence:sentence+'?',{knownRoom,...context,message,requestRecorded:true,requestKey:operationalRequest?.request?.key})).join(' ');

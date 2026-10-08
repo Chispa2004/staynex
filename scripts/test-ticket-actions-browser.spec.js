@@ -37,7 +37,7 @@ for(const width of [1920,1366,390])for(const theme of ['light','dark'])test(`tic
 test('ticket save: three transitions, pending lock, confirmed state, visible failure, recovery and no row navigation',async({page})=>{
   await page.setViewportSize({width:1366,height:1080});
   const states=new Map();let tickets=[];
-  await page.route('**/api/tickets?*',async r=>{const response=await r.fetch(),body=await response.json();body.tickets=body.tickets.map(t=>({...t,...states.get(t.id)}));tickets=body.tickets;await r.fulfill({response,json:body});});
+  await page.route('**/api/tickets?*',async r=>{const response=await r.fetch(),body=await response.json();body.tickets=body.tickets.map(t=>({...t,status_version:1,...states.get(t.id)}));tickets=body.tickets;await r.fulfill({response,json:body});});
   await ready(page);const row=page.locator('tbody tr').first();let calls=0,hold;
   await page.route('**/api/tickets/*/status',r=>{calls++;hold=r;});
   await row.getByRole('button',{name:'En curso',exact:true}).press('Enter');
@@ -50,7 +50,8 @@ test('ticket save: three transitions, pending lock, confirmed state, visible fai
   await expect(row.locator('span[data-ticket-status]')).toHaveText('Abierto');
   for(const [value,label] of [['in_progress','En curso'],['completed','Hecho'],['open','Abierto']]){
     await row.getByRole('button',{name:label,exact:true}).press('Enter');await expect(row.getByRole('status')).toBeVisible();
-    const ticket={...tickets[0],status:value};expect(hold.request().postDataJSON()).toEqual({status:value});
+    const previous=states.get(tickets[0].id)||tickets[0],ticket={...previous,status:value,status_version:previous.status_version+1};
+    expect(hold.request().postDataJSON()).toEqual({status:value,expectedStatus:previous.status,expectedVersion:previous.status_version,hotelId:previous.hotel_id,operationId:expect.stringMatching(/^[0-9a-f-]{36}$/i)});
     states.set(ticket.id,ticket);await hold.fulfill({json:{ticket}});
     await expect(row.getByRole('button',{name:label+' · Estado actual',exact:true})).toBeDisabled();
     await expect(row.locator('span[data-ticket-status]')).toHaveText(label);
@@ -60,7 +61,7 @@ test('ticket save: three transitions, pending lock, confirmed state, visible fai
   await hold.fulfill({status:403,json:{error:'Access denied'}});await expect(row.getByRole('alert')).toContainText('No tienes permiso');
   await expect(row.locator('span[data-ticket-status]')).toHaveText('Abierto');
   await row.getByRole('button',{name:'Hecho',exact:true}).press('Enter');await expect(row.getByRole('status')).toBeVisible();
-  await hold.fulfill({json:{ticket:{...tickets[0],hotel_id:'00000000-0000-4000-8000-000000000002',status:'completed'}}});
+  await hold.fulfill({json:{ticket:{...tickets[0],hotel_id:'00000000-0000-4000-8000-000000000002',status:'completed',status_version:tickets[0].status_version+1}}});
   await expect(row.getByRole('alert')).toContainText('No se pudo confirmar');await expect(row.locator('span[data-ticket-status]')).toHaveText('Abierto');
 });
 
@@ -78,12 +79,12 @@ test('mobile failure retains state; distinct pending/closed/cancelled labels and
 test('independent rows keep their save locks when another request finishes',async({page})=>{
   await page.setViewportSize({width:1366,height:1080});
   let tickets=[];const states=new Map(),held=[];
-  await page.route('**/api/tickets?*',async r=>{const response=await r.fetch(),body=await response.json();body.tickets=body.tickets.map(t=>({...t,...states.get(t.id)}));tickets=body.tickets;await r.fulfill({response,json:body});});
+  await page.route('**/api/tickets?*',async r=>{const response=await r.fetch(),body=await response.json();body.tickets=body.tickets.map(t=>({...t,status_version:1,...states.get(t.id)}));tickets=body.tickets;await r.fulfill({response,json:body});});
   await page.route('**/api/tickets/*/status',r=>{held.push(r);});
   await ready(page);const first=page.locator('tbody tr').nth(0),second=page.locator('tbody tr').nth(1);
   await first.getByRole('button',{name:'En curso',exact:true}).click();await expect(first.getByRole('status')).toBeVisible();
   await second.getByRole('button',{name:'Hecho',exact:true}).click();await expect(second.getByRole('status')).toBeVisible();
-  const updated={...tickets[1],status:'completed'};states.set(updated.id,updated);await held[1].fulfill({json:{ticket:updated}});
+  const updated={...tickets[1],status:'completed',status_version:tickets[1].status_version+1};states.set(updated.id,updated);await held[1].fulfill({json:{ticket:updated}});
   await expect(second.getByRole('button',{name:'Hecho · Estado actual',exact:true})).toBeDisabled();
   await expect(first.getByRole('button',{name:'Hecho',exact:true})).toBeDisabled();
   await expect(first.getByRole('status')).toHaveText('Guardando estado…');expect(held).toHaveLength(2);

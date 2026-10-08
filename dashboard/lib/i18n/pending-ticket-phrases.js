@@ -1,4 +1,13 @@
 export const pendingTicketPhrases = [
+ ['Demostración simulada: no acredita actuaciones ni envíos reales.','Simulated demonstration: it does not confirm real actions or sends.','Démonstration simulée : ne confirme aucune action ni aucun envoi réel.','Simulierte Demonstration: bestätigt keine tatsächlichen Aktionen oder Sendungen.'],
+ ['Ámbito de tickets de demo','Demo ticket scope','Périmètre des tickets de démonstration','Umfang der Demo-Tickets'],
+ ['Demo actual y procedencia por revisar','Current demo and origin to review','Démo actuelle et origine à vérifier','Aktuelle Demo und zu prüfende Herkunft'],
+ ['Históricos acreditados','Verified history','Historique vérifié','Belegte Historie'],
+ ['Procedencia por revisar','Origin to review','Origine à vérifier','Herkunft zu prüfen'],
+ ['Ver tickets históricos de demo','View historical demo tickets','Voir les tickets historiques de démonstration','Historische Demo-Tickets anzeigen'],
+ ['Revisar atención en Inbox','Review attention in Inbox','Vérifier le suivi dans Inbox','Bearbeitung in Inbox prüfen'],
+ ['Actuación hecha. Revisa la comunicación al huésped en Inbox; este estado no acredita ningún envío.','Action complete. Review guest communication in Inbox; this status does not confirm a send.','Action terminée. Vérifiez la communication dans Inbox ; cet état ne confirme aucun envoi.','Aktion abgeschlossen. Gästekommunikation in Inbox prüfen; dieser Status bestätigt keinen Versand.'],
+ ['Actuación pendiente. Registrar la petición no significa haberla realizado.','Action pending. Recording the request does not mean it has been carried out.','Action en attente. Enregistrer la demande ne signifie pas l’avoir réalisée.','Aktion ausstehend. Die Erfassung bestätigt nicht die Ausführung.'],
  ['Tickets pendientes','Pending tickets','Tickets en attente','Offene Tickets'],
  ['Abiertos, pendientes y en curso','Open, pending and in progress','Ouverts, en attente et en cours','Offen, ausstehend und in Bearbeitung'],
  ['Actualizar tickets','Refresh tickets','Actualiser les tickets','Tickets aktualisieren'],

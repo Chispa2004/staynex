@@ -8,7 +8,8 @@ import { TicketFilters } from './TicketFilters';
 import { TicketAgeLabel } from './TicketAgeLabel';
 import { TicketCategoryIcon } from './TicketCategoryIcon';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
-import { getAuthHeaders } from '@/lib/auth-headers';
+import {useTicketStatusMutation} from '@/lib/useTicketStatusMutation';
+import {mergeTicketVersion} from '../../shared/attention-lifecycle.js';
 
 const STATUS_ACTIONS = [
   { value: 'open', labelKey: 'buttons.open', icon: Circle },
@@ -57,14 +58,15 @@ const getTicketRowClass = (ticket) => {
 };
 
 const mergeTicket = (items, ticket) => sortByNewest(
-  items.map((item) => (item.id === ticket.id ? { ...item, ...ticket } : item))
+  items.map((item) => (item.id === ticket.id ? mergeTicketVersion(item,ticket) : item))
 );
 
 export const DepartmentTicketTable = ({ tickets, categories }) => {
   const router = useRouter();
   const { t } = useDashboardLanguage();
   const [items, setItems] = useState(() => sortByNewest(tickets));
-  const [updatingId, setUpdatingId] = useState(null);
+  const mutation=useTicketStatusMutation({hotelId:tickets[0]?.hotel_id,onConfirmed:ticket=>setItems(current=>mergeTicket(current,ticket))});
+  const updatingId=Object.keys(mutation.pending)[0];
   const [filters, setFilters] = useState({
     status: 'all',
     priority: 'all',
@@ -72,7 +74,7 @@ export const DepartmentTicketTable = ({ tickets, categories }) => {
   });
 
   useEffect(() => {
-    setItems(sortByNewest(tickets));
+    setItems(current=>sortByNewest(tickets.map(next=>{const previous=current.find(item=>item.id===next.id && item.hotel_id===next.hotel_id);return previous?mergeTicketVersion(previous,next):next;})));
   }, [tickets]);
 
   const filteredTickets = useMemo(() => items.filter((ticket) => (
@@ -81,39 +83,11 @@ export const DepartmentTicketTable = ({ tickets, categories }) => {
     && (filters.category === 'all' || ticket.category === filters.category)
   )), [items, filters]);
 
-  const updateStatus = async ({ ticketId, status }) => {
-    setUpdatingId(ticketId);
-
-    try {
-      const response = await fetch(`/api/tickets/${ticketId}/status`, {
-        method: 'PATCH',
-        headers: {
-          ...(await getAuthHeaders()),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status })
-      });
-
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.error || 'Could not update ticket status');
-      }
-
-      setItems((current) => mergeTicket(current, body.ticket));
-    } catch (error) {
-      console.error('Ticket status update failed', {
-        ticketId,
-        status,
-        error
-      });
-    } finally {
-      setUpdatingId(null);
-    }
-  };
+  const updateStatus=({ticketId,status})=>mutation.change(items.find(t=>t.id===ticketId),status);
 
   return (
     <div className="space-y-4">
+      {Object.entries(mutation.errors).filter(([,error])=>error).map(([id,error])=><p role="alert" key={id}>{error}</p>)}
       <TicketFilters
         filters={filters}
         onChange={setFilters}

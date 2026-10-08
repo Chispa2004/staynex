@@ -44,6 +44,8 @@ export function parseOperationalFilter(params, kind) {
   const hotelId = params.get('hotelId');
   const page = Number(params.get('page') || 1), pageSize = Number(params.get('pageSize') || 10);
   const q = params.get('q') || '';
+  const demoScope=params.get('demoScope')||'current';
+  if(!['current','history','all','review'].includes(demoScope))throw invalid();
   const ticketOrigin = params.get('ticketOrigin') || 'all';
   if (!['all','other','simulated'].includes(ticketOrigin) || (kind !== 'tickets' && ticketOrigin !== 'all')) throw invalid();
   const status = params.get('status') || 'all', priority = params.get('priority') || 'all', category = params.get('category') || 'all';
@@ -52,7 +54,7 @@ export function parseOperationalFilter(params, kind) {
   if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0,10) !== date)) throw invalid();
   if (!['all','open','in_progress','completed'].includes(status) || !['all','low','normal','high','urgent'].includes(priority) || !/^[a-z_]{1,50}$/.test(category)) throw invalid();
   if (kind === 'reservations' && (status !== 'all' || priority !== 'all' || category !== 'all')) throw invalid();
-  return {metric,date,hotelId,page,pageSize,q,status,priority,category,ticketOrigin};
+  return {metric,date,hotelId,page,pageSize,q,status,priority,category,ticketOrigin,demoScope};
 }
 export function selectOperationalRows(kind, rows, filter, {hotelId, timezone, now = new Date().toISOString()}) {
   if (!hotelId || (filter.hotelId && filter.hotelId !== hotelId) || rows.some(r => r.hotel_id !== hotelId)) throw Object.assign(new Error('Acceso al hotel denegado.'), {status:403});
