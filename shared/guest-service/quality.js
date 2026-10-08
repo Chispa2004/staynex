@@ -188,7 +188,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
       && receiptReply.sourceMessageId===operationalRequest?.sourceMessageId && receiptReply.status===facts?.status
       && safeReceiptReply(receiptReply.reply,facts,language);
     usedReceiptGeneration=Boolean(generated);
-    if(generated)reply=receiptReply.reply.split(/(?<=[.!?])\s+/u).filter(sentence=>!sentence.includes('?') && !/ind[ií]qu|confirme|facil[ií]t|provide|please (?:tell|confirm)/i.test(sentence)
+    if(generated)reply=receiptReply.reply.split(/(?<=[.!?])\s+/u).filter(sentence=>!sentence.includes('?') && !/^(?:por favor[, :]*)?(?:ind[ií]qu|confirme|facilite|provide\b|please (?:tell|confirm))/i.test(sentence.trim())
       || missingServiceQuestion(sentence.includes('?')?sentence:sentence+'?',{knownRoom,...context,message,requestRecorded:true,requestKey:operationalRequest?.request?.key})).join(' ');
     const question=reply.includes('?')||serviceTurn(message).kind!=='initial'?null:missingServiceQuestion(primary?.reply,{knownRoom,...context,message,requestRecorded:true,requestKey:operationalRequest?.request?.key});
     if(question)reply+=' '+question;

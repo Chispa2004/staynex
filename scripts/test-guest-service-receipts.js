@@ -254,3 +254,8 @@ assert.equal(earlyLuggageReply({message:'¿Podemos dejar las maletas antes?',hot
 assert.match(earlyLuggageReply({message:'Can we leave our bags before check-in?',hotelId:'b',language:'en',context:{hotelKnowledge:[{hotel_id:'b',key:'check_in',value:'Check-in starts at 14:15. We can store your luggage.'}]}}),/14:15.*needs confirmation/);
 assert.equal(sanitizeReceiptReply('Tenemos tu petición y estamos al tanto.',receiptFacts(args),'es'),'Tenemos tu petición. Estamos al tanto.');
 console.log('PASS luggage storage never certifies room readiness, distinct hotel policies and safe clause capitalization');
+
+const privacyReply='Hemos anotado el importe y que no necesitas facilitar el número completo de tarjeta.';
+const privacyReceipt=await generateReceiptReply(args,async()=>({reply:privacyReply}));
+assert.equal(finalizeServiceReply({...args,primary:{reply:'Confirme su tarjeta.'},receiptReply:privacyReceipt}).reply,privacyReply);
+console.log('PASS a statement declining payment details is not removed as an imperative request');
