@@ -98,15 +98,18 @@ export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=fa
   if(turn.human)return {turn,text:turn.unresolved
     ? en?'Of course. I’m sorry it is still not working. We have your request to speak with a person.':'Claro. Siento que siga sin funcionar. Tenemos tu petición de hablar con una persona.'
     : en?'Of course, we have your request to speak with a person.':'Claro, tenemos tu petición de hablar con una persona.'};
+  const quantitySubject=(Number(turn.quantity)===1
+    ? {towels:en?'towel':'toalla',pillow:en?'pillow':'almohada',cot:en?'cot':'cuna'}
+    : {towels:en?'towels':'toallas',pillow:en?'pillows':'almohadas',cot:en?'cots':'cunas'})[ticket?.request_context?.request_key];
   if(turn.clarification && ['open','pending','in_progress'].includes(status))return {turn,text:detailConfirmed
-    ? turn.quantity ? en?`We’ve noted the change to ${turn.quantity}.`:`Hemos anotado el cambio a ${turn.quantity}.`
+    ? turn.quantity && quantitySubject ? en?`Thanks, we’ve updated your request to ${turn.quantity} ${quantitySubject}.`:`Perfecto, hemos actualizado la petición a ${turn.quantity} ${quantitySubject}.`
       : turn.receipt ? en?'Yes, we have it! We’ve added that detail.':'¡Sí, la tenemos! Hemos añadido ese detalle.' : en?'Thanks, we’ve added that detail.':'Gracias, hemos añadido ese detalle.'
     : en?'We have your request, but I can’t confirm that this detail has been added yet.':'Tenemos tu petición, pero aún no puedo confirmar que ese detalle se haya incorporado.'};
   if(status==='completed')return {turn,...{text:en?'We’ve completed this request.':'Hemos completado esta petición.'}};
   if(status==='in_progress')return {turn,text:en?'We’re working on it.':'Nos estamos ocupando de ello.'};
   if(['closed','cancelled','canceled'].includes(status))return {turn,text:en?'This request is closed; that does not confirm it was completed.':'Esta petición está cerrada; no consta por ello que se haya completado.'};
   if(!['open','pending'].includes(status))return {turn,text:en?'I can’t confirm the current status of this request.':'No puedo confirmar ahora el estado de esta petición.'};
-  if(turn.progress)return {turn,text:en?'We have it, but there’s no further update recorded yet.':'La tenemos, pero todavía no consta ninguna novedad.'};
+  if(turn.progress)return {turn,text:en?'Your request is still pending; we don’t have an update yet.':'Tu petición sigue pendiente; todavía no tenemos una actualización.'};
   if(turn.receipt)return {turn,text:en?'Yes, we have it!':'¡Sí, la tenemos!'};
   const topic=ticket.request_context?.request_key||requestTopic(message);
   const labels=en?{pillow:'an extra pillow',parking:'a parking space',billing_review:'reviewing the charges',stay_certificate:'a proof of stay',wifi_support:'help with Wi-Fi',shower_drain:'the shower drainage issue',cot:'a cot',invoice:'an invoice',airport_transfer:'an airport transfer',new_booking:'a new booking',air_conditioning:'the air conditioning issue',water_leak:'the leak',towels:'towels',cleaning:'room cleaning',noise:'the noise',lost_property:'the lost item'}:{pillow:'una almohada adicional',parking:'una plaza de aparcamiento',billing_review:'la revisión de los cargos',stay_certificate:'el justificante de estancia',wifi_support:'la ayuda con el wifi',shower_drain:'el desagüe de la ducha',cot:'una cuna',invoice:'la factura',airport_transfer:'el traslado',new_booking:'una nueva reserva',air_conditioning:'la incidencia del aire acondicionado',water_leak:'la fuga',towels:'toallas',cleaning:'limpieza',noise:'el ruido',lost_property:'el objeto perdido'};

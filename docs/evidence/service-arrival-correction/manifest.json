@@ -1,0 +1,171 @@
+{
+  "baseline": "5768682d963be4b059b0bf9937014731e88634fc",
+  "realCalls": 0,
+  "realTokens": 0,
+  "providerCost": 0,
+  "providerErrors": "not applicable: no real calls",
+  "credential": {
+    "environmentKeyPresent": false,
+    "authorizedProvenancePresent": false,
+    "encryptedDevelopmentKeyPresent": false
+  },
+  "comparison": {
+    "conversations": 6,
+    "guestTurns": 18,
+    "paths": [
+      "primary",
+      "concierge"
+    ],
+    "routeTurnsPerVersion": 36,
+    "syntheticSdkCallsPerVersion": 54,
+    "postCommitGenerator": "stub returning null; separate behavior tests exercise its validator",
+    "failuresBefore": {},
+    "failuresAfter": {},
+    "externalAttempts": [],
+    "reservedRealCases": 3,
+    "reservedRealTurns": 9,
+    "reservedExecuted": false,
+    "totalLocalEvaluatorRuns": 3,
+    "totalLocalEvaluatorRouteTurns": 108,
+    "totalSubstitutedSdkCalls": 162
+  },
+  "checks": [
+    {
+      "file": "arrival-check-results.json",
+      "results": [
+        {
+          "Test": "test-arrival-booking-quality.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-arrival-turn-context.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-service-turn-naturalness.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-service-evidence-followups.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-guest-service-quality.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-guest-final-output.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-guest-service-receipts.js",
+          "ExitCode": 1
+        },
+        {
+          "Test": "test-operational-requests.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-attention-lifecycle.js",
+          "ExitCode": 1
+        },
+        {
+          "Test": "test-guest-ai-tenant-isolation.js",
+          "ExitCode": 1
+        },
+        {
+          "Test": "test-pilot-human-safety.js",
+          "ExitCode": 0
+        }
+      ]
+    },
+    {
+      "file": "arrival-final-check-results.json",
+      "results": [
+        {
+          "Test": "test-arrival-booking-quality.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-arrival-turn-context.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-service-turn-naturalness.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-service-evidence-followups.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-guest-service-quality.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-guest-final-output.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-guest-service-receipts.js",
+          "ExitCode": 0
+        },
+        {
+          "Test": "test-attention-lifecycle.js",
+          "ExitCode": 0
+        }
+      ]
+    }
+  ],
+  "engineSha256": {
+    "shared/guest-service/arrival-booking.js": "70f46185f07095328b5e669df7e728d552c41a7c31529917b7ef419038b00b98",
+    "shared/guest-service/arrival-details.js": "71d7f63700b1149d85c4c8262877f0a3596316462c864a73dd2317f69a03018b",
+    "shared/guest-service/information-evidence.js": "4f475dea5931441f2bb18ade0b571aa3e52c6acb04eaf518f1282f660ac2db82",
+    "shared/guest-service/operational-context.js": "2904304793cb9c121cd274a453ad21c37ea930de6a915f6161dd441f00831413",
+    "shared/guest-service/operational-request.js": "6bf27d1535d5fbfbebf0c9b8927acec5fa9746f4f898202806ec1535c4d1ac00",
+    "shared/guest-service/quality.js": "9d5f3d61059ed70ca01977633c65d6cc2dacf53b94f66548fa95bb713958aa34",
+    "shared/guest-service/receipt-reply.js": "5c16adf0dc8d808ad6721a9050c984ccd9620c65fe5d58c53975b7cc0f5bc3b8",
+    "shared/guest-service/ticket-context.js": "6f351be067378aa01512909f7841e28090d9d4851b5f74152205087a7643dba2",
+    "shared/guest-service/turn-replies.js": "b25df5b7cd8301c51f5b62df46155aa51f0bd77960732618df82a7260fea7714"
+  },
+  "reserveSha256": "329223069d3a7565fecfa703c989da9a07a2e5be0ae406296970bc95b95af939",
+  "finalChecks": {
+    "passed": [
+      "test:arrival-booking-quality",
+      "test:arrival-turn-context",
+      "test:service-turn-naturalness",
+      "test:service-evidence-followups",
+      "test:guest-service-quality",
+      "test:guest-final-output",
+      "test:guest-service-receipts",
+      "test:attention-lifecycle",
+      "test:operational-requests",
+      "test:pilot-human-safety",
+      "test:ci-guards"
+    ],
+    "inheritedFailureReproducedOnBaseline": "test:guest-ai-tenant-isolation: static expectation of direct ai_logs query",
+    "syntaxFilesPassed": 449,
+    "changedFilesSyntaxPassed": true,
+    "dashboardBuild": "PASS",
+    "diffCheck": "PASS"
+  },
+  "artifactSha256": {
+    "after-final.json.gz": "f7a4d5f046b24c60fd342b8ddd81acee8f2bb7657d48553d2e86c3906e2d03f2",
+    "after-first.json.gz": "1b8c1dbab5137bdda805e01b944fd8f3cf9f26550b7744b14cea3af6e50d0865",
+    "arrival-after-final.log.gz": "7cb21e73b643690e666dd0783cce2a543fedfbd1f723fa95e97d52ec846cbfab",
+    "arrival-arrival-turn-final.log.gz": "cfcd8c4a1a4a026dfc040224a0b9457546555df2531cd5abacf1083615b80840",
+    "arrival-baseline-tenant.log.gz": "0ae6414cefb3ed5c00ae124854b10b97518df7c252fb782d3e5fafd70b1bddca",
+    "arrival-before-576.log.gz": "7cb21e73b643690e666dd0783cce2a543fedfbd1f723fa95e97d52ec846cbfab",
+    "arrival-build-complete.log.gz": "055c9b777d7f912826b1c4887275c24f53fa628976bb765b508838ac122940c0",
+    "arrival-build-reviewed.log.gz": "5d80abfc5e6b19b5598a97138b1089651ed487ed09472f26cc49a6b8804138c9",
+    "arrival-ci-guards.log.gz": "fbbb4e9b9fe2f016f0bdfb80d2c18921d0eb4502d77c12a8dad613c740c0bbcd",
+    "arrival-final-test-arrival-turn-context.js.log.gz": "6f3b3be838a3b18cdb90d6da57a6f718236e5b892373e3a7ff5bd6a68bc0d24b",
+    "arrival-syntax.log.gz": "955a86beefc8cb0010f597cf486a02a53de4a8edbc8040f4f45af0ad8683de19",
+    "arrival-test-attention-lifecycle-final.log.gz": "c2ad6df39fe579eed1f8debddc6fb4f010b6d65b22c2528c7743080ff2243b3b",
+    "arrival-test-guest-service-receipts-final.log.gz": "6c348a5b95235b1c136b1a58431e5c2dcf03e5cec170b7c863c6e020de564d8b",
+    "arrival-test-guest-service-receipts.js.log.gz": "8f44c632ffb486b3df6b46f0a9811f770d9914236ba92c37a5ffdae9c2704772",
+    "before.json.gz": "98051821a9231df88dc9aa3a61603febcd79d11d9060f858b0eec1cbf5fb7595",
+    "comparison.json": "7cd181cd827ff7eaec3739639ab3a37441c33285dd9d8dc3ac9a77ab025f6943",
+    "six-before-after.md": "11e000f7957cf670b1cdfb0a27705ab123732df18e3521cd979ae6250ed881ff"
+  }
+}

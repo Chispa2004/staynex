@@ -16,13 +16,13 @@ import {shouldAiAutoRespond} from '../shared/pilot/ai-safety.js';
 assert.equal(process.env.SEND_AUTOMATIONS,'false');assert.equal(process.env.GUEST_MEMORY_ENABLED,'false');
 assert.match(process.env.NODE_OPTIONS||'',/isolate\.cjs/);
 const [split='diagnostic',output='../evaluation.json']=process.argv.slice(2);
-assert(['diagnostic','holdout','validation','naturalness-reserved','naturalness-final'].includes(split));
+assert(['diagnostic','holdout','validation','naturalness-reserved','naturalness-final','arrival-targeted'].includes(split));
 const bytes=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-evaluation.json',import.meta.url));
 const dataset=JSON.parse(bytes);
 const validationBytes=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-validation.json',import.meta.url));
 const naturalnessPlan=JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-evaluation-plan.json',import.meta.url)));
 const expectedReserved={N01:['record','detail','social','observe'],N02:['record','observe','observe','no_delivery'],N03:['unknown_knowledge','unknown_knowledge','unknown_knowledge','social'],N04:['multiple','multiple','multiple','human']};
-const selected=split==='naturalness-final'?JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-final-reserve.json',import.meta.url))).cases:split==='naturalness-reserved'?naturalnessPlan.heldout.map(c=>({...c,
+const selected=split==='arrival-targeted'?[...dataset.cases.filter(c=>['D02','D06','D07','D09','D11'].includes(c.id)),...JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-final-reserve.json',import.meta.url))).cases.filter(c=>c.id==='F01')]:split==='naturalness-final'?JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-final-reserve.json',import.meta.url))).cases:split==='naturalness-reserved'?naturalnessPlan.heldout.map(c=>({...c,
   stateChanges:Object.fromEntries(c.turns.flatMap((t,n)=>t.persistedStatus?[[n,t.persistedStatus]]:[])),
   turns:c.turns.map((t,n)=>({...t,message:t.guest,expected:expectedReserved[c.id][n],
     probe:c.hotel==='a'?'Ya hemos avisado al equipo y está todo solucionado.':'We have notified the team and everything is resolved.'}))

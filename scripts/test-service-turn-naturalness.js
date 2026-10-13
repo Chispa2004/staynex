@@ -61,7 +61,7 @@ for(const status of ['open','in_progress','completed']) {
  const outcome=await recordOperationalRequest({hotel,guest,conversation,sourceMessage,context:{...context,tickets:[t]},message:'Any update?',client,aiResponse:{create_ticket:true}});
  assert.equal(outcome.status,'observed');assert.equal(outcome.ticket.status,status);
  const final=finalizeServiceReply({...base,ticket:t,message:'Any update?',operationalRequest:outcome});
- assert.match(final.reply,status==='open'?/no further update/:status==='in_progress'?/working on it/:/completed/);
+ assert.match(final.reply,status==='open'?/still pending; we don’t have an update/:status==='in_progress'?/working on it/:/completed/);
  assert.doesNotMatch(final.reply,/TEST-23|dispatched|sent/);
 }
 assert.equal(writes,0);
@@ -72,7 +72,7 @@ const detail='Mejor tres, no dos.';
 for(const persisted of [false,true]) {
  const t={...ticket,description:persisted?'Two towels\n'+detail:'Two towels'};
  const final=finalizeServiceReply({...base,ticket:t,message:detail,operationalRequest:{status:'recorded',ticket:t,sourceMessageId:'m'}});
- assert.match(final.reply,persisted?/change to 3/:/can’t confirm/);
+ assert.match(final.reply,persisted?/updated your request to 3 towels/:/can’t confirm/);
 }
 const failed=finalizeServiceReply({...base,message:detail,operationalRequest:{status:'unconfirmed'}});
 assert.match(failed.reply,/could not confirm/);assert.doesNotMatch(failed.reply,/we’ve added/);

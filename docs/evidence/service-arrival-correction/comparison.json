@@ -1,0 +1,1082 @@
+[
+  {
+    "id": "D02",
+    "path": "primary",
+    "turn": 1,
+    "guest": "I arrive at 00:50 on November 8. How do I enter?",
+    "before": "Hotel information: Reception is open from 06:00 to 21:00. Late arrival must be arranged before 20:00 on the evening before arrival. The side entrance is used only after the hotel confirms arrangements. No room readiness is guaranteed. Check-in from 16:30. Early room access needs hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. Which calendar date is that arrival after midnight? The recorded stay starts on 2026-11-08; an earlier arrival needs separate confirmation.",
+    "after": "Late arrival must be arranged before 20:00 on the evening before arrival. The side entrance is used only after the hotel confirms arrangements. Reception is open from 06:00 to 21:00. For 00:50 on november 8, that means before 20:00 the previous evening (2026-11-07), not that same afternoon. Building access does not confirm room availability; your arrival is before check-in on 2026-11-08 at 16:30. Early room access needs confirmation.",
+    "beforeWords": 85,
+    "afterWords": 68,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D02",
+    "path": "primary",
+    "turn": 2,
+    "guest": "Does an open entrance mean my room is ready?",
+    "before": "The scheduled check-in time is 16:30. We can collect the details here to review your request.",
+    "after": "Building access does not confirm room availability; your arrival is before check-in on 2026-11-08 at 16:30. Early room access needs confirmation.",
+    "beforeWords": 16,
+    "afterWords": 21,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D02",
+    "path": "primary",
+    "turn": 3,
+    "guest": "My booked arrival date is November 8.",
+    "before": "Early access needs confirmation for that stay.",
+    "after": "Your 00:50 arrival is before check-in on 2026-11-08 at 16:30. Early room access still needs confirmation.",
+    "beforeWords": 7,
+    "afterWords": 16,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "generation",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D02",
+    "path": "concierge",
+    "turn": 1,
+    "guest": "I arrive at 00:50 on November 8. How do I enter?",
+    "before": "Hotel information: Reception is open from 06:00 to 21:00. Late arrival must be arranged before 20:00 on the evening before arrival. The side entrance is used only after the hotel confirms arrangements. No room readiness is guaranteed. Check-in from 16:30. Early room access needs hotel confirmation. Check-in time does not guarantee your room is ready. Room access, especially before your stay starts, needs hotel confirmation. Which calendar date is that arrival after midnight? The recorded stay starts on 2026-11-08; an earlier arrival needs separate confirmation.",
+    "after": "Late arrival must be arranged before 20:00 on the evening before arrival. The side entrance is used only after the hotel confirms arrangements. Reception is open from 06:00 to 21:00. For 00:50 on november 8, that means before 20:00 the previous evening (2026-11-07), not that same afternoon. Building access does not confirm room availability; your arrival is before check-in on 2026-11-08 at 16:30. Early room access needs confirmation.",
+    "beforeWords": 85,
+    "afterWords": 68,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D02",
+    "path": "concierge",
+    "turn": 2,
+    "guest": "Does an open entrance mean my room is ready?",
+    "before": "The scheduled check-in time is 16:30. We can collect the details here to review your request.",
+    "after": "Building access does not confirm room availability; your arrival is before check-in on 2026-11-08 at 16:30. Early room access needs confirmation.",
+    "beforeWords": 16,
+    "afterWords": 21,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D02",
+    "path": "concierge",
+    "turn": 3,
+    "guest": "My booked arrival date is November 8.",
+    "before": "Early access needs confirmation for that stay.",
+    "after": "Your 00:50 arrival is before check-in on 2026-11-08 at 16:30. Early room access still needs confirmation.",
+    "beforeWords": 7,
+    "afterWords": 16,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "generation",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "safety_or_grounding",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D06",
+    "path": "primary",
+    "turn": 1,
+    "guest": "When does breakfast start?",
+    "before": "We have conflicting information about breakfast, so we can’t confirm which is correct.",
+    "after": "We have conflicting information about breakfast, so we can’t confirm which is correct.",
+    "beforeWords": 13,
+    "afterWords": 13,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D06",
+    "path": "primary",
+    "turn": 2,
+    "guest": "Is 05:00 the confirmed time?",
+    "before": "We can’t confirm that from the information we have about breakfast.",
+    "after": "We can’t confirm that from the information we have about breakfast.",
+    "beforeWords": 11,
+    "afterWords": 11,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D06",
+    "path": "primary",
+    "turn": 3,
+    "guest": "Where is the gym?",
+    "before": "We don’t have a confirmed location for the gym.",
+    "after": "We don’t have a confirmed location for the gym.",
+    "beforeWords": 9,
+    "afterWords": 9,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D06",
+    "path": "concierge",
+    "turn": 1,
+    "guest": "When does breakfast start?",
+    "before": "We have conflicting information about breakfast, so we can’t confirm which is correct.",
+    "after": "We have conflicting information about breakfast, so we can’t confirm which is correct.",
+    "beforeWords": 13,
+    "afterWords": 13,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D06",
+    "path": "concierge",
+    "turn": 2,
+    "guest": "Is 05:00 the confirmed time?",
+    "before": "We can’t confirm that from the information we have about breakfast.",
+    "after": "We can’t confirm that from the information we have about breakfast.",
+    "beforeWords": 11,
+    "afterWords": 11,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D06",
+    "path": "concierge",
+    "turn": 3,
+    "guest": "Where is the gym?",
+    "before": "We don’t have a confirmed location for the gym.",
+    "after": "We don’t have a confirmed location for the gym.",
+    "beforeWords": 9,
+    "afterWords": 9,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "unconfirmed_information_current_question",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D07",
+    "path": "primary",
+    "turn": 1,
+    "guest": "Necesito dos toallas adicionales.",
+    "before": "Ya tenemos tu petición sobre toallas para la habitación F-617.",
+    "after": "Ya tenemos tu petición sobre toallas para la habitación F-617.",
+    "beforeWords": 10,
+    "afterWords": 10,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "aa6e65aa-8583-4d81-97e4-bd4e4f33ffbf",
+      "source_message_id": "00000000-0000-4000-8000-000000000140",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "55fa54cb-18fc-4470-b1ff-fd27ba441504",
+      "source_message_id": "00000000-0000-4000-8000-000000000140",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D07",
+    "path": "primary",
+    "turn": 2,
+    "guest": "Mejor tres, no dos.",
+    "before": "Hemos anotado el cambio a 3.",
+    "after": "Perfecto, hemos actualizado la petición a 3 toallas.",
+    "beforeWords": 6,
+    "afterWords": 8,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "clarification",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "aa6e65aa-8583-4d81-97e4-bd4e4f33ffbf",
+      "source_message_id": "00000000-0000-4000-8000-000000000142",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "clarification",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "55fa54cb-18fc-4470-b1ff-fd27ba441504",
+      "source_message_id": "00000000-0000-4000-8000-000000000142",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D07",
+    "path": "primary",
+    "turn": 3,
+    "guest": "¿Cómo va lo mío?",
+    "before": "La tenemos, pero todavía no consta ninguna novedad.",
+    "after": "Tu petición sigue pendiente; todavía no tenemos una actualización.",
+    "beforeWords": 8,
+    "afterWords": 9,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "aa6e65aa-8583-4d81-97e4-bd4e4f33ffbf",
+      "source_message_id": "00000000-0000-4000-8000-000000000144",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "55fa54cb-18fc-4470-b1ff-fd27ba441504",
+      "source_message_id": "00000000-0000-4000-8000-000000000144",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D07",
+    "path": "concierge",
+    "turn": 1,
+    "guest": "Necesito dos toallas adicionales.",
+    "before": "Ya tenemos tu petición sobre toallas para la habitación F-617.",
+    "after": "Ya tenemos tu petición sobre toallas para la habitación F-617.",
+    "beforeWords": 10,
+    "afterWords": 10,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "5133c775-e3c2-43e2-b8f1-774d2428a1eb",
+      "source_message_id": "00000000-0000-4000-8000-000000000149",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "19fc6873-d7b1-4880-9be5-1a92f14a4f0a",
+      "source_message_id": "00000000-0000-4000-8000-000000000149",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D07",
+    "path": "concierge",
+    "turn": 2,
+    "guest": "Mejor tres, no dos.",
+    "before": "Hemos anotado el cambio a 3.",
+    "after": "Perfecto, hemos actualizado la petición a 3 toallas.",
+    "beforeWords": 6,
+    "afterWords": 8,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "clarification",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "5133c775-e3c2-43e2-b8f1-774d2428a1eb",
+      "source_message_id": "00000000-0000-4000-8000-000000000151",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "clarification",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "19fc6873-d7b1-4880-9be5-1a92f14a4f0a",
+      "source_message_id": "00000000-0000-4000-8000-000000000151",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D07",
+    "path": "concierge",
+    "turn": 3,
+    "guest": "¿Cómo va lo mío?",
+    "before": "La tenemos, pero todavía no consta ninguna novedad.",
+    "after": "Tu petición sigue pendiente; todavía no tenemos una actualización.",
+    "beforeWords": 8,
+    "afterWords": 9,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "5133c775-e3c2-43e2-b8f1-774d2428a1eb",
+      "source_message_id": "00000000-0000-4000-8000-000000000153",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "19fc6873-d7b1-4880-9be5-1a92f14a4f0a",
+      "source_message_id": "00000000-0000-4000-8000-000000000153",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D09",
+    "path": "primary",
+    "turn": 1,
+    "guest": "Necesito limpieza en mi habitación.",
+    "before": "Ya tenemos tu petición sobre limpieza para la habitación F-617.",
+    "after": "Ya tenemos tu petición sobre limpieza para la habitación F-617.",
+    "beforeWords": 10,
+    "afterWords": 10,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "ef66ec23-19b5-4744-b30f-51aa21d59088",
+      "source_message_id": "00000000-0000-4000-8000-000000000158",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "14111b16-68e0-48fa-b757-9dc676c9a55b",
+      "source_message_id": "00000000-0000-4000-8000-000000000158",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D09",
+    "path": "primary",
+    "turn": 2,
+    "guest": "¿Cómo va la limpieza?",
+    "before": "Nos estamos ocupando de ello.",
+    "after": "Nos estamos ocupando de ello.",
+    "beforeWords": 5,
+    "afterWords": 5,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "ef66ec23-19b5-4744-b30f-51aa21d59088",
+      "source_message_id": "00000000-0000-4000-8000-000000000160",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "14111b16-68e0-48fa-b757-9dc676c9a55b",
+      "source_message_id": "00000000-0000-4000-8000-000000000160",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D09",
+    "path": "primary",
+    "turn": 3,
+    "guest": "¿Ya habéis terminado?",
+    "before": "Hemos completado esta petición.",
+    "after": "Hemos completado esta petición.",
+    "beforeWords": 4,
+    "afterWords": 4,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "ef66ec23-19b5-4744-b30f-51aa21d59088",
+      "source_message_id": "00000000-0000-4000-8000-000000000162",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "14111b16-68e0-48fa-b757-9dc676c9a55b",
+      "source_message_id": "00000000-0000-4000-8000-000000000162",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D09",
+    "path": "concierge",
+    "turn": 1,
+    "guest": "Necesito limpieza en mi habitación.",
+    "before": "Ya tenemos tu petición sobre limpieza para la habitación F-617.",
+    "after": "Ya tenemos tu petición sobre limpieza para la habitación F-617.",
+    "beforeWords": 10,
+    "afterWords": 10,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "a79c55f4-2fcf-4342-8217-3a2b8dff5e46",
+      "source_message_id": "00000000-0000-4000-8000-000000000167",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "0d17a61e-0c24-4735-a8f4-a11e7cc6063b",
+      "source_message_id": "00000000-0000-4000-8000-000000000167",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D09",
+    "path": "concierge",
+    "turn": 2,
+    "guest": "¿Cómo va la limpieza?",
+    "before": "Nos estamos ocupando de ello.",
+    "after": "Nos estamos ocupando de ello.",
+    "beforeWords": 5,
+    "afterWords": 5,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "a79c55f4-2fcf-4342-8217-3a2b8dff5e46",
+      "source_message_id": "00000000-0000-4000-8000-000000000169",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "0d17a61e-0c24-4735-a8f4-a11e7cc6063b",
+      "source_message_id": "00000000-0000-4000-8000-000000000169",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D09",
+    "path": "concierge",
+    "turn": 3,
+    "guest": "¿Ya habéis terminado?",
+    "before": "Hemos completado esta petición.",
+    "after": "Hemos completado esta petición.",
+    "beforeWords": 4,
+    "afterWords": 4,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "a79c55f4-2fcf-4342-8217-3a2b8dff5e46",
+      "source_message_id": "00000000-0000-4000-8000-000000000171",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "0d17a61e-0c24-4735-a8f4-a11e7cc6063b",
+      "source_message_id": "00000000-0000-4000-8000-000000000171",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D11",
+    "path": "primary",
+    "turn": 1,
+    "guest": "El aire acondicionado pierde agua.",
+    "before": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.",
+    "after": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.",
+    "beforeWords": 24,
+    "afterWords": 24,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persistence_unconfirmed",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "unconfirmed",
+      "ticket_id": null,
+      "source_message_id": "00000000-0000-4000-8000-000000000176",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persistence_unconfirmed",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "unconfirmed",
+      "ticket_id": null,
+      "source_message_id": "00000000-0000-4000-8000-000000000176",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D11",
+    "path": "primary",
+    "turn": 2,
+    "guest": "Sigue el mismo problema del aire acondicionado.",
+    "before": "La tenemos, pero todavía no consta ninguna novedad.",
+    "after": "Tu petición sigue pendiente; todavía no tenemos una actualización.",
+    "beforeWords": 8,
+    "afterWords": 9,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "5143ca46-4785-46da-9aba-ce4f70f015be",
+      "source_message_id": "00000000-0000-4000-8000-000000000178",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "8dd72f2c-53c5-445b-940c-1134ecd32e32",
+      "source_message_id": "00000000-0000-4000-8000-000000000178",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D11",
+    "path": "primary",
+    "turn": 3,
+    "guest": "Quiero hablar con una persona.",
+    "before": "Claro, tenemos tu petición de hablar con una persona.",
+    "after": "Claro, tenemos tu petición de hablar con una persona.",
+    "beforeWords": 9,
+    "afterWords": 9,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "human_request",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "5143ca46-4785-46da-9aba-ce4f70f015be",
+      "source_message_id": "00000000-0000-4000-8000-000000000180",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "human_request",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "8dd72f2c-53c5-445b-940c-1134ecd32e32",
+      "source_message_id": "00000000-0000-4000-8000-000000000180",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D11",
+    "path": "concierge",
+    "turn": 1,
+    "guest": "El aire acondicionado pierde agua.",
+    "before": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.",
+    "after": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.",
+    "beforeWords": 24,
+    "afterWords": 24,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persistence_unconfirmed",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "unconfirmed",
+      "ticket_id": null,
+      "source_message_id": "00000000-0000-4000-8000-000000000185",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persistence_unconfirmed",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "unconfirmed",
+      "ticket_id": null,
+      "source_message_id": "00000000-0000-4000-8000-000000000185",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D11",
+    "path": "concierge",
+    "turn": 2,
+    "guest": "Sigue el mismo problema del aire acondicionado.",
+    "before": "La tenemos, pero todavía no consta ninguna novedad.",
+    "after": "Tu petición sigue pendiente; todavía no tenemos una actualización.",
+    "beforeWords": 8,
+    "afterWords": 9,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "6e078872-b7b5-4c2f-ab92-580e70a8e018",
+      "source_message_id": "00000000-0000-4000-8000-000000000187",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "progress",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "6261d617-7a10-4b03-8591-45a9fe5216bf",
+      "source_message_id": "00000000-0000-4000-8000-000000000187",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "D11",
+    "path": "concierge",
+    "turn": 3,
+    "guest": "Quiero hablar con una persona.",
+    "before": "Claro, tenemos tu petición de hablar con una persona.",
+    "after": "Claro, tenemos tu petición de hablar con una persona.",
+    "beforeWords": 9,
+    "afterWords": 9,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "human_request",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "6e078872-b7b5-4c2f-ab92-580e70a8e018",
+      "source_message_id": "00000000-0000-4000-8000-000000000189",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "human_request",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "6261d617-7a10-4b03-8591-45a9fe5216bf",
+      "source_message_id": "00000000-0000-4000-8000-000000000189",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "F01",
+    "path": "primary",
+    "turn": 1,
+    "guest": "Could you bring two pillows?",
+    "before": "We have your request about an extra pillow for room J-842.",
+    "after": "We have your request about an extra pillow for room J-842.",
+    "beforeWords": 11,
+    "afterWords": 11,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "0543cfb6-e8ed-40bb-945c-9d454c8a51fa",
+      "source_message_id": "00000000-0000-4000-8000-000000000194",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "04c3de4b-ac97-4de6-b918-103a63ba8ecf",
+      "source_message_id": "00000000-0000-4000-8000-000000000194",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "F01",
+    "path": "primary",
+    "turn": 2,
+    "guest": "Make it four instead.",
+    "before": "We’ve noted the change to 4.",
+    "after": "Thanks, we’ve updated your request to 4 pillows.",
+    "beforeWords": 6,
+    "afterWords": 8,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "clarification",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "0543cfb6-e8ed-40bb-945c-9d454c8a51fa",
+      "source_message_id": "00000000-0000-4000-8000-000000000196",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "clarification",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "04c3de4b-ac97-4de6-b918-103a63ba8ecf",
+      "source_message_id": "00000000-0000-4000-8000-000000000196",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "F01",
+    "path": "primary",
+    "turn": 3,
+    "guest": "Thanks, that's all.",
+    "before": "You’re welcome.",
+    "after": "You’re welcome.",
+    "beforeWords": 2,
+    "afterWords": 2,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "social_no_action",
+      "turn_kind": "social",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "social_no_action",
+      "turn_kind": "social",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "F01",
+    "path": "concierge",
+    "turn": 1,
+    "guest": "Could you bring two pillows?",
+    "before": "We have your request about an extra pillow for room J-842.",
+    "after": "We have your request about an extra pillow for room J-842.",
+    "beforeWords": 11,
+    "afterWords": 11,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "54646ad1-cdf6-4acb-9a4f-93380fa4e048",
+      "source_message_id": "00000000-0000-4000-8000-000000000203",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "initial",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "68f7d539-dd12-4bfe-824d-82e42ba3af71",
+      "source_message_id": "00000000-0000-4000-8000-000000000203",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "F01",
+    "path": "concierge",
+    "turn": 2,
+    "guest": "Make it four instead.",
+    "before": "We’ve noted the change to 4.",
+    "after": "Thanks, we’ve updated your request to 4 pillows.",
+    "beforeWords": 6,
+    "afterWords": 8,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "clarification",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "54646ad1-cdf6-4acb-9a4f-93380fa4e048",
+      "source_message_id": "00000000-0000-4000-8000-000000000205",
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "persisted_ticket_plan",
+      "turn_kind": "clarification",
+      "receipt_generation": false,
+      "request_status": "recorded",
+      "ticket_id": "68f7d539-dd12-4bfe-824d-82e42ba3af71",
+      "source_message_id": "00000000-0000-4000-8000-000000000205",
+      "notification_confirmed": false
+    }
+  },
+  {
+    "id": "F01",
+    "path": "concierge",
+    "turn": 3,
+    "guest": "Thanks, that's all.",
+    "before": "You’re welcome.",
+    "after": "You’re welcome.",
+    "beforeWords": 2,
+    "afterWords": 2,
+    "beforeTransformation": {
+      "version": 4,
+      "transformation": "social_no_action",
+      "turn_kind": "social",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    },
+    "afterTransformation": {
+      "version": 4,
+      "transformation": "social_no_action",
+      "turn_kind": "social",
+      "receipt_generation": false,
+      "request_status": "not_requested",
+      "ticket_id": null,
+      "source_message_id": null,
+      "notification_confirmed": false
+    }
+  }
+]

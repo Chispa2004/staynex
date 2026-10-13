@@ -19,10 +19,12 @@ El evaluador deberá descifrarla solo en memoria bajo ese mismo usuario, sin arg
 
 ## Presupuesto comunicado antes de consumir
 
-Máximo conjunto para línea base, corrección y validación: **360 intentos de generación y 2.400.000 tokens totales**. Incluye generación principal, Concierge y redacción posterior al recibo; Inbox continúa siendo un borrador determinista. Sin reintentos automáticos. Cada solicitud debe reservar su máximo de salida y un límite conservador de entrada antes de salir; registrar uso real del proveedor, latencia y error. Si falta `usage` tras un timeout, cargar la reserva y marcar consumo desconocido, sin inventar cero. Parar antes de superar cualquier límite.
+Máximo conjunto para línea base, corrección y validación: **270 intentos de generación y 2.160.000 tokens totales**. Incluye generación principal, Concierge y redacción posterior al recibo; Inbox continúa siendo un borrador determinista. Sin reintentos automáticos. Cada solicitud debe reservar su máximo de salida y un límite conservador de entrada antes de salir; registrar uso real del proveedor, latencia y error. Si falta `usage` tras un timeout, cargar la reserva y marcar consumo desconocido, sin inventar cero. Parar antes de superar cualquier límite.
 
 No se ha construido ni ejecutado aún el transporte real autorizado. Al habilitarlo, solo podrá salir al proveedor de IA para estos dos hoteles sintéticos. PostgreSQL seguirá siendo desechable; WhatsApp, email, experiencias, PMS y bases remotas deben continuar bloqueados. La credencial no habilita ninguna operación de aplicación ni cambia flags.
 
-Consumo de esta fase: **0 llamadas y 0 tokens reales**. Comparación real antes/después pendiente. Es requisito conservar primero la línea base de `852eeb0`, incluyendo la generación posterior al guardado; el evaluador anterior la sustituía por `null` y no sirve como medición de naturalidad real.
+Consumo de esta fase: **0 llamadas y 0 tokens reales**. Comparación real antes/después pendiente. Por la instrucción vigente, es requisito conservar primero la línea base real de `5768682`, incluyendo la generación posterior al guardado; el evaluador anterior la sustituía por `null` y no sirve como medición de naturalidad real.
 
 Referencia: [OpenAI, prácticas de producción y seguridad de claves](https://developers.openai.com/api/docs/guides/production-best-practices). Las claves deben mantenerse fuera del código y utilizarse mediante mecanismos de gestión de secretos. Aquí se opta por almacenamiento local cifrado y una clave exclusiva de desarrollo.
+
+Revisión vigente: [llegada nocturna y respuestas completas](guest-service-arrival-correction.md). La reserva R01–R03 sigue sin ejecutar y sustituye, para independencia, las muestras anteriores ya utilizadas. Comprobación local: registro de procedencia, archivo DPAPI y clave del proceso ausentes.
