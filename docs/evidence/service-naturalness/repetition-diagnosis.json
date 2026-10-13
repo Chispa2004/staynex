@@ -1,0 +1,301 @@
+{
+  "method": "Offline inspection of retained controlled probes; not a model evaluation",
+  "responses": 90,
+  "repeatedResponses": 14,
+  "distinctConversationTurns": 7,
+  "bySource": {
+    "final_filter_insufficient_information": 8,
+    "final_filter_tool_limitation": 4,
+    "postcommit_fallback": 2
+  },
+  "realProviderCalls": 0,
+  "realModelAttribution": "unavailable",
+  "repetitions": [
+    {
+      "caseId": "D06",
+      "route": "primary",
+      "turn": 2,
+      "guest": "Is 05:00 the confirmed time?",
+      "previousGuest": "When does breakfast start?",
+      "originalControlledProbe": "Yes, 05:00 is confirmed.",
+      "final": "I do not have that detail confirmed for this hotel.",
+      "source": "final_filter_insufficient_information",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel.",
+        "language": "en",
+        "draft": true,
+        "source": "knowledge_unconfirmed"
+      }
+    },
+    {
+      "caseId": "D06",
+      "route": "primary",
+      "turn": 3,
+      "guest": "Where is the gym?",
+      "previousGuest": "Is 05:00 the confirmed time?",
+      "originalControlledProbe": "The gym is on floor 4.",
+      "final": "I do not have that detail confirmed for this hotel.",
+      "source": "final_filter_insufficient_information",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel.",
+        "language": "en",
+        "draft": true,
+        "source": "knowledge_unconfirmed"
+      }
+    },
+    {
+      "caseId": "D06",
+      "route": "concierge",
+      "turn": 2,
+      "guest": "Is 05:00 the confirmed time?",
+      "previousGuest": "When does breakfast start?",
+      "originalControlledProbe": "Yes, 05:00 is confirmed.",
+      "final": "I do not have that detail confirmed for this hotel.",
+      "source": "final_filter_insufficient_information",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel.",
+        "language": "en",
+        "draft": true,
+        "source": "knowledge_unconfirmed"
+      }
+    },
+    {
+      "caseId": "D06",
+      "route": "concierge",
+      "turn": 3,
+      "guest": "Where is the gym?",
+      "previousGuest": "Is 05:00 the confirmed time?",
+      "originalControlledProbe": "The gym is on floor 4.",
+      "final": "I do not have that detail confirmed for this hotel.",
+      "source": "final_filter_insufficient_information",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel.",
+        "language": "en",
+        "draft": true,
+        "source": "knowledge_unconfirmed"
+      }
+    },
+    {
+      "caseId": "D10",
+      "route": "primary",
+      "turn": 2,
+      "guest": "Which one is being handled?",
+      "previousGuest": "I need towels and an extra pillow.",
+      "originalControlledProbe": "They are both in progress.",
+      "final": "Your message includes separate needs. Our team needs to review them; I can’t confirm their registration separately here.",
+      "source": "final_filter_tool_limitation",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel. Which detail would you like to confirm?",
+        "language": "en",
+        "draft": true,
+        "confidence": 0.6,
+        "requestStatus": "proposed"
+      }
+    },
+    {
+      "caseId": "D10",
+      "route": "primary",
+      "turn": 3,
+      "guest": "Please keep both needs visible.",
+      "previousGuest": "Which one is being handled?",
+      "originalControlledProbe": "We are handling both.",
+      "final": "Your message includes separate needs. Our team needs to review them; I can’t confirm their registration separately here.",
+      "source": "final_filter_tool_limitation",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel. Which detail would you like to confirm?",
+        "language": "en",
+        "draft": true,
+        "confidence": 0.6,
+        "requestStatus": "proposed"
+      }
+    },
+    {
+      "caseId": "D10",
+      "route": "concierge",
+      "turn": 2,
+      "guest": "Which one is being handled?",
+      "previousGuest": "I need towels and an extra pillow.",
+      "originalControlledProbe": "They are both in progress.",
+      "final": "Your message includes separate needs. Our team needs to review them; I can’t confirm their registration separately here.",
+      "source": "final_filter_tool_limitation",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel. Which detail would you like to confirm?",
+        "language": "en",
+        "draft": true,
+        "confidence": 0.6,
+        "requestStatus": "proposed"
+      }
+    },
+    {
+      "caseId": "D10",
+      "route": "concierge",
+      "turn": 3,
+      "guest": "Please keep both needs visible.",
+      "previousGuest": "Which one is being handled?",
+      "originalControlledProbe": "We are handling both.",
+      "final": "Your message includes separate needs. Our team needs to review them; I can’t confirm their registration separately here.",
+      "source": "final_filter_tool_limitation",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel. Which detail would you like to confirm?",
+        "language": "en",
+        "draft": true,
+        "confidence": 0.6,
+        "requestStatus": "proposed"
+      }
+    },
+    {
+      "caseId": "D14",
+      "route": "primary",
+      "turn": 2,
+      "guest": "A different problem: another charge needs review.",
+      "previousGuest": "I need a review of a charge from my stay.",
+      "originalControlledProbe": "We have recorded the other issue.",
+      "final": "We have your request about reviewing the charges.",
+      "source": "postcommit_fallback",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": "545fe04e-0a82-400e-bbd0-0685b0c65419",
+      "ticketId": "af5ecd5b-c1ab-445c-ac76-711692aa02f2",
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel. Which detail would you like to confirm?",
+        "language": "en",
+        "draft": true,
+        "confidence": 0.6,
+        "requestStatus": "proposed"
+      }
+    },
+    {
+      "caseId": "D14",
+      "route": "concierge",
+      "turn": 2,
+      "guest": "A different problem: another charge needs review.",
+      "previousGuest": "I need a review of a charge from my stay.",
+      "originalControlledProbe": "We have recorded the other issue.",
+      "final": "We have your request about reviewing the charges.",
+      "source": "postcommit_fallback",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": "d1e9129f-95b6-4ece-a133-30b128bfb496",
+      "ticketId": "7c20de8a-e980-4c62-a48c-24d0407a54c3",
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel. Which detail would you like to confirm?",
+        "language": "en",
+        "draft": true,
+        "confidence": 0.6,
+        "requestStatus": "proposed"
+      }
+    },
+    {
+      "caseId": "D16",
+      "route": "primary",
+      "turn": 2,
+      "guest": "Is that current information?",
+      "previousGuest": "What is your pool closing time?",
+      "originalControlledProbe": "Yes, that is current.",
+      "final": "I do not have that detail confirmed for this hotel.",
+      "source": "final_filter_insufficient_information",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel.",
+        "language": "en",
+        "draft": true,
+        "source": "knowledge_unconfirmed"
+      }
+    },
+    {
+      "caseId": "D16",
+      "route": "primary",
+      "turn": 3,
+      "guest": "Do I need to make a booking?",
+      "previousGuest": "Is that current information?",
+      "originalControlledProbe": "No booking is needed.",
+      "final": "I do not have that detail confirmed for this hotel.",
+      "source": "final_filter_insufficient_information",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel.",
+        "language": "en",
+        "draft": true,
+        "source": "knowledge_unconfirmed"
+      }
+    },
+    {
+      "caseId": "D16",
+      "route": "concierge",
+      "turn": 2,
+      "guest": "Is that current information?",
+      "previousGuest": "What is your pool closing time?",
+      "originalControlledProbe": "Yes, that is current.",
+      "final": "I do not have that detail confirmed for this hotel.",
+      "source": "final_filter_insufficient_information",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel.",
+        "language": "en",
+        "draft": true,
+        "source": "knowledge_unconfirmed"
+      }
+    },
+    {
+      "caseId": "D16",
+      "route": "concierge",
+      "turn": 3,
+      "guest": "Do I need to make a booking?",
+      "previousGuest": "Is that current information?",
+      "originalControlledProbe": "No booking is needed.",
+      "final": "I do not have that detail confirmed for this hotel.",
+      "source": "final_filter_insufficient_information",
+      "controlledProbeAlsoRepeats": false,
+      "rawIsRealModel": false,
+      "previousTicketId": null,
+      "ticketId": null,
+      "draft": {
+        "text": "I do not have that detail confirmed for this hotel.",
+        "language": "en",
+        "draft": true,
+        "source": "knowledge_unconfirmed"
+      }
+    }
+  ]
+}
