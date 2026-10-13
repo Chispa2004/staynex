@@ -2,11 +2,13 @@ const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036
 // Bounded, deterministic action intents supplement the model. The original
 // message is retained in the ticket, including quantities and unparsed details.
 import {requestTopics,serviceTurn} from './ticket-context.js';
+import {informationTopic,isInformationQuestion} from './information-evidence.js';
 const kinds=requestTopics;
 const actionable=/necesit|pido|pedi|podri|(?:pod|pued).*(?:traer|enviar|llevar|poner|limpiar)|traig|quiero|quisiera|solicit|hay |sigue|no funciona|gote|fuga|pierde agua|dej[eé]|olvide|me falta|need|please|could (?:you|we|i)|can you (?:bring|send|clean)|not work|leak|lost|left my|besoin|pourriez|bitte|brauche|vorrei|preciso|por favor/;
 const informational=/^(?:a que hora|cual es el horario|what time|when does|quand|wann|a che ora|qual.*horario)/;
 export function interpretOperationalRequest({message='',aiResponse=null,openTickets=[]}) {
   const text=normalize(message).replace(/^[^a-z0-9]+/,'');
+  if(informationTopic(message) && isInformationQuestion(message))return null;
   if(informational.test(text))return null;
   const matched=kinds.find(([, ,pattern])=>pattern.test(text))
     || (aiResponse?.create_ticket && kinds.find(([, ,pattern])=>pattern.test(normalize(aiResponse.ticket?.title))));

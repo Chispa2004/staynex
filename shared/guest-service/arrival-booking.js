@@ -3,11 +3,15 @@ import {unambiguousKnowledge} from './information-evidence.js';
 const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const scoped = (rows, id) => id ? (rows || []).filter(r => r && (!r.hotel_id || r.hotel_id === id) && r.is_active !== false) : [];
 const protectedCategories = new Set(['admin_knowledge','system_knowledge','technical','pms','whatsapp','billing','security','compliance','provider_marketplace','platform','ai_quality','failure_intelligence','automation_rules','global_prompts']);
-export const guestFacingKnowledge = (rows = [], hotelId) => unambiguousKnowledge(scoped(rows, hotelId),hotelId).filter(row => {
+const isGuestFacing = row => {
   const fields = [row.key,row.category,row.scope,row.knowledge_scope,row.metadata?.scope,row.metadata?.knowledge_scope].map(normalize);
   return !fields.some(v => protectedCategories.has(v.replace(/[\s-]+/g, '_')))
     && !/door.?code|access.?code|codigo.{0,20}(puerta|acceso)|pin.{0,12}(puerta|door)|password|contrasena|secret|credential/.test(normalize([row.key,row.title,row.value].join(' ')).replace(/no access code is available(?: here)?|no (?:existe|hay) (?:un )?codigo de (?:puerta|acceso)/g, ''));
-});
+};
+export const guestFacingKnowledge = (rows = [], hotelId) => unambiguousKnowledge(scoped(rows, hotelId),hotelId).filter(isGuestFacing);
+// Only for diagnosing absent/conflicting evidence; these rows must never be
+// quoted as confirmed facts without unambiguousKnowledge.
+export const guestFacingKnowledgeCandidates = (rows = [], hotelId) => scoped(rows,hotelId).filter(isGuestFacing);
 
 const night = /medianoche|madrugada|llegada nocturna|llegada tardia|entrada anticipada|midnight|late arrival|early (arrival|check.?in)|night access|0[0-5]:[0-5]\d/;
 const booking = /descuent|promoci|oferta|discount|promotion|\boffers?\b|how.{0,25}book|nueva reserva|proxima (visita|estancia)|volver|volveremos|new (booking|reservation)|next (visit|stay)|book a (room|stay)|reservar.{0,18}(habitacion|estancia)|habitaciones disponibles|rooms available|booking (link|url)|enlace.*reserv/;

@@ -130,6 +130,7 @@
     "test:attention-lifecycle-browser": "playwright test --config scripts/attention-lifecycle-browser.config.js",
     "test:platform-workspace-entry-browser": "node scripts/accessibility-lab.cjs build && playwright test --config scripts/platform-workspace-entry-browser.config.js",
     "test:night-blue-navigation-browser": "playwright test --config scripts/night-blue-navigation-browser.config.js",
+    "test:service-turn-naturalness": "node scripts/test-service-turn-naturalness.js",
     "test:service-evidence-followups": "node scripts/test-service-evidence-followups.js",
     "test:fresh-service-postgres": "node scripts/test-fresh-service-postgres.js"
   },

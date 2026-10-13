@@ -21,12 +21,12 @@ assert.equal(inspectRepetitions({rows:[{turns:[{final:null},{final:null}]}]}).re
 const common={hotel:{id:'h'},hotelId:'h',guestId:'g',conversationId:'c',language:'en',
  context:{hotelKnowledge:[],recentMessages:[]},operationalRequest:{status:'not_requested'}};
 const unknown=message=>finalizeServiceReply({...common,message,primary:{reply:'Controlled, unsupported answer'}}).reply;
-// Execute the actual finalizer: different information topics collapse to the
-// same fallback today. This is a characterization of the unresolved defect.
-assert.equal(unknown('Where is the gym?'),unknown('When is the pool open?'));
+// The retained diagnosis above stays unchanged. The corrected finalizer now
+// describes the particular unknown instead of repeating the generic fallback.
+assert.notEqual(unknown('Where is the gym?'),unknown('When is the pool open?'));
 const multi=message=>finalizeServiceReply({...common,message,primary:{reply:'A different raw probe'},
  operationalRequest:{status:'needs_review',errorCode:'MULTIPLE_REQUESTS_REQUIRE_REVIEW'}}).reply;
-assert.equal(multi('Which request is being handled?'),multi('Please keep both requests visible.'));
+assert.notEqual(multi('Which request is being handled?'),multi('Please keep both requests visible.'));
 assert.doesNotMatch(multi('Which request is being handled?'),/are (?:both )?in progress|have recorded both/);
 
 const ticket={id:'t',hotel_id:'h',guest_id:'g',conversation_id:'c',status:'open',category:'reception',description:'Review a charge',request_context:{request_key:'billing_review'}};
@@ -44,4 +44,4 @@ assert.equal(attempts,plan.maximumPlannedAttempts);assert(attempts<=plan.limits.
 assert.equal(plan.realBaseline,null);assert.equal(plan.realAfter,null);
 const facts=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-evaluation.json',import.meta.url),'utf8').replaceAll('\r\n','\n');
 assert.equal(createHash('sha256').update(facts).digest('hex'),plan.hotelFactsCanonicalSha256);
-console.log('PASS offline provenance/counts, actual finalizer characterization, safe unconfirmed receipt, four unexecuted reserved cases and bounded evaluation plan; no model or database calls');
+console.log('PASS retained diagnosis provenance, corrected finalizer, safe unconfirmed receipt and original frozen plan (N01-N04 now diagnostic); no model or database calls');

@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 // must fail CI, even though the evaluation command retains unfavorable outputs.
 const directory=path.resolve('.npm-cache/fresh-service-evaluation');
 fs.mkdirSync(directory,{recursive:true});
-for(const split of ['diagnostic','holdout','validation']) {
+for(const split of ['diagnostic','holdout','validation','naturalness-reserved','naturalness-final']) {
  const output=path.join(directory,split+'.json');
  execFileSync(process.execPath,['scripts/evaluate-fresh-service.js',split,output],{env:process.env,stdio:'inherit'});
  const report=JSON.parse(fs.readFileSync(output,'utf8'));

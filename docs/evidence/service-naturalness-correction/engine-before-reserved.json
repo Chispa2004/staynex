@@ -1,0 +1,14 @@
+{
+  "baseline": "852eeb06f113c69b8e98ee5353113d9407c7ddfa",
+  "stage": "before-reserved-first-run",
+  "files": {
+    "shared/guest-service/quality.js": "b56b2b65f14fabac14b547f82dc4258a8881d22344491e7a36c5a6461a657380",
+    "shared/guest-service/ticket-context.js": "6abe8c6f085df5af1119835211ce155d58774c3c1a2cead556bbfaa5e45f1bf7",
+    "shared/guest-service/turn-replies.js": "5855c33e175194f475ef5efc815093b75517de7c0ec911a60f3ae9be0055e93d",
+    "shared/guest-service/information-evidence.js": "83cca4aca39eb95a7f0a6f0e1c116f50302b899a24fb73095b097fbec2923802",
+    "shared/guest-service/arrival-booking.js": "4332a206207e601a457922aec1852ea11db666946c7e10f8ec2c891446596385",
+    "src/services/operational-request.service.js": "fcf18bb4f77170f3e6aa531f47fd1b596be9db5d7d6ac2adb8ee476d92f65dae"
+  },
+  "realCalls": 0,
+  "realTokens": 0
+}

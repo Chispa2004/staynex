@@ -16,12 +16,18 @@ import {shouldAiAutoRespond} from '../shared/pilot/ai-safety.js';
 assert.equal(process.env.SEND_AUTOMATIONS,'false');assert.equal(process.env.GUEST_MEMORY_ENABLED,'false');
 assert.match(process.env.NODE_OPTIONS||'',/isolate\.cjs/);
 const [split='diagnostic',output='../evaluation.json']=process.argv.slice(2);
-assert(['diagnostic','holdout','validation'].includes(split));
+assert(['diagnostic','holdout','validation','naturalness-reserved','naturalness-final'].includes(split));
 const bytes=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-evaluation.json',import.meta.url));
 const dataset=JSON.parse(bytes);
 const validationBytes=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-validation.json',import.meta.url));
-const selected=(split==='validation'?JSON.parse(validationBytes).cases:dataset.cases).filter(c=>c.split===split);
-assert.equal(selected.length,split==='diagnostic'?16:split==='holdout'?8:6);
+const naturalnessPlan=JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-evaluation-plan.json',import.meta.url)));
+const expectedReserved={N01:['record','detail','social','observe'],N02:['record','observe','observe','no_delivery'],N03:['unknown_knowledge','unknown_knowledge','unknown_knowledge','social'],N04:['multiple','multiple','multiple','human']};
+const selected=split==='naturalness-final'?JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-final-reserve.json',import.meta.url))).cases:split==='naturalness-reserved'?naturalnessPlan.heldout.map(c=>({...c,
+  stateChanges:Object.fromEntries(c.turns.flatMap((t,n)=>t.persistedStatus?[[n,t.persistedStatus]]:[])),
+  turns:c.turns.map((t,n)=>({...t,message:t.guest,expected:expectedReserved[c.id][n],
+    probe:c.hotel==='a'?'Ya hemos avisado al equipo y está todo solucionado.':'We have notified the team and everything is resolved.'}))
+})):(split==='validation'?JSON.parse(validationBytes).cases:dataset.cases).filter(c=>c.split===split);
+assert.equal(selected.length,split==='diagnostic'?16:split==='holdout'?8:split==='naturalness-reserved'?4:split==='naturalness-final'?3:6);
 // Execute production generation functions with only the SDK transport substituted.
 // No credential discovery or provider connection is supported.
 process.env.OPENAI_API_KEY='synthetic-not-a-credential';process.env.USE_MOCK_AI='false';process.env.AI_CONCIERGE_ENABLED='true';
@@ -118,6 +124,7 @@ try {
    if(expected==='repeat')check(after.length===before.length,'duplicate_ticket');
    if(expected==='new')check(after.length===before.length+1,'new_request_merged');
    if(expected==='observe')check(outcome?.status==='observed'&&effects.every(e=>e.kind!=='rpc'),'progress_wrote_or_lost_context');
+   if(expected==='social')check(outcome?.status==='not_requested'&&effects.every(e=>e.kind!=='rpc')&&after.length===before.length&&!/request|petici[oó]n|habitaci[oó]n|TEST-|F-617|J-842/.test(final||''),'social_repeated_or_wrote');
    if(expected==='ambiguous')check(outcome?.status==='ambiguous'&&after.length===before.length,'ambiguous_ticket_selected');
    if(expected.startsWith('cancellation'))check(!/request is cancelled|cancelad[oa]|is cancelled/i.test(final||'')||/no |not |cannot|can't|a[uú]n/i.test(final),'false_cancellation');
    if(expected==='cancellation')check(after[0]?.description.includes(turn.message)&&after[0]?.status==='open','withdrawal_lost_or_closed');
@@ -135,10 +142,12 @@ try {
    check(!final?.includes('FOREIGN-HOTEL-SECRET'),'foreign_knowledge_reply');
    if(c.roomState)check(after.every(t=>t.room_number===null),'untrusted_room');
    transcript.push({turn:n+1,guest:turn.message,expected,gate,rawControlledProbe:raw,modelResponse:model,conciergeResponse:concierge,modelCaptures,
+    transformation:result?.response?.service_quality||null,originalIsRealModel:false,
     final,draft,before,after,outcome,effects,failures,styleSignals:{words:final?.split(/\s+/).length||0,repeatsPrevious:!!final&&final===transcript.at(-1)?.final},communicationPending:c.communicationPending===true});
    history.push(sourceMessage);if(final)history.push({hotel_id:h,conversation_id:cid,sender_type:'ai',content:final});
   }
-  rows.push({id:c.id,path,hotel:hotel.name,language:spec.language,phase:c.phase,turns:transcript});
+  const persistedReceipts=JSON.parse(sql(`SELECT coalesce(jsonb_agg(r),'[]') FROM operational_request_receipts r JOIN tickets t ON t.id=r.ticket_id WHERE t.conversation_id='${cid}' AND t.hotel_id='${h}';`));
+  rows.push({id:c.id,path,hotel:hotel.name,language:spec.language,phase:c.phase,turns:transcript,persistedReceipts});
   console.log(`EVAL ${split} ${c.id} ${path}: ${transcript.flatMap(t=>t.failures).length} failed properties`);
  }
  assert.equal(outside.length,0);

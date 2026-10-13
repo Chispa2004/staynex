@@ -14,7 +14,7 @@ export const requestTopics=[
   ['air_conditioning','maintenance',/aire acondicionado|air condition|climatis|klimaanlage|aria condizion|ar condicionado/],
   ['water_leak','maintenance',/fuga|gote|inund|water leak|leaking|fuite|wasseraustritt|perdita d.acqua|agua.*suelo|water.*floor/],
   ['towels','housekeeping',/toallas?|towels?|serviettes?|handtuch|handtucher|asciugaman|toalhas?/],
-  ['cleaning','housekeeping',/limpiez|limpiar|clean (?:my |the )?room|nettoy|reinig|pulizi|limpeza/],
+  ['cleaning','housekeeping',/limpiez|limpi(?:ar|en|e[ns]?|ad)|clean(?:ing|ed)? (?:my |the |our )?(?:room|bathroom)|(?:room|bathroom).{0,15}clean|nettoy|reinig|pulizi|limpeza/],
   ['noise','complaint',/ruido|noise|bruit|larm|rumore|barulho/],
   ['lost_property','reception',/olvid|perdid|lost|left (?:my|a|the)|oublie|verlor|dimentic|esquec/],
   ['new_booking','reception',/nueva (?:reserva|estancia)|proxima (?:reserva|estancia)|new (?:booking|reservation)|next stay/]
@@ -22,18 +22,25 @@ export const requestTopics=[
 export const requestTopic=message=>requestTopics.find(([, ,pattern])=>pattern.test(normalizeServiceText(message)))?.[0]||null;
 export function serviceTurn(message='') {
   const text=normalizeServiceText(message);
-  const human=/(?:me atienda|me ayude) (?:una persona|alguien)|(?:hablar con|ayuda de) (?:una persona|alguien|un humano)|(?:atencion|ayuda) (?:humana|de una persona)|speak (?:to|with) (?:a person|someone|a human)|human (?:help|support)/.test(text);
+  // Match the whole conversational close; a thank-you followed by a new need
+  // must still reach the operational interpreter.
+  const social=/^(?:(?:perfecto|vale|entendido|de acuerdo|ok|okay|understood|great)[,!. ]*)?(?:(?:muchas )?gracias|(?:thank you|thanks)(?: very much)?)(?:[,!. ]*(?:eso es todo|nada mas|that's all|that is all))?[.! ]*$/.test(text);
+  const preserveMessage=/(?:mant[eé]n|conserv|deja|keep|retain).*(?:visibl|mensaje|message|needs|necesidades)/.test(text);
+  const human=/(?:me atienda|me ayude) (?:una persona|alguien)|(?:hablar con|ayuda de) (?:una persona|alguien|un humano)|(?:atencion|ayuda) (?:humana|de una persona)|(?:prefiero|quiero|necesito).{0,25}(?:una persona|un humano)|speak (?:to|with) (?:a person|someone|a human)|human (?:help|support)|(?:prefer|want|need).{0,25}(?:a person|a human)/.test(text);
   const unresolved=/(?:sigue|todavia|aun).*(?:sin funcionar|no funciona|fallando|problema)|still (?:not working|broken|leaking)|not fixed/.test(text);
   const receipt=/teneis|tienen (?:mi|la)|lo teneis|lo habeis (?:anotado|apuntado)|have (?:you|we)|do you have|did you (?:get|receive)|got (?:it|my)|is (?:my|the) request/.test(text);
   const progress=/novedad|como (?:va|esta)|ya (?:esta|han)|sigue|todavia|aun |confirmad|reservad|emitid|encontrad|terminad|hecho|actualizaci|which (?:one|request).*(?:handled|handling|attended)|cual.*(?:atend|gestion)|news|update|progress|ready|finished|done|confirmed|booked|issued|found|still|status/.test(text);
-  const withdrawal=/\b(?:ya no (?:hace falta|lo necesito|necesito)|no (?:longer )?need (?:it|that)|no longer need|cancel (?:my|the|this) (?:request|order)|cancela(?:r)? (?:mi|la|esta) (?:peticion|solicitud))\b/.test(text);
+  const withdrawal=/\b(?:ya no (?:hace falta|(?:lo |la |las |los )?necesito)|no (?:longer )?need (?:it|that)|no longer need|cancel (?:my|the|this) (?:request|order)|cancela(?:r)? (?:mi|la|esta) (?:peticion|solicitud))\b/.test(text);
   const cancellation=withdrawal || /cancelad|cancelled|canceled/.test(text);
-  const delivery=/enviad|entregad|\bsent\b|\bdelivered\b|\breturned\b|en camino|on (?:the|its|their) way/.test(text);
-  const quantityChange=/\b(?:mejor|en vez de|en lugar de|instead|rather|make (?:it|that)|change (?:it|that) to)\b/.test(text) && /\b(?:\d+|un[oa]?|dos|tres|cuatro|cinco|one|two|three|four|five)\b/.test(text);
-  const clarification=human || withdrawal || quantityChange || /\b(?:son de|las dos|los dos|ambas|ambos|me refiero|en concreto|era una?|es (?:una?|la|el)|el numero|a nombre|para toda|llegamos en|ser[ií]amos|prefiero|la prefiero|lo prefiero|estare fuera|son (?:dos|tres|\d+) cargos|both|all (?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+)|i mean|to clarify|specifically|they are|it's a|it is a|flight is|our flight|for the whole|the name is|i prefer|i will be out|i'll be out|the charges are)\b/.test(text)
-    || /(?:agua.*(?:suelo|acumulada)|water.*(?:floor|pooling))/.test(text);
+  const delivery=/enviad|entregad|\bsent\b|\bdelivered\b|\breturned\b|en camino|on (?:the|its|their) way|(?:did|has|have).{0,25}(?:send|notify)|(?:ha|habeis|han).{0,20}(?:mandado|avisado)/.test(text);
+  const progressQuestion=progress || /(?:have|has|is|are).{0,25}(?:started|changed|under way)|(?:habeis|han|ha|esta).{0,20}(?:empezad|comenzad|puesto en marcha)|hay (?:algun )?cambio/.test(text);
+  const quantityChange=/\b(?:mejor|en vez de|en lugar de|instead|rather|make (?:it|that)|change (?:it|that) to|corrijo|corregir|cantidad|quantity)\b/.test(text) && /\b(?:\d+|un[oa]?|dos|tres|cuatro|cinco|one|two|three|four|five)\b/.test(text);
+  const clarification=human || withdrawal || quantityChange || /\b(?:son de|me refiero|en concreto|era una?|es (?:una?|la|el)|el numero|a nombre|para toda|llegamos en|ser[ií]amos|prefiero|la prefiero|lo prefiero|estare fuera|son (?:dos|tres|\d+) cargos|i mean|to clarify|specifically|they are|it's a|it is a|flight is|our flight|for the whole|the name is|i prefer|i will be out|i'll be out|the charges are)\b/.test(text)
+    || /(?:agua.*(?:suelo|acumulada)|water.*(?:floor|pooling))/.test(text)
+    || (!progressQuestion && /\b(?:las dos|los dos|ambas|ambos|both|all (?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+))\b/.test(text));
   const newIncident=/\b(?:otra incidencia|otro problema|nueva peticion|new issue|different problem|another request|autre probleme)\b/.test(text);
-  return {human,unresolved,withdrawal,cancellation,delivery,kind:human?'human_request':clarification?'clarification':receipt?'receipt':(progress||delivery||cancellation)?'progress':'initial',receipt,progress:progress||delivery||cancellation,clarification,newIncident,topic:requestTopic(message)};
+  const quantity=quantityChange?text.match(/(?:mejor|make (?:it|that)|change (?:it|that) to|cantidad:|quantity:)\s+(\d+|un[oa]?|dos|tres|cuatro|cinco|one|two|three|four|five)\b/)?.[1]||null:null;
+  return {human,unresolved,withdrawal,cancellation,delivery,social,preserveMessage,quantity:({un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,one:1,two:2,three:3,four:4,five:5})[quantity]||quantity,kind:social?'social':human?'human_request':clarification?'clarification':receipt?'receipt':(progressQuestion||delivery||cancellation)?'progress':'initial',receipt,progress:progressQuestion||delivery||cancellation,clarification,newIncident,topic:requestTopic(message)};
 }
 
 export function selectRelevantTicket({tickets=[],receipts=[],hotelId,guestId,conversationId,message,history=[],sourceMessageId,coverage='ready'}) {
@@ -43,6 +50,7 @@ export function selectRelevantTicket({tickets=[],receipts=[],hotelId,guestId,con
     || [t.request_context?.source_message_id,t.request_context?.last_source_message_id].includes(sourceMessageId)));
   if(exact.length===1)return {status:'selected',ticket:exact[0],candidates:exact,relation:'source_message'};
   const turn=serviceTurn(message);
+  if(turn.social)return {status:'none',ticket:null,candidates:[]};
   if(turn.newIncident)return {status:'none',ticket:null,candidates:[]};
   let candidates=scoped.filter(t=>turn.topic && (t.request_context?.request_key===turn.topic || requestTopic(t.title+' '+t.description)===turn.topic));
   // A new observation of water on the floor can describe the existing shower
@@ -79,23 +87,25 @@ export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=fa
   const turn=ticketTurn(ticket,message), status=ticket?.status;
   const en=language.startsWith('en');
   if(!['es','en'].includes(language.slice(0,2)))return null;
+  if(turn.social)return {turn,text:en?'You’re welcome.':'De nada.'};
   if(turn.cancellation) {
     if(['cancelled','canceled'].includes(status))return {turn,text:en?'This request is marked cancelled.':'Esta petición figura cancelada.'};
     if(turn.withdrawal && detailConfirmed)return {turn,text:en?'We’ve added that you no longer need it. Cancellation still needs the team’s confirmation.':'He añadido que ya no lo necesitas. El equipo debe confirmar la cancelación.'};
     return {turn,text:en?'I can’t confirm cancellation yet. The team needs to review your request.':'Aún no puedo confirmar la cancelación. El equipo debe revisar la petición.'};
   }
-  if(turn.delivery)return {turn,text:en?'I don’t have confirmation of delivery or sending.':'No tengo confirmación de envío o entrega.'};
+  if(turn.delivery)return {turn,text:(status==='completed' && /hech|terminad|finished|done|completed/.test(normalizeServiceText(message))?(en?'We’ve completed this request. ':'Hemos completado esta petición. '):'')+(en?'I don’t have confirmation of delivery or sending.':'No tengo confirmación de envío o entrega.')};
   if(turn.unresolved && status==='completed')return {turn,text:en?'I’m sorry it is still not working. Our previous request is marked complete, but your new message needs review.':'Siento que siga sin funcionar. La petición anterior figura hecha, pero tu nuevo mensaje necesita revisión.'};
   if(turn.human)return {turn,text:turn.unresolved
     ? en?'Of course. I’m sorry it is still not working. We have your request to speak with a person.':'Claro. Siento que siga sin funcionar. Tenemos tu petición de hablar con una persona.'
     : en?'Of course, we have your request to speak with a person.':'Claro, tenemos tu petición de hablar con una persona.'};
+  if(turn.clarification && ['open','pending','in_progress'].includes(status))return {turn,text:detailConfirmed
+    ? turn.quantity ? en?`We’ve noted the change to ${turn.quantity}.`:`Hemos anotado el cambio a ${turn.quantity}.`
+      : turn.receipt ? en?'Yes, we have it! We’ve added that detail.':'¡Sí, la tenemos! Hemos añadido ese detalle.' : en?'Thanks, we’ve added that detail.':'Gracias, hemos añadido ese detalle.'
+    : en?'We have your request, but I can’t confirm that this detail has been added yet.':'Tenemos tu petición, pero aún no puedo confirmar que ese detalle se haya incorporado.'};
   if(status==='completed')return {turn,...{text:en?'We’ve completed this request.':'Hemos completado esta petición.'}};
   if(status==='in_progress')return {turn,text:en?'We’re working on it.':'Nos estamos ocupando de ello.'};
   if(['closed','cancelled','canceled'].includes(status))return {turn,text:en?'This request is closed; that does not confirm it was completed.':'Esta petición está cerrada; no consta por ello que se haya completado.'};
   if(!['open','pending'].includes(status))return {turn,text:en?'I can’t confirm the current status of this request.':'No puedo confirmar ahora el estado de esta petición.'};
-  if(turn.clarification)return {turn,text:detailConfirmed
-    ? turn.receipt ? en?'Yes, we have it! We’ve added that detail.':'¡Sí, la tenemos! Hemos añadido ese detalle.' : en?'Thanks, we’ve added that detail.':'Gracias, hemos añadido ese detalle.'
-    : en?'We have your request, but I can’t confirm that this detail has been added yet.':'Tenemos tu petición, pero aún no puedo confirmar que ese detalle se haya incorporado.'};
   if(turn.progress)return {turn,text:en?'We have it, but there’s no further update recorded yet.':'La tenemos, pero todavía no consta ninguna novedad.'};
   if(turn.receipt)return {turn,text:en?'Yes, we have it!':'¡Sí, la tenemos!'};
   const topic=ticket.request_context?.request_key||requestTopic(message);
@@ -104,5 +114,7 @@ export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=fa
   const room=ticket.room_number ? (en?` for room ${ticket.room_number}`:` para la habitación ${ticket.room_number}`):'';
   if(['air_conditioning','water_leak'].includes(topic) && /fuga|gote|mojad|pierde agua|leak|wet floor/.test(normalizeServiceText(message+' '+ticket.description)))return {turn,text:en?`I’m sorry about the inconvenience. We have your report${room}. Please keep clear of the wet floor.`:`Siento las molestias. Tenemos tu aviso${room}. Evita pisar la zona mojada.`};
   const missingRoom=!room&&requiresCurrentRoom(ticket) ? (en?' Which room is affected?':' ¿En qué habitación ocurre?'):'';
-  return {turn,text:(en?`We have your request${subject}${room}.`:`Ya tenemos tu petición${subject}${room}.`)+missingRoom};
+  return {turn,text:(turn.newIncident
+    ? en?`We also have this separate request${subject}.`:`También tenemos esta nueva petición${subject}.`
+    : en?`We have your request${subject}${room}.`:`Ya tenemos tu petición${subject}${room}.`)+missingRoom};
 }

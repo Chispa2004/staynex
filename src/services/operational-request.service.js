@@ -8,6 +8,9 @@ export async function recordOperationalRequest({hotel,guest,conversation,sourceM
     || sourceMessage?.hotel_id!==hotel.id || sourceMessage.conversation_id!==conversation.id || sourceMessage.sender_type!=='guest')throw new Error('Operational request context mismatch');
   const scoped=(context.tickets||context.openTickets||[]).filter(t=>t.hotel_id===hotel.id && t.conversation_id===conversation.id && t.guest_id===guest.id);
   const turn=serviceTurn(message);
+  // A stand-alone thank-you is not an instruction, even if the model repeats a
+  // previous create_ticket proposal. Keep the message, do not touch its ticket.
+  if(turn.social)return {status:'not_requested',ticket:null};
   const relevant=selectRelevantTicket({tickets:scoped,hotelId:hotel.id,guestId:guest.id,conversationId:conversation.id,message,history:context.recentMessages,sourceMessageId:sourceMessage.id});
   if(relevant.status==='ambiguous')return {status:'ambiguous',ticket:null,sourceMessageId:sourceMessage.id};
   let request=interpretOperationalRequest({message,aiResponse,openTickets:scoped});

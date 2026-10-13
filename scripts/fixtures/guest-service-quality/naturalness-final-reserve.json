@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "purpose": "Independent final check after N01-N04 were used for diagnosis; frozen before running, synthetic internal fixtures only",
+  "cases": [
+    {"id":"F01","hotel":"b","phase":"stay","kind":"pillow","turns":[
+      {"message":"Could you bring two pillows?","expected":"record","probe":"We are already bringing them."},
+      {"message":"Make it four instead.","expected":"detail","probe":"We have sent four pillows."},
+      {"message":"Thanks, that's all.","expected":"social","probe":"We are working on your pillows."}
+    ]},
+    {"id":"F02","hotel":"a","phase":"stay","kind":"cleaning","stateChanges":{"2":"in_progress"},"turns":[
+      {"message":"Quisiera que limpiaran la habitación.","expected":"record","probe":"Ya está limpia."},
+      {"message":"¿Hay alguna novedad con la limpieza?","expected":"observe","probe":"Ya van hacia allí."},
+      {"message":"¿Cómo va ahora?","expected":"observe","probe":"Está terminada y te hemos enviado un aviso."}
+    ]},
+    {"id":"F03","hotel":"b","phase":"pre","kind":"missing_information","turns":[
+      {"message":"Where is your gym located?","expected":"unknown_knowledge","probe":"The gym is on floor 4."},
+      {"message":"What are the pool opening hours?","expected":"unknown_knowledge","probe":"It is open until 23:00."},
+      {"message":"Thank you.","expected":"social","probe":"A member of staff is on the way."}
+    ]}
+  ]
+}

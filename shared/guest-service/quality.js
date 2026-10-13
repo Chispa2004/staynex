@@ -1,7 +1,9 @@
 import {informationEvidence} from './information-evidence.js';
+import {unconfirmedInformationReply,reviewServiceReply} from './turn-replies.js';
+import {independentRequestTopics} from './operational-request.js';
 import { receiptFacts, safeReceiptReply, receiptAnswersTurn } from './receipt-reply.js';
 import {ticketReplyPlan,detailIsPersisted,serviceTurn,requiresCurrentRoom} from './ticket-context.js';
-import { ARRIVAL_BOOKING_POLICY, arrivalBookingTopic, buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge, groundedArrivalReply } from './arrival-booking.js';
+import { ARRIVAL_BOOKING_POLICY, arrivalBookingTopic, buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge, guestFacingKnowledgeCandidates, groundedArrivalReply } from './arrival-booking.js';
 export { buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge };
 export { arrivalBookingTopic };
 // Shared by primary generation, optional Concierge refinement and isolated evaluation.
@@ -11,6 +13,7 @@ ${ARRIVAL_BOOKING_POLICY}
 GUEST SERVICE CONTRACT (takes precedence over style suggestions):
 - Speak as the hotel team: natural, cordial and concise, normally 1–3 sentences. Answer first. No repetitive greetings, apologies, generic offers or procedural disclaimers. Preserve quantities, dates and details from earlier turns.
 - Do not repeat the whole hotel policy on a follow-up. Address only the new question. Explain uncertainty only when it changes the guest’s next step.
+- A stand-alone thank-you or closing is not a new request or ticket update: acknowledge it briefly. A change of topic must use its own facts, not the previous request's receipt. For missing information identify the particular unknown the guest asks about (location, hours, booking requirement or current verification).
 - A quantity correction or withdrawal concerns an existing scoped request. Withdrawal may be recorded as a detail, but cancellation needs the team's confirmation; never claim a closed/cancelled state from the guest's words. If multiple independent needs cannot be recorded atomically, explain the need for human review without claiming either was dispatched.
 - Conflicting or absent Knowledge is unconfirmed; ask only what helps, never select one convenient source.
 - Distinguish a new request, a detail added to an existing request, a receipt question and a progress question. In a clarification propose the existing request topic so the server can persist the detail atomically, never a second unrelated ticket. Do not answer a short follow-up with the entire original request, room and a passive technical status. Receipt wording is supplied after the server checks the record; it should answer the latest question in the first-person plural, not describe a database operation.
@@ -129,8 +132,8 @@ export function informationServiceDraft({message='',history=[],knowledge=[],hote
   const context={recentMessages:history,hotelKnowledge:knowledge};
   const followup=breakfastTimeFollowup({message,context,hotelId,language})||unavailableTransferReply({message,context,hotelId,language})||earlyLuggageReply({message,context,hotelId,language});
   if(followup)return {text:followup,language,draft:true,source:'hotel_knowledge'};
-  const evidence=informationEvidence({message,history,knowledge:guestFacingKnowledge(knowledge,hotelId),hotelId});
-  if(evidence && !evidence.confirmed)return {text:serviceCopy(language)?.missing||'',language,draft:true,source:'knowledge_unconfirmed'};
+  const evidence=informationEvidence({message,history,knowledge:guestFacingKnowledgeCandidates(knowledge,hotelId),hotelId});
+  if(evidence && !evidence.confirmed)return {text:unconfirmedInformationReply(evidence,message,language)||serviceCopy(language)?.missing||'',language,draft:true,source:'knowledge_unconfirmed',reason:evidence.reason,topic:evidence.topic};
   if(evidence?.confirmed && evidence.topic!=='breakfast')return {text:String(evidence.value),language,draft:true,source:'hotel_knowledge'};
   if(!evidence && !/desayun|breakfast/i.test(message))return null;
 
@@ -189,8 +192,11 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
   if(actual && operationalRequest?.status==='recorded' && Object.hasOwn(ticket,'room_number'))knownRoom=ticket.room_number||null;
   const genuine = preferPrimary && !primary?.upsell_opportunity && primary?.ai_provider === 'openai' && !primary.fallback_used && Number(primary.confidence)>=0.65;
   let reply = genuine ? primary.reply : processed?.reply;
+  const selectedReply=reply;
   let usedReceiptGeneration=false;
+  let transformation='generation';
   if(actual && t) {
+    transformation='persisted_ticket_plan';
     // Only the persisted, scoped record authorizes this acknowledgement. Discard
     // pre-execution operational prose: a model cannot certify its own actions.
     reply=t.saved;
@@ -204,6 +210,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
       && receiptReply.sourceMessageId===operationalRequest?.sourceMessageId && receiptReply.status===facts?.status
       && safeReceiptReply(receiptReply.reply,facts,language) && (!(plan?.turn?.human || plan?.turn?.unresolved) || receiptAnswersTurn(receiptReply.reply,facts,plan.turn));
     usedReceiptGeneration=Boolean(generated);
+    if(generated)transformation='verified_receipt_generation';
     if(generated)reply=receiptReply.reply.split(/(?<=[.!?])\s+/u).filter(sentence=>!sentence.includes('?') && !/^(?:por favor[, :]*)?(?:ind[ií]qu|confirme|facilite|provide\b|please (?:tell|confirm))/i.test(sentence.trim())
       || missingServiceQuestion(sentence.includes('?')?sentence:sentence+'?',{knownRoom,...context,message,requestRecorded:true,requestKey:operationalRequest?.request?.key})).join(' ');
     const question=reply.includes('?')||serviceTurn(message).kind!=='initial'?null:missingServiceQuestion(primary?.reply,{knownRoom,...context,message,requestRecorded:true,requestKey:operationalRequest?.request?.key});
@@ -226,14 +233,18 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
       if(!roomQuestion)reply=reply.split(/(?<=[.!?])\s+/u).filter(s=>!s.includes('?')).join(' ')+' '+t.room;
     }
   } else if(operationalRequest?.status==='proposed') {
+    transformation='recording_unavailable';
     reply=t?.pending || '';
   } else if(operationalRequest?.status==='needs_review') {
-    reply=operationalRequest.errorCode==='MULTIPLE_REQUESTS_REQUIRE_REVIEW'
+    transformation='review_required_current_turn';
+    reply=reviewServiceReply({message,language,multiple:operationalRequest.errorCode==='MULTIPLE_REQUESTS_REQUIRE_REVIEW'}) || (operationalRequest.errorCode==='MULTIPLE_REQUESTS_REQUIRE_REVIEW'
       ? language==='en'?'Your message includes separate needs. Our team needs to review them; I can’t confirm their registration separately here.':'Tu mensaje incluye necesidades distintas. El equipo debe revisarlas; aquí no puedo confirmar su registro por separado.'
-      : language==='en'?'I can’t confirm cancellation or identify a single request to cancel. The team needs to review it.':'No puedo confirmar la cancelación ni identificar una única petición que cancelar. El equipo debe revisarlo.';
+      : language==='en'?'I can’t confirm cancellation or identify a single request to cancel. The team needs to review it.':'No puedo confirmar la cancelación ni identificar una única petición que cancelar. El equipo debe revisarlo.');
   } else if(operationalRequest?.status==='ambiguous') {
+    transformation='ambiguous_request';
     reply=language==='en'?'Which request do you mean? There is more than one in this conversation.':'¿A qué petición te refieres? Hay más de una en esta conversación.';
   } else if(operationalRequest?.status==='unconfirmed') {
+    transformation='persistence_unconfirmed';
     const failure={es:'Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.',en:'Your message is preserved, but I could not confirm that the request was recorded. You can retry here; for immediate help, contact reception.',fr:'Votre message est conservé, mais l’enregistrement de la demande n’a pas pu être confirmé. L’équipe de l’hôtel doit encore l’examiner.',de:'Ihre Nachricht bleibt erhalten, aber die Erfassung der Anfrage konnte nicht bestätigt werden. Das Hotelteam muss sie noch prüfen.',it:'Il messaggio è conservato, ma non è stato possibile confermare la registrazione della richiesta. Deve ancora essere esaminata dall’hotel.',pt:'A mensagem foi preservada, mas não foi possível confirmar o registo do pedido. A equipa do hotel ainda precisa de o analisar.'};
     reply=failure[String(language).slice(0,2)]||t?.pending||'';
   } else if(hasUnverifiedActionClaim(reply) || unverifiedOutcomeClaim(reply)) {
@@ -272,27 +283,39 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
   }
   if(!actual && operationalRequest?.status==='not_requested' && !emergency && context.hotelKnowledge) {
     const information=informationServiceDraft({message,history:context.recentMessages,knowledge:context.hotelKnowledge,hotelId,language});
-    if(information?.source==='knowledge_unconfirmed')reply=information.text;
+    if(information?.source==='knowledge_unconfirmed'){reply=information.text;transformation='unconfirmed_information_current_question';}
+  }
+  if(operationalRequest?.status==='not_requested' && !emergency && serviceTurn(message).social && ['es','en'].includes(language)) {
+    reply=language==='en'?'You’re welcome.':'De nada.';transformation='social_no_action';
   }
   if(!reply) throw new Error('No safe service reply in the guest language');
   if(emergency && t && !reply.includes(t.urgent)) reply = `${t.urgent} ${reply}`;
-  return {...processed, reply, service_quality:{version:3,receipt_generation:usedReceiptGeneration,request_status:actual?'recorded':operationalRequest?.status||'not_recorded',ticket_id:actual?ticket.id:null,source_message_id:operationalRequest?.sourceMessageId||null,notification_confirmed:false}};
+  if(transformation==='generation' && reply!==selectedReply)transformation='safety_or_grounding';
+  return {...processed, reply, service_quality:{version:4,transformation,turn_kind:serviceTurn(message).kind,receipt_generation:usedReceiptGeneration,request_status:actual?'recorded':operationalRequest?.status||'not_recorded',ticket_id:actual?ticket.id:null,source_message_id:operationalRequest?.sourceMessageId||null,notification_confirmed:false}};
 }
 
 // Inbox currently supplies deterministic drafts, not a provider generation. Keep
 // them explicitly as drafts and useful without pretending an operation took place.
 export function buildServiceDraft({message = '', language = 'es', room = null, urgent = false, history = [], recordedTicket = null}) {
   const t=serviceCopy(language); if(!t)return null;
+  const turn=serviceTurn(message);
+  if(turn.social && !urgent && ['es','en'].includes(language))return {text:language==='en'?'You’re welcome.':'De nada.',language,draft:true,requestStatus:'not_requested'};
   const text=message.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const prior=history.filter(m=>m.sender_type==='guest').map(m=>m.content).join(' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const facts=text+' '+prior;
   if(recordedTicket?.id)return {text:ticketReplyPlan({ticket:recordedTicket,message,language,detailConfirmed:detailIsPersisted(recordedTicket,message)})?.text||t.saved,language,draft:true,confidence:1,requestStatus:'recorded',ticketId:recordedTicket.id};
+  const multiple=independentRequestTopics(message).length>1 || (!turn.topic && (turn.kind!=='initial'||turn.preserveMessage)
+    && history.filter(m=>m.sender_type==='guest').slice(-3).some(m=>independentRequestTopics(m.content).length>1));
+  if(!urgent && (multiple||turn.cancellation)) {
+    const text=reviewServiceReply({message,language,multiple,draft:true});
+    if(text)return {text,language,draft:true,requestStatus:'needs_review'};
+  }
   let reply=t.pending;
   if(urgent)reply=t.urgent+' '+t.pending;
   else if(/cuna|cot|crib|lit bebe|babybett/.test(text))reply=hasKnownChildAge(facts)?t.pending:t.cot+' '+t.pending;
   else if(/olvid|lost|left|oublie|verlor/.test(text))reply=/bufanda|scarf|cargador|charger|pasaporte|passport|scharf|schal|echarpe/.test(facts)?t.pending:t.lost;
   else if(/factura|invoice|rechnung|facture/.test(text))reply=/necesito|need|solicit|request|besoin|brauche/.test(text)?t.pending:t.invoice;
   else if(/toalla|towel|ruido|noise|aire acondicionado|air condition|serviette|handtuch|larm/.test(text))reply=room?t.pending:t.room;
-  else reply=t.missing+' '+t.clarify;
+  else reply=turn.topic?t.pending:t.missing+' '+t.clarify;
   return {text:reply,language,draft:true,confidence:0.6,requestStatus:'proposed'};
 }

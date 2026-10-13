@@ -9,7 +9,10 @@ export async function createNativeTestPostgres(bin,driver) {
  const cleanup=()=>{if(started||fs.existsSync(path.join(data,'postmaster.pid'))){run('pg_ctl',['-D',data,'-m','fast','-w','stop']);started=false;}
   const resolved=path.resolve(root);if(!resolved.startsWith(path.resolve(os.tmpdir())+path.sep+'staynex-service-pg-')||fs.lstatSync(root).isSymbolicLink())throw Error('Unsafe cleanup path');fs.rmSync(root,{recursive:true,force:true});};
  try {
-  run('initdb',['-D',data,'-U','postgres','--auth=trust','--encoding=UTF8','--locale=C']);
+  // Disposable fixture clusters already run with fsync disabled (-F). Avoid a
+  // Windows filesystem flush timeout while initializing their empty catalog;
+  // this harness tests transactions/readback, not crash-durability guarantees.
+  run('initdb',['-D',data,'-U','postgres','--auth=trust','--encoding=UTF8','--locale=C','--no-sync']);
   run('pg_ctl',['-D',data,'-l',path.join(root,'server.log'),'-o',`-h 127.0.0.1 -p ${port} -F`,'-w','start']);started=true;
   const query=fileURLToPath(new URL('./native-pg-query.cjs',import.meta.url));
   return {cleanup,sql:text=>execFileSync(process.execPath,[query,driver,String(port)],{input:text,env:process.env,encoding:'utf8',windowsHide:true,timeout:30000,stdio:['pipe','pipe','pipe']}).trim()};
