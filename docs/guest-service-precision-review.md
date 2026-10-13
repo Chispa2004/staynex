@@ -52,3 +52,7 @@ Solo se comprobó el mecanismo autorizado de desarrollo: no existen `provenance.
 Consumo real: **0 llamadas, 0 tokens, 0 errores de proveedor, 0 USD**. No existe comparación real antes/después nueva. No recomendar publicación por calidad del modelo hasta ejecutarla y revisar las respuestas. Cancelación efectiva y ejecución de varias solicitudes independientes continúan sin implementar; necesitan herramientas/persistencia adicionales. Registrar desistimiento no cancela y cambiar la redacción no implementa varias operaciones.
 
 Se mantienen producción, demo, inventarios, Ubikos, Guest Memory OFF y SEND_AUTOMATIONS=false. Solo datos ficticios locales; no migración remota, envíos, push, PR o despliegue.
+
+## Cierre local posterior de D11
+
+El límite de pérdida de contexto y prioridad descrito arriba queda corregido localmente en la fase documentada en [recuperación completa y atómica de D11](guest-service-failed-request-recovery.md). Se conservan las evidencias anteriores como historial. La evaluación con IA real está **aplazada por decisión expresa del usuario**, sin autorización de gasto; no se buscan/configuran credenciales ni se solicita presupuesto. Esta corrección incorpora una migración local propuesta y probada, sin aplicación remota ni publicación.

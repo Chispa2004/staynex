@@ -441,16 +441,15 @@ export const createMessage = async ({
   return data;
 };
 
-export const getRecentMessages = async ({ conversationId, hotelId = null, limit = 8 }) => {
+export const getRecentMessages = async ({ conversationId, hotelId = null, limit = 8, client = null }) => {
   if (!conversationId || !hotelId) {
     return [];
   }
 
-  const client = getSupabase();
-
-  const { data, error } = await client
+  const sourceClient = client || getSupabase();
+  const { data, error } = await sourceClient
     .from('messages')
-    .select('id, conversation_id, hotel_id, sender_type, content, created_at')
+    .select('id, conversation_id, hotel_id, sender_type, content, created_at, service_quality:metadata->service_quality')
     .eq('conversation_id', conversationId)
     .eq('hotel_id', hotelId)
     .order('created_at', { ascending: false })
@@ -460,7 +459,7 @@ export const getRecentMessages = async ({ conversationId, hotelId = null, limit 
     throw error;
   }
 
-  return (data || []).reverse();
+  return (data || []).reverse().map(({service_quality,...message})=>({...message,metadata:{service_quality:service_quality||null}}));
 };
 
 export const getOpenTicketsForGuest = async ({ guestId, hotelId = null, limit = 5 }) => {

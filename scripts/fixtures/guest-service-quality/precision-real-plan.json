@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "status": "awaiting-development-credential-and-budget-approval",
+  "status": "deferred-by-user-no-api-spend",
   "baseline": "01d8f15ad8265ff2f59e3b644d82ed846666f27d",
   "model": "gpt-4.1-mini-2025-04-14",
   "temperature": 0,

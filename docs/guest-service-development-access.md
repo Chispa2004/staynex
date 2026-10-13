@@ -1,5 +1,7 @@
 # Acceso de desarrollo para la evaluación sintética
 
+**Estado vigente: evaluación real aplazada por decisión expresa del usuario. Sin gasto autorizado, búsqueda/configuración de claves ni llamadas. Los pasos y cifras siguientes se conservan como propuesta histórica; no ejecutarlos en esta fase.**
+
 Comprobación del 13 de octubre de 2026: `OPENAI_API_KEY` ausente en el proceso, ningún archivo de credencial de desarrollo en el worktree y ningún registro explícito en `%LOCALAPPDATA%\Staynex\development-evaluation`. No se han leído `.env` de otros trabajos ni consultado Railway, Vercel o secretos desplegados. Ausencia de acceso acreditado; no es una auditoría de todas las claves del equipo.
 
 ## Configuración por el propietario

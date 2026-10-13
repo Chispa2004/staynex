@@ -55,14 +55,14 @@ try {
  CREATE TABLE hotels(id uuid PRIMARY KEY,name text,status text DEFAULT 'active',metadata jsonb DEFAULT '{}',archived_at timestamptz,deleted_at timestamptz);
  CREATE TABLE guests(id uuid PRIMARY KEY,hotel_id uuid REFERENCES hotels);
  CREATE TABLE conversations(id uuid PRIMARY KEY,hotel_id uuid REFERENCES hotels,guest_id uuid REFERENCES guests);
- CREATE TABLE messages(id uuid PRIMARY KEY,hotel_id uuid REFERENCES hotels,conversation_id uuid REFERENCES conversations,sender_type text,content text,created_at timestamptz DEFAULT now());
+ CREATE TABLE messages(id uuid PRIMARY KEY,hotel_id uuid REFERENCES hotels,conversation_id uuid REFERENCES conversations,sender_type text,content text,metadata jsonb DEFAULT '{}',created_at timestamptz DEFAULT now());
  CREATE TABLE reservations(id uuid PRIMARY KEY,hotel_id uuid REFERENCES hotels,guest_id uuid REFERENCES guests);
  CREATE TABLE hotel_users(id uuid PRIMARY KEY,hotel_id uuid REFERENCES hotels,user_id uuid,status text,role text);
  CREATE TABLE conversation_ai_state(hotel_id uuid,conversation_id uuid,state_metadata jsonb,PRIMARY KEY(hotel_id,conversation_id));
  CREATE TABLE tickets(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),hotel_id uuid REFERENCES hotels,guest_id uuid REFERENCES guests,conversation_id uuid REFERENCES conversations,room_number text,category text,title text,description text,priority text,status text,created_at timestamptz DEFAULT now());
  GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA public TO service_role;
  INSERT INTO hotels(id,name)VALUES('${id(1)}','Synthetic Faro'),('${id(2)}','Synthetic Juniper');`);
- for(const file of ['add_operational_request_receipts.sql','guard_operational_request_clarification.sql'])sql(fs.readFileSync(new URL('../supabase/sql/'+file,import.meta.url),'utf8'));
+ for(const file of ['add_operational_request_receipts.sql','guard_operational_request_clarification.sql','recover_failed_operational_request.sql'])sql(fs.readFileSync(new URL('../supabase/sql/'+file,import.meta.url),'utf8'));
  let seq=100;
  for(const c of selected) for(const path of (split.startsWith('precision-')?['primary']:['primary','concierge'])) {
   const spec=dataset.hotels[c.hotel],h=id(c.hotel==='a'?1:2),g=id(++seq),cid=id(++seq),rid=id(++seq);
@@ -106,16 +106,16 @@ try {
     }
     modelCaptures=structuredClone(captures);
     const client={rpc:async(name,p)=>{effects.push({kind:'rpc_attempt',name,sourceMessageId:p.p_message_id,request:p.p_request});if(c.failTurn===n||c.failTurns?.includes(n)){effects.push({kind:'write_failed'});return {error:{code:'SYNTHETIC_TIMEOUT'}};}
-     try{const data=JSON.parse(sql(`SET ROLE service_role;SELECT record_guest_operational_request_v1(${q(p.p_hotel_id)},${q(p.p_conversation_id)},${q(p.p_message_id)},${q(p.p_request)}::jsonb);`));effects.push({kind:'rpc',ticketId:data.ticket.id,replayed:data.replayed,sourceMessageId:data.source_message_id});return {data};}catch{return {error:{code:'SYNTHETIC_SQL_ERROR'}};}},
-     from:table=>{assert.equal(table,'tickets');const filters={};const query={select:()=>query,eq:(k,v)=>{assert(['id','hotel_id','guest_id','conversation_id'].includes(k));filters[k]=v;return query;},single:async()=>{
-      if(c.failReadTurn===n){effects.push({kind:'readback_failed',filters});return {error:{code:'SYNTHETIC_READBACK_LOSS'}};}
-      const data=JSON.parse(sql(`SELECT coalesce((SELECT to_jsonb(t) FROM tickets t WHERE ${Object.entries(filters).map(([k,v])=>k+'='+q(v)).join(' AND ')}),'null'::jsonb);`));effects.push({kind:'readback',filters,ticketId:data?.id,status:data?.status});return {data};}};return query;}};
+     try{const data=JSON.parse(sql(`SET ROLE service_role;SELECT ${name}(${q(p.p_hotel_id)},${q(p.p_conversation_id)},${q(p.p_message_id)},${q(p.p_request)}::jsonb);`));effects.push({kind:'rpc',ticketId:data.ticket.id,replayed:data.replayed,sourceMessageId:data.source_message_id});return {data};}catch{return {error:{code:'SYNTHETIC_SQL_ERROR'}};}},
+     from:table=>{assert(['tickets','messages'].includes(table));const filters={};const query={select:()=>query,eq:(k,v)=>{assert(['id','hotel_id','guest_id','conversation_id'].includes(k));filters[k]=v;return query;},single:async()=>{
+      if(table==='tickets' && c.failReadTurn===n){effects.push({kind:'readback_failed',filters});return {error:{code:'SYNTHETIC_READBACK_LOSS'}};}
+      const data=JSON.parse(sql(`SELECT coalesce((SELECT to_jsonb(t) FROM ${table} t WHERE ${Object.entries(filters).map(([k,v])=>k+'='+q(v)).join(' AND ')}),'null'::jsonb);`));effects.push({kind:'readback',filters,ticketId:data?.id,status:data?.status});return {data};}};return query;}};
     const bindings={...quality,recordOperationalRequest:v=>recordOperationalRequest({...v,client}),composeRecordedGuestReply:async()=>null,
      activeHotel:hotel,guest,conversation,guestMessage:sourceMessage,conversationContext:context,message:turn.message,rawAiResponse:model,aiResponseWithUpsell:processed,
      enhancedRisk:{hasRisk:false},upsellInterest:null,providerExperienceOwnsResponse:false,experienceBookingIntent:{detected:false},experienceBookingRequest:null,
      finalOfferSuppression:{suppress:false},humanEscalation:{humanReason:turn.expected==='human'?'human_requested':null},smarterResponse:{metadata:{}},
      createUpsellInterestTicket:async()=>{throw Error('Unexpected effect');},
-     createMessage:async values=>{effects.push({kind:'persist_ai_message',content:values.content});sql(`INSERT INTO messages(id,hotel_id,conversation_id,sender_type,content)VALUES('${id(++seq)}','${h}','${cid}','ai',${q(values.content)});`);return values;}};
+     createMessage:async values=>{effects.push({kind:'persist_ai_message',content:values.content});sql(`INSERT INTO messages(id,hotel_id,conversation_id,sender_type,content,metadata)VALUES('${id(++seq)}','${h}','${cid}','ai',${q(values.content)},${q(values.metadata)}::jsonb);`);return values;}};
     result=await new Function(...Object.keys(bindings),'return (async()=>{'+body+'})()')(...Object.values(bindings));
     if(split.startsWith('precision-') && c.id==='D11' && n===1) {
       const committed=getTickets();const replay=await recordOperationalRequest({hotel,guest,conversation,sourceMessage,context,message:turn.message,aiResponse:model,client});
@@ -145,7 +145,7 @@ try {
    if(expected==='detail')check(outcome?.ticket?.id===before[0]?.id&&outcome?.ticket?.description.includes(turn.message),'detail_lost_or_wrong_ticket');
    if(expected==='repeat')check(after.length===before.length,'duplicate_ticket');
    if(expected==='new')check(after.length===before.length+1,'new_request_merged');
-   if(expected==='observe')check(outcome?.status==='observed'&&effects.every(e=>!['rpc','rpc_attempt'].includes(e.kind)),'progress_wrote_or_lost_context');
+   if(expected==='observe')check((outcome?.status==='observed'||split==='precision-recovery'&&c.id==='D11-readback-lost'&&outcome?.recovery)&&(outcome?.recovery||effects.every(e=>!['rpc','rpc_attempt'].includes(e.kind))),'progress_wrote_or_lost_context');
    if(expected==='social')check(outcome?.status==='not_requested'&&effects.every(e=>!['rpc','rpc_attempt'].includes(e.kind))&&after.length===before.length&&!/request|petici[oó]n|habitaci[oó]n|TEST-|F-617|J-842/.test(final||''),'social_repeated_or_wrote');
    if(expected==='ambiguous')check(outcome?.status==='ambiguous'&&after.length===before.length,'ambiguous_ticket_selected');
    if(expected.startsWith('cancellation'))check(!/request is cancelled|cancelad[oa]|is cancelled/i.test(final||'')||/no |not |cannot|can't|a[uú]n/i.test(final),'false_cancellation');
@@ -166,7 +166,7 @@ try {
    transcript.push({turn:n+1,guest:turn.message,expected,gate,rawControlledProbe:raw,modelResponse:model,conciergeResponse:concierge,modelCaptures,
     transformation:result?.response?.service_quality||null,originalIsRealModel:false,
     final,draft,before,after,outcome,effects,failures,styleSignals:{words:final?.split(/\s+/).length||0,repeatsPrevious:!!final&&final===transcript.at(-1)?.final},communicationPending:c.communicationPending===true});
-   history.push(sourceMessage);if(final)history.push({hotel_id:h,conversation_id:cid,sender_type:'ai',content:final});
+   history.push(sourceMessage);if(final)history.push({hotel_id:h,conversation_id:cid,sender_type:'ai',content:final,metadata:result?.aiMessage?.metadata});
   }
   const persistedReceipts=JSON.parse(sql(`SELECT coalesce(jsonb_agg(r),'[]') FROM operational_request_receipts r JOIN tickets t ON t.id=r.ticket_id WHERE t.conversation_id='${cid}' AND t.hotel_id='${h}';`));
   rows.push({id:c.id,path,hotel:hotel.name,language:spec.language,phase:c.phase,turns:transcript,persistedReceipts});

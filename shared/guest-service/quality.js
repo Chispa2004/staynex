@@ -237,7 +237,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     reply=t?.pending || '';
   } else if(operationalRequest?.status==='needs_review') {
     transformation='review_required_current_turn';
-    reply=reviewServiceReply({message,language,multiple:operationalRequest.errorCode==='MULTIPLE_REQUESTS_REQUIRE_REVIEW'}) || (operationalRequest.errorCode==='MULTIPLE_REQUESTS_REQUIRE_REVIEW'
+    reply=operationalRequest.errorCode?.startsWith('RECOVERY_') ? (language==='en'?'I can’t safely link this message to the earlier request. Please confirm which issue and room you mean; I haven’t confirmed its registration.':'No puedo relacionar con seguridad este mensaje con la petición anterior. Confirma a qué incidencia y habitación te refieres; aún no he confirmado su registro.') : reviewServiceReply({message,language,multiple:operationalRequest.errorCode==='MULTIPLE_REQUESTS_REQUIRE_REVIEW'}) || (operationalRequest.errorCode==='MULTIPLE_REQUESTS_REQUIRE_REVIEW'
       ? language==='en'?'Your message includes separate needs. Our team needs to review them; I can’t confirm their registration separately here.':'Tu mensaje incluye necesidades distintas. El equipo debe revisarlas; aquí no puedo confirmar su registro por separado.'
       : language==='en'?'I can’t confirm cancellation or identify a single request to cancel. The team needs to review it.':'No puedo confirmar la cancelación ni identificar una única petición que cancelar. El equipo debe revisarlo.');
   } else if(operationalRequest?.status==='ambiguous') {
@@ -291,7 +291,7 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
   if(!reply) throw new Error('No safe service reply in the guest language');
   if(emergency && t && !reply.includes(t.urgent)) reply = `${t.urgent} ${reply}`;
   if(transformation==='generation' && reply!==selectedReply)transformation='safety_or_grounding';
-  return {...processed, reply, service_quality:{version:4,transformation,turn_kind:serviceTurn(message).kind,receipt_generation:usedReceiptGeneration,request_status:actual?'recorded':operationalRequest?.status||'not_recorded',ticket_id:actual?ticket.id:null,source_message_id:operationalRequest?.sourceMessageId||null,notification_confirmed:false}};
+  return {...processed, reply, service_quality:{version:4,failed_request:operationalRequest?.failedRequest||null,recovery_resolved_root:operationalRequest?.recoveryResolvedRoot||null,transformation,turn_kind:serviceTurn(message).kind,receipt_generation:usedReceiptGeneration,request_status:actual?'recorded':operationalRequest?.status||'not_recorded',ticket_id:actual?ticket.id:null,source_message_id:operationalRequest?.sourceMessageId||null,notification_confirmed:false}};
 }
 
 // Inbox currently supplies deterministic drafts, not a provider generation. Keep

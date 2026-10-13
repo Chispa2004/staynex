@@ -1,3 +1,4 @@
+import {correctedIncident} from './incident-correction.js';
 import {persistedItemQuantity,itemLabel} from './item-quantity.js';
 // Meaning and evidence used by the guest reply and the read-only staff draft.
 // Text can select a topic, never manufacture a ticket or an execution outcome.
@@ -120,7 +121,7 @@ export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=fa
   if(savedItem)labels[topic]=savedQuantity?`${savedQuantity} ${savedItem}`:savedItem;
   const subject=labels[topic] ? (en?` about ${labels[topic]}`:` sobre ${labels[topic]}`):'';
   const room=ticket.room_number ? (en?` for room ${ticket.room_number}`:` para la habitación ${ticket.room_number}`):'';
-  if(['air_conditioning','water_leak'].includes(topic) && /fuga|gote|mojad|pierde agua|leak|wet floor/.test(normalizeServiceText(message+' '+ticket.description)))return {turn,text:en?`I’m sorry about the inconvenience. ${turn.recordingRecovered?'We have now recorded your report':'We have your report'}${room}. Please keep clear of the wet floor.`:`Siento las molestias. ${turn.recordingRecovered?'Ahora sí, hemos registrado tu aviso':'Tenemos tu aviso'}${room}. Evita pisar la zona mojada.`};
+  if(['air_conditioning','water_leak'].includes(topic) && /fuga|gote|mojad|pierde agua|leak|wet floor/.test(normalizeServiceText(correctedIncident(ticket.description)||message+' '+ticket.description)))return {turn,text:en?`I’m sorry about the inconvenience. ${turn.recordingRecovered?'We have now recorded your report':'We have your report'}${room}. Please keep clear of the wet floor.`:`Siento las molestias. ${turn.recordingRecovered?'Ahora sí, hemos registrado tu aviso':'Tenemos tu aviso'}${room}. Evita pisar la zona mojada.`};
   const missingRoom=!room&&requiresCurrentRoom(ticket) ? (en?' Which room is affected?':' ¿En qué habitación ocurre?'):'';
   return {turn,text:(turn.newIncident
     ? en?`We also have this separate request${subject}.`:`También tenemos esta nueva petición${subject}.`

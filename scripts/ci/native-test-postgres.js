@@ -1,5 +1,5 @@
 // Explicit local-only alternative when Docker is unavailable; never accepts a DB URL.
-import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import net from 'node:net';import {execFileSync} from 'node:child_process';import {fileURLToPath} from 'node:url';
+import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import net from 'node:net';import {execFileSync,execFile} from 'node:child_process';import {fileURLToPath} from 'node:url';
 export async function createNativeTestPostgres(bin,driver) {
  if(!path.isAbsolute(bin)||!path.isAbsolute(driver))throw Error('Explicit local binaries and driver required');
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'staynex-service-pg-')),data=path.join(root,'data');
@@ -15,6 +15,6 @@ export async function createNativeTestPostgres(bin,driver) {
   run('initdb',['-D',data,'-U','postgres','--auth=trust','--encoding=UTF8','--locale=C','--no-sync']);
   run('pg_ctl',['-D',data,'-l',path.join(root,'server.log'),'-o',`-h 127.0.0.1 -p ${port} -F`,'-w','start']);started=true;
   const query=fileURLToPath(new URL('./native-pg-query.cjs',import.meta.url));
-  return {cleanup,sql:text=>execFileSync(process.execPath,[query,driver,String(port)],{input:text,env:process.env,encoding:'utf8',windowsHide:true,timeout:30000,stdio:['pipe','pipe','pipe']}).trim()};
+  return {cleanup,sqlAsync:text=>new Promise((resolve,reject)=>{const child=execFile(process.execPath,[query,driver,String(port)],{env:process.env,encoding:'utf8',windowsHide:true,timeout:30000},(error,stdout)=>error?reject(error):resolve(stdout.trim()));child.stdin.end(text);}),sql:text=>execFileSync(process.execPath,[query,driver,String(port)],{input:text,env:process.env,encoding:'utf8',windowsHide:true,timeout:30000,stdio:['pipe','pipe','pipe']}).trim()};
  }catch(e){try{cleanup();}catch(cleanError){process.stderr.write('Temporary cluster cleanup: '+cleanError.message+'\n');}throw e;}
 }

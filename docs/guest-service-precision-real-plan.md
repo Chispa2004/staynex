@@ -1,5 +1,7 @@
 # Primera comparación real acotada — pendiente
 
+**Estado vigente: evaluación real aplazada por decisión expresa del usuario. Sin gasto autorizado, búsqueda/configuración de claves ni llamadas. Los pasos y cifras siguientes se conservan como propuesta histórica; no ejecutarlos en esta fase.**
+
 Fecha: 2026-10-13. No se ha realizado ninguna llamada. Falta la credencial nueva de desarrollo y la aprobación expresa del techo de **0,75 USD**. No reutilizar secretos de producción.
 
 ## Muestra congelada
