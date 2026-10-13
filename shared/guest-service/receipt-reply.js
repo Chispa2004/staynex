@@ -1,3 +1,4 @@
+import {persistedItemQuantity} from './item-quantity.js';
 // This projection is only constructed after a scoped committed ticket readback.
 // Neither model output nor a guest's claim can manufacture execution evidence.
 export function receiptFacts({ticket, hotelId, guestId, conversationId, operationalRequest}) {
@@ -5,6 +6,7 @@ export function receiptFacts({ticket, hotelId, guestId, conversationId, operatio
     || ticket.conversation_id !== conversationId || !['recorded','observed'].includes(operationalRequest?.status)
     || operationalRequest.ticket?.id !== ticket.id) return null;
   return {ticket_id:ticket.id, source_message_id:operationalRequest.sourceMessageId,
+    quantity:persistedItemQuantity(ticket),newly_recorded:operationalRequest.status==='recorded' && operationalRequest.newlyRecorded===true,
     status:ticket.status || 'unknown', category:ticket.category, priority:ticket.priority,
     request_key:ticket.request_context?.request_key || operationalRequest.request?.key,
     room:ticket.room_number || null, phase:ticket.request_context?.operational_context?.phase || null,
@@ -15,6 +17,7 @@ export function receiptFacts({ticket, hotelId, guestId, conversationId, operatio
 export const RECEIPT_REPLY_POLICY = `You are replying as a member of the hotel team, not describing an administrative record. The request has been saved and read back, or its current state has just been observed.
 Speak as the hotel team, in the guest's language and form of address. Usually 1–3 short sentences. On an initial request identify its actual subject briefly (not just the room); on a damaging incident acknowledge the inconvenience before the useful next information. Answer the current turn, do not repeat the greeting, room or whole request on follow-ups.
 For human_request, acknowledge the choice warmly and briefly. Do not use "hemos recibido su mensaje", "tomamos nota" or "atención personalizada". Say we have the request to speak with a person, without claiming a person has been contacted or is attending. Do not repeat the incident, room or initial receipt. If turn.unresolved and a previous ticket is completed, acknowledge the guest's current report and need for review; do not insist the problem is fixed.
+When facts.newly_recorded is true and turn.recordingRecovered is true, explicitly acknowledge that the request is now recorded after the earlier failure; do not answer only that it is still pending. Use the persisted quantity and item for the initial acknowledgement when provided.
 Use turn.kind to distinguish initial request, clarification, receipt question and progress enquiry. For a short receipt question answer YES first in the first-person plural; do not narrate a database status in passive voice. For a clarification acknowledge the new detail only when detail_confirmed=true; it has actually been incorporated into the ticket. Name the changed quantity AND its item when the trusted request identifies it; a bare number is not a complete acknowledgement. Do not repeat the room or entire request. If false, do not claim the detail was saved or updated.
 For a progress enquiry answer the persisted state directly: when open/pending, say the request is still pending and we do not have an update; name the request, avoid an unexplained pronoun or database language. When in_progress or completed state that specific stage, without claiming notification, delivery, discovery, booking confirmation or another unsupported outcome. An initial incident with damage deserves a brief sympathetic opening and useful safety guidance; a simple towel follow-up needs only a warm short answer. Avoid bureaucratic passive formulations like "la petición está registrada", and do not mechanically vary synonyms.
 The trusted receipt proves ONLY the status listed. open/pending: acknowledge that we have the specific request. in_progress: you may say we are attending that specific request. completed: you may confirm that specific request is completed. closed/cancelled are not proof of completion.
@@ -85,12 +88,16 @@ export function sanitizeReceiptReply(reply,facts,language='es') {
 // requested progress; do not cosmetically replace words in that sentence.
 export function receiptAnswersTurn(reply,facts,turn) {
   const text=normalize(reply);
-  if(turn.quantity && facts.detail_confirmed) {
+  if((turn.quantity && facts.detail_confirmed) || (turn.kind==='initial' && ['open','pending'].includes(facts.status) && facts.quantity)) {
+    const expectedQuantity=turn.quantity && facts.detail_confirmed?turn.quantity:facts.quantity;
     const subject=({towels:/\b(?:towels?|toallas?)\b/,pillow:/\b(?:pillows?|almohadas?)\b/,cot:/\b(?:cots?|cunas?)\b/})[facts.request_key];
-    const words=({1:'one|un|uno|una',2:'two|dos',3:'three|tres',4:'four|cuatro',5:'five|cinco'})[Number(turn.quantity)];
-    const quantity=new RegExp('\\b(?:'+Number(turn.quantity)+(words?'|'+words:'')+')\\b');
-    if(subject && (!subject.test(text)||!quantity.test(text)))return false;
+    const words=({1:'one|un|uno|una',2:'two|dos',3:'three|tres',4:'four|cuatro',5:'five|cinco',6:'six|seis',7:'seven|siete',8:'eight|ocho',9:'nine|nueve',10:'ten|diez'})[Number(expectedQuantity)];
+    const quantity=new RegExp('\\b(?:'+Number(expectedQuantity)+(words?'|'+words:'')+')\\b');
+    const item=({towels:'towels?|toallas?',pillow:'pillows?|almohadas?',cot:'cots?|cunas?'})[facts.request_key];
+    const countedItem=item && new RegExp(quantity.source+'\\s+(?:(?:extra|additional|mas)\\s+)?(?:'+item+')\\b');
+    if(subject && !countedItem.test(text))return false;
   }
+  if(turn.recordingRecovered && !/registrad|recorded/.test(text))return false;
   if(turn.cancellation && !/cancel/.test(text))return false;
   if(turn.delivery && !/no tengo confirmacion|no consta|don.t have confirmation|not confirmed/.test(text))return false;
   if(turn.human && /hemos recibido|hemos registrado|tomamos nota|atencion personalizada|ya (?:hay|esta).*persona|someone is|staff is/.test(text))return false;
@@ -113,7 +120,7 @@ export async function generateReceiptReply(args, complete) {
     const stay=reservation && (!reservation.hotel_id || reservation.hotel_id===args.hotelId)
       && (!reservation.guest_id || reservation.guest_id===args.guestId) && !args.context?.reservationAmbiguous
       ? {arrival_date:reservation.arrival_date,departure_date:reservation.departure_date,guest_name:reservation.guest_name} : null;
-    const turn=ticketTurn(args.ticket,args.message);
+    const turn=ticketTurn(args.ticket,args.message,facts.newly_recorded);
     const generated=await complete({facts,turn,reply_goal:{answer_receipt_question_first:turn.receipt,acknowledge_new_detail:turn.clarification&&facts.detail_confirmed,report_only_saved_progress:turn.progress,avoid_repeating_room_and_full_request:turn.kind!=='initial',brief_subject_on_initial_request:turn.kind==='initial'},language:args.language || 'es',message:args.message,
       history:(args.context?.recentMessages || []).filter(m=>!m.hotel_id || m.hotel_id===args.hotelId)
         .slice(-8).map(m=>({role:m.sender_type,text:m.content})),

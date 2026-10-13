@@ -201,14 +201,14 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     // pre-execution operational prose: a model cannot certify its own actions.
     reply=t.saved;
     const detailConfirmed=operationalRequest?.status==='recorded' && detailIsPersisted(ticket,message);
-    const plan=ticketReplyPlan({ticket,message,language,detailConfirmed});
+    const plan=ticketReplyPlan({ticket,message,language,detailConfirmed,newlyRecorded:operationalRequest?.status==='recorded' && operationalRequest.newlyRecorded===true});
     if(['recorded','observed'].includes(operationalRequest?.status) && plan)reply=plan.text;
     const facts=receiptFacts({ticket,hotelId,guestId,conversationId,operationalRequest});
     if(facts)facts.detail_confirmed=detailConfirmed;
     const generated=receiptReply && receiptReply.ticketId===ticket.id && receiptReply.hotelId===hotelId
       && receiptReply.guestId===guestId && receiptReply.conversationId===conversationId
       && receiptReply.sourceMessageId===operationalRequest?.sourceMessageId && receiptReply.status===facts?.status
-      && safeReceiptReply(receiptReply.reply,facts,language) && (!(plan?.turn?.human || plan?.turn?.unresolved) || receiptAnswersTurn(receiptReply.reply,facts,plan.turn));
+      && safeReceiptReply(receiptReply.reply,facts,language) && (!(plan?.turn?.human || plan?.turn?.unresolved || plan?.turn?.recordingRecovered || facts?.quantity) || receiptAnswersTurn(receiptReply.reply,facts,plan.turn));
     usedReceiptGeneration=Boolean(generated);
     if(generated)transformation='verified_receipt_generation';
     if(generated)reply=receiptReply.reply.split(/(?<=[.!?])\s+/u).filter(sentence=>!sentence.includes('?') && !/^(?:por favor[, :]*)?(?:ind[ií]qu|confirme|facilite|provide\b|please (?:tell|confirm))/i.test(sentence.trim())

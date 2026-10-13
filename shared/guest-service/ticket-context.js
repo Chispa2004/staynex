@@ -1,3 +1,4 @@
+import {persistedItemQuantity,itemLabel} from './item-quantity.js';
 // Meaning and evidence used by the guest reply and the read-only staff draft.
 // Text can select a topic, never manufacture a ticket or an execution outcome.
 export const normalizeServiceText=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
@@ -74,8 +75,9 @@ export function requiresCurrentRoom(ticket) {
   return !['pre','post'].includes(phase) && ['maintenance','housekeeping','complaint'].includes(ticket?.category);
 }
 
-export function ticketTurn(ticket,message) {
+export function ticketTurn(ticket,message,newlyRecorded=false) {
   const turn=serviceTurn(message);
+  if(newlyRecorded && turn.progress && !turn.human && !turn.cancellation && !turn.delivery)return {...turn,kind:'initial',progress:false,receipt:false,clarification:false,recordingRecovered:true};
   // Supplying the first actionable details creates an initial request even if
   // the sentence is grammatically a clarification of an earlier information query.
   if(!turn.human && !turn.unresolved && !ticket?.request_context?.last_source_message_id
@@ -83,8 +85,8 @@ export function ticketTurn(ticket,message) {
   return turn;
 }
 
-export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=false}) {
-  const turn=ticketTurn(ticket,message), status=ticket?.status;
+export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=false,newlyRecorded=false}) {
+  const turn=ticketTurn(ticket,message,newlyRecorded), status=ticket?.status;
   const en=language.startsWith('en');
   if(!['es','en'].includes(language.slice(0,2)))return null;
   if(turn.social)return {turn,text:en?'You’re welcome.':'De nada.'};
@@ -113,11 +115,15 @@ export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=fa
   if(turn.receipt)return {turn,text:en?'Yes, we have it!':'¡Sí, la tenemos!'};
   const topic=ticket.request_context?.request_key||requestTopic(message);
   const labels=en?{pillow:'an extra pillow',parking:'a parking space',billing_review:'reviewing the charges',stay_certificate:'a proof of stay',wifi_support:'help with Wi-Fi',shower_drain:'the shower drainage issue',cot:'a cot',invoice:'an invoice',airport_transfer:'an airport transfer',new_booking:'a new booking',air_conditioning:'the air conditioning issue',water_leak:'the leak',towels:'towels',cleaning:'room cleaning',noise:'the noise',lost_property:'the lost item'}:{pillow:'una almohada adicional',parking:'una plaza de aparcamiento',billing_review:'la revisión de los cargos',stay_certificate:'el justificante de estancia',wifi_support:'la ayuda con el wifi',shower_drain:'el desagüe de la ducha',cot:'una cuna',invoice:'la factura',airport_transfer:'el traslado',new_booking:'una nueva reserva',air_conditioning:'la incidencia del aire acondicionado',water_leak:'la fuga',towels:'toallas',cleaning:'limpieza',noise:'el ruido',lost_property:'el objeto perdido'};
+  const savedQuantity=persistedItemQuantity(ticket);
+  const savedItem=itemLabel(topic,savedQuantity,en);
+  if(savedItem)labels[topic]=savedQuantity?`${savedQuantity} ${savedItem}`:savedItem;
   const subject=labels[topic] ? (en?` about ${labels[topic]}`:` sobre ${labels[topic]}`):'';
   const room=ticket.room_number ? (en?` for room ${ticket.room_number}`:` para la habitación ${ticket.room_number}`):'';
-  if(['air_conditioning','water_leak'].includes(topic) && /fuga|gote|mojad|pierde agua|leak|wet floor/.test(normalizeServiceText(message+' '+ticket.description)))return {turn,text:en?`I’m sorry about the inconvenience. We have your report${room}. Please keep clear of the wet floor.`:`Siento las molestias. Tenemos tu aviso${room}. Evita pisar la zona mojada.`};
+  if(['air_conditioning','water_leak'].includes(topic) && /fuga|gote|mojad|pierde agua|leak|wet floor/.test(normalizeServiceText(message+' '+ticket.description)))return {turn,text:en?`I’m sorry about the inconvenience. ${turn.recordingRecovered?'We have now recorded your report':'We have your report'}${room}. Please keep clear of the wet floor.`:`Siento las molestias. ${turn.recordingRecovered?'Ahora sí, hemos registrado tu aviso':'Tenemos tu aviso'}${room}. Evita pisar la zona mojada.`};
   const missingRoom=!room&&requiresCurrentRoom(ticket) ? (en?' Which room is affected?':' ¿En qué habitación ocurre?'):'';
   return {turn,text:(turn.newIncident
     ? en?`We also have this separate request${subject}.`:`También tenemos esta nueva petición${subject}.`
+    : turn.recordingRecovered?en?`We have now recorded your request${subject}${room}.`:`Ahora sí, hemos registrado tu petición${subject}${room}.`
     : en?`We have your request${subject}${room}.`:`Ya tenemos tu petición${subject}${room}.`)+missingRoom};
 }

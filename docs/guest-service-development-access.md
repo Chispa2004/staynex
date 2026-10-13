@@ -17,14 +17,16 @@ Comprobación del 13 de octubre de 2026: `OPENAI_API_KEY` ausente en el proceso,
 
 El evaluador deberá descifrarla solo en memoria bajo ese mismo usuario, sin argumentos de proceso con la clave, sin archivos de texto intermedios y sin incluir cabeceras de autorización en evidencias. El script de configuración no inicia por sí mismo una evaluación.
 
-## Presupuesto comunicado antes de consumir
+## Presupuesto vigente, pendiente de autorización
 
-Máximo conjunto para línea base, corrección y validación: **270 intentos de generación y 2.160.000 tokens totales**. Incluye generación principal, Concierge y redacción posterior al recibo; Inbox continúa siendo un borrador determinista. Sin reintentos automáticos. Cada solicitud debe reservar su máximo de salida y un límite conservador de entrada antes de salir; registrar uso real del proveedor, latencia y error. Si falta `usage` tras un timeout, cargar la reserva y marcar consumo desconocido, sin inventar cero. Parar antes de superar cualquier límite.
+La instrucción actual sustituye el plan de 270 intentos/2.160.000 tokens. Ver [plan acotado](guest-service-precision-real-plan.md): seis conversaciones de regresión y tres reservadas, 27 turnos por versión, **01d8f15 frente al commit que contiene la corrección de precisión**. Propuesta: **0,75 USD**, hasta 114 intentos sin reintentos; 12.000 tokens de entrada y 1.000 de salida por llamada; máximo total 1.482.000 tokens. No hay autorización monetaria todavía. El archivo de credencial no autoriza por sí solo gasto alguno.
 
-No se ha construido ni ejecutado aún el transporte real autorizado. Al habilitarlo, solo podrá salir al proveedor de IA para estos dos hoteles sintéticos. PostgreSQL seguirá siendo desechable; WhatsApp, email, experiencias, PMS y bases remotas deben continuar bloqueados. La credencial no habilita ninguna operación de aplicación ni cambia flags.
+El control local de reservas de presupuesto está implementado y probado, sin transporte. Antes de la primera llamada debe conectarse al adaptador real, contar todo el mensaje/esquema con el tokenizador del modelo y margen de protocolo, comprobar las reservas en seco y fijar el SHA candidato. Si una entrada supera el límite, detenerse: no recortar hechos ni ampliar el presupuesto. No existe todavía un ensayo real ejecutado ni un transporte de evaluación listo para lanzar automáticamente.
 
-Consumo de esta fase: **0 llamadas y 0 tokens reales**. Comparación real antes/después pendiente. Por la instrucción vigente, es requisito conservar primero la línea base real de `5768682`, incluyendo la generación posterior al guardado; el evaluador anterior la sustituía por `null` y no sirve como medición de naturalidad real.
+En esta fase solo se ha comprobado la existencia de `provenance.json` y `openai-key.dpapi` en el mecanismo autorizado: ambos ausentes. No se ha buscado otra credencial. Consumo: **0 llamadas, 0 tokens, 0 USD**. Los dobles y los replays históricos son regresiones técnicas, no una comparación real del modelo.
 
 Referencia: [OpenAI, prácticas de producción y seguridad de claves](https://developers.openai.com/api/docs/guides/production-best-practices). Las claves deben mantenerse fuera del código y utilizarse mediante mecanismos de gestión de secretos. Aquí se opta por almacenamiento local cifrado y una clave exclusiva de desarrollo.
 
 Revisión vigente: [llegada nocturna y respuestas completas](guest-service-arrival-correction.md). La reserva R01–R03 sigue sin ejecutar y sustituye, para independencia, las muestras anteriores ya utilizadas. Comprobación local: registro de procedencia, archivo DPAPI y clave del proceso ausentes.
+
+Revisión vigente de precisión: [cantidades, llegada y recuperación](guest-service-precision-review.md). La referencia 5768682 del plan anterior queda sustituida por 01d8f15; los informes históricos se conservan.

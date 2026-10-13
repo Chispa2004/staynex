@@ -16,18 +16,18 @@ import {shouldAiAutoRespond} from '../shared/pilot/ai-safety.js';
 assert.equal(process.env.SEND_AUTOMATIONS,'false');assert.equal(process.env.GUEST_MEMORY_ENABLED,'false');
 assert.match(process.env.NODE_OPTIONS||'',/isolate\.cjs/);
 const [split='diagnostic',output='../evaluation.json']=process.argv.slice(2);
-assert(['diagnostic','holdout','validation','naturalness-reserved','naturalness-final','arrival-targeted'].includes(split));
+assert(['diagnostic','holdout','validation','naturalness-reserved','naturalness-final','arrival-targeted','precision-targeted','precision-recovery'].includes(split));
 const bytes=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-evaluation.json',import.meta.url));
 const dataset=JSON.parse(bytes);
 const validationBytes=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-validation.json',import.meta.url));
 const naturalnessPlan=JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-evaluation-plan.json',import.meta.url)));
 const expectedReserved={N01:['record','detail','social','observe'],N02:['record','observe','observe','no_delivery'],N03:['unknown_knowledge','unknown_knowledge','unknown_knowledge','social'],N04:['multiple','multiple','multiple','human']};
-const selected=split==='arrival-targeted'?[...dataset.cases.filter(c=>['D02','D06','D07','D09','D11'].includes(c.id)),...JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-final-reserve.json',import.meta.url))).cases.filter(c=>c.id==='F01')]:split==='naturalness-final'?JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-final-reserve.json',import.meta.url))).cases:split==='naturalness-reserved'?naturalnessPlan.heldout.map(c=>({...c,
+const selected=split==='precision-recovery'?[{...dataset.cases.find(c=>c.id==='D11'),id:'D11-write-fails-twice',failTurns:[0,1],turns:dataset.cases.find(c=>c.id==='D11').turns.slice(0,2).map(t=>({...t,expected:'failure'}))},{...dataset.cases.find(c=>c.id==='D11'),id:'D11-readback-lost',failTurn:null,failReadTurn:0,turns:dataset.cases.find(c=>c.id==='D11').turns.slice(0,2).map((t,n)=>({...t,expected:n?'observe':'failure'}))}]:['arrival-targeted','precision-targeted'].includes(split)?[...dataset.cases.filter(c=>['D02','D06','D07','D09','D11'].includes(c.id)),...JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-final-reserve.json',import.meta.url))).cases.filter(c=>c.id==='F01')]:split==='naturalness-final'?JSON.parse(fs.readFileSync(new URL('./fixtures/guest-service-quality/naturalness-final-reserve.json',import.meta.url))).cases:split==='naturalness-reserved'?naturalnessPlan.heldout.map(c=>({...c,
   stateChanges:Object.fromEntries(c.turns.flatMap((t,n)=>t.persistedStatus?[[n,t.persistedStatus]]:[])),
   turns:c.turns.map((t,n)=>({...t,message:t.guest,expected:expectedReserved[c.id][n],
     probe:c.hotel==='a'?'Ya hemos avisado al equipo y está todo solucionado.':'We have notified the team and everything is resolved.'}))
 })):(split==='validation'?JSON.parse(validationBytes).cases:dataset.cases).filter(c=>c.split===split);
-assert.equal(selected.length,split==='diagnostic'?16:split==='holdout'?8:split==='naturalness-reserved'?4:split==='naturalness-final'?3:6);
+assert.equal(selected.length,split==='precision-recovery'?2:split==='diagnostic'?16:split==='holdout'?8:split==='naturalness-reserved'?4:split==='naturalness-final'?3:6);
 // Execute production generation functions with only the SDK transport substituted.
 // No credential discovery or provider connection is supported.
 process.env.OPENAI_API_KEY='synthetic-not-a-credential';process.env.USE_MOCK_AI='false';process.env.AI_CONCIERGE_ENABLED='true';
@@ -64,7 +64,7 @@ try {
  INSERT INTO hotels(id,name)VALUES('${id(1)}','Synthetic Faro'),('${id(2)}','Synthetic Juniper');`);
  for(const file of ['add_operational_request_receipts.sql','guard_operational_request_clarification.sql'])sql(fs.readFileSync(new URL('../supabase/sql/'+file,import.meta.url),'utf8'));
  let seq=100;
- for(const c of selected) for(const path of ['primary','concierge']) {
+ for(const c of selected) for(const path of (split.startsWith('precision-')?['primary']:['primary','concierge'])) {
   const spec=dataset.hotels[c.hotel],h=id(c.hotel==='a'?1:2),g=id(++seq),cid=id(++seq),rid=id(++seq);
   const hotel={id:h,name:spec.name,timezone:'Europe/Madrid',default_language:spec.language,check_in_time:c.hotel==='a'?'15:30':'16:30',check_out_time:c.hotel==='a'?'11:30':'10:30',ai_auto_reply_enabled:true};
   const room=c.roomState?null:c.phase==='stay'?spec.room:null,guest={id:g,hotel_id:h,name:'Synthetic Traveller',current_room:room,preferred_language:spec.language};
@@ -105,9 +105,11 @@ try {
      processed={...model,reply:chooseNaturalConciergeResponse({baseResponse:model.reply,openAiSuggestedResponse:concierge.result.suggested_response})};
     }
     modelCaptures=structuredClone(captures);
-    const client={rpc:async(name,p)=>{effects.push({kind:'rpc',name,request:p.p_request});if(c.failTurn===n)return {error:{code:'SYNTHETIC_TIMEOUT'}};
-     try{return {data:JSON.parse(sql(`SET ROLE service_role;SELECT record_guest_operational_request_v1(${q(p.p_hotel_id)},${q(p.p_conversation_id)},${q(p.p_message_id)},${q(p.p_request)}::jsonb);`))};}catch{return {error:{code:'SYNTHETIC_SQL_ERROR'}};}},
-     from:table=>{assert.equal(table,'tickets');const filters={};const query={select:()=>query,eq:(k,v)=>{assert(['id','hotel_id','guest_id','conversation_id'].includes(k));filters[k]=v;return query;},single:async()=>({data:JSON.parse(sql(`SELECT coalesce((SELECT to_jsonb(t) FROM tickets t WHERE ${Object.entries(filters).map(([k,v])=>k+'='+q(v)).join(' AND ')}),'null'::jsonb);`))})};return query;}};
+    const client={rpc:async(name,p)=>{effects.push({kind:'rpc_attempt',name,sourceMessageId:p.p_message_id,request:p.p_request});if(c.failTurn===n||c.failTurns?.includes(n)){effects.push({kind:'write_failed'});return {error:{code:'SYNTHETIC_TIMEOUT'}};}
+     try{const data=JSON.parse(sql(`SET ROLE service_role;SELECT record_guest_operational_request_v1(${q(p.p_hotel_id)},${q(p.p_conversation_id)},${q(p.p_message_id)},${q(p.p_request)}::jsonb);`));effects.push({kind:'rpc',ticketId:data.ticket.id,replayed:data.replayed,sourceMessageId:data.source_message_id});return {data};}catch{return {error:{code:'SYNTHETIC_SQL_ERROR'}};}},
+     from:table=>{assert.equal(table,'tickets');const filters={};const query={select:()=>query,eq:(k,v)=>{assert(['id','hotel_id','guest_id','conversation_id'].includes(k));filters[k]=v;return query;},single:async()=>{
+      if(c.failReadTurn===n){effects.push({kind:'readback_failed',filters});return {error:{code:'SYNTHETIC_READBACK_LOSS'}};}
+      const data=JSON.parse(sql(`SELECT coalesce((SELECT to_jsonb(t) FROM tickets t WHERE ${Object.entries(filters).map(([k,v])=>k+'='+q(v)).join(' AND ')}),'null'::jsonb);`));effects.push({kind:'readback',filters,ticketId:data?.id,status:data?.status});return {data};}};return query;}};
     const bindings={...quality,recordOperationalRequest:v=>recordOperationalRequest({...v,client}),composeRecordedGuestReply:async()=>null,
      activeHotel:hotel,guest,conversation,guestMessage:sourceMessage,conversationContext:context,message:turn.message,rawAiResponse:model,aiResponseWithUpsell:processed,
      enhancedRisk:{hasRisk:false},upsellInterest:null,providerExperienceOwnsResponse:false,experienceBookingIntent:{detected:false},experienceBookingRequest:null,
@@ -115,16 +117,36 @@ try {
      createUpsellInterestTicket:async()=>{throw Error('Unexpected effect');},
      createMessage:async values=>{effects.push({kind:'persist_ai_message',content:values.content});sql(`INSERT INTO messages(id,hotel_id,conversation_id,sender_type,content)VALUES('${id(++seq)}','${h}','${cid}','ai',${q(values.content)});`);return values;}};
     result=await new Function(...Object.keys(bindings),'return (async()=>{'+body+'})()')(...Object.values(bindings));
+    if(split.startsWith('precision-') && c.id==='D11' && n===1) {
+      const committed=getTickets();const replay=await recordOperationalRequest({hotel,guest,conversation,sourceMessage,context,message:turn.message,aiResponse:model,client});
+      assert.equal(replay.status,'recorded');assert.equal(replay.ticket.id,result.operationalRequest.ticket.id);assert.deepEqual(getTickets(),committed);
+      effects.push({kind:'retry_assertion',sameTicket:true,unchangedRecord:true});
+    }
+
    }
    const after=getTickets(),final=result?.response?.reply||null,failures=[];
    const check=(ok,label)=>{if(!ok)failures.push(label);};
    const expected=turn.expected,outcome=result?.operationalRequest;
    if(['record','urgent','failure'].includes(expected))check(expected==='failure'?outcome?.status==='unconfirmed':Boolean(outcome?.ticket),'request_persistence');
+   if(split.startsWith('precision-') && c.id.startsWith('D11')) {
+    if(expected==='failure') {
+     check(!/sigue pendiente|hemos registrado|ya tenemos/i.test(final||''),'failure_confirmed_request');
+     check(c.failReadTurn===n ? after.length===1 && effects.some(e=>e.kind==='rpc') && effects.some(e=>e.kind==='readback_failed') : after.length===0 && !effects.some(e=>e.kind==='rpc'),'failure_write_evidence');
+    } else {
+     check(after.length===1 && effects.some(e=>e.kind==='readback' && e.ticketId===after[0].id && e.filters.hotel_id===h && e.filters.guest_id===g && e.filters.conversation_id===cid),'missing_scoped_readback');
+     if(c.id==='D11' && n===1)check(outcome.newlyRecorded===true && /ahora s[ií].*registrad/i.test(final||'') && effects.some(e=>e.kind==='rpc' && e.replayed===true) && effects.some(e=>e.kind==='retry_assertion'),'recovery_not_acknowledged_or_deduplicated');
+    }
+   }
+   if(split==='precision-targeted' && ['F01','D07'].includes(c.id)) {
+    check(after.length===1,'quantity_duplicate_ticket');
+    if(n===0)check(/2 (?:pillows|toallas)/.test(final||'') && outcome?.ticket?.description===turn.message,'initial_persisted_quantity_missing');
+    if(n===1)check(after[0].id===before[0].id && after[0].description.includes(turn.message),'quantity_change_not_persisted');
+   }
    if(expected==='detail')check(outcome?.ticket?.id===before[0]?.id&&outcome?.ticket?.description.includes(turn.message),'detail_lost_or_wrong_ticket');
    if(expected==='repeat')check(after.length===before.length,'duplicate_ticket');
    if(expected==='new')check(after.length===before.length+1,'new_request_merged');
-   if(expected==='observe')check(outcome?.status==='observed'&&effects.every(e=>e.kind!=='rpc'),'progress_wrote_or_lost_context');
-   if(expected==='social')check(outcome?.status==='not_requested'&&effects.every(e=>e.kind!=='rpc')&&after.length===before.length&&!/request|petici[oó]n|habitaci[oó]n|TEST-|F-617|J-842/.test(final||''),'social_repeated_or_wrote');
+   if(expected==='observe')check(outcome?.status==='observed'&&effects.every(e=>!['rpc','rpc_attempt'].includes(e.kind)),'progress_wrote_or_lost_context');
+   if(expected==='social')check(outcome?.status==='not_requested'&&effects.every(e=>!['rpc','rpc_attempt'].includes(e.kind))&&after.length===before.length&&!/request|petici[oó]n|habitaci[oó]n|TEST-|F-617|J-842/.test(final||''),'social_repeated_or_wrote');
    if(expected==='ambiguous')check(outcome?.status==='ambiguous'&&after.length===before.length,'ambiguous_ticket_selected');
    if(expected.startsWith('cancellation'))check(!/request is cancelled|cancelad[oa]|is cancelled/i.test(final||'')||/no |not |cannot|can't|a[uú]n/i.test(final),'false_cancellation');
    if(expected==='cancellation')check(after[0]?.description.includes(turn.message)&&after[0]?.status==='open','withdrawal_lost_or_closed');
@@ -152,7 +174,7 @@ try {
  }
  assert.equal(outside.length,0);
  const failures={};for(const r of rows)for(const t of r.turns)for(const f of t.failures)failures[f]=(failures[f]||0)+1;
- const report={validationHash:split==='validation'?createHash('sha256').update(validationBytes).digest('hex'):null,datasetCanonicalHash:createHash('sha256').update(bytes.toString('utf8').replaceAll('\r\n','\n')).digest('hex'),datasetHash:createHash('sha256').update(bytes).digest('hex'),split,realCalls:0,realTokens:0,syntheticCalls:rows.flatMap(r=>r.turns).reduce((n,t)=>n+t.modelCaptures.length,0),externalAttempts:outside,
+ const report={baselineReference:'01d8f15ad8265ff2f59e3b644d82ed846666f27d',validationHash:split==='validation'?createHash('sha256').update(validationBytes).digest('hex'):null,datasetCanonicalHash:createHash('sha256').update(bytes.toString('utf8').replaceAll('\r\n','\n')).digest('hex'),datasetHash:createHash('sha256').update(bytes).digest('hex'),split,realCalls:0,realTokens:0,syntheticCalls:rows.flatMap(r=>r.turns).reduce((n,t)=>n+t.modelCaptures.length,0),externalAttempts:outside,
   conversations:selected.length,routeReplays:rows.length,guestTurns:selected.reduce((n,c)=>n+c.turns.length,0),routeTurns:rows.reduce((n,r)=>n+r.turns.length,0),failures,rows};
  fs.writeFileSync(output,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({conversations:report.conversations,routeTurns:report.routeTurns,syntheticCalls:report.syntheticCalls,failures}));
 } finally {db.cleanup();}

@@ -52,9 +52,10 @@ export async function recordOperationalRequest({hotel,guest,conversation,sourceM
     if(data?.source_message_id!==sourceMessage.id || receipt?.hotel_id!==hotel.id || receipt?.guest_id!==guest.id || receipt?.conversation_id!==conversation.id || !receipt?.id)throw new Error('Incomplete request receipt');
     // The response is not enough: read the committed, scoped record before prose.
     const {data:ticket,error:readError}=await client.from('tickets').select('*').eq('id',receipt.id).eq('hotel_id',hotel.id).eq('conversation_id',conversation.id).eq('guest_id',guest.id).single();
-    if(readError || ticket?.id!==receipt.id)throw readError||new Error('Ticket not confirmed');
+    if(readError || ticket?.id!==receipt.id || ticket.hotel_id!==hotel.id || ticket.guest_id!==guest.id || ticket.conversation_id!==conversation.id)throw readError||new Error('Ticket not confirmed');
     if(turn.clarification && !detailIsPersisted(ticket,message))throw new Error('Clarification not persisted');
-    return {status:'recorded',ticket,request,sourceMessageId:sourceMessage.id,detailConfirmed:detailIsPersisted(ticket,message)};
+    return {status:'recorded',ticket,request,sourceMessageId:sourceMessage.id,
+      newlyRecorded:ticket.request_context?.source_message_id===sourceMessage.id && !ticket.request_context?.last_source_message_id && detailIsPersisted(ticket,message),detailConfirmed:detailIsPersisted(ticket,message)};
   } catch(error) {
     // Original guest message already persists. A retry uses the same receipt key
     // even when commit succeeded but its response/readback was lost.

@@ -1,0 +1,31 @@
+{
+  "baseline": "01d8f15ad8265ff2f59e3b644d82ed846666f27d",
+  "beforeArtifactSha256": "f7a4d5f046b24c60fd342b8ddd81acee8f2bb7657d48553d2e86c3906e2d03f2",
+  "realProviderCalls": 0,
+  "realTokens": 0,
+  "realUsd": 0,
+  "controlledTurns": 22,
+  "failures": {},
+  "externalAttempts": [],
+  "evidenceSha256": {
+    "after-six.json.gz": "d5455a7b682472d81473a0fe0cb42c531cacee8c01501a10e3d2caef3a6b9c48",
+    "persistence-proof.json": "e47d16f2cad39ad95dad791c5121d48509ddbc1ad370061d2dd642e1c6428f93",
+    "recovery.json.gz": "de02168651980ed0e82dcc099060e023d36091e0b16e8f250e73d78cea0666b1",
+    "six-before-after.md": "605ac33276be343673a0c344dca273fafe5d8d50e363035b8a4d99b487c2f114",
+    "validation.json": "d84e0e0f5c33e684c28d4f9d59891c07eb13c7edb808242d48cd6b946ece5d13"
+  },
+  "sourceCanonicalSha256": {
+    "shared/guest-service/arrival-booking.js": "2966465c202aaf12db7e65fcb981ca6796bb94c4bd90872b768e4be581f27665",
+    "shared/guest-service/arrival-details.js": "9a31c1350c709dc69556f88d3c265ca70f35c30e2e70954c77c0e2c455e9db15",
+    "shared/guest-service/information-evidence.js": "4f475dea5931441f2bb18ade0b571aa3e52c6acb04eaf518f1282f660ac2db82",
+    "shared/guest-service/item-quantity.js": "638193dd85a7d176c582637588c700325bd42bd6e470f22e061d58b4c0ea249b",
+    "shared/guest-service/operational-context.js": "39f11acf1db99455b343826489a2cb0155735a8a440fba8240affe3c744a0560",
+    "shared/guest-service/operational-request.js": "7293433e051abd0ffb5e7ba20b3c5f37a12156012dc0988ca7a0fce798920ceb",
+    "shared/guest-service/quality.js": "c86a3deb8b2cffedd790b6abbee46388d27510fc943f60f8a664a01ac0d6fa56",
+    "shared/guest-service/receipt-reply.js": "e84454c9ac2b462cfa3bbf9d3e2bb2f819ac6bf0e8511f40e60afb8e6e022639",
+    "shared/guest-service/ticket-context.js": "97dd7e8bd381e1f93f244bee4eced9452fd6318dbe7fae2a5737a17a0ea8323a",
+    "shared/guest-service/turn-replies.js": "b25df5b7cd8301c51f5b62df46155aa51f0bd77960732618df82a7260fea7714",
+    "src/services/operational-request.service.js": "ff9e83eb6bea9e5078c429ed2b35bf17d870dc9ccd4b42fb6359128b4a5a8d77",
+    "scripts/evaluate-fresh-service.js": "68847de1bec1dc58ff4abeffc401b2bb87464812d075df128edb3db5022a77ec"
+  }
+}

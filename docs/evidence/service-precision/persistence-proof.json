@@ -1,0 +1,1493 @@
+{
+  "D07": {
+    "turns": [
+      {
+        "turn": 1,
+        "final": "Ya tenemos tu petición sobre 2 toallas para la habitación F-617.",
+        "outcome": {
+          "status": "recorded",
+          "ticket": {
+            "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "title": "Necesito dos toallas adicionales.",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000119",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:26.005909+02:00",
+            "description": "Necesito dos toallas adicionales.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000120",
+            "request_context": {
+              "version": 1,
+              "request_key": "towels",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:25.491909+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000122",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          },
+          "request": {
+            "key": "towels",
+            "category": "housekeeping",
+            "priority": "normal",
+            "priority_reason": "guest_operational_request",
+            "title": "Necesito dos toallas adicionales.",
+            "details": "Necesito dos toallas adicionales.",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000122",
+          "newlyRecorded": true,
+          "detailConfirmed": true
+        },
+        "before": [],
+        "after": [
+          {
+            "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "title": "Necesito dos toallas adicionales.",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000119",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:26.005909+02:00",
+            "description": "Necesito dos toallas adicionales.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000120",
+            "request_context": {
+              "version": 1,
+              "request_key": "towels",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:25.491909+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000122",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000122",
+            "request": {
+              "key": "towels",
+              "category": "housekeeping",
+              "priority": "normal",
+              "priority_reason": "guest_operational_request",
+              "title": "Necesito dos toallas adicionales.",
+              "details": "Necesito dos toallas adicionales.",
+              "new_incident": false,
+              "expected_ticket_id": null,
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "rpc",
+            "ticketId": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "replayed": false,
+            "sourceMessageId": "00000000-0000-4000-8000-000000000122"
+          },
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+              "hotel_id": "00000000-0000-4000-8000-000000000001",
+              "conversation_id": "00000000-0000-4000-8000-000000000120",
+              "guest_id": "00000000-0000-4000-8000-000000000119"
+            },
+            "ticketId": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "status": "open"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Ya tenemos tu petición sobre 2 toallas para la habitación F-617."
+          }
+        ]
+      },
+      {
+        "turn": 2,
+        "final": "Perfecto, hemos actualizado la petición a 3 toallas.",
+        "outcome": {
+          "status": "recorded",
+          "ticket": {
+            "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "title": "Necesito dos toallas adicionales.",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000119",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:26.005909+02:00",
+            "description": "Necesito dos toallas adicionales.\n\nSeguimiento (2026-10-13 15:09:26.758756+02): Mejor tres, no dos.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000120",
+            "request_context": {
+              "version": 1,
+              "request_key": "towels",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:26.758756+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000124",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000124"
+            }
+          },
+          "request": {
+            "key": "towels",
+            "category": "housekeeping",
+            "priority": "normal",
+            "title": "Necesito dos toallas adicionales.",
+            "details": "Mejor tres, no dos.",
+            "priority_reason": "guest_clarification",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000124",
+          "newlyRecorded": false,
+          "detailConfirmed": true
+        },
+        "before": [
+          {
+            "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "title": "Necesito dos toallas adicionales.",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000119",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:26.005909+02:00",
+            "description": "Necesito dos toallas adicionales.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000120",
+            "request_context": {
+              "version": 1,
+              "request_key": "towels",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:25.491909+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000122",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "after": [
+          {
+            "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "title": "Necesito dos toallas adicionales.",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000119",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:26.005909+02:00",
+            "description": "Necesito dos toallas adicionales.\n\nSeguimiento (2026-10-13 15:09:26.758756+02): Mejor tres, no dos.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000120",
+            "request_context": {
+              "version": 1,
+              "request_key": "towels",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:26.758756+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000124",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000124"
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000124",
+            "request": {
+              "key": "towels",
+              "category": "housekeeping",
+              "priority": "normal",
+              "title": "Necesito dos toallas adicionales.",
+              "details": "Mejor tres, no dos.",
+              "priority_reason": "guest_clarification",
+              "new_incident": false,
+              "expected_ticket_id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "rpc",
+            "ticketId": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "replayed": false,
+            "sourceMessageId": "00000000-0000-4000-8000-000000000124"
+          },
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+              "hotel_id": "00000000-0000-4000-8000-000000000001",
+              "conversation_id": "00000000-0000-4000-8000-000000000120",
+              "guest_id": "00000000-0000-4000-8000-000000000119"
+            },
+            "ticketId": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "status": "open"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Perfecto, hemos actualizado la petición a 3 toallas."
+          }
+        ]
+      },
+      {
+        "turn": 3,
+        "final": "Tu petición sigue pendiente; todavía no tenemos una actualización.",
+        "outcome": {
+          "status": "observed",
+          "ticket": {
+            "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "title": "Necesito dos toallas adicionales.",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000119",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:26.005909+02:00",
+            "description": "Necesito dos toallas adicionales.\n\nSeguimiento (2026-10-13 15:09:26.758756+02): Mejor tres, no dos.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000120",
+            "request_context": {
+              "version": 1,
+              "request_key": "towels",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:26.758756+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000124",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000124"
+            }
+          },
+          "request": {
+            "key": "towels"
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000126",
+          "detailConfirmed": false
+        },
+        "before": [
+          {
+            "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "title": "Necesito dos toallas adicionales.",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000119",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:26.005909+02:00",
+            "description": "Necesito dos toallas adicionales.\n\nSeguimiento (2026-10-13 15:09:26.758756+02): Mejor tres, no dos.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000120",
+            "request_context": {
+              "version": 1,
+              "request_key": "towels",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:26.758756+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000124",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000124"
+            }
+          }
+        ],
+        "after": [
+          {
+            "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "title": "Necesito dos toallas adicionales.",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000119",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:26.005909+02:00",
+            "description": "Necesito dos toallas adicionales.\n\nSeguimiento (2026-10-13 15:09:26.758756+02): Mejor tres, no dos.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000120",
+            "request_context": {
+              "version": 1,
+              "request_key": "towels",
+              "reservation_id": "00000000-0000-4000-8000-000000000121",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:26.758756+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000124",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000124"
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+              "hotel_id": "00000000-0000-4000-8000-000000000001",
+              "conversation_id": "00000000-0000-4000-8000-000000000120",
+              "guest_id": "00000000-0000-4000-8000-000000000119"
+            },
+            "ticketId": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+            "status": "open"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Tu petición sigue pendiente; todavía no tenemos una actualización."
+          }
+        ]
+      }
+    ],
+    "persistedReceipts": [
+      {
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "ticket_id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+        "created_at": "2026-10-13T15:09:26.005909+02:00",
+        "request_key": "towels",
+        "source_message_id": "00000000-0000-4000-8000-000000000122"
+      },
+      {
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "ticket_id": "7b9a7610-2fac-47a3-ae99-b46d63ff5090",
+        "created_at": "2026-10-13T15:09:27.298521+02:00",
+        "request_key": "towels",
+        "source_message_id": "00000000-0000-4000-8000-000000000124"
+      }
+    ]
+  },
+  "D11": {
+    "turns": [
+      {
+        "turn": 1,
+        "final": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.",
+        "outcome": {
+          "status": "unconfirmed",
+          "ticket": null,
+          "request": {
+            "key": "air_conditioning",
+            "category": "maintenance",
+            "priority": "high",
+            "priority_reason": "ongoing_water_damage",
+            "title": "El aire acondicionado pierde agua.",
+            "details": "El aire acondicionado pierde agua.",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000140",
+          "errorCode": "SYNTHETIC_TIMEOUT"
+        },
+        "before": [],
+        "after": [],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000140",
+            "request": {
+              "key": "air_conditioning",
+              "category": "maintenance",
+              "priority": "high",
+              "priority_reason": "ongoing_water_damage",
+              "title": "El aire acondicionado pierde agua.",
+              "details": "El aire acondicionado pierde agua.",
+              "new_incident": false,
+              "expected_ticket_id": null,
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "write_failed"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción."
+          }
+        ]
+      },
+      {
+        "turn": 2,
+        "final": "Ahora sí, hemos registrado tu petición sobre la incidencia del aire acondicionado para la habitación F-617.",
+        "outcome": {
+          "status": "recorded",
+          "ticket": {
+            "id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "title": "Sigue el mismo problema del aire acondicionado.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000137",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:35.45501+02:00",
+            "description": "Sigue el mismo problema del aire acondicionado.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000138",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:34.853066+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000142",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          },
+          "request": {
+            "key": "air_conditioning",
+            "category": "maintenance",
+            "priority": "normal",
+            "priority_reason": "guest_operational_request",
+            "title": "Sigue el mismo problema del aire acondicionado.",
+            "details": "Sigue el mismo problema del aire acondicionado.",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000142",
+          "newlyRecorded": true,
+          "detailConfirmed": true
+        },
+        "before": [],
+        "after": [
+          {
+            "id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "title": "Sigue el mismo problema del aire acondicionado.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000137",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:35.45501+02:00",
+            "description": "Sigue el mismo problema del aire acondicionado.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000138",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:34.853066+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000142",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000142",
+            "request": {
+              "key": "air_conditioning",
+              "category": "maintenance",
+              "priority": "normal",
+              "priority_reason": "guest_operational_request",
+              "title": "Sigue el mismo problema del aire acondicionado.",
+              "details": "Sigue el mismo problema del aire acondicionado.",
+              "new_incident": false,
+              "expected_ticket_id": null,
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "rpc",
+            "ticketId": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "replayed": false,
+            "sourceMessageId": "00000000-0000-4000-8000-000000000142"
+          },
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+              "hotel_id": "00000000-0000-4000-8000-000000000001",
+              "conversation_id": "00000000-0000-4000-8000-000000000138",
+              "guest_id": "00000000-0000-4000-8000-000000000137"
+            },
+            "ticketId": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "status": "open"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Ahora sí, hemos registrado tu petición sobre la incidencia del aire acondicionado para la habitación F-617."
+          },
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000142",
+            "request": {
+              "key": "air_conditioning",
+              "category": "maintenance",
+              "priority": "normal",
+              "priority_reason": "guest_operational_request",
+              "title": "Sigue el mismo problema del aire acondicionado.",
+              "details": "Sigue el mismo problema del aire acondicionado.",
+              "new_incident": false,
+              "expected_ticket_id": null,
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "rpc",
+            "ticketId": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "replayed": true,
+            "sourceMessageId": "00000000-0000-4000-8000-000000000142"
+          },
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+              "hotel_id": "00000000-0000-4000-8000-000000000001",
+              "conversation_id": "00000000-0000-4000-8000-000000000138",
+              "guest_id": "00000000-0000-4000-8000-000000000137"
+            },
+            "ticketId": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "status": "open"
+          },
+          {
+            "kind": "retry_assertion",
+            "sameTicket": true,
+            "unchangedRecord": true
+          }
+        ]
+      },
+      {
+        "turn": 3,
+        "final": "Claro, tenemos tu petición de hablar con una persona.",
+        "outcome": {
+          "status": "recorded",
+          "ticket": {
+            "id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "title": "Sigue el mismo problema del aire acondicionado.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000137",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:35.45501+02:00",
+            "description": "Sigue el mismo problema del aire acondicionado.\n\nSeguimiento (2026-10-13 15:09:36.941027+02): Quiero hablar con una persona.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000138",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:36.941027+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000144",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000144"
+            }
+          },
+          "request": {
+            "key": "air_conditioning",
+            "category": "maintenance",
+            "priority": "normal",
+            "title": "Sigue el mismo problema del aire acondicionado.",
+            "details": "Quiero hablar con una persona.",
+            "priority_reason": "guest_clarification",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000144",
+          "newlyRecorded": false,
+          "detailConfirmed": true
+        },
+        "before": [
+          {
+            "id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "title": "Sigue el mismo problema del aire acondicionado.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000137",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:35.45501+02:00",
+            "description": "Sigue el mismo problema del aire acondicionado.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000138",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:34.853066+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000142",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "after": [
+          {
+            "id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "title": "Sigue el mismo problema del aire acondicionado.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000137",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:35.45501+02:00",
+            "description": "Sigue el mismo problema del aire acondicionado.\n\nSeguimiento (2026-10-13 15:09:36.941027+02): Quiero hablar con una persona.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000138",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:36.941027+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000144",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000144"
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000144",
+            "request": {
+              "key": "air_conditioning",
+              "category": "maintenance",
+              "priority": "normal",
+              "title": "Sigue el mismo problema del aire acondicionado.",
+              "details": "Quiero hablar con una persona.",
+              "priority_reason": "guest_clarification",
+              "new_incident": false,
+              "expected_ticket_id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+              "reservation_id": "00000000-0000-4000-8000-000000000139",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "rpc",
+            "ticketId": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "replayed": false,
+            "sourceMessageId": "00000000-0000-4000-8000-000000000144"
+          },
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+              "hotel_id": "00000000-0000-4000-8000-000000000001",
+              "conversation_id": "00000000-0000-4000-8000-000000000138",
+              "guest_id": "00000000-0000-4000-8000-000000000137"
+            },
+            "ticketId": "aea0b894-0870-40ce-a032-c9a5b100c890",
+            "status": "open"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Claro, tenemos tu petición de hablar con una persona."
+          }
+        ]
+      }
+    ],
+    "persistedReceipts": [
+      {
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "ticket_id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+        "created_at": "2026-10-13T15:09:35.45501+02:00",
+        "request_key": "air_conditioning",
+        "source_message_id": "00000000-0000-4000-8000-000000000142"
+      },
+      {
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "ticket_id": "aea0b894-0870-40ce-a032-c9a5b100c890",
+        "created_at": "2026-10-13T15:09:37.435438+02:00",
+        "request_key": "air_conditioning",
+        "source_message_id": "00000000-0000-4000-8000-000000000144"
+      }
+    ]
+  },
+  "F01": {
+    "turns": [
+      {
+        "turn": 1,
+        "final": "We have your request about 2 pillows for room J-842.",
+        "outcome": {
+          "status": "recorded",
+          "ticket": {
+            "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "title": "Could you bring two pillows?",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000146",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:39.458707+02:00",
+            "description": "Could you bring two pillows?",
+            "room_number": "J-842",
+            "conversation_id": "00000000-0000-4000-8000-000000000147",
+            "request_context": {
+              "version": 1,
+              "request_key": "pillow",
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:38.725717+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000149",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          },
+          "request": {
+            "key": "pillow",
+            "category": "housekeeping",
+            "priority": "normal",
+            "priority_reason": "guest_operational_request",
+            "title": "Could you bring two pillows?",
+            "details": "Could you bring two pillows?",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000149",
+          "newlyRecorded": true,
+          "detailConfirmed": true
+        },
+        "before": [],
+        "after": [
+          {
+            "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "title": "Could you bring two pillows?",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000146",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:39.458707+02:00",
+            "description": "Could you bring two pillows?",
+            "room_number": "J-842",
+            "conversation_id": "00000000-0000-4000-8000-000000000147",
+            "request_context": {
+              "version": 1,
+              "request_key": "pillow",
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:38.725717+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000149",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000149",
+            "request": {
+              "key": "pillow",
+              "category": "housekeeping",
+              "priority": "normal",
+              "priority_reason": "guest_operational_request",
+              "title": "Could you bring two pillows?",
+              "details": "Could you bring two pillows?",
+              "new_incident": false,
+              "expected_ticket_id": null,
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "room_number": "J-842",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "rpc",
+            "ticketId": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "replayed": false,
+            "sourceMessageId": "00000000-0000-4000-8000-000000000149"
+          },
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+              "hotel_id": "00000000-0000-4000-8000-000000000002",
+              "conversation_id": "00000000-0000-4000-8000-000000000147",
+              "guest_id": "00000000-0000-4000-8000-000000000146"
+            },
+            "ticketId": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "status": "open"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "We have your request about 2 pillows for room J-842."
+          }
+        ]
+      },
+      {
+        "turn": 2,
+        "final": "Thanks, we’ve updated your request to 4 pillows.",
+        "outcome": {
+          "status": "recorded",
+          "ticket": {
+            "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "title": "Could you bring two pillows?",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000146",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:39.458707+02:00",
+            "description": "Could you bring two pillows?\n\nSeguimiento (2026-10-13 15:09:40.400717+02): Make it four instead.",
+            "room_number": "J-842",
+            "conversation_id": "00000000-0000-4000-8000-000000000147",
+            "request_context": {
+              "version": 1,
+              "request_key": "pillow",
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:40.400717+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000151",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000151"
+            }
+          },
+          "request": {
+            "key": "pillow",
+            "category": "housekeeping",
+            "priority": "normal",
+            "title": "Could you bring two pillows?",
+            "details": "Make it four instead.",
+            "priority_reason": "guest_clarification",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000151",
+          "newlyRecorded": false,
+          "detailConfirmed": true
+        },
+        "before": [
+          {
+            "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "title": "Could you bring two pillows?",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000146",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:39.458707+02:00",
+            "description": "Could you bring two pillows?",
+            "room_number": "J-842",
+            "conversation_id": "00000000-0000-4000-8000-000000000147",
+            "request_context": {
+              "version": 1,
+              "request_key": "pillow",
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "priority_reason": "guest_operational_request",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:38.725717+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000149",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "after": [
+          {
+            "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "title": "Could you bring two pillows?",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000146",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:39.458707+02:00",
+            "description": "Could you bring two pillows?\n\nSeguimiento (2026-10-13 15:09:40.400717+02): Make it four instead.",
+            "room_number": "J-842",
+            "conversation_id": "00000000-0000-4000-8000-000000000147",
+            "request_context": {
+              "version": 1,
+              "request_key": "pillow",
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:40.400717+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000151",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000151"
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000151",
+            "request": {
+              "key": "pillow",
+              "category": "housekeeping",
+              "priority": "normal",
+              "title": "Could you bring two pillows?",
+              "details": "Make it four instead.",
+              "priority_reason": "guest_clarification",
+              "new_incident": false,
+              "expected_ticket_id": "0555e962-a860-405d-9c03-0e7a034ed542",
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "room_number": "J-842",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "rpc",
+            "ticketId": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "replayed": false,
+            "sourceMessageId": "00000000-0000-4000-8000-000000000151"
+          },
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+              "hotel_id": "00000000-0000-4000-8000-000000000002",
+              "conversation_id": "00000000-0000-4000-8000-000000000147",
+              "guest_id": "00000000-0000-4000-8000-000000000146"
+            },
+            "ticketId": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "status": "open"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Thanks, we’ve updated your request to 4 pillows."
+          }
+        ]
+      },
+      {
+        "turn": 3,
+        "final": "You’re welcome.",
+        "outcome": {
+          "status": "not_requested",
+          "ticket": null
+        },
+        "before": [
+          {
+            "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "title": "Could you bring two pillows?",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000146",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:39.458707+02:00",
+            "description": "Could you bring two pillows?\n\nSeguimiento (2026-10-13 15:09:40.400717+02): Make it four instead.",
+            "room_number": "J-842",
+            "conversation_id": "00000000-0000-4000-8000-000000000147",
+            "request_context": {
+              "version": 1,
+              "request_key": "pillow",
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:40.400717+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000151",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000151"
+            }
+          }
+        ],
+        "after": [
+          {
+            "id": "0555e962-a860-405d-9c03-0e7a034ed542",
+            "title": "Could you bring two pillows?",
+            "status": "open",
+            "category": "housekeeping",
+            "guest_id": "00000000-0000-4000-8000-000000000146",
+            "hotel_id": "00000000-0000-4000-8000-000000000002",
+            "priority": "normal",
+            "created_at": "2026-10-13T15:09:39.458707+02:00",
+            "description": "Could you bring two pillows?\n\nSeguimiento (2026-10-13 15:09:40.400717+02): Make it four instead.",
+            "room_number": "J-842",
+            "conversation_id": "00000000-0000-4000-8000-000000000147",
+            "request_context": {
+              "version": 1,
+              "request_key": "pillow",
+              "reservation_id": "00000000-0000-4000-8000-000000000148",
+              "priority_reason": "guest_clarification",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:40.400717+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000151",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              },
+              "last_source_message_id": "00000000-0000-4000-8000-000000000151"
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "persist_ai_message",
+            "content": "You’re welcome."
+          }
+        ]
+      }
+    ],
+    "persistedReceipts": [
+      {
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "ticket_id": "0555e962-a860-405d-9c03-0e7a034ed542",
+        "created_at": "2026-10-13T15:09:39.458707+02:00",
+        "request_key": "pillow",
+        "source_message_id": "00000000-0000-4000-8000-000000000149"
+      },
+      {
+        "hotel_id": "00000000-0000-4000-8000-000000000002",
+        "ticket_id": "0555e962-a860-405d-9c03-0e7a034ed542",
+        "created_at": "2026-10-13T15:09:41.032724+02:00",
+        "request_key": "pillow",
+        "source_message_id": "00000000-0000-4000-8000-000000000151"
+      }
+    ]
+  },
+  "D11-write-fails-twice": {
+    "turns": [
+      {
+        "turn": 1,
+        "final": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.",
+        "outcome": {
+          "status": "unconfirmed",
+          "ticket": null,
+          "request": {
+            "key": "air_conditioning",
+            "category": "maintenance",
+            "priority": "high",
+            "priority_reason": "ongoing_water_damage",
+            "title": "El aire acondicionado pierde agua.",
+            "details": "El aire acondicionado pierde agua.",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000104",
+          "errorCode": "SYNTHETIC_TIMEOUT"
+        },
+        "before": [],
+        "after": [],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000104",
+            "request": {
+              "key": "air_conditioning",
+              "category": "maintenance",
+              "priority": "high",
+              "priority_reason": "ongoing_water_damage",
+              "title": "El aire acondicionado pierde agua.",
+              "details": "El aire acondicionado pierde agua.",
+              "new_incident": false,
+              "expected_ticket_id": null,
+              "reservation_id": "00000000-0000-4000-8000-000000000103",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "write_failed"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción."
+          }
+        ]
+      },
+      {
+        "turn": 2,
+        "final": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.",
+        "outcome": {
+          "status": "unconfirmed",
+          "ticket": null,
+          "request": {
+            "key": "air_conditioning",
+            "category": "maintenance",
+            "priority": "normal",
+            "priority_reason": "guest_operational_request",
+            "title": "Sigue el mismo problema del aire acondicionado.",
+            "details": "Sigue el mismo problema del aire acondicionado.",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000106",
+          "errorCode": "SYNTHETIC_TIMEOUT"
+        },
+        "before": [],
+        "after": [],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000106",
+            "request": {
+              "key": "air_conditioning",
+              "category": "maintenance",
+              "priority": "normal",
+              "priority_reason": "guest_operational_request",
+              "title": "Sigue el mismo problema del aire acondicionado.",
+              "details": "Sigue el mismo problema del aire acondicionado.",
+              "new_incident": false,
+              "expected_ticket_id": null,
+              "reservation_id": "00000000-0000-4000-8000-000000000103",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "write_failed"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción."
+          }
+        ]
+      }
+    ],
+    "persistedReceipts": []
+  },
+  "D11-readback-lost": {
+    "turns": [
+      {
+        "turn": 1,
+        "final": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.",
+        "outcome": {
+          "status": "unconfirmed",
+          "ticket": null,
+          "request": {
+            "key": "air_conditioning",
+            "category": "maintenance",
+            "priority": "high",
+            "priority_reason": "ongoing_water_damage",
+            "title": "El aire acondicionado pierde agua.",
+            "details": "El aire acondicionado pierde agua.",
+            "new_incident": false
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000111",
+          "errorCode": "SYNTHETIC_READBACK_LOSS"
+        },
+        "before": [],
+        "after": [
+          {
+            "id": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+            "title": "El aire acondicionado pierde agua.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000108",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "high",
+            "created_at": "2026-10-13T15:09:50.442193+02:00",
+            "description": "El aire acondicionado pierde agua.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000109",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000110",
+              "priority_reason": "ongoing_water_damage",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:49.933491+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000111",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "rpc_attempt",
+            "name": "record_guest_operational_request_v1",
+            "sourceMessageId": "00000000-0000-4000-8000-000000000111",
+            "request": {
+              "key": "air_conditioning",
+              "category": "maintenance",
+              "priority": "high",
+              "priority_reason": "ongoing_water_damage",
+              "title": "El aire acondicionado pierde agua.",
+              "details": "El aire acondicionado pierde agua.",
+              "new_incident": false,
+              "expected_ticket_id": null,
+              "reservation_id": "00000000-0000-4000-8000-000000000110",
+              "room_number": "F-617",
+              "operational_context": {
+                "phase": "stay",
+                "room_source": "reservation",
+                "reason": "confirmed"
+              }
+            }
+          },
+          {
+            "kind": "rpc",
+            "ticketId": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+            "replayed": false,
+            "sourceMessageId": "00000000-0000-4000-8000-000000000111"
+          },
+          {
+            "kind": "readback_failed",
+            "filters": {
+              "id": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+              "hotel_id": "00000000-0000-4000-8000-000000000001",
+              "conversation_id": "00000000-0000-4000-8000-000000000109",
+              "guest_id": "00000000-0000-4000-8000-000000000108"
+            }
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción."
+          }
+        ]
+      },
+      {
+        "turn": 2,
+        "final": "Tu petición sigue pendiente; todavía no tenemos una actualización.",
+        "outcome": {
+          "status": "observed",
+          "ticket": {
+            "id": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+            "title": "El aire acondicionado pierde agua.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000108",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "high",
+            "created_at": "2026-10-13T15:09:50.442193+02:00",
+            "description": "El aire acondicionado pierde agua.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000109",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000110",
+              "priority_reason": "ongoing_water_damage",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:49.933491+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000111",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          },
+          "request": {
+            "key": "air_conditioning"
+          },
+          "sourceMessageId": "00000000-0000-4000-8000-000000000113",
+          "detailConfirmed": false
+        },
+        "before": [
+          {
+            "id": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+            "title": "El aire acondicionado pierde agua.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000108",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "high",
+            "created_at": "2026-10-13T15:09:50.442193+02:00",
+            "description": "El aire acondicionado pierde agua.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000109",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000110",
+              "priority_reason": "ongoing_water_damage",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:49.933491+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000111",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "after": [
+          {
+            "id": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+            "title": "El aire acondicionado pierde agua.",
+            "status": "open",
+            "category": "maintenance",
+            "guest_id": "00000000-0000-4000-8000-000000000108",
+            "hotel_id": "00000000-0000-4000-8000-000000000001",
+            "priority": "high",
+            "created_at": "2026-10-13T15:09:50.442193+02:00",
+            "description": "El aire acondicionado pierde agua.",
+            "room_number": "F-617",
+            "conversation_id": "00000000-0000-4000-8000-000000000109",
+            "request_context": {
+              "version": 1,
+              "request_key": "air_conditioning",
+              "reservation_id": "00000000-0000-4000-8000-000000000110",
+              "priority_reason": "ongoing_water_damage",
+              "responsible_role": "reception",
+              "source_message_at": "2026-10-13T15:09:49.933491+02:00",
+              "source_message_id": "00000000-0000-4000-8000-000000000111",
+              "operational_context": {
+                "phase": "stay",
+                "reason": "confirmed",
+                "room_source": "reservation"
+              }
+            }
+          }
+        ],
+        "effects": [
+          {
+            "kind": "readback",
+            "filters": {
+              "id": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+              "hotel_id": "00000000-0000-4000-8000-000000000001",
+              "conversation_id": "00000000-0000-4000-8000-000000000109",
+              "guest_id": "00000000-0000-4000-8000-000000000108"
+            },
+            "ticketId": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+            "status": "open"
+          },
+          {
+            "kind": "persist_ai_message",
+            "content": "Tu petición sigue pendiente; todavía no tenemos una actualización."
+          }
+        ]
+      }
+    ],
+    "persistedReceipts": [
+      {
+        "hotel_id": "00000000-0000-4000-8000-000000000001",
+        "ticket_id": "bcb5daeb-97a7-418d-af65-a84ed9a6088d",
+        "created_at": "2026-10-13T15:09:50.442193+02:00",
+        "request_key": "air_conditioning",
+        "source_message_id": "00000000-0000-4000-8000-000000000111"
+      }
+    ]
+  }
+}

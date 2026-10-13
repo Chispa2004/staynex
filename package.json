@@ -133,7 +133,9 @@
     "test:service-turn-naturalness": "node scripts/test-service-turn-naturalness.js",
     "test:service-evidence-followups": "node scripts/test-service-evidence-followups.js",
     "test:fresh-service-postgres": "node scripts/test-fresh-service-postgres.js",
-    "test:arrival-turn-context": "node scripts/test-arrival-turn-context.js"
+    "test:arrival-turn-context": "node scripts/test-arrival-turn-context.js",
+    "test:service-precision": "node scripts/test-service-precision.js",
+    "test:evaluation-budget": "node scripts/test-evaluation-budget.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

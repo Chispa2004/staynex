@@ -40,10 +40,11 @@ export function arrivalReplyText(plan,message,language) {
   const roomFollowup=/habitacion|room/.test(current) && /ready|lista|disponib|mean|significa|garanti|confirm|\by la\b|what about|podemos entrar|puedo entrar|can .{0,12}(?:enter|access|have)/.test(current);
   const dateFollowup=/booked arrival|booking starts|fecha de (?:mi |la )?reserva/.test(current);
   const before=details.date && plan.stay?.arrival_date && (details.date<plan.stay.arrival_date || details.date===plan.stay.arrival_date&&details.time&&checkTime&&details.time<checkTime);
-  const room=en
-    ? `Building access does not confirm room availability${before?`; your arrival is before check-in on ${plan.stay.arrival_date}${checkTime?' at '+checkTime:''}`:''}. Early room access needs confirmation.`
-    : `Entrar al edificio no confirma la disponibilidad de la habitación${before?`; llegas antes del check-in del ${plan.stay.arrival_date}${checkTime?' a las '+checkTime:''}`:''}. El acceso anticipado necesita confirmación.`;
-  if(dateFollowup&&before)return en?`Your ${details.time?details.time+' ':''}arrival is before check-in on ${plan.stay.arrival_date}${checkTime?' at '+checkTime:''}. Early room access still needs confirmation.`:`Tu llegada${details.time?' a las '+details.time:''} es anterior al check-in del ${plan.stay.arrival_date}${checkTime?' a las '+checkTime:''}. El acceso anticipado sigue necesitando confirmación.`;
+  const dateLabel=value=>value?new Intl.DateTimeFormat(en?'en-GB':'es-ES',{day:'numeric',month:'long',timeZone:'UTC'}).format(new Date(value+'T12:00:00Z')):null;
+  const checkLabel=checkTime?(en?` at ${checkTime}`:` a las ${checkTime}`):'';
+  const early=before?(en?` before check-in${checkLabel} on ${dateLabel(plan.stay.arrival_date)}`:` antes del check-in${checkLabel} del ${dateLabel(plan.stay.arrival_date)}`):'';
+  const room=en?`Building access does not confirm room availability; room access${early} needs confirmation.`:`Entrar al edificio no confirma la disponibilidad de la habitación; el acceso${early} necesita confirmación.`;
+  if(dateFollowup&&before)return en?`Your ${details.time?details.time+' ':''}arrival is before check-in${checkLabel} on ${dateLabel(plan.stay.arrival_date)}. Early room access still needs confirmation.`:`Tu llegada${details.time?' a las '+details.time:''} es anterior al check-in${checkLabel} del ${dateLabel(plan.stay.arrival_date)}. El acceso anticipado sigue necesitando confirmación.`;
   if(roomFollowup||dateFollowup)return room;
   // Keep documented access conditions intact. Drop only standalone room
   // cautions replaced by the single scoped explanation below, not mixed clauses.
@@ -52,15 +53,14 @@ export function arrivalReplyText(plan,message,language) {
   const parts=[];
   if(plan.access_conflict)parts.push(en?'Our access instructions conflict; we need to confirm the correct procedure before you arrive.':'Las instrucciones de acceso se contradicen; necesitamos confirmar el procedimiento correcto antes de tu llegada.');
   else if(details.reportedArrangement)parts.push(en?'If the confirmed instructions cover this arrival, follow those instructions. I cannot verify that individual arrangement here.':'Si las instrucciones confirmadas cubren esta llegada, sigue esas instrucciones. Aquí no puedo verificar esa coordinación individual.');
-  else if(access.length)parts.push(...access);
-  else parts.push(en?'There is no confirmed access procedure for that time here; we need to confirm how you can enter before arrival.':'No consta un procedimiento confirmado de acceso a esa hora; necesitamos confirmar cómo puedes entrar antes de tu llegada.');
-  parts.push(...reception);
-  const deadline=access.join(' ').match(/(?:antes de|before)\s*(?:las\s*)?(\d{1,2}:\d{2})/i)?.[1];
-  if(!plan.access_conflict&&!details.reportedArrangement&&deadline&&details.time&&details.time<'06:00') {
+  else if(access.length) {
     const previous=details.date?new Date(new Date(details.date+'T12:00:00Z').getTime()-86400000).toISOString().slice(0,10):null;
-    parts.push(en?`For ${details.time}${details.label?' on '+details.label:''}, that means before ${deadline} the previous evening${previous?' ('+previous+')':''}, not that same afternoon.`:`Para llegar a las ${details.time}${details.label?' del '+details.label:''}, debe ser antes de las ${deadline} de la tarde anterior${previous?' ('+previous+')':''}, no de esa misma tarde.`);
+    const concrete=access.map(sentence=>details.time&&details.time<'06:00'?sentence.replace(/((?:before|antes de)\s*(?:las\s*)?\d{1,2}:\d{2})(?: on the evening before arrival)?/i,
+      (_,deadline)=>deadline+(en?` on the previous evening${previous?', '+dateLabel(previous):''}`:` de la tarde anterior${previous?', '+dateLabel(previous):''}`)):sentence);
+    parts.push((details.time?(en?`For your ${details.time} arrival: `:`Para tu llegada a las ${details.time}: `):'')+concrete.join(' '));
   }
-  parts.push(before?room:(en?`Building access does not confirm room availability${checkTime?`; check-in starts at ${checkTime}`:''}. Early room access needs confirmation.`:`Entrar al edificio no confirma la disponibilidad de la habitación${checkTime?`; el check-in empieza a las ${checkTime}`:''}. El acceso anticipado necesita confirmación.`));
+  else parts.push(en?'There is no confirmed access procedure for that time here; we need to confirm how you can enter before arrival.':'No consta un procedimiento confirmado de acceso a esa hora; necesitamos confirmar cómo puedes entrar antes de tu llegada.');
+  parts.push(...reception,room);
   if(!details.label) {
     if(/\bmanana\b|\btomorrow\b/.test(details.text)&&!/\b(?:la|esta|esa) manana\b/.test(details.text)&&plan.clock.date)parts.push(`${plan.clock.date} (${plan.clock.timezone}).`);
     parts.push(en?'Which calendar date is that arrival after midnight? We need it to check whether it is before your booked check-in.':'¿A qué fecha corresponde esa llegada después de medianoche? La necesitamos para distinguirla del inicio de tu reserva.');

@@ -1,0 +1,47 @@
+{
+  "status": "local-only",
+  "syntax": {
+    "result": "PASS",
+    "files": 453
+  },
+  "dashboardBuild": "PASS after regeneration of ignored .next (OneDrive EINVAL/readlink)",
+  "diffCheck": "PASS",
+  "postgres": {
+    "precision-targeted": {
+      "conversations": 6,
+      "turns": 18,
+      "failedProperties": 0
+    },
+    "precision-recovery": {
+      "conversations": 2,
+      "turns": 4,
+      "failedProperties": 0
+    }
+  },
+  "testsPassed": [
+    "service-precision",
+    "evaluation-budget",
+    "guest-service-receipts (historical replays, zero provider calls)",
+    "arrival-turn-context (including >110-word instructions)",
+    "arrival-booking-quality",
+    "service-turn-naturalness",
+    "service-evidence-followups",
+    "attention-lifecycle",
+    "operational-requests",
+    "guest-final-output",
+    "guest-service-quality",
+    "ci-guards"
+  ],
+  "notRun": [
+    "GitHub CI",
+    "complete broad PostgreSQL matrix",
+    "real-provider comparison",
+    "reserved R01-R03"
+  ],
+  "inheritedFailure": "guest-ai-tenant-isolation static assertion; unchanged, prior baseline evidence retained",
+  "realProviderUsage": {
+    "calls": 0,
+    "tokens": 0,
+    "usd": 0
+  }
+}

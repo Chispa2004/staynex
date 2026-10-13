@@ -120,7 +120,7 @@ const missingBookingDetails = (plan, language) => {
 export function groundedArrivalReply(reply, plan, message, history=[]) {
   if(plan.topic!=='arrival' || typeof reply!=='string' || plan.access_conflict)return false;
   const detail=arrivalDetails(plan);
-  if(reply.split(/\s+/).length>110 || detail.label && /which (?:calendar )?date|what date|a que fecha|que fecha/i.test(reply))return false;
+  if(detail.label && /which (?:calendar )?date|what date|a que fecha|que fecha/i.test(reply))return false;
   const text=normalize(reply), facts=normalize(plan.knowledge.map(r=>r.value).join(' '));
   const guestFacts=normalize([...history.filter(m=>m.sender_type==='guest').map(m=>m.content),message].join(' '));
   const claims=text.replace(/no (?:se )?garantiza(?:mos)? (?:la )?(?:disponibilidad|entrada) anticipada(?: de (?:la )?habitacion)?/g,'');

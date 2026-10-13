@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "status": "awaiting-development-credential-and-budget-approval",
+  "baseline": "01d8f15ad8265ff2f59e3b644d82ed846666f27d",
+  "model": "gpt-4.1-mini-2025-04-14",
+  "temperature": 0,
+  "developmentCases": [
+    "D02",
+    "D06",
+    "D07",
+    "D09",
+    "D11",
+    "F01"
+  ],
+  "reservedCases": [
+    "R01",
+    "R02",
+    "R03"
+  ],
+  "reservedCanonicalSha256": "329223069d3a7565fecfa703c989da9a07a2e5be0ae406296970bc95b95af939",
+  "turnsPerVersion": 27,
+  "versions": 2,
+  "expectedCalls": 88,
+  "maxCalls": 114,
+  "maxInputTokensPerCall": 12000,
+  "maxOutputTokensPerCall": 1000,
+  "maxTotalTokens": 1482000,
+  "maxUsd": 0.75,
+  "maxRetries": 0,
+  "usdPerMillionInput": 0.4,
+  "usdPerMillionOutput": 1.6,
+  "priceSource": "https://developers.openai.com/api/docs/models/gpt-4.1-mini",
+  "priceChecked": "2026-10-13",
+  "routes": {
+    "primary": "All 27 turns per version, one combined classification/reply plus at most one post-commit call per turn.",
+    "concierge": "D02 turn 2 and F01 turn 2 per version: isolated refinement from retained primary input/output, one call each; one post-commit call for F01. Not a separate end-to-end pipeline sample.",
+    "inbox": "Deterministic draft against the 27 retained turn snapshots per version, zero calls and zero operational effects."
+  }
+}

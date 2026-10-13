@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {explicitArrivalDate} from '../shared/guest-service/arrival-details.js';
-import {buildArrivalBookingContext,buildArrivalBookingDraft,arrivalBookingTopic} from '../shared/guest-service/arrival-booking.js';
+import {buildArrivalBookingContext,buildArrivalBookingDraft,arrivalBookingTopic,groundedArrivalReply} from '../shared/guest-service/arrival-booking.js';
 import {finalizeServiceReply} from '../shared/guest-service/quality.js';
 import {generateReceiptReply} from '../shared/guest-service/receipt-reply.js';
 import {ticketReplyPlan} from '../shared/guest-service/ticket-context.js';
@@ -25,8 +25,8 @@ test('Named ES/EN and ISO dates are validated, bounded and never invented from b
 });
 test('D02 uses known date/time, useful conditioned entrance first, one room explanation',()=>{
  const text=draft();
- assert(text.startsWith('Late arrival must be arranged'));
- for(const fact of ['20:00','2026-11-07','00:50','06:00','21:00','side entrance','only after','2026-11-08','16:30'])assert(text.includes(fact),text);
+ assert(text.startsWith('For your 00:50 arrival: Late arrival must be arranged'));
+ for(const fact of ['20:00','7 November','00:50','06:00','21:00','side entrance','only after','8 November','16:30'])assert(text.includes(fact),text);
  assert.doesNotMatch(text,/\?|Hotel information|No room readiness is guaranteed/);
  assert.equal((text.match(/Building access/g)||[]).length,1);
 });
@@ -36,7 +36,7 @@ test('D02 room and booking-date followups retain arrival context and do not repe
   const text=draft({message,conversationContext:{...base.conversationContext,recentMessages}});
   if(message.startsWith('Does'))assert.match(text,/Building access does not confirm room availability/);
   else assert.match(text,/Your 00:50 arrival/);
-  assert.match(text,/before check-in on 2026-11-08 at 16:30/);
+  assert.match(text,/before check-in at 16:30 on 8 November/);
   assert.doesNotMatch(text,/\?|20:00|Late arrival must/);
   recentMessages.push({sender_type:'guest',content:message});
  }
@@ -46,7 +46,7 @@ test('D02 room and booking-date followups retain arrival context and do not repe
 });
 test('Missing/invalid/ambiguous date asks why, previous-day stay is not labelled early',()=>{
  for(const message of ['I arrive at 00:50. How do I enter?','I arrive at 00:50 on November 31.','I arrive on November 8 or November 9 at 00:50.'])assert.match(draft({message}),/Which calendar date.*booked check-in/);
- const text=draft({conversationContext:{...base.conversationContext,reservation:{...reservation,arrival_date:'2026-11-07'}}});
+ const text=draft({conversationContext:{...base.conversationContext,reservation:{...reservation,arrival_date:'7 November'}}});
  assert.doesNotMatch(text,/your arrival is before check-in/);assert.match(text,/does not confirm room/);
  assert.doesNotMatch(draft({message:'Llego el 8 de noviembre a las 00:50.',conversationContext:{...base.conversationContext,language:'es'}}),/¿A qué fecha/);
 });
@@ -94,3 +94,11 @@ assert.equal(await generateReceiptReply({...receiptArgs,ticket:notSaved,operatio
 console.log('PASS post-commit wording: changed item and quantity required, natural complete acknowledgement retained, no receipt without readback');
 
 assert.equal(await generateReceiptReply({...receiptArgs,ticket:notSaved,operationalRequest:{status:'recorded',ticket:notSaved}},async()=>({reply:'Updated your request to three towels.'})),null);
+
+// Long documented instructions are not discarded just because they exceed a
+// presentation threshold. This is a safety regression, not a style benchmark.
+const longInstructions='Late arrival must be arranged before 20:00 on the previous evening. Use the side entrance only after confirmation. '+
+ 'Follow the pedestrian signs from the parking area to the garden path. Stay on the marked path alongside the building. At the end of the path the entrance is identified by the hotel sign. Keep the pedestrian route clear for other guests. Do not follow the vehicle route through the loading area. If the entrance is obstructed, do not try another door without instructions from the hotel. The access instructions apply only to the confirmed arrival arrangement. Keep the confirmation available so that you can check which entrance it covers. If the confirmation names a different entrance, ask the hotel to resolve that discrepancy before travelling. Early room access requires separate confirmation.';
+assert(longInstructions.split(/\s+/).length>110);
+assert(groundedArrivalReply(longInstructions,{...buildArrivalBookingContext(base),knowledge:[{value:longInstructions}]},first));
+console.log('PASS documented access instructions above 110 words retain their relevant conditions');

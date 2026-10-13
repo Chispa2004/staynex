@@ -257,8 +257,11 @@ assert.equal(sanitizeReceiptReply('Tenemos tu petición y estamos al tanto.',rec
 console.log('PASS luggage storage never certifies room readiness, distinct hotel policies and safe clause capitalization');
 
 const privacyReply='Hemos anotado el importe y que no necesitas facilitar el número completo de tarjeta.';
-const privacyReceipt=await generateReceiptReply(args,async()=>({reply:privacyReply}));
-assert.equal(finalizeServiceReply({...args,primary:{reply:'Confirme su tarjeta.'},receiptReply:privacyReceipt}).reply,privacyReply);
+const paymentTicket={...ticket,description:'La tarjeta muestra un cargo de 94,50 EUR',request_context:{request_key:'billing'}};
+const paymentArgs={...args,ticket:paymentTicket,message:'El importe es 94,50 EUR',operationalRequest:{...args.operationalRequest,ticket:paymentTicket}};
+const privacyReceipt=await generateReceiptReply(paymentArgs,async()=>({reply:privacyReply}));
+assert(privacyReceipt);
+assert.equal(finalizeServiceReply({...paymentArgs,primary:{reply:'Confirme su tarjeta.'},receiptReply:privacyReceipt}).reply,privacyReply);
 console.log('PASS a statement declining payment details is not removed as an imperative request');
 
 const {informationServiceDraft}=await import('../shared/guest-service/quality.js');
