@@ -1,8 +1,9 @@
+import {unambiguousKnowledge} from './information-evidence.js';
 // A read-only projection of hotel facts and existing capabilities, never a tool grant.
 const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const scoped = (rows, id) => id ? (rows || []).filter(r => r && (!r.hotel_id || r.hotel_id === id) && r.is_active !== false) : [];
 const protectedCategories = new Set(['admin_knowledge','system_knowledge','technical','pms','whatsapp','billing','security','compliance','provider_marketplace','platform','ai_quality','failure_intelligence','automation_rules','global_prompts']);
-export const guestFacingKnowledge = (rows = [], hotelId) => scoped(rows, hotelId).filter(row => {
+export const guestFacingKnowledge = (rows = [], hotelId) => unambiguousKnowledge(scoped(rows, hotelId),hotelId).filter(row => {
   const fields = [row.key,row.category,row.scope,row.knowledge_scope,row.metadata?.scope,row.metadata?.knowledge_scope].map(normalize);
   return !fields.some(v => protectedCategories.has(v.replace(/[\s-]+/g, '_')))
     && !/door.?code|access.?code|codigo.{0,20}(puerta|acceso)|pin.{0,12}(puerta|door)|password|contrasena|secret|credential/.test(normalize([row.key,row.title,row.value].join(' ')).replace(/no access code is available(?: here)?|no (?:existe|hay) (?:un )?codigo de (?:puerta|acceso)/g, ''));

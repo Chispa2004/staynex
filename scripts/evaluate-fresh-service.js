@@ -1,33 +1,44 @@
+import {assertsAvailability} from './fixtures/guest-service-quality/evidence-assertions.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {createHash} from 'node:crypto';
+import {createNativeTestPostgres} from './ci/native-test-postgres.js';
 import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 import {recordOperationalRequest} from '../src/services/operational-request.service.js';
 import * as quality from '../shared/guest-service/quality.js';
 import {buildConversationCopilot} from '../dashboard/lib/ai-copilot.js';
-import {analyzeGuestMessage} from '../src/services/openai.service.js';
-import {enhanceConciergeIntelligence} from '../src/services/openai-concierge.service.js';
+import * as primaryPrompt from '../src/prompts/staynex.prompt.js';
+import * as aiSchema from '../src/schemas/ai-response.schema.js';
+import * as memoryBoundary from '../shared/guest-memory/personalization-boundary.js';
 import {chooseNaturalConciergeResponse} from '../src/services/natural-conversation.service.js';
 import {shouldAiAutoRespond} from '../shared/pilot/ai-safety.js';
 assert.equal(process.env.SEND_AUTOMATIONS,'false');assert.equal(process.env.GUEST_MEMORY_ENABLED,'false');
 assert.match(process.env.NODE_OPTIONS||'',/isolate\.cjs/);
 const [split='diagnostic',output='../evaluation.json']=process.argv.slice(2);
-assert(['diagnostic','holdout'].includes(split));
+assert(['diagnostic','holdout','validation'].includes(split));
 const bytes=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-evaluation.json',import.meta.url));
-const dataset=JSON.parse(bytes), selected=dataset.cases.filter(c=>c.split===split);
-assert.equal(selected.length,split==='diagnostic'?16:8);
-// SDK request/response handling is real; only the transport is a controlled double.
-// No credential discovery and no provider connection are supported by this script.
+const dataset=JSON.parse(bytes);
+const validationBytes=fs.readFileSync(new URL('./fixtures/guest-service-quality/fresh-service-validation.json',import.meta.url));
+const selected=(split==='validation'?JSON.parse(validationBytes).cases:dataset.cases).filter(c=>c.split===split);
+assert.equal(selected.length,split==='diagnostic'?16:split==='holdout'?8:6);
+// Execute production generation functions with only the SDK transport substituted.
+// No credential discovery or provider connection is supported.
 process.env.OPENAI_API_KEY='synthetic-not-a-credential';process.env.USE_MOCK_AI='false';process.env.AI_CONCIERGE_ENABLED='true';
-let pending=null, captures=[],outside=[];
-globalThis.fetch=async(url,opts)=>{
- if(!pending || String(url)!=='https://api.openai.com/v1/chat/completions') {outside.push({url:String(url)});throw Error('External transport forbidden');}
- const request=JSON.parse(opts.body), raw=pending;pending=null;captures.push({request,raw,synthetic:true});
- return new Response(JSON.stringify({id:'synthetic',object:'chat.completion',choices:[{index:0,message:{role:'assistant',content:JSON.stringify(raw)},finish_reason:'stop'}]}),{status:200,headers:{'content-type':'application/json'}});
+let pending=null,captures=[],outside=[];
+globalThis.fetch=async url=>{outside.push({url:String(url)});throw Error('External transport forbidden');};
+class FakeOpenAI {constructor(){this.chat={completions:{create:async request=>{assert(pending,'Unplanned generation');const raw=pending;pending=null;captures.push({request,raw,synthetic:true});return {choices:[{message:{content:JSON.stringify(raw)}}]};}}};}}
+const load=(file,names)=>{
+ const bindings={...quality,...primaryPrompt,...aiSchema,...memoryBoundary,OpenAI:FakeOpenAI,logger:{info(){},warn(){},error(){}},
+  isGuestMemoryEnabled:()=>false,getAiTimeoutMs:()=>1000,isAiCircuitBreakerOpen:()=>false,recordAiFailure(){},recordAiSuccess(){},
+  analyzeGuestMessageWithMockAi:()=>{throw Error('Unexpected mock fallback');}};
+ const source=fs.readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import[\s\S]*?;\r?\n/gm,'').replaceAll('export const ','const ').replaceAll('export class ','class ');
+ return new Function(...Object.keys(bindings),source+';return {'+names.join(',')+'};')(...Object.values(bindings));
 };
-const require=createRequire(import.meta.url),db=require('./ci/disposable-postgres.cjs').createDisposablePostgres({env:process.env});
-const sql=text=>execFileSync(db.docker,[...db.host,'exec','-i',db.container,'psql','-XqAt','-U','postgres','-v','ON_ERROR_STOP=1'],{input:text,env:process.env,encoding:'utf8',timeout:30000,stdio:['pipe','pipe','pipe']}).trim();
+const {analyzeGuestMessage}=load('src/services/openai.service.js',['analyzeGuestMessage']);
+const {enhanceConciergeIntelligence}=load('src/services/openai-concierge.service.js',['enhanceConciergeIntelligence']);
+const require=createRequire(import.meta.url),db=process.env.TEST_NATIVE_PG_BIN ? await createNativeTestPostgres(process.env.TEST_NATIVE_PG_BIN,process.env.TEST_NATIVE_PG_DRIVER) : require('./ci/disposable-postgres.cjs').createDisposablePostgres({env:process.env});
+const sql=db.sql|| (text=>execFileSync(db.docker,[...db.host,'exec','-i',db.container,'psql','-XqAt','-U','postgres','-v','ON_ERROR_STOP=1'],{input:text,env:process.env,encoding:'utf8',timeout:30000,stdio:['pipe','pipe','pipe']}).trim());
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`,q=v=>`'${String(typeof v==='object'?JSON.stringify(v):v).replaceAll("'","''")}'`;
 const pipeline=fs.readFileSync(new URL('../src/services/staynex.service.js',import.meta.url),'utf8');
 const start=pipeline.indexOf('  const operationalRequest = await recordOperationalRequest('),end=pipeline.indexOf('  const previousLastProviderExperience',start);
@@ -116,7 +127,7 @@ try {
    if(expected==='no_delivery')check(!/we (?:have )?sent|has been returned|ya est[aá] en camino|enviamos ahora/i.test(final||''),'false_delivery');
    if(expected==='unknown_knowledge')check(!/05:00|floor 4|23:00|no booking is needed/i.test(final||''),'unverified_knowledge');
    if(['information','unknown_knowledge','no_availability'].includes(expected))check(after.length===before.length,'informational_ticket');
-   if(expected==='no_availability')check(!/room (?:will be|is) ready|booking is confirmed|habitaci[oó]n ya estar[aá] disponible/i.test(final||''),'false_availability');
+   if(expected==='no_availability')check(!assertsAvailability(final),'false_availability');
    if(room&&final)check(!/¿(?:En )?qu[eé] habitaci[oó]n|Which room|What room number/i.test(final),'known_room_reasked');
    check(after.every(t=>t.hotel_id===h&&t.guest_id===g&&t.conversation_id===cid),'cross_hotel_ticket');
    check(!JSON.stringify(modelCaptures.map(x=>x.request.messages)).includes('FOREIGN-HOTEL-SECRET'),'foreign_knowledge_prompt');
@@ -132,7 +143,7 @@ try {
  }
  assert.equal(outside.length,0);
  const failures={};for(const r of rows)for(const t of r.turns)for(const f of t.failures)failures[f]=(failures[f]||0)+1;
- const report={datasetHash:createHash('sha256').update(bytes).digest('hex'),split,realCalls:0,realTokens:0,syntheticCalls:rows.flatMap(r=>r.turns).reduce((n,t)=>n+t.modelCaptures.length,0),externalAttempts:outside,
+ const report={validationHash:split==='validation'?createHash('sha256').update(validationBytes).digest('hex'):null,datasetCanonicalHash:createHash('sha256').update(bytes.toString('utf8').replaceAll('\r\n','\n')).digest('hex'),datasetHash:createHash('sha256').update(bytes).digest('hex'),split,realCalls:0,realTokens:0,syntheticCalls:rows.flatMap(r=>r.turns).reduce((n,t)=>n+t.modelCaptures.length,0),externalAttempts:outside,
   conversations:selected.length,routeReplays:rows.length,guestTurns:selected.reduce((n,c)=>n+c.turns.length,0),routeTurns:rows.reduce((n,r)=>n+r.turns.length,0),failures,rows};
  fs.writeFileSync(output,JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({conversations:report.conversations,routeTurns:report.routeTurns,syntheticCalls:report.syntheticCalls,failures}));
 } finally {db.cleanup();}

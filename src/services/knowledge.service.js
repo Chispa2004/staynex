@@ -1,3 +1,4 @@
+import {unambiguousKnowledge} from '../../shared/guest-service/information-evidence.js';
 import { validateAiResponse } from '../schemas/ai-response.schema.js';
 import { getSupabase } from './supabase.service.js';
 import { normalizeLanguage } from './language.service.js';
@@ -180,7 +181,7 @@ export const searchKnowledge = async (message, hotelId) => {
   const matchedRule = KNOWLEDGE_MATCHERS.find((rule) => (
     rule.words.some((word) => normalizedMessage.includes(normalize(word)))
   ));
-  const knowledge = await getKnowledgeForHotel(hotelId, { activeOnly: true });
+  const knowledge = unambiguousKnowledge(await getKnowledgeForHotel(hotelId, { activeOnly: true }),hotelId);
   const matchedEntry = matchedRule
     ? knowledge.find((item) => (
       normalize(item.key) === normalize(matchedRule.key)

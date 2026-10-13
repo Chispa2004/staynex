@@ -1,7 +1,7 @@
 const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 // Bounded, deterministic action intents supplement the model. The original
 // message is retained in the ticket, including quantities and unparsed details.
-import {requestTopics} from './ticket-context.js';
+import {requestTopics,serviceTurn} from './ticket-context.js';
 const kinds=requestTopics;
 const actionable=/necesit|pido|pedi|podri|(?:pod|pued).*(?:traer|enviar|llevar|poner|limpiar)|traig|quiero|quisiera|solicit|hay |sigue|no funciona|gote|fuga|pierde agua|dej[eé]|olvide|me falta|need|please|could (?:you|we|i)|can you (?:bring|send|clean)|not work|leak|lost|left my|besoin|pourriez|bitte|brauche|vorrei|preciso|por favor/;
 const informational=/^(?:a que hora|cual es el horario|what time|when does|quand|wann|a che ora|qual.*horario)/;
@@ -26,5 +26,11 @@ export function interpretOperationalRequest({message='',aiResponse=null,openTick
   return {key,category:danger?'emergency':category,priority:danger?'urgent':damage?'high':'normal',
     priority_reason:danger?'immediate_safety_risk':damage?'ongoing_water_damage':'guest_operational_request',
     title:(aiResponse?.ticket?.title || message).trim().slice(0,180),details:message.trim().slice(0,8000),
-    new_incident:/\b(otra incidencia|otro problema|new issue|different problem|autre probleme)\b/.test(text)};
+    new_incident:serviceTurn(message).newIncident};
+}
+
+// Multiple independent needs cannot be certified by the one-receipt-per-message RPC.
+export function independentRequestTopics(message='') {
+  const text=normalize(message),matched=kinds.filter(([, ,pattern])=>pattern.test(text));
+  return [...new Set(matched.map(([key,category])=>category==='maintenance'?'maintenance_incident':key))];
 }

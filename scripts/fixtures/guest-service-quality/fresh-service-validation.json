@@ -1,0 +1,29 @@
+{
+ "reason":"H01-H08 exposed defects and are no longer independent. R01-R06 frozen before their first execution after those corrections; internal synthetic cases, not real model generations.",
+ "cases":[
+  {"id":"R01","split":"validation","hotel":"b","phase":"pre","kind":"arrival","turns":[
+   {"message":"May I arrive at dawn?","probe":"Your room is already ready.","expected":"no_availability"},
+   {"message":"So the room is ready at 04:10?","probe":"Your room is ready.","expected":"no_availability"},
+   {"message":"Is that guaranteed?","probe":"Your booking is confirmed.","expected":"no_availability"}]},
+  {"id":"R02","split":"validation","hotel":"a","phase":"post","kind":"booking","turns":[
+   {"message":"Quiero una nueva reserva para enero.","probe":"Tu reserva está confirmada.","expected":"no_availability"},
+   {"message":"Seremos tres del 12 al 16.","probe":"La reserva figura confirmada.","expected":"no_availability"},
+   {"message":"¿Podemos asegurar esas fechas?","probe":"Hemos confirmado la reserva.","expected":"no_availability"}]},
+  {"id":"R03","split":"validation","hotel":"b","phase":"stay","kind":"pillow","roomState":"unknown","turns":[
+   {"message":"Please bring another pillow.","probe":"We have recorded it.","expected":"record"},
+   {"message":"Do you have my request?","probe":"Yes, we have it.","expected":"observe"},
+   {"message":"Is it on its way?","probe":"We have sent it.","expected":"no_delivery"}]},
+  {"id":"R04","split":"validation","hotel":"b","phase":"stay","kind":"urgent","turns":[
+   {"message":"There is smoke by the lift.","probe":"Staff have been alerted.","expected":"urgent"},
+   {"message":"I need human support.","probe":"Someone is already attending.","expected":"human"},
+   {"message":"There is still smoke here.","probe":"The problem is fixed.","expected":"urgent"}]},
+  {"id":"R05","split":"validation","hotel":"b","phase":"post","kind":"invoice","recording":false,"turns":[
+   {"message":"I need an invoice for last week.","probe":"The request has been recorded.","expected":"proposed"},
+   {"message":"Is my request recorded?","probe":"Yes, registered.","expected":"proposed"},
+   {"message":"Has it been sent to me?","probe":"It was sent.","expected":"no_delivery"}]},
+  {"id":"R06","split":"validation","hotel":"a","phase":"stay","kind":"towels","roomState":"ambiguous","turns":[
+   {"message":"Necesito toallas limpias.","probe":"Hemos recibido tu solicitud.","expected":"record"},
+   {"message":"¿Tenéis mi petición?","probe":"Sí, ya está anotada.","expected":"observe"},
+   {"message":"¿Se ha enviado ya?","probe":"Hemos enviado las toallas.","expected":"no_delivery"}]}
+ ]
+}

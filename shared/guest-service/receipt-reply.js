@@ -18,6 +18,7 @@ For human_request, acknowledge the choice warmly and briefly. Do not use "hemos 
 Use turn.kind to distinguish initial request, clarification, receipt question and progress enquiry. For a short receipt question answer YES first in the first-person plural; do not narrate a database status in passive voice. For a clarification acknowledge the new detail only when detail_confirmed=true; it has actually been incorporated into the ticket. You can repeat the added quantity/type briefly, without repeating the room or entire request. If false, do not claim the detail was saved or updated.
 For a progress enquiry answer the persisted state directly: when open/pending, say we have the request but there is no further recorded update. When in_progress or completed state that specific stage, without claiming notification, delivery, discovery, booking confirmation or another unsupported outcome. An initial incident with damage deserves a brief sympathetic opening and useful safety guidance; a simple towel follow-up needs only a warm short answer. Avoid bureaucratic passive formulations like "la petición está registrada", and do not mechanically vary synonyms.
 The trusted receipt proves ONLY the status listed. open/pending: acknowledge that we have the specific request. in_progress: you may say we are attending that specific request. completed: you may confirm that specific request is completed. closed/cancelled are not proof of completion.
+A withdrawal changes the request details, not its cancellation status. Never claim cancellation unless status is cancelled. Delivery and communication remain unverified even after completion.
 Preserve quantities and details. Use the known room only if useful; a historical room is not a current room. Use previous guest turns, do not ask for details already supplied. Ask only one missing detail needed to advance. Do not request complete personal, fiscal, payment or identity-document details.
 Do NOT automatically say action is unconfirmed. Explain uncertainty only for the requested availability or outcome (cot, transfer booking, finding an object, issuing an invoice, future reservation).
 Never claim staff were notified, dispatched, are on their way, that delivery is imminent, that a booking/availability is confirmed, an invoice issued/sent or an item found. Never promise future action, updates or a deadline. A saved request is not any of these facts.
@@ -56,6 +57,7 @@ export function safeReceiptReply(reply, facts, language='es') {
     && !/(?:pendiente|por confirmar|sin confirmar|sujeta|sujeto|no (?:esta|hay|puedo|podemos)|aun no|todavia no|not |subject to|unconfirmed|pending)/.test(text)) return false;
   if (/\b(?:estamos (?:atendiendo|resolviendo|reparando|ocupandonos|encargandonos|gestionando(?:lo|la)?|revisando(?:lo|la)?|buscando(?:lo|la)?|comprobando(?:lo|la)?)|nos estamos encargando|atendemos|gestion esta en curso|en curso la gestion|en proceso(?: de (?:atencion|emision))?|siendo gestionad[oa]|nos ocupamos|nos encargamos|working on|attending to|taking care of|processing|handling)\b/.test(text)
     && facts.status!=='in_progress') return false;
+  if (/\b(?:cancelad[oa]|cancelled|canceled)\b/.test(text) && !['cancelled','canceled'].includes(facts.status))return false;
   if (/\b(?:resuelt[oa]|reparad[oa]|completad[oa]|solucionad[oa]|resolved|repaired|completed|fixed)\b/.test(text)
     && facts.status!=='completed') return false;
   return true;
@@ -82,6 +84,8 @@ export function sanitizeReceiptReply(reply,facts,language='es') {
 // requested progress; do not cosmetically replace words in that sentence.
 export function receiptAnswersTurn(reply,facts,turn) {
   const text=normalize(reply);
+  if(turn.cancellation && !/cancel/.test(text))return false;
+  if(turn.delivery && !/no tengo confirmacion|no consta|don.t have confirmation|not confirmed/.test(text))return false;
   if(turn.human && /hemos recibido|hemos registrado|tomamos nota|atencion personalizada|ya (?:hay|esta).*persona|someone is|staff is/.test(text))return false;
   if(turn.unresolved && facts.status==='completed' && !/necesita revision|needs review/.test(text))return false;
   if(turn.kind!=='initial' && /(?:peticion|solicitud).*(?:registrad|recibid)|(?:registrad|recibid).*(?:peticion|solicitud)/.test(text))return false;

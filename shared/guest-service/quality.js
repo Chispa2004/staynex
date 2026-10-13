@@ -1,3 +1,4 @@
+import {informationEvidence} from './information-evidence.js';
 import { receiptFacts, safeReceiptReply, receiptAnswersTurn } from './receipt-reply.js';
 import {ticketReplyPlan,detailIsPersisted,serviceTurn,requiresCurrentRoom} from './ticket-context.js';
 import { ARRIVAL_BOOKING_POLICY, arrivalBookingTopic, buildArrivalBookingContext, buildArrivalBookingDraft, guestFacingKnowledge, groundedArrivalReply } from './arrival-booking.js';
@@ -10,6 +11,8 @@ ${ARRIVAL_BOOKING_POLICY}
 GUEST SERVICE CONTRACT (takes precedence over style suggestions):
 - Speak as the hotel team: natural, cordial and concise, normally 1–3 sentences. Answer first. No repetitive greetings, apologies, generic offers or procedural disclaimers. Preserve quantities, dates and details from earlier turns.
 - Do not repeat the whole hotel policy on a follow-up. Address only the new question. Explain uncertainty only when it changes the guest’s next step.
+- A quantity correction or withdrawal concerns an existing scoped request. Withdrawal may be recorded as a detail, but cancellation needs the team's confirmation; never claim a closed/cancelled state from the guest's words. If multiple independent needs cannot be recorded atomically, explain the need for human review without claiming either was dispatched.
+- Conflicting or absent Knowledge is unconfirmed; ask only what helps, never select one convenient source.
 - Distinguish a new request, a detail added to an existing request, a receipt question and a progress question. In a clarification propose the existing request topic so the server can persist the detail atomically, never a second unrelated ticket. Do not answer a short follow-up with the entire original request, room and a passive technical status. Receipt wording is supplied after the server checks the record; it should answer the latest question in the first-person plural, not describe a database operation.
 - The reply field is PRE-EXECUTION text: include only the factual answer or a missing-detail question. NEVER write that you have acted, are acting or will act (notify, arrange, forward, deliver, check with a team, issue an invoice). The application supplies any verified request receipt after persistence.
 - A check-in time is a policy boundary, NEVER a guarantee that a specific room will be ready. If the arrival night differs from the booked arrival date, clarify the date and keep room access pending hotel confirmation.
@@ -82,6 +85,14 @@ export function hasKnownChildAge(text = '') {
 // semantic proof of arbitrary natural language. Prompt/evaluation remain necessary.
 export const hasUnverifiedActionClaim = text => /\b(?:hemos recibido|ya tenemos|estamos gestion[aá]ndo|estamos atendiendo|estamos revisando|nos estamos encargando|we have received|we are (?:handling|processing|working))\b|\b(he|hemos|ya hemos)\s+(registrado|solicitado|avisado|enviado|reservado|confirmado|emitido|pasado|informado|organizado)|\b(voy a|vamos a)\s+(derivar|avisar|informar|enviar|pasar|registrar|coordinar|organizar)|\b(enviamos|enviaremos)\b|\b(avis[oó]|avisar[eé]|derivo|enviar[eé]|notificar[eé]|informar[eé]|informo|organizo)\b|\b(i(?:’|')?(?:ve|m)|i have|we have|we(?:’|')ve)\s+(registered|noted|notified|sent|booked|confirmed|issued|alerting|forwarding|arranged|reported|reporting)|\b(i will|we will|i[’']ll|we[’']ll)\s+(notify|inform|create|prepare|review|send|book|alert|forward|check|arrange|deliver)|\b(je transmets|je pr[eé]viens|nous avons (envoy[eé]|confirm[eé])|ich leite|ich informiere|wir haben .*best[aä]tigt)\b/i.test(text || '');
 
+// Passive outcomes require the same evidence as first-person tool claims.
+// This guard is conservative; it never upgrades a model statement to a receipt.
+export function unverifiedOutcomeClaim(reply='') {
+ const text=String(reply).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ return /\b(?:esta|estara|quedo|figura|is|was|has been|will be)\s+(?:ya\s+)?(?:registrad[oa]|confirmad[oa]|reservad[oa]|enviad[oa]|cancelad[oa]|registered|recorded|confirmed|booked|sent|cancelled|en camino|on (?:the|its) way)\b/.test(text)
+  || /^(?:si|yes)[,!. ]+(?:ya )?(?:registrad[oa]|confirmad[oa]|registered|confirmed)\b/.test(text);
+}
+
 export function missingServiceQuestion(reply = '', {knownRoom = null, reservation = null, operationalContext = null, recentMessages = [], message = '', requestRecorded = false, requestKey = null} = {}) {
   const questions=reply.match(/¿[^?]+\?|(?:^|[.!]\s+)([^.!?]+\?)/g) || [];
   const facts=[message,...recentMessages.filter(m=>m.sender_type==='guest').map(m=>m.content)].join(' ');
@@ -118,7 +129,11 @@ export function informationServiceDraft({message='',history=[],knowledge=[],hote
   const context={recentMessages:history,hotelKnowledge:knowledge};
   const followup=breakfastTimeFollowup({message,context,hotelId,language})||unavailableTransferReply({message,context,hotelId,language})||earlyLuggageReply({message,context,hotelId,language});
   if(followup)return {text:followup,language,draft:true,source:'hotel_knowledge'};
-  if(!/desayun|breakfast/i.test(message))return null;
+  const evidence=informationEvidence({message,history,knowledge:guestFacingKnowledge(knowledge,hotelId),hotelId});
+  if(evidence && !evidence.confirmed)return {text:serviceCopy(language)?.missing||'',language,draft:true,source:'knowledge_unconfirmed'};
+  if(evidence?.confirmed && evidence.topic!=='breakfast')return {text:String(evidence.value),language,draft:true,source:'hotel_knowledge'};
+  if(!evidence && !/desayun|breakfast/i.test(message))return null;
+
   const rows=guestFacingKnowledge(knowledge,hotelId).filter(r=>/desayuno|breakfast/i.test(r.key+' '+r.title));
   if(rows.length!==1)return null;
   const text=String(rows[0].value||'').trim();
@@ -210,13 +225,21 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
       const roomQuestion=reply.includes('?') && /habitaci[oó]n|room|chambre|zimmer/i.test(reply.split(/(?<=[.!])\s+/u).find(s=>s.includes('?'))||'');
       if(!roomQuestion)reply=reply.split(/(?<=[.!?])\s+/u).filter(s=>!s.includes('?')).join(' ')+' '+t.room;
     }
+  } else if(operationalRequest?.status==='proposed') {
+    reply=t?.pending || '';
+  } else if(operationalRequest?.status==='needs_review') {
+    reply=operationalRequest.errorCode==='MULTIPLE_REQUESTS_REQUIRE_REVIEW'
+      ? language==='en'?'Your message includes separate needs. Our team needs to review them; I can’t confirm their registration separately here.':'Tu mensaje incluye necesidades distintas. El equipo debe revisarlas; aquí no puedo confirmar su registro por separado.'
+      : language==='en'?'I can’t confirm cancellation or identify a single request to cancel. The team needs to review it.':'No puedo confirmar la cancelación ni identificar una única petición que cancelar. El equipo debe revisarlo.';
   } else if(operationalRequest?.status==='ambiguous') {
     reply=language==='en'?'Which request do you mean? There is more than one in this conversation.':'¿A qué petición te refieres? Hay más de una en esta conversación.';
   } else if(operationalRequest?.status==='unconfirmed') {
     const failure={es:'Tu mensaje se conserva, pero no he podido confirmar el registro de la solicitud. Puedes reintentarlo aquí; si necesitas atención inmediata, acude a recepción.',en:'Your message is preserved, but I could not confirm that the request was recorded. You can retry here; for immediate help, contact reception.',fr:'Votre message est conservé, mais l’enregistrement de la demande n’a pas pu être confirmé. L’équipe de l’hôtel doit encore l’examiner.',de:'Ihre Nachricht bleibt erhalten, aber die Erfassung der Anfrage konnte nicht bestätigt werden. Das Hotelteam muss sie noch prüfen.',it:'Il messaggio è conservato, ma non è stato possibile confermare la registrazione della richiesta. Deve ancora essere esaminata dall’hotel.',pt:'A mensagem foi preservada, mas não foi possível confirmar o registo do pedido. A equipa do hotel ainda precisa de o analisar.'};
     reply=failure[String(language).slice(0,2)]||t?.pending||'';
-  } else if(hasUnverifiedActionClaim(reply)) reply = t?.pending || '';
-  if(!actual && /habitaci[oó]n (?:estar[aá]|est[aá]) (?:lista|disponible)|room (?:will be|is) (?:ready|available)/i.test(reply || '')) {
+  } else if(hasUnverifiedActionClaim(reply) || unverifiedOutcomeClaim(reply)) {
+    reply=buildArrivalBookingDraft({hotel,guest:{id:guestId},message,hotelKnowledge:context.hotelKnowledge||[],conversationContext:{...context,language}})?.text || t?.pending || '';
+  }
+  if(!actual && /habitaci[oó]n (?:ya )?(?:estar[aá]|est[aá]) (?:ya )?(?:lista|disponible)|room (?:will be|is) (?:already )?(?:ready|available)/i.test(reply || '')) {
     const times={es:'La hora prevista de entrada es',en:'The scheduled check-in time is',fr:'L’heure prévue d’arrivée est',de:'Die vorgesehene Check-in-Zeit ist',it:'L’orario previsto di check-in è',pt:'A hora prevista de check-in é'};
     const prefix=times[String(language).slice(0,2)];
     const arrivalDraft = context.hotelKnowledge?.length ? buildArrivalBookingDraft({hotel,guest:{id:guestId,current_room:knownRoom},message,hotelKnowledge:context.hotelKnowledge,conversationContext:{...context,language}}) : null;
@@ -246,6 +269,10 @@ export function finalizeServiceReply({primary, processed = primary, ticket = nul
     && primary?.escalate_to_human!==true && !/persona|humano|recepci[oó]n|human|reception/i.test(message)) {
     const sentences=String(reply||'').split(/(?<=[.!?])\s+/u);
     if(sentences.length>1)reply=sentences.filter(s=>!/^si necesita(?:s)? (?:m[aá]s )?ayuda,.*(?:recepci[oó]n|disposici[oó]n)|^si (?:quiere|quieres|lo desea),.*puedo.*recepci[oó]n|^if you need (?:more )?help,.*reception/i.test(s.trim())).join(' ');
+  }
+  if(!actual && operationalRequest?.status==='not_requested' && !emergency && context.hotelKnowledge) {
+    const information=informationServiceDraft({message,history:context.recentMessages,knowledge:context.hotelKnowledge,hotelId,language});
+    if(information?.source==='knowledge_unconfirmed')reply=information.text;
   }
   if(!reply) throw new Error('No safe service reply in the guest language');
   if(emergency && t && !reply.includes(t.urgent)) reply = `${t.urgent} ${reply}`;

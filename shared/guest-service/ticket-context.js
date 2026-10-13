@@ -22,14 +22,18 @@ export const requestTopics=[
 export const requestTopic=message=>requestTopics.find(([, ,pattern])=>pattern.test(normalizeServiceText(message)))?.[0]||null;
 export function serviceTurn(message='') {
   const text=normalizeServiceText(message);
-  const human=/(?:me atienda|me ayude) (?:una persona|alguien)|hablar con (?:una persona|alguien|un humano)|(?:atencion|ayuda) (?:humana|de una persona)|speak (?:to|with) (?:a person|someone|a human)|human (?:help|support)/.test(text);
+  const human=/(?:me atienda|me ayude) (?:una persona|alguien)|(?:hablar con|ayuda de) (?:una persona|alguien|un humano)|(?:atencion|ayuda) (?:humana|de una persona)|speak (?:to|with) (?:a person|someone|a human)|human (?:help|support)/.test(text);
   const unresolved=/(?:sigue|todavia|aun).*(?:sin funcionar|no funciona|fallando|problema)|still (?:not working|broken|leaking)|not fixed/.test(text);
   const receipt=/teneis|tienen (?:mi|la)|lo teneis|lo habeis (?:anotado|apuntado)|have (?:you|we)|do you have|did you (?:get|receive)|got (?:it|my)|is (?:my|the) request/.test(text);
-  const progress=/novedad|como (?:va|esta)|ya (?:esta|han)|sigue|todavia|aun |confirmad|reservad|emitid|encontrad|terminad|hecho|actualizaci|news|update|progress|ready|finished|done|confirmed|booked|issued|found|still|status/.test(text);
-  const clarification=/\b(?:son de|las dos|los dos|ambas|ambos|me refiero|en concreto|era una?|es (?:una?|la|el)|el numero|a nombre|para toda|llegamos en|ser[ií]amos|prefiero|la prefiero|lo prefiero|estare fuera|son (?:dos|tres|\d+) cargos|both|all (?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+)|i mean|to clarify|specifically|they are|it's a|it is a|flight is|our flight|for the whole|the name is|i prefer|i will be out|i'll be out|the charges are)\b/.test(text)
+  const progress=/novedad|como (?:va|esta)|ya (?:esta|han)|sigue|todavia|aun |confirmad|reservad|emitid|encontrad|terminad|hecho|actualizaci|which (?:one|request).*(?:handled|handling|attended)|cual.*(?:atend|gestion)|news|update|progress|ready|finished|done|confirmed|booked|issued|found|still|status/.test(text);
+  const withdrawal=/\b(?:ya no (?:hace falta|lo necesito|necesito)|no (?:longer )?need (?:it|that)|no longer need|cancel (?:my|the|this) (?:request|order)|cancela(?:r)? (?:mi|la|esta) (?:peticion|solicitud))\b/.test(text);
+  const cancellation=withdrawal || /cancelad|cancelled|canceled/.test(text);
+  const delivery=/enviad|entregad|\bsent\b|\bdelivered\b|\breturned\b|en camino|on (?:the|its|their) way/.test(text);
+  const quantityChange=/\b(?:mejor|en vez de|en lugar de|instead|rather|make (?:it|that)|change (?:it|that) to)\b/.test(text) && /\b(?:\d+|un[oa]?|dos|tres|cuatro|cinco|one|two|three|four|five)\b/.test(text);
+  const clarification=human || withdrawal || quantityChange || /\b(?:son de|las dos|los dos|ambas|ambos|me refiero|en concreto|era una?|es (?:una?|la|el)|el numero|a nombre|para toda|llegamos en|ser[ií]amos|prefiero|la prefiero|lo prefiero|estare fuera|son (?:dos|tres|\d+) cargos|both|all (?:two|three|four|five|six|seven|eight|nine|ten|[0-9]+)|i mean|to clarify|specifically|they are|it's a|it is a|flight is|our flight|for the whole|the name is|i prefer|i will be out|i'll be out|the charges are)\b/.test(text)
     || /(?:agua.*(?:suelo|acumulada)|water.*(?:floor|pooling))/.test(text);
-  const newIncident=/\b(?:otra incidencia|otro problema|nueva peticion|new issue|different problem|another request)\b/.test(text);
-  return {human,unresolved,kind:human?'human_request':clarification?'clarification':receipt?'receipt':progress?'progress':'initial',receipt,progress,clarification,newIncident,topic:requestTopic(message)};
+  const newIncident=/\b(?:otra incidencia|otro problema|nueva peticion|new issue|different problem|another request|autre probleme)\b/.test(text);
+  return {human,unresolved,withdrawal,cancellation,delivery,kind:human?'human_request':clarification?'clarification':receipt?'receipt':(progress||delivery||cancellation)?'progress':'initial',receipt,progress:progress||delivery||cancellation,clarification,newIncident,topic:requestTopic(message)};
 }
 
 export function selectRelevantTicket({tickets=[],receipts=[],hotelId,guestId,conversationId,message,history=[],sourceMessageId,coverage='ready'}) {
@@ -75,6 +79,12 @@ export function ticketReplyPlan({ticket,message,language='es',detailConfirmed=fa
   const turn=ticketTurn(ticket,message), status=ticket?.status;
   const en=language.startsWith('en');
   if(!['es','en'].includes(language.slice(0,2)))return null;
+  if(turn.cancellation) {
+    if(['cancelled','canceled'].includes(status))return {turn,text:en?'This request is marked cancelled.':'Esta petición figura cancelada.'};
+    if(turn.withdrawal && detailConfirmed)return {turn,text:en?'We’ve added that you no longer need it. Cancellation still needs the team’s confirmation.':'He añadido que ya no lo necesitas. El equipo debe confirmar la cancelación.'};
+    return {turn,text:en?'I can’t confirm cancellation yet. The team needs to review your request.':'Aún no puedo confirmar la cancelación. El equipo debe revisar la petición.'};
+  }
+  if(turn.delivery)return {turn,text:en?'I don’t have confirmation of delivery or sending.':'No tengo confirmación de envío o entrega.'};
   if(turn.unresolved && status==='completed')return {turn,text:en?'I’m sorry it is still not working. Our previous request is marked complete, but your new message needs review.':'Siento que siga sin funcionar. La petición anterior figura hecha, pero tu nuevo mensaje necesita revisión.'};
   if(turn.human)return {turn,text:turn.unresolved
     ? en?'Of course. I’m sorry it is still not working. We have your request to speak with a person.':'Claro. Siento que siga sin funcionar. Tenemos tu petición de hablar con una persona.'

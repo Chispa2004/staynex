@@ -1,5 +1,5 @@
 import {getSupabase} from './supabase.service.js';
-import {interpretOperationalRequest} from '../../shared/guest-service/operational-request.js';
+import {interpretOperationalRequest,independentRequestTopics} from '../../shared/guest-service/operational-request.js';
 import {selectRelevantTicket,serviceTurn,detailIsPersisted} from '../../shared/guest-service/ticket-context.js';
 
 export async function recordOperationalRequest({hotel,guest,conversation,sourceMessage,context,aiResponse,message,client=getSupabase()}) {
@@ -11,6 +11,11 @@ export async function recordOperationalRequest({hotel,guest,conversation,sourceM
   const relevant=selectRelevantTicket({tickets:scoped,hotelId:hotel.id,guestId:guest.id,conversationId:conversation.id,message,history:context.recentMessages,sourceMessageId:sourceMessage.id});
   if(relevant.status==='ambiguous')return {status:'ambiguous',ticket:null,sourceMessageId:sourceMessage.id};
   let request=interpretOperationalRequest({message,aiResponse,openTickets:scoped});
+  const multi=independentRequestTopics(message).length>1 && Boolean(request);
+  const previousMulti=!scoped.length && !turn.newIncident && !turn.topic && (turn.kind!=='initial' || /both|ambas|ambos|dos necesidades/i.test(message))
+    && [...(context.recentMessages||[])].reverse().filter(m=>m.sender_type==='guest').slice(0,3).some(m=>m.sender_type==='guest' && (!m.hotel_id||m.hotel_id===hotel.id) && independentRequestTopics(m.content).length>1);
+  if(multi || previousMulti)return {status:'needs_review',ticket:null,sourceMessageId:sourceMessage.id,errorCode:'MULTIPLE_REQUESTS_REQUIRE_REVIEW'};
+  if(turn.cancellation && !relevant.ticket)return {status:'needs_review',ticket:null,sourceMessageId:sourceMessage.id,errorCode:'CANCELLATION_TARGET_UNCONFIRMED'};
   if(relevant.ticket && turn.clarification && !['open','in_progress'].includes(relevant.ticket.status)) {
     return {status:'unconfirmed',ticket:null,sourceMessageId:sourceMessage.id,errorCode:'REQUEST_NOT_OPEN_FOR_DETAILS'};
   }

@@ -132,7 +132,7 @@ const buildPromptPayload = ({
   conversationState = {},
   heuristic = {}
 }) => {
-  hotelKnowledge = arrivalBookingTopic(message,conversationContext.recentMessages) ? guestFacingKnowledge(hotelKnowledge,hotel?.id) : hotelKnowledge;
+  hotelKnowledge = guestFacingKnowledge(hotelKnowledge,hotel?.id);
   const guestMemory = isGuestMemoryEnabled() ? conversationContext.guestMemory || [] : [];
   const scopedGuestMemory = sameHotelRows(guestMemory, hotel?.id)
     .filter(row => !row.guest_id || row.guest_id === guest?.id);

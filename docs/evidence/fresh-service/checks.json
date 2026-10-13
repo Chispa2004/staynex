@@ -1,0 +1,85 @@
+{
+  "critical": {
+    "command": "npm run ci:critical",
+    "exitCode": 0,
+    "tasks": [
+      "check:syntax",
+      "test:attention-lifecycle",
+      "test:guest-service-receipts",
+      "test:service-evidence-followups",
+      "test:dashboard-demo-scope",
+      "test:ticket-status-contract",
+      "test:dashboard-pending-tickets",
+      "test:operational-requests",
+      "test:ci-guards",
+      "test:dashboard-metric-navigation",
+      "test:operational-metric-navigation",
+      "test:workspace-progressive-loading",
+      "test:hotel-lifecycle",
+      "test:hotel-lifecycle-navigation",
+      "test:onboarding-pms-evidence",
+      "test:onboarding-readiness-navigation",
+      "test:onboarding-validation",
+      "test:onboarding-whatsapp-dependency",
+      "test:guest-memory-pilot-off",
+      "test:guest-memory-off-boundaries",
+      "test:guest-memory-personalization-boundary",
+      "test:guest-intelligence",
+      "test:guest-memory-retention",
+      "test:health-truthful-status",
+      "test:manual-send",
+      "test:automation-dispatch-contract",
+      "test:inbox",
+      "test:inbox-tracking-control",
+      "test:message-attention",
+      "test:checkin-ai-conversations",
+      "test:guest-service-quality",
+      "test:arrival-booking-quality",
+      "test:guest-final-output",
+      "test:auth-hotel-context",
+      "test:messages-tenant-isolation",
+      "test:pilot-human-safety",
+      "test:translation-knowledge-isolation",
+      "test:demo-external-isolation",
+      "test:automation-runtime-foundation",
+      "test:automation-runtime-phase2a1",
+      "test:automation-runtime-phase2a2",
+      "test:http-security"
+    ],
+    "environment": "isolate.cjs; dashboard/lib/demo.js temporarily LF, original bytes restored",
+    "logSha256": "8e881a9b77b9e050946d07faced1fcf4d00fde6214e8c3d39a65a5f9290bae8d"
+  },
+  "dashboard": {
+    "command": "npm run ci:dashboard",
+    "exitCode": 0,
+    "logSha256": "fa1e10819e96219642973e5325a9dc8d0e2ce8cac43ed26d579618aca8083cce"
+  },
+  "postgres": {
+    "command": "node scripts/test-fresh-service-postgres.js",
+    "runtime": "native PostgreSQL 17.10, disposable loopback, no remote DB",
+    "splits": [
+      "diagnostic",
+      "holdout",
+      "validation"
+    ],
+    "exitCode": 0,
+    "previousSuccessfulLogSha256": "abd2944e8eea7532a192dab6457220ce4f1426160b862e0fe3e1befd41433cca",
+    "finalLogSha256": "abd2944e8eea7532a192dab6457220ce4f1426160b862e0fe3e1befd41433cca"
+  },
+  "httpWindowsCRLF": {
+    "result": "FAIL inherited textual assertion dashboard/lib/demo.js; unchanged expectations",
+    "lfResult": "PASS"
+  },
+  "realProviderCalls": 0,
+  "githubCI": "not run; no push authorized",
+  "fullExistingPostgresJob": "not run locally: Docker Desktop startup failure; targeted new SQL regression used native PG",
+  "flags": {
+    "SEND_AUTOMATIONS": false,
+    "GUEST_MEMORY_ENABLED": false
+  },
+  "diffCheck": "PASS",
+  "baselineAvailabilityRegrade": {
+    "turns": 10,
+    "changed": 0
+  }
+}
