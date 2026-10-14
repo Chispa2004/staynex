@@ -1,3 +1,6 @@
+import {arrivalBookingTopic} from '../../shared/guest-service/arrival-booking.js';
+import {isInformationQuestion} from '../../shared/guest-service/information-evidence.js';
+import {serviceTurn} from '../../shared/guest-service/ticket-context.js';
 import { getSupabase, createTicketRecord } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 import { createConversion } from './revenue.service.js';
@@ -383,13 +386,15 @@ export const getRecentUpsellsForConversation = async (conversationId, { limit = 
 };
 
 export const detectUpsellInterest = ({ message, recentUpsells = [] }) => {
+  // Information about a stay is not acceptance of a commercial offer. Without
+  // this guard the later legacy writer treats the word 'reserva' as a sale.
+  if (serviceTurn(message).social || isInformationQuestion(message) || arrivalBookingTopic(message)) return null;
   const text = normalize(message);
   const positive = includesAny(text, [
     'si me interesa',
     'me interesa',
     'quiero',
     'reservalo',
-    'reserva',
     'yes',
     'interested',
     'book it',
@@ -398,7 +403,7 @@ export const detectUpsellInterest = ({ message, recentUpsells = [] }) => {
     'interesse',
     'ja',
     'gerne'
-  ]);
+  ]) || /^(?:por favor[, ]+)?reserva(?:me|nos)?\s/.test(text.trim());
 
   if (!positive) {
     return null;

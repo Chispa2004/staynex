@@ -1,0 +1,336 @@
+{
+  "date": "2026-10-14",
+  "branch": "codex/guest-service-quality-evaluation",
+  "inputSha": "b35655a6a72e6429c215b8f9cb76484176853443",
+  "mainSha": "f627f8b441b1107c229a0daf7a5cb3ce95fd3d27",
+  "realCalls": 0,
+  "realTokens": 0,
+  "realUsd": 0,
+  "critical": {
+    "status": "PASS under Git/CI LF",
+    "tasks": 48,
+    "syntaxFiles": 458,
+    "crlfStatus": "FAIL reproduced on main; original bytes restored"
+  },
+  "build": "PASS",
+  "postgres": {
+    "recoveryGroups": 22,
+    "operationalGroups": 16,
+    "attentionGroups": 10,
+    "runtime": "disposable native PostgreSQL 17.10, loopback, fsync disabled",
+    "fullCiJob": "BLOCKED: local Docker engine pipe absent; no omitted workflow tasks"
+  },
+  "inheritedFailure": {
+    "test": "test:guest-ai-tenant-isolation",
+    "main": "FAIL",
+    "branch": "FAIL",
+    "inCurrentCriticalJob": false
+  },
+  "matrix": {
+    "main-main": "PASS",
+    "main-new": "PASS",
+    "new-new": "PASS",
+    "new-without-wrapper": "PASS fail closed; same operation recovered after installation"
+  },
+  "historicalRegression": {
+    "routeTurns": 252,
+    "fakeSdkGenerations": 358,
+    "realCalls": 0,
+    "executedBeforeFinalClassificationFixes": true,
+    "affectedChecksRepeatedAfter": true
+  },
+  "reservedRealCases": {
+    "path": "scripts/fixtures/guest-service-quality/arrival-naturalness-real-reserve.json",
+    "executed": false,
+    "sha256LF": "329223069d3a7565fecfa703c989da9a07a2e5be0ae406296970bc95b95af939"
+  },
+  "migration": {
+    "path": "supabase/sql/recover_failed_operational_request.sql",
+    "sha256LF": "36a73e3c8759c7c51ccdf2bec9e39c02753a3452bcf734e203c6cfca9c5faa47",
+    "remoteApplied": false
+  },
+  "candidateFilesExcludingThisEvidence": [
+    "docs/evidence/fresh-service/all-final-conversations.md",
+    "docs/evidence/fresh-service/baseline.json.gz",
+    "docs/evidence/fresh-service/checks.json",
+    "docs/evidence/fresh-service/diagnostic-final.json.gz",
+    "docs/evidence/fresh-service/diagnostic-iteration-1.json.gz",
+    "docs/evidence/fresh-service/diagnostic-iteration-2.json.gz",
+    "docs/evidence/fresh-service/diagnostic-iteration-3.json.gz",
+    "docs/evidence/fresh-service/engine-validation-sha256.json",
+    "docs/evidence/fresh-service/holdout-final.json.gz",
+    "docs/evidence/fresh-service/holdout-first-failed.json.gz",
+    "docs/evidence/fresh-service/metrics.json",
+    "docs/evidence/fresh-service/preserved-manifest.json",
+    "docs/evidence/fresh-service/six-conversations.md",
+    "docs/evidence/fresh-service/validation-final.json.gz",
+    "docs/evidence/fresh-service/validation-first-evaluator-false-positive.json.gz",
+    "docs/evidence/service-arrival-correction/after-final.json.gz",
+    "docs/evidence/service-arrival-correction/after-first.json.gz",
+    "docs/evidence/service-arrival-correction/arrival-after-final.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-arrival-turn-final.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-baseline-tenant.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-before-576.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-build-complete.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-build-reviewed.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-ci-guards.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-final-test-arrival-turn-context.js.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-syntax.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-test-attention-lifecycle-final.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-test-guest-service-receipts-final.log.gz",
+    "docs/evidence/service-arrival-correction/arrival-test-guest-service-receipts.js.log.gz",
+    "docs/evidence/service-arrival-correction/before.json.gz",
+    "docs/evidence/service-arrival-correction/comparison.json",
+    "docs/evidence/service-arrival-correction/manifest.json",
+    "docs/evidence/service-arrival-correction/six-before-after.md",
+    "docs/evidence/service-failed-request-recovery/d11-before-after.json.gz",
+    "docs/evidence/service-failed-request-recovery/existing-recovery.json.gz",
+    "docs/evidence/service-failed-request-recovery/manifest.json",
+    "docs/evidence/service-failed-request-recovery/postgres-checks.txt",
+    "docs/evidence/service-failed-request-recovery/postgres.json.gz",
+    "docs/evidence/service-naturalness-correction/checks.json",
+    "docs/evidence/service-naturalness-correction/diagnostic-comparison.json",
+    "docs/evidence/service-naturalness-correction/diagnostic-final.json.gz",
+    "docs/evidence/service-naturalness-correction/engine-before-final-reserve.json",
+    "docs/evidence/service-naturalness-correction/engine-before-reserved.json",
+    "docs/evidence/service-naturalness-correction/holdout-final.json.gz",
+    "docs/evidence/service-naturalness-correction/initial-evidence-sha256.json",
+    "docs/evidence/service-naturalness-correction/manifest.json",
+    "docs/evidence/service-naturalness-correction/naturalness-after-first.json.gz",
+    "docs/evidence/service-naturalness-correction/naturalness-final-final.json.gz",
+    "docs/evidence/service-naturalness-correction/naturalness-reserved-baseline.json.gz",
+    "docs/evidence/service-naturalness-correction/naturalness-reserved-final.json.gz",
+    "docs/evidence/service-naturalness-correction/naturalness-reserved-first.json.gz",
+    "docs/evidence/service-naturalness-correction/six-before-after.md",
+    "docs/evidence/service-naturalness-correction/validation-final.json.gz",
+    "docs/evidence/service-naturalness/repetition-diagnosis.json",
+    "docs/evidence/service-naturalness/six-current-conversations.md",
+    "docs/evidence/service-precision/after-six.json.gz",
+    "docs/evidence/service-precision/manifest.json",
+    "docs/evidence/service-precision/persistence-proof.json",
+    "docs/evidence/service-precision/recovery.json.gz",
+    "docs/evidence/service-precision/six-before-after.md",
+    "docs/evidence/service-precision/validation.json",
+    "docs/guest-service-arrival-correction.md",
+    "docs/guest-service-development-access.md",
+    "docs/guest-service-failed-request-recovery.md",
+    "docs/guest-service-fresh-evaluation-protocol.md",
+    "docs/guest-service-fresh-quality-review.md",
+    "docs/guest-service-integration-pr-draft.md",
+    "docs/guest-service-integration-review.md",
+    "docs/guest-service-naturalness-correction.md",
+    "docs/guest-service-naturalness-diagnosis.md",
+    "docs/guest-service-precision-real-plan.md",
+    "docs/guest-service-precision-review.md",
+    "package.json",
+    "scripts/ci/native-pg-query.cjs",
+    "scripts/ci/native-test-postgres.js",
+    "scripts/ci/run.cjs",
+    "scripts/configure-development-evaluation.ps1",
+    "scripts/evaluate-fresh-service.js",
+    "scripts/fixtures/guest-service-quality/arrival-naturalness-real-reserve.json",
+    "scripts/fixtures/guest-service-quality/evaluation-budget.js",
+    "scripts/fixtures/guest-service-quality/evidence-assertions.js",
+    "scripts/fixtures/guest-service-quality/fresh-service-evaluation.json",
+    "scripts/fixtures/guest-service-quality/fresh-service-validation.json",
+    "scripts/fixtures/guest-service-quality/naturalness-evaluation-plan.json",
+    "scripts/fixtures/guest-service-quality/naturalness-final-reserve.json",
+    "scripts/fixtures/guest-service-quality/precision-real-plan.json",
+    "scripts/inspect-service-repetitions.js",
+    "scripts/summarize-service-naturalness.js",
+    "scripts/test-arrival-booking-quality.js",
+    "scripts/test-arrival-turn-context.js",
+    "scripts/test-attention-lifecycle-postgres.js",
+    "scripts/test-attention-lifecycle.js",
+    "scripts/test-development-evaluation-setup.ps1",
+    "scripts/test-evaluation-budget.js",
+    "scripts/test-failed-request-context.js",
+    "scripts/test-failed-request-recovery-postgres.js",
+    "scripts/test-fresh-service-postgres.js",
+    "scripts/test-guest-service-receipts.js",
+    "scripts/test-operational-requests-postgres.js",
+    "scripts/test-service-evidence-followups.js",
+    "scripts/test-service-integration.js",
+    "scripts/test-service-precision.js",
+    "scripts/test-service-repetition-diagnosis.js",
+    "scripts/test-service-turn-naturalness.js",
+    "scripts/test-translation-knowledge-isolation.js",
+    "shared/guest-service/arrival-booking.js",
+    "shared/guest-service/arrival-details.js",
+    "shared/guest-service/failed-request-context.js",
+    "shared/guest-service/incident-correction.js",
+    "shared/guest-service/information-evidence.js",
+    "shared/guest-service/item-quantity.js",
+    "shared/guest-service/operational-request.js",
+    "shared/guest-service/quality.js",
+    "shared/guest-service/receipt-reply.js",
+    "shared/guest-service/ticket-context.js",
+    "shared/guest-service/turn-replies.js",
+    "src/prompts/staynex.prompt.js",
+    "src/services/human-escalation.service.js",
+    "src/services/knowledge.service.js",
+    "src/services/openai-concierge.service.js",
+    "src/services/operational-request.service.js",
+    "src/services/supabase.service.js",
+    "src/services/upsell.service.js",
+    "supabase/sql/preflight_failed_operational_request_recovery.sql",
+    "supabase/sql/recover_failed_operational_request.sql"
+  ],
+  "sourceSha256LF": {
+    "package.json": "6d33e41b5ae2f5a215150c7d9655bc8315fca1607625839156381924a426bb58",
+    "scripts/ci/native-pg-query.cjs": "866a872a7c886cbec965e018b5f1ef83866c7bd4e035a41c0cdf4c2158ec1a2e",
+    "scripts/ci/native-test-postgres.js": "c1c78b9de0c729137c3873b47c73c2a5b7aacfdb774988e694830f0e9dd768e3",
+    "scripts/ci/run.cjs": "1e1082c299a27f41fc437e94aee641322564a623bb43cff3604c6459b0ab4c6b",
+    "scripts/configure-development-evaluation.ps1": "09241a0a211fea8ba756ddec522c96c7b018b37237e228e1969bdd32e1d9b801",
+    "scripts/evaluate-fresh-service.js": "e40e318da56a03992661871da4346cb07071d55a56838775c110f4a6584b9d1e",
+    "scripts/fixtures/guest-service-quality/arrival-naturalness-real-reserve.json": "329223069d3a7565fecfa703c989da9a07a2e5be0ae406296970bc95b95af939",
+    "scripts/fixtures/guest-service-quality/evaluation-budget.js": "889ee0851eb99c59b8e650c93cf5050a84728aedb33579bec537cac1bdc94569",
+    "scripts/fixtures/guest-service-quality/evidence-assertions.js": "bb8096930a5685781cb530e43ece66fcb6ad112187da1767bdf43d97f7655d7d",
+    "scripts/fixtures/guest-service-quality/fresh-service-evaluation.json": "3495b626641a8339dbe506498033b59c10eb95d67891bcf4b2d531e63f04b43c",
+    "scripts/fixtures/guest-service-quality/fresh-service-validation.json": "987a8d55d3b0291375245a476ee46431672fdc62a29171d23cc4b234364dd834",
+    "scripts/fixtures/guest-service-quality/naturalness-evaluation-plan.json": "166b6dc640737cd178158f29352c45bd0ed3ff643daf64e2d849287480b2c7b9",
+    "scripts/fixtures/guest-service-quality/naturalness-final-reserve.json": "48546f9b877a4307e5673f2f5041704d0eb33b11c31f55a1e80983cb51dea6bb",
+    "scripts/fixtures/guest-service-quality/precision-real-plan.json": "22318c2efcdb1effa26e0d416c54166d172d1c02a0e4b17038ae3db779750f87",
+    "scripts/inspect-service-repetitions.js": "e8dc65a94363c5e02c10a4a8cb786c4be09ca96a1042f1fc5362bd9a2e28bcf3",
+    "scripts/summarize-service-naturalness.js": "0b23d3ad636d0763772e149438f4bc31bc65baad1e32de4db9ca14a430d719ab",
+    "scripts/test-arrival-booking-quality.js": "d502520ba9918f76f32791e84199c4ebeaee2c249e35b16f53fda50012a0f788",
+    "scripts/test-arrival-turn-context.js": "18f2321203395de887e41bf8f7514ff691e8365e4a6f4cc1952a9b30389e3ec8",
+    "scripts/test-attention-lifecycle-postgres.js": "0870257b16c74cb820bf9a5edca98da8f785b2a9c246980aef3668d53b6024a2",
+    "scripts/test-attention-lifecycle.js": "55dfb753bf2c070650483fbd1b18f6a9a373f7500d812d663f8d74a8b65b461a",
+    "scripts/test-development-evaluation-setup.ps1": "544fc3c01e23e67b296e16bf1790e2f320871c8eaf65694cc35700d7f1aa93bc",
+    "scripts/test-evaluation-budget.js": "75fdd620d338c6dc121026868b75222be26231248f4ee850ade3a54618751ba9",
+    "scripts/test-failed-request-context.js": "ee2aac7f23b497968a937c98bc55d9f505eef278afc079b8b3c4ec9e959a4640",
+    "scripts/test-failed-request-recovery-postgres.js": "f66b44bb32ac4bcdbd3d2db03adbad757e8a9e8d75adf52bf2b535e21ab49379",
+    "scripts/test-fresh-service-postgres.js": "89d6ccb75aa5a6ab8742d0d1e76348c62306766978e098efd124b4dd113456aa",
+    "scripts/test-guest-service-receipts.js": "ef1b82f3e88938a46788603307a7017a5ead557aabac698252a2567b49ad8e12",
+    "scripts/test-operational-requests-postgres.js": "b1620fdba40f41c19f7de15f496449b2c8ebabbdd1ae887f500ed69db20dad4e",
+    "scripts/test-service-evidence-followups.js": "daa72995e9b6ea2849fe3d15d87820373b58b8702d5272120f33460cb85d3d2f",
+    "scripts/test-service-integration.js": "b7f62309429b241839ed2ee63ec671e83628cffa37f59fb5de5280504eec490f",
+    "scripts/test-service-precision.js": "64039926ce3f3883cd8cc694468bb08f24fdf5611d06c44e4c9b47de29285cc8",
+    "scripts/test-service-repetition-diagnosis.js": "a8bae58655097f4b619912c1d1f59f2e5ce6167ed245a77c5fc76e6a17d68849",
+    "scripts/test-service-turn-naturalness.js": "ff8ec76ffbb40a8ca6c10d458c1fb72dfb62ac055a2d4a9fa3822db7628bb115",
+    "scripts/test-translation-knowledge-isolation.js": "60d7e7b99ad0dbb652e986710b7a8cff895db4eed817874205717e57acf62473",
+    "shared/guest-service/arrival-booking.js": "2966465c202aaf12db7e65fcb981ca6796bb94c4bd90872b768e4be581f27665",
+    "shared/guest-service/arrival-details.js": "9a31c1350c709dc69556f88d3c265ca70f35c30e2e70954c77c0e2c455e9db15",
+    "shared/guest-service/failed-request-context.js": "343e755b52792041eb9dae19215e3af196c7039bac77acd6497f91b07076bc0f",
+    "shared/guest-service/incident-correction.js": "d7220b864b1de034436e2ea1e077b796faa28f7b9cbd6d1ddd2345404bef5a34",
+    "shared/guest-service/information-evidence.js": "4f475dea5931441f2bb18ade0b571aa3e52c6acb04eaf518f1282f660ac2db82",
+    "shared/guest-service/item-quantity.js": "638193dd85a7d176c582637588c700325bd42bd6e470f22e061d58b4c0ea249b",
+    "shared/guest-service/operational-request.js": "70a902eac40550244d7896e1d28035bd2ed1a2a7b8a71f57f0fcf9940567ec6c",
+    "shared/guest-service/quality.js": "62648be17df55dad2df8e2eecd3b68f7ab82c475a41f6d952671f2d4efec3aed",
+    "shared/guest-service/receipt-reply.js": "e84454c9ac2b462cfa3bbf9d3e2bb2f819ac6bf0e8511f40e60afb8e6e022639",
+    "shared/guest-service/ticket-context.js": "95d9b02cbf5ddd2568f6a91647743dabb15c3f8c9415f9a406a3f9cc8fb58744",
+    "shared/guest-service/turn-replies.js": "b25df5b7cd8301c51f5b62df46155aa51f0bd77960732618df82a7260fea7714",
+    "src/prompts/staynex.prompt.js": "877d9069a608d7805c32d35cb760e712e6f5bf8ee75f05fc08fd27637152e40b",
+    "src/services/human-escalation.service.js": "4aa3d08d61fabd87bc41c4715c9c078ebc39ea90cf6cd38ac2bd675982d907ec",
+    "src/services/knowledge.service.js": "42d28ca43dc3e7879af7dc8f571baaff9a2f7a82ac3d5ac0543e60ad9e3aee9c",
+    "src/services/openai-concierge.service.js": "2694b825315f4d6abeec52ac0eab6089a9ad7b2998c2043bc64a0500b0764c5f",
+    "src/services/operational-request.service.js": "da8e0a8b4116180cbd023886996ebe0b15c6788ad9439fa6669a42468dcac16c",
+    "src/services/supabase.service.js": "461e3603b97ad271fb91f602c6baf0071a3da37b3a4ce216afd4db67f02b4690",
+    "src/services/upsell.service.js": "6414d1b309281453360d8eb4475a45714207c15faca4845763f95a080ece4b24",
+    "supabase/sql/preflight_failed_operational_request_recovery.sql": "11b134c4ec2d2d464f1da4821b7b308f374bcd040b4f5d2ef7cd310d17894da3",
+    "supabase/sql/recover_failed_operational_request.sql": "36a73e3c8759c7c51ccdf2bec9e39c02753a3452bcf734e203c6cfca9c5faa47"
+  },
+  "artifacts": [
+    {
+      "path": "docs/evidence/service-integration-review/critical.log.gz",
+      "sha256": "ebc72ab9900ef567aa56b085da968587045e9faab10591b7a2d429652b4a7aaf"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/critical-verified.log.gz",
+      "sha256": "83b2e00bdfc84ab8981408d124a3058ac73e831807aa4a32241dd444546312e0"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/build-verified.log.gz",
+      "sha256": "154836b214d57d721c83ac14a4b3284b6a41f5a568eae0496ee382647abbe3cd"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/main-tenant.log.gz",
+      "sha256": "728acef8ed485b1dd00ac4774b21ef652f9b3613f99dc9341e3ac460a5ec8533"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/branch-tenant.log.gz",
+      "sha256": "8f91322778a1f268099c1d2776ea9a6c81b124f67a95e0b5b609c7e59a7b1952"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/main-http-crlf.log.gz",
+      "sha256": "2be07896362888acf3bbfe759713281c5243a3757d5439861e7a24d6c3c8ea81"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/main-http-lf.log.gz",
+      "sha256": "5a65a3d3255a16f28ef480d8a986b0c9b2b9df8d261f27762a7a4cf752132a68"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/branch-http-lf.log.gz",
+      "sha256": "f9a41be50af175549ea0e3eca24bf7499fa4538111d334678128c66b039a0f74"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/alternative-before.log.gz",
+      "sha256": "c836cf22c18e17675616f412ceb7c161e401f7c36b0da819e1cdc0e033c097f8"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/alternative-after.log.gz",
+      "sha256": "0966a6e3994f0535ebba3e5a7f77c4aa809297f48d5122bf0d949186a6c9a1bd"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/operational-postgres.log.gz",
+      "sha256": "06fd3cfc2c94f86ef83641c084cdffb6a530905a195ef60022c2abadb943091c"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/operational-postgres-final.log.gz",
+      "sha256": "758955c87df95ba261c6fafff5b50538a9e3ce07bb075913584299f53e638614"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/operational-postgres-final2.log.gz",
+      "sha256": "be38729f407df833a5d5f265f7a79e2aa9afd8ed39dada507271c39943e12008"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/main-operational-postgres.log.gz",
+      "sha256": "be38729f407df833a5d5f265f7a79e2aa9afd8ed39dada507271c39943e12008"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/attention-postgres.log.gz",
+      "sha256": "d1532efba552ef8796d8c62392bcef4afe172e01ae5d6d92dce0b29bd208fb8d"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/matrix-final.log.gz",
+      "sha256": "27b32dc288b95a8f8bffc9df0ed934a2c0dedf71b5c80caa777eecf4e9f60bf0"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/matrix-final.json.gz",
+      "sha256": "f5e6a3474ffd60f6904e8a14dae2b0ef247daa4a17b28ffb2e35ef00e3d90b1d"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/fresh-postgres.log.gz",
+      "sha256": "8e60e9bafd6f6c51c5ebdff95ef16c3a8e7611921817d8f40d4698fb5b6386f5"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/regression-diagnostic.json.gz",
+      "sha256": "11610df71adaae1baa78f8240d702e393dc1e1832289ef58d641e84803708134"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/regression-holdout.json.gz",
+      "sha256": "72d99f9e18edcd638e636a5398eb27e6aee1685a30fc8e367c7ec10db78ed2eb"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/regression-validation.json.gz",
+      "sha256": "1f975686b7e0828bce0ce9994f9db6b15bef27d2a71c491de19f5a302e1f46fa"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/regression-naturalness-reserved.json.gz",
+      "sha256": "64fed1affec2da4734a8a916c5058fca9cd438d7756a01e0010a7028fd90f8e0"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/regression-naturalness-final.json.gz",
+      "sha256": "b2d36b5f32d60cdff4c0190606a055ca35cb4d308e3cc61893eb46fd5c128f45"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/regression-precision-targeted.json.gz",
+      "sha256": "ecb561cb4f47b1e3765d28997c5285f89b2faca3bc6ddbeeb14de306259220d9"
+    },
+    {
+      "path": "docs/evidence/service-integration-review/regression-precision-recovery.json.gz",
+      "sha256": "1b39ff674ccd8ddf24f1b8f886c220088df4bd76def19c7573bd8432e9fabf8b"
+    }
+  ]
+}

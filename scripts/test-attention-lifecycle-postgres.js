@@ -1,12 +1,13 @@
+import {createNativeTestPostgres} from './ci/native-test-postgres.js';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {execFileSync,execFile} from 'node:child_process';
 assert.equal(process.env.SEND_AUTOMATIONS,'false');assert.match(process.env.NODE_OPTIONS||'',/isolate\.cjs/);
-const require=createRequire(import.meta.url),db=require('./ci/disposable-postgres.cjs').createDisposablePostgres({env:process.env});
-const args=[...db.host,'exec','-i',db.container,'psql','-XqAt','-U','postgres','-v','ON_ERROR_STOP=1'];
-const sql=text=>execFileSync(db.docker,args,{input:text,env:process.env,encoding:'utf8',timeout:30000,stdio:['pipe','pipe','pipe']}).trim();
-const parallel=text=>new Promise((resolve,reject)=>{const p=execFile(db.docker,args,{env:process.env,encoding:'utf8',timeout:30000},(e,out)=>e?reject(e):resolve(out.trim()));p.stdin.end(text);});
+const require=createRequire(import.meta.url),db=process.env.TEST_NATIVE_PG_BIN?await createNativeTestPostgres(process.env.TEST_NATIVE_PG_BIN,process.env.TEST_NATIVE_PG_DRIVER):require('./ci/disposable-postgres.cjs').createDisposablePostgres({env:process.env});
+const args=db.docker?[...db.host,'exec','-i',db.container,'psql','-XqAt','-U','postgres','-v','ON_ERROR_STOP=1']:null;
+const sql=db.sql||(text=>execFileSync(db.docker,args,{input:text,env:process.env,encoding:'utf8',timeout:30000,stdio:['pipe','pipe','pipe']}).trim());
+const parallel=db.sqlAsync||(text=>new Promise((resolve,reject)=>{const p=execFile(db.docker,args,{env:process.env,encoding:'utf8',timeout:30000},(e,out)=>e?reject(e):resolve(out.trim()));p.stdin.end(text);}));
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`,q=v=>`'${String(typeof v==='object'?JSON.stringify(v):v).replaceAll("'","''")}'`;
 const installed=readFileSync(new URL('../supabase/sql/create_message_attention.sql',import.meta.url),'utf8');
 const functionSql=name=>{const a=installed.indexOf('create function public.'+name+'('),b=installed.indexOf('$f$;',a);assert(a>=0&&b>a);return installed.slice(a,b+4);};
@@ -35,7 +36,7 @@ try {
  for(const name of ['staynex_attention_eligible','staynex_attention_effective','staynex_attention_require_contract','staynex_attention_read_v1','staynex_attention_transition_v1'])sql(functionSql(name));
  const migration=readFileSync(new URL('../supabase/sql/add_attention_ticket_lifecycle.sql',import.meta.url),'utf8');sql(migration);sql(migration);
  assert.equal(sql('select string_agg(status,\',\' order by id) from tickets;'),'open,open');pass('repeatable additive migration preserves statuses and messages');
- for(const role of ['anon','authenticated'])assert.equal(sql(`select has_function_privilege('${role}','staynex_ticket_transition_v1(uuid,uuid,uuid,uuid,text,bigint,text)','execute');`),'f');
+ for(const role of ['anon','authenticated'])assert.equal(sql(`select has_function_privilege('${role}','staynex_ticket_transition_v1(uuid,uuid,uuid,uuid,text,bigint,text)','execute')::text;`),'false');
  for(const actor of [71,72])assert.throws(()=>sql(transition(80,1,'open','completed',actor)));
  assert.throws(()=>sql(transition(80,1,'open','completed',73,61)));assert.throws(()=>sql(transition(80,1,'open','completed',70,60,2)));
  assert.throws(()=>sql(`set role service_role;update tickets set status='completed' where id='${id(60)}';`));

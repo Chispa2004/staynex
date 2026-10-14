@@ -17,7 +17,7 @@ export const requestTopics=[
   ['water_leak','maintenance',/fuga|gote|inund|water leak|leaking|fuite|wasseraustritt|perdita d.acqua|agua.*suelo|water.*floor/],
   ['towels','housekeeping',/toallas?|towels?|serviettes?|handtuch|handtucher|asciugaman|toalhas?/],
   ['cleaning','housekeeping',/limpiez|limpi(?:ar|en|e[ns]?|ad)|clean(?:ing|ed)? (?:my |the |our )?(?:room|bathroom)|(?:room|bathroom).{0,15}clean|nettoy|reinig|pulizi|limpeza/],
-  ['noise','complaint',/ruido|noise|bruit|larm|rumore|barulho/],
+  ['noise','complaint',/\b(?:ruidos?|noise|bruit|larm|rumore|barulho)\b/],
   ['lost_property','reception',/olvid|perdid|lost|left (?:my|a|the)|oublie|verlor|dimentic|esquec/],
   ['new_booking','reception',/nueva (?:reserva|estancia)|proxima (?:reserva|estancia)|new (?:booking|reservation)|next stay/]
 ];

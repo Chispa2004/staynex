@@ -34,5 +34,9 @@ export function interpretOperationalRequest({message='',aiResponse=null,openTick
 // Multiple independent needs cannot be certified by the one-receipt-per-message RPC.
 export function independentRequestTopics(message='') {
   const text=normalize(message),matched=kinds.filter(([, ,pattern])=>pattern.test(text));
-  return [...new Set(matched.map(([key,category])=>category==='maintenance'?'maintenance_incident':key))];
+  // 'A pillow for our next stay' supplies the stay of one request; it does not
+  // ask us to make a second booking. Preserve explicitly requested new bookings.
+  const independent=matched.filter(([key])=>key!=='new_booking'||matched.length===1
+    || /\b(?:new booking|new reservation|nueva reserva|reservar|book (?:a |our |my |the )?(?:new |next )?(?:stay|room))\b/.test(text));
+  return [...new Set(independent.map(([key,category])=>category==='maintenance'?'maintenance_incident':key))];
 }

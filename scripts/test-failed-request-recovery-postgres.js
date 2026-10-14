@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {createRequire} from 'node:module';
 import {execFileSync,execFile} from 'node:child_process';
 import {createNativeTestPostgres} from './ci/native-test-postgres.js';
@@ -31,11 +32,19 @@ try {
  INSERT INTO hotels(id,name)VALUES('${id(1)}','Synthetic Faro'),('${id(2)}','Synthetic Juniper');`);
  for(const file of ['add_operational_request_receipts.sql','guard_operational_request_clarification.sql','recover_failed_operational_request.sql'])sql(fs.readFileSync(new URL('../supabase/sql/'+file,import.meta.url),'utf8'));
 
+ // Include the published ticket lifecycle guard, not only the original receipts.
+ sql(`ALTER TABLE tickets ADD COLUMN completed_at timestamptz;
+ ALTER TABLE hotel_users ADD COLUMN platform_role text DEFAULT 'none';
+ CREATE TABLE enterprise_audit_logs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),actor_user_id uuid,actor_role text,hotel_id uuid,action text,entity_type text,entity_id uuid,old_values_summary jsonb,new_values_summary jsonb,metadata jsonb,created_at timestamptz);`);
+ const attention=fs.readFileSync(new URL('../supabase/sql/create_message_attention.sql',import.meta.url),'utf8');
+ const eligibleStart=attention.indexOf('create function public.staynex_attention_eligible('),eligibleEnd=attention.indexOf('$f$;',eligibleStart);
+ assert(eligibleStart>=0&&eligibleEnd>eligibleStart);sql(attention.slice(eligibleStart,eligibleEnd+4));
+ sql(fs.readFileSync(new URL('../supabase/sql/add_attention_ticket_lifecycle.sql',import.meta.url),'utf8'));
  for(const role of ['anon','authenticated'])assert.equal(sql(`SELECT has_function_privilege('${role}','recover_guest_operational_request_v1(uuid,uuid,uuid,jsonb)','execute')::text;`),'false');
  assert.equal(sql("SELECT has_function_privilege('service_role','recover_guest_operational_request_v1(uuid,uuid,uuid,jsonb)','execute')::text;"),'true');
  sql(fs.readFileSync(new URL('../supabase/sql/recover_failed_operational_request.sql',import.meta.url),'utf8'));
  pass('incremental wrapper is repeatable and service-only; no row migration');
- const fixture=()=>{
+ const fixture=(record=recordOperationalRequest)=>{
   const h=id(1),g=id(++sequence),cid=id(++sequence),rid=id(++sequence),room='QA-617';
   const hotel={id:h,default_language:'es',ai_auto_reply_enabled:true},guest={id:g,hotel_id:h,preferred_language:'es'},conversation={id:cid,hotel_id:h,guest_id:g};
   sql(`INSERT INTO guests VALUES('${g}','${h}');INSERT INTO conversations VALUES('${cid}','${h}','${g}');INSERT INTO reservations VALUES('${rid}','${h}','${g}');INSERT INTO conversation_ai_state VALUES('${h}','${cid}','{}');`);
@@ -61,7 +70,7 @@ try {
    context:{language:'es',tickets:tickets(),recentMessages:await getRecentMessages({hotelId:h,conversationId:cid,limit:30,client}),serviceCapabilities:{requestRecording:true,mode:'guest_reply'},operationalContext:{hotel_id:h,guest_id:g,conversation_id:cid,reservation:{id:rid},known_room:room,phase:'stay',room_source:'reservation'},...patch}});
   const run=async(content,{persist=true,patch={}}={})=>{
    const source=add(content),input=await makeArgs(source,patch),before=tickets(),eventStart=events.length;
-   const outcome=await recordOperationalRequest(input);
+   const outcome=await record(input);
    const final=finalizeServiceReply({primary:{reply:'Ya lo estamos arreglando.'},hotel,hotelId:h,guestId:g,conversationId:cid,context:input.context,message:content,operationalRequest:outcome,ticket:outcome.ticket});
    if(persist)add(final.reply,'ai',{service_quality:final.service_quality});
    const result={source,input,outcome,final:final.reply,before,after:tickets(),events:events.slice(eventStart)};
@@ -100,6 +109,62 @@ try {
  const snapshot=JSON.stringify(qty.tickets()),draftInput={...qty.conversation,guest:qty.guest,hotelProfile:qty.hotel,hotelKnowledge:[],tickets:qty.tickets(),messages:await getRecentMessages({hotelId:qty.h,conversationId:qty.cid,client:qty.client}),aiState:{state_metadata:{conversation_ai_mode:'human_takeover'}}};
  const inputCopy=structuredClone(draftInput);assert(buildConversationCopilot(draftInput).suggestedReply.draft);assert.deepEqual(draftInput,inputCopy);assert.equal(JSON.stringify(qty.tickets()),snapshot);
  const draftSource=qty.add(follow),draftArgs=await qty.makeArgs(draftSource,{serviceCapabilities:{requestRecording:true,mode:'staff_draft'}});const rpcCount=qty.state.rpcCount;await recordOperationalRequest(draftArgs);assert.equal(qty.state.rpcCount,rpcCount);pass('Inbox draft and staff-draft mode have no operational writes');
+
+ // A staff completion between failed readback and continuation is authoritative.
+ const closed=fixture();closed.faults.reads=1;const closedRoot=await closed.run(original);
+ const actor=id(++sequence);sql(`INSERT INTO hotel_users(id,hotel_id,user_id,status,role)VALUES(gen_random_uuid(),'${closed.h}','${actor}','active','receptionist');`);
+ const completed=JSON.parse(sql(`SET ROLE service_role;SELECT staynex_ticket_transition_v1('${closed.h}','${closedRoot.after[0].id}','${actor}',gen_random_uuid(),'completed',1,'open');`));
+ assert.equal(completed.status,'completed');const beforeClosed=closed.tickets();
+ const closedFollow=await closed.run(follow);assert.equal(closedFollow.outcome.status,'unconfirmed');assert.deepEqual(closed.tickets(),beforeClosed);
+ assert.doesNotMatch(closedFollow.final,/hemos registrado|working on|sigue pendiente/);
+ const groupsRead=JSON.parse(sql(`SET ROLE service_role;SELECT staynex_attention_ticket_groups_v1('${a.h}','${a.cid}');`));
+ assert.equal(groupsRead.length,1);assert.equal(groupsRead[0].messageIds.length,2);assert.equal(groupsRead[0].version,2);
+ pass('published lifecycle: staff completion cannot reopen, recovery receipts form one Inbox attention group');
+ // Deployment matrix against actual SQL, including populated historical receipts.
+ // Optional baseline checkout is local/read-only; CI always checks the new consumer
+ // without its migration. No production client or remote database is accepted.
+ const snapshotRows=()=>sql(`SELECT jsonb_object_agg(name,rows) FROM (
+  SELECT 'tickets' name,coalesce(jsonb_agg(t ORDER BY id),'[]') rows FROM tickets t UNION ALL
+  SELECT 'receipts',coalesce(jsonb_agg(r ORDER BY source_message_id),'[]') FROM operational_request_receipts r UNION ALL
+  SELECT 'messages',coalesce(jsonb_agg(m ORDER BY id),'[]') FROM messages m UNION ALL
+  SELECT 'hotels',coalesce(jsonb_agg(h ORDER BY id),'[]') FROM hotels h) s;`);
+ const migration=fs.readFileSync(new URL('../supabase/sql/recover_failed_operational_request.sql',import.meta.url),'utf8');
+ const beforeInstall=snapshotRows();sql(migration);sql(migration);assert.equal(snapshotRows(),beforeInstall);
+ assert.equal(sql("SELECT prosecdef::text||':'||array_to_string(proconfig,',') FROM pg_proc WHERE oid='recover_guest_operational_request_v1(uuid,uuid,uuid,jsonb)'::regprocedure;"),'false:search_path=pg_catalog, public');
+ pass('populated install and repeat preserve tickets, receipts, messages and hotels; fixed invoker search_path');
+ let baselineRecord=null,baselineSha=null;
+ if(process.env.TEST_SERVICE_BASELINE_CHECKOUT) {
+  const baseline=path.resolve(process.env.TEST_SERVICE_BASELINE_CHECKOUT);
+  baselineSha=execFileSync('git',['-C',baseline,'rev-parse','HEAD'],{encoding:'utf8'}).trim();
+  assert.equal(baselineSha,'f627f8b441b1107c229a0daf7a5cb3ce95fd3d27','Reviewed baseline must be exact main');
+  assert.equal(execFileSync('git',['-C',baseline,'status','--porcelain'],{encoding:'utf8'}).trim(),'','Baseline must be clean');
+  baselineRecord=(await import(pathToFileURL(path.join(baseline,'src/services/operational-request.service.js')).href)).recordOperationalRequest;
+ }
+ sql('DROP FUNCTION public.recover_guest_operational_request_v1(uuid,uuid,uuid,jsonb);');
+ if(baselineRecord) {
+  const old=fixture(baselineRecord),made=await old.run('Necesito dos toallas.');assert.equal(made.outcome.status,'recorded');
+  const saved=old.tickets();assert.equal((await baselineRecord(made.input)).ticket.id,made.outcome.ticket.id);assert.deepEqual(old.tickets(),saved);
+  pass('matrix main code + main schema: creation and retry use original contract');
+ }
+ const absent=fixture();absent.faults.writes=1;await absent.run(original);
+ const missing=await absent.run(follow);assert.equal(missing.outcome.status,'unconfirmed');assert.equal(absent.tickets().length,0);
+ assert.equal(sql(`SELECT count(*) FROM operational_request_receipts WHERE source_message_id=${q(missing.source.id)};`),'0');
+ assert.equal(missing.events.filter(e=>e.kind==='rpc_attempt').length,1);
+ assert.doesNotMatch(missing.final,/hemos registrado|sigue pendiente|working on/);
+ const beforeNew=snapshotRows();sql(migration);assert.equal(snapshotRows(),beforeNew);
+ pass('matrix new code + main schema: missing wrapper, no partial write or false acknowledgement');
+ if(baselineRecord) {
+  const old=fixture(baselineRecord),made=await old.run('Necesito dos toallas.');assert.equal(made.outcome.status,'recorded');
+  assert.equal((await baselineRecord(made.input)).ticket.id,made.outcome.ticket.id);assert.equal(old.tickets().length,1);
+  pass('matrix main code + new schema: original consumer and receipts unchanged');
+ }
+ const retried=await recordOperationalRequest(missing.input);assert.equal(retried.status,'recorded');assert.equal(retried.ticket.priority,'high');
+ assert(retried.ticket.description.includes(original)&&retried.ticket.description.includes(follow));assert.equal(absent.tickets().length,1);
+ assert.equal((await recordOperationalRequest(missing.input)).ticket.id,retried.ticket.id);
+ pass('matrix new code + new schema: same failed operation recovers after install with no duplicates');
+ const beforePreflight=snapshotRows();sql(fs.readFileSync(new URL('../supabase/sql/preflight_failed_operational_request_recovery.sql',import.meta.url),'utf8'));assert.equal(snapshotRows(),beforePreflight);
+ pass('future catalog preflight executes read-only without changing synthetic data');
+ evidence.push({scenario:'compatibility-matrix',baselineSha,missing:missing.outcome,retried,rowsUnchangedOnInstall:true});
  assert.equal(externalAttempts,0);
  const output=process.argv[2]||'.npm-cache/failed-request-recovery/evidence.json';fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify({base:'a6594c5afb4390781ea7f112fef7564af9544c9e',groups,realCalls:0,realTokens:0,realUsd:0,externalAttempts,evidence},null,2)+'\n');
  console.log(`${groups} targeted recovery groups PASS; disposable PostgreSQL, zero external calls`);

@@ -135,6 +135,7 @@
     "test:fresh-service-postgres": "node scripts/test-fresh-service-postgres.js",
     "test:arrival-turn-context": "node scripts/test-arrival-turn-context.js",
     "test:service-precision": "node scripts/test-service-precision.js",
+    "test:service-integration": "node scripts/test-service-integration.js",
     "test:failed-request-context": "node scripts/test-failed-request-context.js",
     "test:failed-request-recovery-postgres": "node scripts/test-failed-request-recovery-postgres.js",
     "test:evaluation-budget": "node scripts/test-evaluation-budget.js"
