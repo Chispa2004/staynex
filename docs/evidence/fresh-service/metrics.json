@@ -1,0 +1,37 @@
+{
+  "baseline": {
+    "failures": {
+      "unverified_knowledge": 8,
+      "detail_lost_or_wrong_ticket": 2,
+      "false_cancellation": 4,
+      "withdrawal_lost_or_closed": 2,
+      "partial_multi_request_success": 6,
+      "false_delivery": 2
+    },
+    "failedRouteTurns": 22,
+    "failedConversations": 6,
+    "conversations": 16,
+    "routeTurns": 96,
+    "responses": 90,
+    "syntheticCalls": 135,
+    "rpcCalls": 32,
+    "persistedTickets": 24,
+    "repeatedPreviousResponse": 2,
+    "totalWords": 1098,
+    "over50Words": 4,
+    "maxWords": 85
+  },
+  "diagnostic": {
+    "conversations": 16,
+    "routeTurns": 96,
+    "responses": 90,
+    "syntheticCalls": 135,
+    "failures": {},
+    "rpcCalls": 32,
+    "persistedTickets": 18,
+    "repeatedPreviousResponse": 14,
+    "totalWords": 1086,
+    "over50Words": 2,
+    "maxWords": 85
+  }
+}

@@ -81,7 +81,7 @@ await test('Final presentation rejects invented booking URLs and preserves exact
 await test('Observed midnight and promotion failures retain complete facts and the necessary clarification',()=>{
  for(const [id,raw,expected,absent] of [
   ['arrival-ambiguous-a','La recepción está abierta y la habitación estará lista.','¿A qué fecha','estará lista'],
-  ['arrival-limited-b','Call before 21:00 on your arrival day.','not that same afternoon','on your arrival day'],
+  ['arrival-limited-b','Call before 21:00 on your arrival day.','previous evening, 9 October','on your arrival day'],
   ['promo-expired-b','There is no discount available for November.','may have offers that are not listed here','no discount available'],
   ['promo-current-a','Hay un 10% de descuento para noviembre.','No acumulable','Hay un 10%']
  ]) {

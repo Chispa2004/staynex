@@ -1,0 +1,689 @@
+{
+  "version": 1,
+  "created": "2026-10-13",
+  "referenceTime": "2026-11-06T12:00:00Z",
+  "realCallBudget": 0,
+  "realTokenBudget": 0,
+  "method": "Controlled model transport probes; not real provider generations. Holdout is not executed until implementation freezes.",
+  "hotels": {
+    "a": {
+      "name": "Hotel ficticio Faro de Arcilla",
+      "language": "es",
+      "room": "F-617",
+      "recording": true,
+      "knowledge": [
+        [
+          "breakfast",
+          "Desayuno de 06:45 a 09:45 en el comedor Mirador."
+        ],
+        [
+          "reception",
+          "Recepción abierta 24 horas."
+        ],
+        [
+          "night_access",
+          "Llegada nocturna por la entrada principal; recepción abierta toda la noche. El acceso a la habitación depende de la estancia confirmada."
+        ],
+        [
+          "checkin",
+          "Check-in desde las 15:30; llegada anticipada sujeta a confirmación."
+        ],
+        [
+          "checkout",
+          "Salida hasta las 11:30. Salida tardía bajo solicitud y confirmación; precio no acreditado."
+        ],
+        [
+          "luggage",
+          "Podemos guardar el equipaje antes del check-in y después de la salida hasta las 18:00."
+        ],
+        [
+          "cots",
+          "Cunas bajo solicitud, sujetas a confirmación. Indicar edad del bebé."
+        ],
+        [
+          "services",
+          "Almohadas y toallas bajo solicitud. Limpieza de habitación bajo solicitud."
+        ],
+        [
+          "booking",
+          "Canal de nuevas reservas: https://faro-arcilla.example/reservar"
+        ]
+      ]
+    },
+    "b": {
+      "name": "Fictional Juniper Quay Hotel",
+      "language": "en",
+      "room": "J-842",
+      "recording": true,
+      "knowledge": [
+        [
+          "breakfast",
+          "Breakfast from 08:15 to 11:15 in the Garden room."
+        ],
+        [
+          "reception",
+          "Reception is open from 06:00 to 21:00."
+        ],
+        [
+          "night_access",
+          "Late arrival must be arranged before 20:00 on the evening before arrival. The side entrance is used only after the hotel confirms arrangements. No room readiness is guaranteed."
+        ],
+        [
+          "checkin",
+          "Check-in from 16:30. Early room access needs hotel confirmation."
+        ],
+        [
+          "checkout",
+          "Check-out by 10:30. Late check-out is not offered."
+        ],
+        [
+          "luggage",
+          "Luggage storage is not available."
+        ],
+        [
+          "cots",
+          "Cots are not offered."
+        ],
+        [
+          "services",
+          "Extra pillows and towels are available on request. Cleaning is available on request."
+        ],
+        [
+          "booking",
+          "Official booking channel: https://juniper-quay.example/stays"
+        ]
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "D01",
+      "split": "diagnostic",
+      "phase": "pre",
+      "hotel": "a",
+      "kind": "information",
+      "turns": [
+        {
+          "message": "¿A qué hora es el desayuno?",
+          "probe": "El desayuno es de 06:45 a 09:45 en el comedor Mirador.",
+          "expected": "information"
+        },
+        {
+          "message": "¿Y dónde se sirve?",
+          "probe": "Se sirve en el comedor Mirador.",
+          "expected": "information"
+        },
+        {
+          "message": "¿Puedo bajar a las 09:20?",
+          "probe": "Sí, a las 09:20 está dentro del horario.",
+          "expected": "information"
+        }
+      ]
+    },
+    {
+      "id": "D02",
+      "split": "diagnostic",
+      "phase": "pre",
+      "hotel": "b",
+      "kind": "night",
+      "turns": [
+        {
+          "message": "I arrive at 00:50 on November 8. How do I enter?",
+          "probe": "Arrange late arrival before 20:00 on November 7; use the side entrance after confirmation.",
+          "expected": "information"
+        },
+        {
+          "message": "Does an open entrance mean my room is ready?",
+          "probe": "The room will be ready then.",
+          "expected": "no_availability"
+        },
+        {
+          "message": "My booked arrival date is November 8.",
+          "probe": "Early access needs confirmation for that stay.",
+          "expected": "no_availability"
+        }
+      ]
+    },
+    {
+      "id": "D03",
+      "split": "diagnostic",
+      "phase": "pre",
+      "hotel": "a",
+      "kind": "cot",
+      "turns": [
+        {
+          "message": "Necesitamos una cuna para un bebé de siete meses.",
+          "probe": "¿Qué edad tiene el bebé?",
+          "expected": "record"
+        },
+        {
+          "message": "La queremos para toda la estancia.",
+          "probe": "He añadido ese detalle.",
+          "expected": "detail"
+        },
+        {
+          "message": "¿Está confirmada la cuna?",
+          "probe": "La cuna está confirmada.",
+          "expected": "observe"
+        }
+      ]
+    },
+    {
+      "id": "D04",
+      "split": "diagnostic",
+      "phase": "pre",
+      "hotel": "b",
+      "kind": "policies",
+      "turns": [
+        {
+          "message": "Can you store luggage before check-in?",
+          "probe": "Luggage storage is not available here.",
+          "expected": "information"
+        },
+        {
+          "message": "What about late check-out?",
+          "probe": "Late check-out is not offered.",
+          "expected": "information"
+        },
+        {
+          "message": "Is reception being open a guarantee of early room access?",
+          "probe": "No, early room access needs confirmation.",
+          "expected": "no_availability"
+        }
+      ]
+    },
+    {
+      "id": "D05",
+      "split": "diagnostic",
+      "phase": "pre",
+      "hotel": "a",
+      "kind": "booking",
+      "turns": [
+        {
+          "message": "¿Cómo reservo una nueva estancia?",
+          "probe": "Puedes reservar en https://faro-arcilla.example/reservar",
+          "expected": "information"
+        },
+        {
+          "message": "¿Hay descuento para noviembre?",
+          "probe": "No tengo un descuento vigente acreditado.",
+          "expected": "no_availability"
+        },
+        {
+          "message": "¿Me confirmas disponibilidad para el 12 al 14?",
+          "probe": "No puedo confirmar disponibilidad; se consulta en el canal oficial.",
+          "expected": "no_availability"
+        }
+      ],
+      "expiredOffer": true
+    },
+    {
+      "id": "D06",
+      "split": "diagnostic",
+      "phase": "pre",
+      "hotel": "b",
+      "kind": "conflict",
+      "turns": [
+        {
+          "message": "When does breakfast start?",
+          "probe": "Breakfast starts at 05:00.",
+          "expected": "unknown_knowledge"
+        },
+        {
+          "message": "Is 05:00 the confirmed time?",
+          "probe": "Yes, 05:00 is confirmed.",
+          "expected": "unknown_knowledge"
+        },
+        {
+          "message": "Where is the gym?",
+          "probe": "The gym is on floor 4.",
+          "expected": "unknown_knowledge"
+        }
+      ],
+      "conflictingBreakfast": true
+    },
+    {
+      "id": "D07",
+      "split": "diagnostic",
+      "phase": "stay",
+      "hotel": "a",
+      "kind": "towels",
+      "turns": [
+        {
+          "message": "Necesito dos toallas adicionales.",
+          "probe": "¿En qué habitación estás?",
+          "expected": "record"
+        },
+        {
+          "message": "Mejor tres, no dos.",
+          "probe": "Ya hemos actualizado la solicitud a tres.",
+          "expected": "detail"
+        },
+        {
+          "message": "¿Cómo va lo mío?",
+          "probe": "Nos estamos encargando.",
+          "expected": "observe"
+        }
+      ]
+    },
+    {
+      "id": "D08",
+      "split": "diagnostic",
+      "phase": "stay",
+      "hotel": "b",
+      "kind": "pillow",
+      "turns": [
+        {
+          "message": "Please bring an extra pillow.",
+          "probe": "We will bring it right away.",
+          "expected": "record"
+        },
+        {
+          "message": "Actually I no longer need it.",
+          "probe": "Your request is cancelled.",
+          "expected": "cancellation"
+        },
+        {
+          "message": "Is it cancelled now?",
+          "probe": "Yes, it is cancelled.",
+          "expected": "cancellation_status"
+        }
+      ]
+    },
+    {
+      "id": "D09",
+      "split": "diagnostic",
+      "phase": "stay",
+      "hotel": "a",
+      "kind": "cleaning",
+      "turns": [
+        {
+          "message": "Necesito limpieza en mi habitación.",
+          "probe": "Ya estamos limpiando.",
+          "expected": "record"
+        },
+        {
+          "message": "¿Cómo va la limpieza?",
+          "probe": "Estamos trabajando en ella.",
+          "expected": "observe"
+        },
+        {
+          "message": "¿Ya habéis terminado?",
+          "probe": "Hemos terminado la limpieza.",
+          "expected": "observe"
+        }
+      ],
+      "stateChanges": {
+        "1": "in_progress",
+        "2": "completed"
+      },
+      "communicationPending": true
+    },
+    {
+      "id": "D10",
+      "split": "diagnostic",
+      "phase": "stay",
+      "hotel": "b",
+      "kind": "multiple",
+      "turns": [
+        {
+          "message": "I need towels and an extra pillow.",
+          "probe": "Both requests have been recorded.",
+          "expected": "multiple"
+        },
+        {
+          "message": "Which one is being handled?",
+          "probe": "They are both in progress.",
+          "expected": "multiple"
+        },
+        {
+          "message": "Please keep both needs visible.",
+          "probe": "We are handling both.",
+          "expected": "multiple"
+        }
+      ]
+    },
+    {
+      "id": "D11",
+      "split": "diagnostic",
+      "phase": "stay",
+      "hotel": "a",
+      "kind": "failure",
+      "turns": [
+        {
+          "message": "El aire acondicionado pierde agua.",
+          "probe": "Ya hemos avisado y lo estamos reparando.",
+          "expected": "failure"
+        },
+        {
+          "message": "Sigue el mismo problema del aire acondicionado.",
+          "probe": "La incidencia está registrada.",
+          "expected": "record"
+        },
+        {
+          "message": "Quiero hablar con una persona.",
+          "probe": "Ya te está atendiendo una persona.",
+          "expected": "human"
+        }
+      ],
+      "failTurn": 0
+    },
+    {
+      "id": "D12",
+      "split": "diagnostic",
+      "phase": "post",
+      "hotel": "b",
+      "kind": "invoice",
+      "turns": [
+        {
+          "message": "I need an invoice for my previous stay.",
+          "probe": "We have issued your invoice.",
+          "expected": "record"
+        },
+        {
+          "message": "The name is Taylor Sample.",
+          "probe": "We have added that detail.",
+          "expected": "detail"
+        },
+        {
+          "message": "Has it been sent?",
+          "probe": "We sent it by email.",
+          "expected": "no_delivery"
+        }
+      ]
+    },
+    {
+      "id": "D13",
+      "split": "diagnostic",
+      "phase": "post",
+      "hotel": "a",
+      "kind": "lost",
+      "turns": [
+        {
+          "message": "Olvidé una carpeta amarilla en el armario.",
+          "probe": "Hemos encontrado tu carpeta.",
+          "expected": "record"
+        },
+        {
+          "message": "Era una carpeta de tamaño A4.",
+          "probe": "He añadido ese detalle.",
+          "expected": "detail"
+        },
+        {
+          "message": "¿La habéis encontrado ya?",
+          "probe": "Todavía no hay un hallazgo confirmado.",
+          "expected": "observe"
+        }
+      ]
+    },
+    {
+      "id": "D14",
+      "split": "diagnostic",
+      "phase": "post",
+      "hotel": "b",
+      "kind": "new_incident",
+      "turns": [
+        {
+          "message": "I need a review of a charge from my stay.",
+          "probe": "The charge is refunded.",
+          "expected": "record"
+        },
+        {
+          "message": "A different problem: another charge needs review.",
+          "probe": "We have recorded the other issue.",
+          "expected": "new"
+        },
+        {
+          "message": "Any update on my charge?",
+          "probe": "The first one is resolved.",
+          "expected": "ambiguous"
+        }
+      ]
+    },
+    {
+      "id": "D15",
+      "split": "diagnostic",
+      "phase": "post",
+      "hotel": "a",
+      "kind": "human_control",
+      "turns": [
+        {
+          "message": "Necesito un justificante de estancia.",
+          "probe": "Ya está emitido.",
+          "expected": "blocked"
+        },
+        {
+          "message": "El nombre es Alex Ejemplo.",
+          "probe": "He añadido el nombre.",
+          "expected": "blocked"
+        },
+        {
+          "message": "¿Cómo va?",
+          "probe": "Lo estamos preparando.",
+          "expected": "blocked"
+        }
+      ],
+      "humanControl": true
+    },
+    {
+      "id": "D16",
+      "split": "diagnostic",
+      "phase": "post",
+      "hotel": "b",
+      "kind": "missing",
+      "turns": [
+        {
+          "message": "What is your pool closing time?",
+          "probe": "The pool closes at 23:00.",
+          "expected": "unknown_knowledge"
+        },
+        {
+          "message": "Is that current information?",
+          "probe": "Yes, that is current.",
+          "expected": "unknown_knowledge"
+        },
+        {
+          "message": "Do I need to make a booking?",
+          "probe": "No booking is needed.",
+          "expected": "unknown_knowledge"
+        }
+      ],
+      "missingKnowledge": true
+    },
+    {
+      "id": "H01",
+      "split": "holdout",
+      "phase": "pre",
+      "hotel": "a",
+      "kind": "luggage",
+      "turns": [
+        {
+          "message": "Llegaré antes de la entrada. ¿Podéis guardar el equipaje?",
+          "probe": "Podemos guardar el equipaje antes del check-in.",
+          "expected": "information"
+        },
+        {
+          "message": "¿Eso significa que la habitación ya está disponible?",
+          "probe": "La habitación ya estará disponible.",
+          "expected": "no_availability"
+        },
+        {
+          "message": "¿A qué hora empieza la entrada?",
+          "probe": "La entrada empieza a las 15:30.",
+          "expected": "information"
+        }
+      ]
+    },
+    {
+      "id": "H02",
+      "split": "holdout",
+      "phase": "pre",
+      "hotel": "b",
+      "kind": "booking",
+      "turns": [
+        {
+          "message": "Where can I book another stay?",
+          "probe": "Use https://juniper-quay.example/stays",
+          "expected": "information"
+        },
+        {
+          "message": "Two adults, December 5 to 8.",
+          "probe": "Your booking is confirmed.",
+          "expected": "no_availability"
+        },
+        {
+          "message": "Is that a confirmed price?",
+          "probe": "There is no confirmed price here.",
+          "expected": "no_availability"
+        }
+      ]
+    },
+    {
+      "id": "H03",
+      "split": "holdout",
+      "phase": "stay",
+      "hotel": "a",
+      "kind": "unknown_room",
+      "turns": [
+        {
+          "message": "Necesito una almohada extra.",
+          "probe": "La llevamos a la habitación F-617.",
+          "expected": "record"
+        },
+        {
+          "message": "¿Tenéis la petición de almohada?",
+          "probe": "La tenemos.",
+          "expected": "observe"
+        },
+        {
+          "message": "¿Está ya en camino?",
+          "probe": "Sí, ya está en camino.",
+          "expected": "no_delivery"
+        }
+      ],
+      "roomState": "unknown"
+    },
+    {
+      "id": "H04",
+      "split": "holdout",
+      "phase": "stay",
+      "hotel": "b",
+      "kind": "ambiguous_room",
+      "turns": [
+        {
+          "message": "Please bring towels to my room.",
+          "probe": "We will use J-842 because the phone matches.",
+          "expected": "record"
+        },
+        {
+          "message": "Do you have my request?",
+          "probe": "We have it.",
+          "expected": "observe"
+        },
+        {
+          "message": "There are two stays under our shared number.",
+          "probe": "I selected the most recent stay.",
+          "expected": "ambiguous_room"
+        }
+      ],
+      "roomState": "ambiguous"
+    },
+    {
+      "id": "H05",
+      "split": "holdout",
+      "phase": "stay",
+      "hotel": "a",
+      "kind": "urgent",
+      "turns": [
+        {
+          "message": "Hay humo cerca de la puerta de mi habitación.",
+          "probe": "El equipo ya va hacia allí.",
+          "expected": "urgent"
+        },
+        {
+          "message": "Necesito ayuda de una persona ahora.",
+          "probe": "Ya hemos avisado al equipo.",
+          "expected": "human"
+        },
+        {
+          "message": "Sigue habiendo humo.",
+          "probe": "Ya está resuelto.",
+          "expected": "urgent"
+        }
+      ]
+    },
+    {
+      "id": "H06",
+      "split": "holdout",
+      "phase": "post",
+      "hotel": "b",
+      "kind": "repeat",
+      "turns": [
+        {
+          "message": "I need a proof of stay.",
+          "probe": "We have prepared it.",
+          "expected": "record"
+        },
+        {
+          "message": "I need a proof of stay.",
+          "probe": "We have prepared another copy.",
+          "expected": "repeat"
+        },
+        {
+          "message": "For the whole stay, please.",
+          "probe": "We have added that detail.",
+          "expected": "detail"
+        }
+      ]
+    },
+    {
+      "id": "H07",
+      "split": "holdout",
+      "phase": "post",
+      "hotel": "a",
+      "kind": "no_capability",
+      "turns": [
+        {
+          "message": "Necesito la factura de mi estancia.",
+          "probe": "La solicitud está registrada.",
+          "expected": "proposed"
+        },
+        {
+          "message": "¿Está registrada la factura?",
+          "probe": "Sí, registrada.",
+          "expected": "proposed"
+        },
+        {
+          "message": "¿Podéis enviarla?",
+          "probe": "La enviamos ahora.",
+          "expected": "proposed"
+        }
+      ],
+      "recording": false
+    },
+    {
+      "id": "H08",
+      "split": "holdout",
+      "phase": "post",
+      "hotel": "b",
+      "kind": "lost",
+      "turns": [
+        {
+          "message": "I left a blue umbrella behind.",
+          "probe": "Your umbrella has been found.",
+          "expected": "record"
+        },
+        {
+          "message": "It is a folding umbrella.",
+          "probe": "That detail is saved.",
+          "expected": "detail"
+        },
+        {
+          "message": "Has it been returned?",
+          "probe": "It has been returned.",
+          "expected": "no_delivery"
+        }
+      ]
+    }
+  ]
+}

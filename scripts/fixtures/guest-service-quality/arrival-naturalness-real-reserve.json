@@ -1,0 +1,13 @@
+{
+  "frozenOn": "2026-10-13",
+  "baseline": "5768682d963be4b059b0bf9937014731e88634fc",
+  "purpose": "Reserved for the real-provider comparison, not executed as doubles. Same two fictional hotels and unchanged knowledge from fresh-service-evaluation.json.",
+  "status": "not_executed_no_development_credential",
+  "cases": [
+    {"id":"R01","hotel":"b","arrival_date":"2026-12-14","departure_date":"2026-12-16","turns":["Our booking starts December 14. We reach the hotel at 01:20 on December 15; how do we get inside?","We already have the hotel's instructions. Does that also confirm the room is ready?"]},
+    {"id":"R02","hotel":"a","phase":"stay","turns":["Necesitamos dos almohadas.","Mejor cuatro, por favor.","¿Tenéis alguna actualización?","Gracias, eso es todo."]},
+    {"id":"R03","hotel":"b","phase":"stay","turns":["Where can I find the gym?","Then what time is breakfast?","I prefer to speak with a person."]}
+  ],
+  "assessment": ["operational_truth","latest_intent","known_context","clear_next_step","unnecessary_referral","naturalness_brevity_repetition"],
+  "changesAfterExecutionMustInvalidateIndependence": true
+}

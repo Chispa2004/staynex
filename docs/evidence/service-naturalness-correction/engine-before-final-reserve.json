@@ -1,0 +1,17 @@
+{
+  "stage": "N01-N04 now diagnostic; F01-F03 frozen unexecuted",
+  "files": {
+    "scripts/fixtures/guest-service-quality/naturalness-final-reserve.json": "48546f9b877a4307e5673f2f5041704d0eb33b11c31f55a1e80983cb51dea6bb",
+    "shared/guest-service/arrival-booking.js": "4332a206207e601a457922aec1852ea11db666946c7e10f8ec2c891446596385",
+    "shared/guest-service/information-evidence.js": "4f475dea5931441f2bb18ade0b571aa3e52c6acb04eaf518f1282f660ac2db82",
+    "shared/guest-service/operational-context.js": "2904304793cb9c121cd274a453ad21c37ea930de6a915f6161dd441f00831413",
+    "shared/guest-service/operational-request.js": "6bf27d1535d5fbfbebf0c9b8927acec5fa9746f4f898202806ec1535c4d1ac00",
+    "shared/guest-service/quality.js": "605920f400f3443116f73d9071f18669e6aa3dc3df2bb73eabbc73b639768aab",
+    "shared/guest-service/receipt-reply.js": "049923a588c852d4afadc06d0c41c36a22e5fef528b37eabdcfb7da04847a3d0",
+    "shared/guest-service/ticket-context.js": "e97b02b903f3bd25d45a49f1e0b1a13dd647a583c72ad2387d08d287c19c506d",
+    "shared/guest-service/turn-replies.js": "b25df5b7cd8301c51f5b62df46155aa51f0bd77960732618df82a7260fea7714",
+    "src/services/human-escalation.service.js": "779a0eb749ee6d4cbd8ada5d300135ef9dd1a96b03fa1520ba1729350617ef50",
+    "src/services/operational-request.service.js": "fcf18bb4f77170f3e6aa531f47fd1b596be9db5d7d6ac2adb8ee476d92f65dae"
+  },
+  "note": "Before F01-F03 execution: diagnostic mixed detail+progress regression repaired; all receipt regressions pass. Previous diagnostic process used the earlier trace labels."
+}

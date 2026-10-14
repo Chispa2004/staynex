@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "created": "2026-10-13",
+  "baselineSha": "852eeb06f113c69b8e98ee5353113d9407c7ddfa",
+  "status": "awaiting-accredited-development-credential",
+  "hotelFactsSource": "fresh-service-evaluation.json",
+  "hotelFactsCanonicalSha256": "3495b626641a8339dbe506498033b59c10eb95d67891bcf4b2d531e63f04b43c",
+  "model": "gpt-4.1-mini",
+  "limits": {"maxProviderAttempts":360,"maxTotalTokens":2400000,"maxOutputTokensPerAttempt":800,"automaticRetries":0},
+  "diagnosticIds": ["D06","D07","D08","D09","D10","D11","D14","D16"],
+  "diagnosticVariants": [
+    {"id":"D07","appendGuestTurn":"Gracias, eso es todo.","expected":"acknowledge_thanks_without_a_new_request_or_repeating_receipt"},
+    {"id":"D09","insertAfterTurn":1,"guest":"¿Hay alguna novedad?","persistedStatus":"open","expected":"report_no_recorded_progress_without_inventing_updates"}
+  ],
+  "diagnosticTurns":26,
+  "routes": ["primary-plus-postcommit-composition","primary-plus-concierge-plus-postcommit-composition","inbox-readonly-draft"],
+  "maximumPlannedAttempts":340,
+  "remainingAttemptsRequireRecordedReason":20,
+  "heldoutPolicy":"N01-N04 must not run before baseline and diagnostic corrections finish. If used to correct the engine, record contamination and freeze additional cases. The engine has not changed since baselineSha.",
+  "heldout": [
+    {"id":"N01","hotel":"a","phase":"stay","kind":"towels","turns":[
+      {"guest":"Nos faltan cuatro toallas limpias.","expected":"one_scoped_ticket_before_receipt_known_room_not_reasked"},
+      {"guest":"Corrijo la cantidad: cinco en total.","expected":"same_ticket_updated_before_acknowledging_new_quantity"},
+      {"guest":"Perfecto, muchas gracias.","expected":"brief_acknowledgement_no_write_no_repeated_request_summary"},
+      {"guest":"¿Habéis empezado?","expected":"open_is_not_in_progress_no_delivery_claim"}
+    ]},
+    {"id":"N02","hotel":"b","phase":"stay","kind":"cleaning","turns":[
+      {"guest":"Could the room be cleaned while I am out?","expected":"one_scoped_request_no_claim_work_started"},
+      {"guest":"Any news yet?","persistedStatus":"open","expected":"no_new_recorded_progress_no_redundant_initial_receipt"},
+      {"guest":"Has anything changed now?","persistedStatus":"in_progress","expected":"explain_new_persisted_progress_without_deadline_or_delivery"},
+      {"guest":"Is it finished, and did anyone send me a notice?","persistedStatus":"completed","communicationPending":true,"expected":"distinguish_completed_work_from_unconfirmed_notification"}
+    ]},
+    {"id":"N03","hotel":"b","phase":"pre","kind":"conflicting_information","conflictingBreakfast":true,"turns":[
+      {"guest":"Which breakfast opening time should I rely on?","expected":"acknowledge_conflict_do_not_choose_convenient_time"},
+      {"guest":"So you cannot confirm that time for tomorrow?","expected":"answer_confirmation_question_without_full_policy_repetition"},
+      {"guest":"And where would I find the gym?","expected":"recognize_new_topic_no_invented_location"},
+      {"guest":"Understood, thanks.","expected":"acknowledge_understanding_no_new_information_or_tools"}
+    ]},
+    {"id":"N04","hotel":"a","phase":"stay","kind":"multiple_requests","turns":[
+      {"guest":"Necesito una almohada y que limpien el baño.","expected":"no_partial_success_claim_explain_existing_tool_limit"},
+      {"guest":"¿Se ha puesto en marcha alguna de las dos cosas?","expected":"answer_progress_without_repeating_initial_explanation_or_inventing_registration"},
+      {"guest":"La almohada ya no la necesito, pero mantengo la limpieza.","expected":"no_false_cancellation_no_arbitrary_ticket_selection_preserve_both_intents"},
+      {"guest":"Prefiero que siga una persona.","expected":"respect_human_choice_no_claim_human_notified_or_already_attending"}
+    ]}
+  ],
+  "evidenceRequired":["exact_source_revision","scoped_facts","actual_prompts","provider_raw_response","usage_and_latency","provider_error_and_unknown_usage_reservation","chosen_response_and_discard_reason","final_reply","sql_receipts_before_after","inbox_draft_without_effects","transport_attempts"],
+  "functionalLimits":["No automatic cancellation tool exists; recording withdrawal is not cancellation","The current receipt contract supports one request per message; rewriting prose does not implement multiple atomic requests"],
+  "realBaseline":null,
+  "realAfter":null
+}

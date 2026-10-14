@@ -1,0 +1,27 @@
+{
+  "baseline": "a6594c5afb4390781ea7f112fef7564af9544c9e",
+  "realCalls": 0,
+  "realUsd": 0,
+  "postgresGroupsPassed": 15,
+  "existingRecoveryTurns": 4,
+  "existingRecoveryFailures": {},
+  "sourceCanonicalSha256": {
+    "shared/guest-service/failed-request-context.js": "343e755b52792041eb9dae19215e3af196c7039bac77acd6497f91b07076bc0f",
+    "shared/guest-service/incident-correction.js": "d7220b864b1de034436e2ea1e077b796faa28f7b9cbd6d1ddd2345404bef5a34",
+    "shared/guest-service/quality.js": "62648be17df55dad2df8e2eecd3b68f7ab82c475a41f6d952671f2d4efec3aed",
+    "shared/guest-service/ticket-context.js": "4164f1e3f04992a3973772cb76dba8761b3dacc7298a8d670a2a747790ec9df3",
+    "src/services/operational-request.service.js": "da8e0a8b4116180cbd023886996ebe0b15c6788ad9439fa6669a42468dcac16c",
+    "src/services/supabase.service.js": "461e3603b97ad271fb91f602c6baf0071a3da37b3a4ce216afd4db67f02b4690",
+    "supabase/sql/recover_failed_operational_request.sql": "36a73e3c8759c7c51ccdf2bec9e39c02753a3452bcf734e203c6cfca9c5faa47",
+    "scripts/test-failed-request-recovery-postgres.js": "507b163cbf9e263a84bb8271c01f660078c4359ba77b78d72ccc6acdb94785a6",
+    "scripts/test-failed-request-context.js": "ee2aac7f23b497968a937c98bc55d9f505eef278afc079b8b3c4ec9e959a4640",
+    "scripts/evaluate-fresh-service.js": "e40e318da56a03992661871da4346cb07071d55a56838775c110f4a6584b9d1e"
+  },
+  "evidenceSha256": {
+    "d11-before-after.json.gz": "08d5f6c96e30b32f60769740378471a04507362e88d735d2d1bb9ddddda4df7b",
+    "existing-recovery.json.gz": "9351696902ca8c2bd2134133a82c0fff271a1b9b7f1362dbb236067d279fa666",
+    "postgres-checks.txt": "f74748d359f3f7265cd2d2cdecd158f5fa5231fd64183b52307e990cc8fca43f",
+    "postgres.json.gz": "4f830f705e3d278717b540e2473218ce87ad483f3da8817c785a93fd5ef22106"
+  },
+  "reservedCanonicalSha256": "329223069d3a7565fecfa703c989da9a07a2e5be0ae406296970bc95b95af939"
+}

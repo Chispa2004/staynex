@@ -1,0 +1,69 @@
+{
+  "criticalTasks": 43,
+  "critical": "PASS",
+  "syntax": "446 files PASS, plus targeted checks of added evaluation utilities",
+  "dashboardBuild": "PASS",
+  "postgres": {
+    "diagnostic": {
+      "conversations": 16,
+      "routedTurns": 96,
+      "syntheticSdkCalls": 135,
+      "realCalls": 0,
+      "realTokens": 0,
+      "failures": {},
+      "sha256": "13397ed347299b6b55dccbf2bff7dfe5fc9c4477806490224f3d260463768219"
+    },
+    "holdout": {
+      "conversations": 8,
+      "routedTurns": 48,
+      "syntheticSdkCalls": 72,
+      "realCalls": 0,
+      "realTokens": 0,
+      "failures": {},
+      "sha256": "c30e2c50fd166583356f57f1ee100513e0220e5065674f972755a772c22ff534"
+    },
+    "validation": {
+      "conversations": 6,
+      "routedTurns": 36,
+      "syntheticSdkCalls": 54,
+      "realCalls": 0,
+      "realTokens": 0,
+      "failures": {},
+      "sha256": "55b84a1fa44a258cde599dc4794377c722fe1045b768e6c1d47fe3159e21344d"
+    },
+    "naturalness-reserved": {
+      "conversations": 4,
+      "routedTurns": 32,
+      "syntheticSdkCalls": 48,
+      "realCalls": 0,
+      "realTokens": 0,
+      "failures": {},
+      "sha256": "d18b0d2d763e24e55b50752dae17d503483cd16f4dd563bc14db2734179910aa"
+    },
+    "naturalness-final": {
+      "conversations": 3,
+      "routedTurns": 18,
+      "syntheticSdkCalls": 27,
+      "realCalls": 0,
+      "realTokens": 0,
+      "failures": {},
+      "sha256": "6d068b6fcd7f19185e460adf011575c0157aa72cceb01990b815d4e4748bf3a6"
+    }
+  },
+  "postgresEngine": "PostgreSQL 17.10 disposable native loopback; no crash-durability claim (-F, initdb --no-sync)",
+  "realCalls": 0,
+  "realTokens": 0,
+  "providerCostThisPhase": 0,
+  "providerErrors": "No actual provider requests; synthetic failures retained in evaluations",
+  "unfavorableRuns": [
+    "naturalness-reserved-baseline.json.gz",
+    "naturalness-reserved-first.json.gz",
+    "naturalness-after-first.json.gz"
+  ],
+  "limitations": [
+    "No real-model baseline or before/after comparison",
+    "D02 verbose, redundant calendar-date question when month is spelled out",
+    "Multiple independent requests and effective cancellation remain unsupported"
+  ],
+  "noRemoteWrites": true
+}

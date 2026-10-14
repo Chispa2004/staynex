@@ -1,3 +1,4 @@
+import {unambiguousKnowledge} from '../shared/guest-service/information-evidence.js';
 import {isArchivedHotel} from '../shared/hotels/lifecycle.js';
 import {readAllInboxRows} from '../shared/inbox/stay-stage.js';
 import assert from 'node:assert/strict';
@@ -10,7 +11,7 @@ import * as demoProvenance from '../shared/demo-message-stages/server-provenance
 import { getVerifiedMessageTranslation, sanitizeInboxMessageTranslations, shouldCompactOriginalMessage } from '../dashboard/lib/inbox-message-presentation.js';
 
 // Load executable production bodies with controlled boundaries, as in test-auth-hotel-context.
-const load = (file, supplied, exports) => { const bindings = { ...demoProvenance, ...supplied }; return new Function(...Object.keys(bindings),
+const load = (file, supplied, exports) => { const bindings = { ...demoProvenance, unambiguousKnowledge, ...supplied }; return new Function(...Object.keys(bindings),
   readFileSync(new URL('../'+file,import.meta.url),'utf8').replace(/^import[\s\S]*?;\r?\n/gm,'')
     .replaceAll('export const ','const ').replaceAll('export async function ','async function ')
     + '\nreturn {'+exports.join(',')+'};')(...Object.values(bindings)); };

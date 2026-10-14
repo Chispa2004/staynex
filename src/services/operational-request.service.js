@@ -1,5 +1,6 @@
+import {failedRequestMarker,planFailedRequestRecovery} from '../../shared/guest-service/failed-request-context.js';
 import {getSupabase} from './supabase.service.js';
-import {interpretOperationalRequest} from '../../shared/guest-service/operational-request.js';
+import {interpretOperationalRequest,independentRequestTopics} from '../../shared/guest-service/operational-request.js';
 import {selectRelevantTicket,serviceTurn,detailIsPersisted} from '../../shared/guest-service/ticket-context.js';
 
 export async function recordOperationalRequest({hotel,guest,conversation,sourceMessage,context,aiResponse,message,client=getSupabase()}) {
@@ -8,9 +9,23 @@ export async function recordOperationalRequest({hotel,guest,conversation,sourceM
     || sourceMessage?.hotel_id!==hotel.id || sourceMessage.conversation_id!==conversation.id || sourceMessage.sender_type!=='guest')throw new Error('Operational request context mismatch');
   const scoped=(context.tickets||context.openTickets||[]).filter(t=>t.hotel_id===hotel.id && t.conversation_id===conversation.id && t.guest_id===guest.id);
   const turn=serviceTurn(message);
+  // A stand-alone thank-you is not an instruction, even if the model repeats a
+  // previous create_ticket proposal. Keep the message, do not touch its ticket.
+  if(turn.social)return {status:'not_requested',ticket:null};
+  const recovery=planFailedRequestRecovery({context,sourceMessage,message,hotel,guest,conversation});
+  if(recovery.status==='review')return {status:'needs_review',ticket:null,sourceMessageId:sourceMessage.id,errorCode:recovery.reason};
+  if(recovery.status==='recover') {
+    if(context.serviceCapabilities?.requestRecording!==true || context.serviceCapabilities?.mode==='staff_draft')return {status:'proposed',ticket:null};
+    return recoverFailedRequest({recovery,hotel,guest,conversation,sourceMessage,operational,client});
+  }
   const relevant=selectRelevantTicket({tickets:scoped,hotelId:hotel.id,guestId:guest.id,conversationId:conversation.id,message,history:context.recentMessages,sourceMessageId:sourceMessage.id});
   if(relevant.status==='ambiguous')return {status:'ambiguous',ticket:null,sourceMessageId:sourceMessage.id};
   let request=interpretOperationalRequest({message,aiResponse,openTickets:scoped});
+  const multi=independentRequestTopics(message).length>1 && Boolean(request);
+  const previousMulti=!scoped.length && !turn.newIncident && !turn.topic && (turn.kind!=='initial' || /both|ambas|ambos|dos necesidades/i.test(message))
+    && [...(context.recentMessages||[])].reverse().filter(m=>m.sender_type==='guest').slice(0,3).some(m=>m.sender_type==='guest' && (!m.hotel_id||m.hotel_id===hotel.id) && independentRequestTopics(m.content).length>1);
+  if(multi || previousMulti)return {status:'needs_review',ticket:null,sourceMessageId:sourceMessage.id,errorCode:'MULTIPLE_REQUESTS_REQUIRE_REVIEW'};
+  if(turn.cancellation && !relevant.ticket)return {status:'needs_review',ticket:null,sourceMessageId:sourceMessage.id,errorCode:'CANCELLATION_TARGET_UNCONFIRMED'};
   if(relevant.ticket && turn.clarification && !['open','in_progress'].includes(relevant.ticket.status)) {
     return {status:'unconfirmed',ticket:null,sourceMessageId:sourceMessage.id,errorCode:'REQUEST_NOT_OPEN_FOR_DETAILS'};
   }
@@ -44,12 +59,40 @@ export async function recordOperationalRequest({hotel,guest,conversation,sourceM
     if(data?.source_message_id!==sourceMessage.id || receipt?.hotel_id!==hotel.id || receipt?.guest_id!==guest.id || receipt?.conversation_id!==conversation.id || !receipt?.id)throw new Error('Incomplete request receipt');
     // The response is not enough: read the committed, scoped record before prose.
     const {data:ticket,error:readError}=await client.from('tickets').select('*').eq('id',receipt.id).eq('hotel_id',hotel.id).eq('conversation_id',conversation.id).eq('guest_id',guest.id).single();
-    if(readError || ticket?.id!==receipt.id)throw readError||new Error('Ticket not confirmed');
+    if(readError || ticket?.id!==receipt.id || ticket.hotel_id!==hotel.id || ticket.guest_id!==guest.id || ticket.conversation_id!==conversation.id)throw readError||new Error('Ticket not confirmed');
     if(turn.clarification && !detailIsPersisted(ticket,message))throw new Error('Clarification not persisted');
-    return {status:'recorded',ticket,request,sourceMessageId:sourceMessage.id,detailConfirmed:detailIsPersisted(ticket,message)};
+    return {status:'recorded',ticket,request,sourceMessageId:sourceMessage.id,
+      newlyRecorded:ticket.request_context?.source_message_id===sourceMessage.id && !ticket.request_context?.last_source_message_id && detailIsPersisted(ticket,message),detailConfirmed:detailIsPersisted(ticket,message)};
   } catch(error) {
     // Original guest message already persists. A retry uses the same receipt key
     // even when commit succeeded but its response/readback was lost.
-    return {status:'unconfirmed',ticket:null,request,sourceMessageId:sourceMessage.id,errorCode:error.code||'REQUEST_NOT_CONFIRMED'};
+    return {status:'unconfirmed',ticket:null,request,sourceMessageId:sourceMessage.id,errorCode:error.code||'REQUEST_NOT_CONFIRMED',failedRequest:failedRequestMarker({operational,sourceMessage})};
   }
+}
+
+// One recovery transaction replays original + continuation receipts atomically.
+// A missing wrapper or uncertain readback stays unconfirmed; never downgrade to
+// a sequence of partial writes against an older catalog.
+async function recoverFailedRequest({recovery,hotel,guest,conversation,sourceMessage,operational,client}) {
+ const ids=recovery.messages.map(m=>m.id);
+ try {
+  for(const m of recovery.messages) {
+   const {data,error}=await client.from('messages').select('*').eq('id',m.id).eq('hotel_id',hotel.id).eq('conversation_id',conversation.id).single();
+   if(error||!data||data.sender_type!=='guest'||data.content!==m.content||data.hotel_id!==hotel.id||data.conversation_id!==conversation.id)throw Error('Recovery source not confirmed');
+  }
+  const payload={...recovery.request,recovery_message_ids:ids,
+   reservation_id:operational.reservation?.id||null,room_number:operational.known_room||null,
+   operational_context:{phase:operational.phase,room_source:operational.room_source,reason:operational.reason}};
+  const {data,error}=await client.rpc('recover_guest_operational_request_v1',{p_hotel_id:hotel.id,p_conversation_id:conversation.id,p_message_id:sourceMessage.id,p_request:payload});
+  if(error)throw error;
+  if(data?.source_message_id!==sourceMessage.id||!data?.ticket?.id||data.target_ticket_enforced!==true||JSON.stringify(data.recovery_message_ids)!==JSON.stringify(ids))throw Error('Recovery receipt mismatch');
+  const {data:ticket,error:readError}=await client.from('tickets').select('*').eq('id',data.ticket.id).eq('hotel_id',hotel.id).eq('guest_id',guest.id).eq('conversation_id',conversation.id).single();
+  if(readError||!ticket||ticket.id!==data.ticket.id||ticket.hotel_id!==hotel.id||ticket.guest_id!==guest.id||ticket.conversation_id!==conversation.id)throw Error('Recovery readback not confirmed');
+  if(ticket.room_number!==(operational.known_room||null)||(ticket.request_context?.reservation_id||null)!==(operational.reservation?.id||null))throw Error('Recovery stay readback changed');
+  if(!['open','in_progress'].includes(ticket.status))return {status:'needs_review',ticket:null,sourceMessageId:sourceMessage.id,errorCode:'RECOVERY_STAFF_REVIEW'};
+  if(ticket.request_context?.last_source_message_id!==sourceMessage.id || !recovery.messages.every(m=>detailIsPersisted(ticket,m.content)))throw Error('Incomplete recovered request');
+  return {status:'recorded',ticket,request:recovery.request,sourceMessageId:sourceMessage.id,detailConfirmed:true,
+   newlyRecorded:true,recoveryResolvedRoot:ids[0],recovery:{messageIds:ids,rootReplayed:data.recovery_root_replayed}};
+ }catch(error){return {status:'unconfirmed',ticket:null,sourceMessageId:sourceMessage.id,request:recovery.request,
+  errorCode:error.code||'RECOVERY_NOT_CONFIRMED',failedRequest:recovery.marker};}
 }

@@ -1,3 +1,4 @@
+import {persistedItemQuantity} from './item-quantity.js';
 // This projection is only constructed after a scoped committed ticket readback.
 // Neither model output nor a guest's claim can manufacture execution evidence.
 export function receiptFacts({ticket, hotelId, guestId, conversationId, operationalRequest}) {
@@ -5,6 +6,7 @@ export function receiptFacts({ticket, hotelId, guestId, conversationId, operatio
     || ticket.conversation_id !== conversationId || !['recorded','observed'].includes(operationalRequest?.status)
     || operationalRequest.ticket?.id !== ticket.id) return null;
   return {ticket_id:ticket.id, source_message_id:operationalRequest.sourceMessageId,
+    quantity:persistedItemQuantity(ticket),newly_recorded:operationalRequest.status==='recorded' && operationalRequest.newlyRecorded===true,
     status:ticket.status || 'unknown', category:ticket.category, priority:ticket.priority,
     request_key:ticket.request_context?.request_key || operationalRequest.request?.key,
     room:ticket.room_number || null, phase:ticket.request_context?.operational_context?.phase || null,
@@ -15,9 +17,11 @@ export function receiptFacts({ticket, hotelId, guestId, conversationId, operatio
 export const RECEIPT_REPLY_POLICY = `You are replying as a member of the hotel team, not describing an administrative record. The request has been saved and read back, or its current state has just been observed.
 Speak as the hotel team, in the guest's language and form of address. Usually 1–3 short sentences. On an initial request identify its actual subject briefly (not just the room); on a damaging incident acknowledge the inconvenience before the useful next information. Answer the current turn, do not repeat the greeting, room or whole request on follow-ups.
 For human_request, acknowledge the choice warmly and briefly. Do not use "hemos recibido su mensaje", "tomamos nota" or "atención personalizada". Say we have the request to speak with a person, without claiming a person has been contacted or is attending. Do not repeat the incident, room or initial receipt. If turn.unresolved and a previous ticket is completed, acknowledge the guest's current report and need for review; do not insist the problem is fixed.
-Use turn.kind to distinguish initial request, clarification, receipt question and progress enquiry. For a short receipt question answer YES first in the first-person plural; do not narrate a database status in passive voice. For a clarification acknowledge the new detail only when detail_confirmed=true; it has actually been incorporated into the ticket. You can repeat the added quantity/type briefly, without repeating the room or entire request. If false, do not claim the detail was saved or updated.
-For a progress enquiry answer the persisted state directly: when open/pending, say we have the request but there is no further recorded update. When in_progress or completed state that specific stage, without claiming notification, delivery, discovery, booking confirmation or another unsupported outcome. An initial incident with damage deserves a brief sympathetic opening and useful safety guidance; a simple towel follow-up needs only a warm short answer. Avoid bureaucratic passive formulations like "la petición está registrada", and do not mechanically vary synonyms.
+When facts.newly_recorded is true and turn.recordingRecovered is true, explicitly acknowledge that the request is now recorded after the earlier failure; do not answer only that it is still pending. Use the persisted quantity and item for the initial acknowledgement when provided.
+Use turn.kind to distinguish initial request, clarification, receipt question and progress enquiry. For a short receipt question answer YES first in the first-person plural; do not narrate a database status in passive voice. For a clarification acknowledge the new detail only when detail_confirmed=true; it has actually been incorporated into the ticket. Name the changed quantity AND its item when the trusted request identifies it; a bare number is not a complete acknowledgement. Do not repeat the room or entire request. If false, do not claim the detail was saved or updated.
+For a progress enquiry answer the persisted state directly: when open/pending, say the request is still pending and we do not have an update; name the request, avoid an unexplained pronoun or database language. When in_progress or completed state that specific stage, without claiming notification, delivery, discovery, booking confirmation or another unsupported outcome. An initial incident with damage deserves a brief sympathetic opening and useful safety guidance; a simple towel follow-up needs only a warm short answer. Avoid bureaucratic passive formulations like "la petición está registrada", and do not mechanically vary synonyms.
 The trusted receipt proves ONLY the status listed. open/pending: acknowledge that we have the specific request. in_progress: you may say we are attending that specific request. completed: you may confirm that specific request is completed. closed/cancelled are not proof of completion.
+A withdrawal changes the request details, not its cancellation status. Never claim cancellation unless status is cancelled. Delivery and communication remain unverified even after completion.
 Preserve quantities and details. Use the known room only if useful; a historical room is not a current room. Use previous guest turns, do not ask for details already supplied. Ask only one missing detail needed to advance. Do not request complete personal, fiscal, payment or identity-document details.
 Do NOT automatically say action is unconfirmed. Explain uncertainty only for the requested availability or outcome (cot, transfer booking, finding an object, issuing an invoice, future reservation).
 Never claim staff were notified, dispatched, are on their way, that delivery is imminent, that a booking/availability is confirmed, an invoice issued/sent or an item found. Never promise future action, updates or a deadline. A saved request is not any of these facts.
@@ -46,7 +50,8 @@ export function safeReceiptReply(reply, facts, language='es') {
   const text=normalize(reply);
   if(language.startsWith('en') && /\b(?:hemos|tenemos|peticion|habitacion|solicitud|evite|evita)\b/.test(text))return false;
   if(language.startsWith('es') && /\b(?:we have|your request|your room|we are|we’ve)\b/.test(text))return false;
-  if(facts.detail_confirmed===false && /(?:hemos|we(?:'ve| have)).*(?:anadido|actualizado|incorporado|added|updated)|detalle.*(?:anotado|registrado|guardado)/.test(text))return false;
+  if(facts.detail_confirmed!==true && /\b(?:updated|actualizado)\b/.test(text))return false;
+  if(facts.detail_confirmed===false && /(?:hemos|we(?:['’]ve| have)).*(?:anadido|actualizado|incorporado|added|updated)|detalle.*(?:anotado|registrado|guardado)/.test(text))return false;
   if (/\b(?:pregunte|consulte|contacte|contacta|contact reception|ask reception|check directly|recomendamos verificar|recuerde informar|confirmacion depende del equipo)\b/.test(text))return false;
   if (/en que mas|anything else|here to help|aqui para ayudar|con lo que necesite|cualquier otra cosa que necesite/.test(text))return false;
   if (/\b(?:are|we.re) (?:checking|arranging|searching|reviewing)|arrange delivery/.test(text) && facts.status!=='in_progress')return false;
@@ -56,6 +61,7 @@ export function safeReceiptReply(reply, facts, language='es') {
     && !/(?:pendiente|por confirmar|sin confirmar|sujeta|sujeto|no (?:esta|hay|puedo|podemos)|aun no|todavia no|not |subject to|unconfirmed|pending)/.test(text)) return false;
   if (/\b(?:estamos (?:atendiendo|resolviendo|reparando|ocupandonos|encargandonos|gestionando(?:lo|la)?|revisando(?:lo|la)?|buscando(?:lo|la)?|comprobando(?:lo|la)?)|nos estamos encargando|atendemos|gestion esta en curso|en curso la gestion|en proceso(?: de (?:atencion|emision))?|siendo gestionad[oa]|nos ocupamos|nos encargamos|working on|attending to|taking care of|processing|handling)\b/.test(text)
     && facts.status!=='in_progress') return false;
+  if (/\b(?:cancelad[oa]|cancelled|canceled)\b/.test(text) && !['cancelled','canceled'].includes(facts.status))return false;
   if (/\b(?:resuelt[oa]|reparad[oa]|completad[oa]|solucionad[oa]|resolved|repaired|completed|fixed)\b/.test(text)
     && facts.status!=='completed') return false;
   return true;
@@ -69,7 +75,7 @@ export function sanitizeReceiptReply(reply,facts,language='es') {
     .split(/(?<=[.!?])\s+/u).filter(s=>safeReceiptReply(s,facts,language));
   const result=sentences.map(s=>s.replace(/^\p{Ll}/u,c=>c.toLocaleUpperCase())).join(' ').trim();
   const text=normalize(result);
-  const receipt=/\b(?:tenemos|recibid[oa]|registrad[oa]|anotad[oa]|apuntad[oa]|anadido|tomado nota|tomamos nota|received|recorded|registered|noted|added|have (?:it|your|the|this))\b/.test(text);
+  const receipt=/\b(?:tenemos|recibid[oa]|registrad[oa]|anotad[oa]|apuntad[oa]|anadido|tomado nota|tomamos nota|received|recorded|registered|noted|added|updated|actualizado|have (?:it|your|the|this))\b/.test(text);
   const minimizePaymentData=/tarjeta|card/.test(normalize(facts?.request))
     && /no (?:es necesario|necesitamos|necesita[s]?).{0,50}(?:numero de tarjeta|tarjeta)|(?:do not|don't|no need).{0,40}(?:card number|card details)/.test(text);
   const progress=facts?.status==='in_progress' && /atendiendo|ocupando|working on|attending/.test(text);
@@ -82,6 +88,18 @@ export function sanitizeReceiptReply(reply,facts,language='es') {
 // requested progress; do not cosmetically replace words in that sentence.
 export function receiptAnswersTurn(reply,facts,turn) {
   const text=normalize(reply);
+  if((turn.quantity && facts.detail_confirmed) || (turn.kind==='initial' && ['open','pending'].includes(facts.status) && facts.quantity)) {
+    const expectedQuantity=turn.quantity && facts.detail_confirmed?turn.quantity:facts.quantity;
+    const subject=({towels:/\b(?:towels?|toallas?)\b/,pillow:/\b(?:pillows?|almohadas?)\b/,cot:/\b(?:cots?|cunas?)\b/})[facts.request_key];
+    const words=({1:'one|un|uno|una',2:'two|dos',3:'three|tres',4:'four|cuatro',5:'five|cinco',6:'six|seis',7:'seven|siete',8:'eight|ocho',9:'nine|nueve',10:'ten|diez'})[Number(expectedQuantity)];
+    const quantity=new RegExp('\\b(?:'+Number(expectedQuantity)+(words?'|'+words:'')+')\\b');
+    const item=({towels:'towels?|toallas?',pillow:'pillows?|almohadas?',cot:'cots?|cunas?'})[facts.request_key];
+    const countedItem=item && new RegExp(quantity.source+'\\s+(?:(?:extra|additional|mas)\\s+)?(?:'+item+')\\b');
+    if(subject && !countedItem.test(text))return false;
+  }
+  if(turn.recordingRecovered && !/registrad|recorded/.test(text))return false;
+  if(turn.cancellation && !/cancel/.test(text))return false;
+  if(turn.delivery && !/no tengo confirmacion|no consta|don.t have confirmation|not confirmed/.test(text))return false;
   if(turn.human && /hemos recibido|hemos registrado|tomamos nota|atencion personalizada|ya (?:hay|esta).*persona|someone is|staff is/.test(text))return false;
   if(turn.unresolved && facts.status==='completed' && !/necesita revision|needs review/.test(text))return false;
   if(turn.kind!=='initial' && /(?:peticion|solicitud).*(?:registrad|recibid)|(?:registrad|recibid).*(?:peticion|solicitud)/.test(text))return false;
@@ -102,7 +120,7 @@ export async function generateReceiptReply(args, complete) {
     const stay=reservation && (!reservation.hotel_id || reservation.hotel_id===args.hotelId)
       && (!reservation.guest_id || reservation.guest_id===args.guestId) && !args.context?.reservationAmbiguous
       ? {arrival_date:reservation.arrival_date,departure_date:reservation.departure_date,guest_name:reservation.guest_name} : null;
-    const turn=ticketTurn(args.ticket,args.message);
+    const turn=ticketTurn(args.ticket,args.message,facts.newly_recorded);
     const generated=await complete({facts,turn,reply_goal:{answer_receipt_question_first:turn.receipt,acknowledge_new_detail:turn.clarification&&facts.detail_confirmed,report_only_saved_progress:turn.progress,avoid_repeating_room_and_full_request:turn.kind!=='initial',brief_subject_on_initial_request:turn.kind==='initial'},language:args.language || 'es',message:args.message,
       history:(args.context?.recentMessages || []).filter(m=>!m.hotel_id || m.hotel_id===args.hotelId)
         .slice(-8).map(m=>({role:m.sender_type,text:m.content})),

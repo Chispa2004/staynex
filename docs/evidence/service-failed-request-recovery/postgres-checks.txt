@@ -1,0 +1,16 @@
+PASS incremental wrapper is repeatable and service-only; no row migration
+PASS D11 complete original + continuation, high priority, scoped room/readback and same-message replay
+PASS two failures never confirm, later recovery retains intermediate messages
+PASS committed root with lost readback is replayed before continuation, no duplicate
+PASS failure on second receipt rolls back entire recovery; retry persists the complete request
+PASS five truly concurrent recoveries: one ticket, two source receipts, one continuation
+PASS two failed requests require clarification, never choose by shared words
+PASS explicit new incident is separate, no inherited urgency or original leak
+PASS explicit correction prevails for reevaluated priority while preserving the history
+PASS withdrawal cannot be reactivated by a later generic continuation; no cancellation implemented
+PASS changed room/stay and foreign hotel/guest/conversation cannot recover another context
+PASS receipt replay preserves an existing authorized staff priority rather than restoring old high priority
+PASS SQL human-control lock blocks recovery even with a valid failure marker
+PASS quantity, object and room are persisted together without default high priority
+PASS Inbox draft and staff-draft mode have no operational writes
+15 targeted recovery groups PASS; disposable PostgreSQL, zero external calls

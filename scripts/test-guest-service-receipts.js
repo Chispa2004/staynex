@@ -165,7 +165,7 @@ for(const status of ['open','in_progress','completed']){
  const observed=await recordOperationalRequest({...operation,message:'¿Alguna novedad?',context:{...operation.context,tickets:[current]}});
  assert.equal(observed.status,'observed');assert.equal(writeCalls,beforeWrites);assert.equal(observed.ticket.status,status);
  const plan=ticketReplyPlan({ticket:current,message:'¿Alguna novedad?'});
- assert.match(plan.text,({open:/no consta/,in_progress:/ocupando/,completed:/completado/})[status]);
+ assert.match(plan.text,({open:/sigue pendiente; todavía no tenemos una actualización/,in_progress:/ocupando/,completed:/completado/})[status]);
 }
 const conversation={id:'c',hotel_id:'a',guest_id:'g',guest:{id:'g',hotel_id:'a',preferred_language:'es'},ticketCoverage:'ready',
  messages:[{id:'followup',sender_type:'guest',content:followup}],tickets:[{...current,status:'open',priority:'high'}]};
@@ -206,7 +206,7 @@ for(const row of contextEvaluation.rows){
   assert(f.reply.length>0);assert.equal(f.service_quality.notification_confirmed,false);
   assert.doesNotMatch(f.reply,/QA-417.*QB-628|will check|are checking|verificaremos|de camino|on their way/i);
   if(c.key==='clarification'){assert.equal(o.status,'recorded');assert(o.ticket.description.includes(c.message));assert.match(f.reply,/sí|yes/i);}
-  if(c.key==='progress'){assert.equal(o.status,'observed');assert.match(f.reply,/no consta|no further update/i);}
+  if(c.key==='progress'){assert.equal(o.status,'observed');assert.match(f.reply,/sigue pendiente|still pending/i);}
   if(c.key==='inprogress'){assert.equal(o.ticket.status,'in_progress');assert.match(f.reply,/atendiendo|attending|working on/i);}
   if(c.key==='completed'){assert.equal(o.ticket.status,'completed');assert.match(f.reply,/hemos completado|we.ve completed/i);}
   if(c.key==='failure'){assert.equal(o.status,'unconfirmed');assert.equal(f.service_quality.ticket_id,null);assert.match(f.reply,/no he podido confirmar|could not confirm/i);}
@@ -257,8 +257,11 @@ assert.equal(sanitizeReceiptReply('Tenemos tu petición y estamos al tanto.',rec
 console.log('PASS luggage storage never certifies room readiness, distinct hotel policies and safe clause capitalization');
 
 const privacyReply='Hemos anotado el importe y que no necesitas facilitar el número completo de tarjeta.';
-const privacyReceipt=await generateReceiptReply(args,async()=>({reply:privacyReply}));
-assert.equal(finalizeServiceReply({...args,primary:{reply:'Confirme su tarjeta.'},receiptReply:privacyReceipt}).reply,privacyReply);
+const paymentTicket={...ticket,description:'La tarjeta muestra un cargo de 94,50 EUR',request_context:{request_key:'billing'}};
+const paymentArgs={...args,ticket:paymentTicket,message:'El importe es 94,50 EUR',operationalRequest:{...args.operationalRequest,ticket:paymentTicket}};
+const privacyReceipt=await generateReceiptReply(paymentArgs,async()=>({reply:privacyReply}));
+assert(privacyReceipt);
+assert.equal(finalizeServiceReply({...paymentArgs,primary:{reply:'Confirme su tarjeta.'},receiptReply:privacyReceipt}).reply,privacyReply);
 console.log('PASS a statement declining payment details is not removed as an imperative request');
 
 const {informationServiceDraft}=await import('../shared/guest-service/quality.js');

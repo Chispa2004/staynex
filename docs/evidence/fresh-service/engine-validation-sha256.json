@@ -1,0 +1,12 @@
+{
+  "shared/guest-service/arrival-booking.js": "38b0aace0b99da87336dcce3186185ff5e0c5be0d95ad4865f175c571aa76279",
+  "shared/guest-service/operational-request.js": "e1716c0e3ab568b4309701d9e4a19d6a78509f21f632098f35fd76f12f1cad90",
+  "shared/guest-service/quality.js": "6ece3202c54a3301d5cd70c8b606fadeac6ae6fdef469ee15d88b941f8c41dc7",
+  "shared/guest-service/receipt-reply.js": "049923a588c852d4afadc06d0c41c36a22e5fef528b37eabdcfb7da04847a3d0",
+  "shared/guest-service/ticket-context.js": "05b275fa81ebf6207cf451938509b33bb06e2b2273cf4b5cd402b229327d42db",
+  "src/prompts/staynex.prompt.js": "5e4594c3f1418c78e410fd52d37c8141b8a8d8843b59c48cc0c6da6259a99dfb",
+  "src/services/knowledge.service.js": "2f3381d10415c33a67d0af6fef7de4c183eaa80efbe1fa60849ccf2aabf5c6b1",
+  "src/services/openai-concierge.service.js": "b7564bf2ff6703d3e4fd240bc2b8b42011f4f6daa4c512613a43ab79bf9e64c2",
+  "src/services/operational-request.service.js": "7410a08b887de21a1778fc83f217ff9dd5fe056f1ca60fae79bc01de1c4c2e62",
+  "shared/guest-service/information-evidence.js": "6c34c6f6614efbe0477f737251bab6a6db0568ed7d7ef013cf7b5ad52fd2e6b2"
+}

@@ -1,0 +1,3 @@
+const fs=require('node:fs');const {Client}=require(process.argv[2]);
+const client=new Client({host:'127.0.0.1',port:Number(process.argv[3]),user:'postgres',database:'postgres',password:'',ssl:false,connectionTimeoutMillis:5000});
+(async()=>{await client.connect();try{const result=await client.query(fs.readFileSync(0,'utf8'));for(const item of Array.isArray(result)?result:[result])for(const row of item.rows||[])for(const value of Object.values(row))process.stdout.write((typeof value==='object'?JSON.stringify(value):String(value))+'\n');}finally{await client.end();}})().catch(e=>{process.stderr.write(e.message);process.exitCode=1;});

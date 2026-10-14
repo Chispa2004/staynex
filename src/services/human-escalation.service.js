@@ -1,3 +1,4 @@
+import {serviceTurn} from '../../shared/guest-service/ticket-context.js';
 const normalize = (value = '') => value
   .toLowerCase()
   .normalize('NFD')
@@ -86,6 +87,8 @@ export const detectHumanEscalation = ({
       humanReason: matchedKeywordGroup.reason
     };
   }
+
+  if (serviceTurn(message).human) return {needsHuman:true,humanReason:'human_requested'};
 
   if (Number(aiResponse?.confidence) < 0.65) {
     return {
