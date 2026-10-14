@@ -121,8 +121,8 @@ try {
  assert.equal(groupsRead.length,1);assert.equal(groupsRead[0].messageIds.length,2);assert.equal(groupsRead[0].version,2);
  pass('published lifecycle: staff completion cannot reopen, recovery receipts form one Inbox attention group');
  // Deployment matrix against actual SQL, including populated historical receipts.
- // Optional baseline checkout is local/read-only; CI always checks the new consumer
- // without its migration. No production client or remote database is accepted.
+ // CI supplies the exact reviewed main checkout for all four deployment combinations.
+ // A direct local run may omit it; no production client or remote database is accepted.
  const snapshotRows=()=>sql(`SELECT jsonb_object_agg(name,rows) FROM (
   SELECT 'tickets' name,coalesce(jsonb_agg(t ORDER BY id),'[]') rows FROM tickets t UNION ALL
   SELECT 'receipts',coalesce(jsonb_agg(r ORDER BY source_message_id),'[]') FROM operational_request_receipts r UNION ALL

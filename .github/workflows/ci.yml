@@ -99,9 +99,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Checkout reviewed main for consumer compatibility
+        uses: actions/checkout@v4
+        with:
+          ref: f627f8b441b1107c229a0daf7a5cb3ce95fd3d27
+          path: .npm-cache/service-baseline
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: docker pull postgres:17.10
       - run: npm run ci:postgres
+        env:
+          TEST_SERVICE_BASELINE_CHECKOUT: ${{ github.workspace }}/.npm-cache/service-baseline

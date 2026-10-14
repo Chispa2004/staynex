@@ -15,6 +15,11 @@ const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(
 Object.assign(env, { CI: 'true', NEXT_TELEMETRY_DISABLED: '1', SEND_AUTOMATIONS: 'false', USE_MOCK_AI: 'true',
   GUEST_MEMORY_ENABLED: 'false', AUTOMATION_TEST_SEND_ENABLED: 'false',
   NODE_OPTIONS: `--require "${path.join(__dirname, 'isolate.cjs').replaceAll('\\', '/')}"` });
+// Only the PostgreSQL matrix receives this local checkout path. The test verifies
+// the exact reviewed SHA and a clean checkout before importing the old consumer.
+if (process.argv[2] === 'postgres' && process.env.TEST_SERVICE_BASELINE_CHECKOUT) {
+  env.TEST_SERVICE_BASELINE_CHECKOUT = process.env.TEST_SERVICE_BASELINE_CHECKOUT;
+}
 // npm_execpath is supplied by npm on all supported platforms; direct invocation
 // also works for the standard Node distribution. No shell command composition.
 const npm = process.env.npm_execpath || path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');

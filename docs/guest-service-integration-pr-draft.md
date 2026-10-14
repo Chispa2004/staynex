@@ -12,4 +12,4 @@ Despliegue: preflight autorizado → SQL exacto → verificar permisos/PostgREST
 
 Naturalidad real y revisión humana pendientes. Cero llamadas nuevas de proveedor en esta revisión. No se implementan cancelación efectiva ni múltiples solicitudes automáticas; los contratos comerciales/experiencias siguen siendo independientes. No hay UI, organizaciones, Ubikos, demo, flags, credenciales ni inventarios privados en este alcance.
 
-Este archivo es un borrador local. No se ha abierto PR ni solicitado publicación automática. Cualquier publicación futura exige autorización, CI del SHA final y revisión de las condiciones anteriores.
+PR en borrador: no integrar ni activar auto-merge. Esta fase autoriza push, CI y Preview automático únicamente; no Production, SQL remoto ni evaluación real. Railway sigue main y no crea entornos PR. Vercel crea Preview con variables Supabase/backend compartidas con Production: solo metadatos, sin pruebas funcionales. CI incorpora checkout inmutable de main revisado para ejecutar también los dos grupos del consumidor antiguo (22 en total). Resultado remoto y enlaces se actualizarán al finalizar.
