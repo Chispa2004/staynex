@@ -15,7 +15,7 @@ export function AccessInvitationClient() {
  const [message,setMessage]=useState(''); const [error,setError]=useState('');
  useEffect(()=>{
    const value=new URLSearchParams(window.location.hash.slice(1)).get('token');
-   if(value && /^[a-f0-9]{64}$/.test(value)) sessionStorage.setItem(tokenKey,value);
+   if(value!==null){if(/^[a-f0-9]{64}$/.test(value))sessionStorage.setItem(tokenKey,value);else sessionStorage.removeItem(tokenKey);}
    history.replaceState(null,'','/invite'); setToken(sessionStorage.getItem(tokenKey)||'');
    const auth=getSupabaseBrowser()?.auth;
    auth?.getUser().then(({data})=>setUser(data?.user||null));
@@ -29,7 +29,7 @@ export function AccessInvitationClient() {
      const response=await fetch('/api/access-invitations',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${data?.session?.access_token||''}`},body:JSON.stringify({token,accept}),cache:'no-store'});
      const result=await response.json(); if(!response.ok) throw new Error(result.error);
      setInvite(result);
-     if(accept && result.accepted){
+     if(result.accepted){
        persistWorkspaceSelection({hotelId:result.hotelId,workspace:{id:result.hotelId,name:result.hotelName}});
        sessionStorage.removeItem(tokenKey);setToken('');
        setMessage('Acceso aceptado. Puedes completar los datos de tu hotel.');
@@ -62,7 +62,7 @@ export function AccessInvitationClient() {
          <p>{tx('Cuenta actual')}: {user.email}</p>
          <button type="button" disabled={busy} onClick={async()=>{await getSupabaseBrowser().auth.signOut();setUser(null);setInvite(null);setMessage('');}} className={ui.button(isLight,'secondary')}>{tx('Cambiar de cuenta')}</button>
          {!invite?.accepted&&<button type="button" disabled={busy||!token} onClick={()=>check(false)} className={ui.button(isLight,'secondary')}>{tx('Comprobar invitación')}</button>}
-         {invite&&<div className="space-y-3"><p>{invite.hotelName} · {invite.role}</p>{!invite.accepted?<button disabled={busy} type="button" onClick={()=>check(true)} className={ui.button(isLight,'primary')}>{tx('Aceptar invitación')}</button>:<a href={`/dashboard/onboarding?hotelId=${encodeURIComponent(invite.hotelId)}`} className={ui.button(isLight,'primary')}>{tx('Completar los datos del hotel')}</a>}</div>}
+         {invite&&<div className="space-y-3"><p>{invite.hotelName} · {tx(invite.role==='admin'?'Administrador del hotel':'Recepción')}</p>{!invite.accepted?<button disabled={busy} type="button" onClick={()=>check(true)} className={ui.button(isLight,'primary')}>{tx('Aceptar invitación')}</button>:<a href={`/dashboard/onboarding?hotelId=${encodeURIComponent(invite.hotelId)}`} className={ui.button(isLight,'primary')}>{tx('Completar los datos del hotel')}</a>}</div>}
        </>}
        {busy&&<p role="status">{tx('Comprobando…')}</p>}
      </section>

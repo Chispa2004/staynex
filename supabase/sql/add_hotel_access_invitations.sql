@@ -19,7 +19,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,publi
 DECLARE h jsonb; u public.hotel_users; i public.hotel_access_invitations;
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM public.hotel_users a JOIN auth.users au ON au.id=a.user_id
-   WHERE a.user_id=p_actor AND a.status='active' AND a.platform_role IN ('platform_admin','super_admin','internal_only')) THEN
+   WHERE a.user_id=p_actor AND au.email_confirmed_at IS NOT NULL AND (au.banned_until IS NULL OR au.banned_until<now()) AND a.status='active' AND a.platform_role IN ('platform_admin','super_admin','internal_only')) THEN
    RAISE EXCEPTION 'Invitation administration denied' USING ERRCODE='42501';
  END IF;
  SELECT to_jsonb(t) INTO h FROM public.hotels t WHERE id=p_hotel FOR UPDATE;
