@@ -36,5 +36,8 @@ try{
  sql(`CREATE TABLE room_status_snapshots(hotel_id uuid);INSERT INTO room_status_snapshots VALUES('${id(12)}');INSERT INTO hotel_pms_connections(id,hotel_id,provider,enabled,metadata) VALUES('${id(2)}','${id(12)}','apaleo',true,'{"property_id":"A","environment":"test"}');`);
  assert.throws(()=>sql(`UPDATE hotel_pms_connections SET metadata=jsonb_set(metadata,'{property_id}','"B"') WHERE id='${id(2)}';`));
  console.log('PASS derived room history also blocks property reassignment without reservations');
- console.log('6 PMS PostgreSQL groups passed');
+ sql(`INSERT INTO reservations(hotel_id,pms_provider,status) VALUES('${id(13)}',NULL,'confirmed');UPDATE reservations SET status='checked_in' WHERE hotel_id='${id(13)}';`);
+ assert.equal(sql(`SELECT status FROM reservations WHERE hotel_id='${id(13)}'`),'checked_in');
+ console.log('PASS legacy reservation with no PMS provider remains writable; Apaleo guard does not affect unrelated rows');
+ console.log('7 PMS PostgreSQL groups passed');
 }finally{db.cleanup();}

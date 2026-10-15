@@ -64,7 +64,7 @@ CREATE OR REPLACE FUNCTION public.guard_apaleo_reservation_binding_v1()
 RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,public AS $$
 DECLARE c public.hotel_pms_connections;
 BEGIN
- IF NEW.pms_provider<>'apaleo' THEN RETURN NEW; END IF;
+ IF NEW.pms_provider IS DISTINCT FROM 'apaleo' THEN RETURN NEW; END IF;
  SELECT * INTO c FROM public.hotel_pms_connections WHERE id=NEW.pms_connection_id FOR SHARE;
  IF c.id IS NULL OR c.provider<>'apaleo' OR NOT c.enabled OR c.hotel_id<>NEW.hotel_id
    OR c.config_revision IS DISTINCT FROM NEW.pms_config_revision

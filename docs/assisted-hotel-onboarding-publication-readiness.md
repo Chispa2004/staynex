@@ -65,7 +65,7 @@ SHA-256 sobre bytes de `git show HEAD:ruta` (LF; no hash de copia CRLF):
 |---|---|
 | 1. `supabase/sql/add_hotel_access_invitations.sql` | `847c76923da372186d1c74e4b863eda267c8a2d5f4cd8bfcce5d4fcd1b83f3c3` |
 | 2. `supabase/sql/add_hotel_information_review.sql` | `a6f96329a08070c1a75a8e2d6b30353e59a33c7d2e8e0d771dcd2347e4dbae14` |
-| 3. `supabase/sql/add_pms_connection_evidence.sql` | `7dd8dfb69cffb2f740d5d1bfdce8ac4bfd507347969fc69b391c17aa0ef017f2` |
+| 3. `supabase/sql/add_pms_connection_evidence.sql` | `2687195c4e63fcc881f4db8900c645061afd236eebf616f3e1f4f0aff1bb360f` |
 
 1. Tabla hotel_access_invitations: PK uuid, FKs a hotel_users/hotels, CHECK rol admin/receptionist,
    hash único hex64, índice assignment. RLS sin políticas de cliente. Revoca derechos de tabla
@@ -98,6 +98,12 @@ Auth id/email/email_confirmed_at/banned_until, funciones PostgreSQL sha256/gen_r
 Verificar propietario, BYPASSRLS de service_role y ACL reales; no ampliar permisos generales.
 IF NOT EXISTS **no acredita compatibilidad** de un objeto previo diferente: comparar definiciones
 antes de aplicar; detener ante conflicto. Repetición ensayada sobre catálogo sintético compatible.
+
+Corrección de compatibilidad en esta fase: la comparación del trigger Apaleo pasa de `<>` a
+`IS DISTINCT FROM`. Con NULL, la primera no devolvía temprano y rechazaba reservas históricas
+sin proveedor, ajenas a Apaleo. La regresión PostgreSQL añade inserción y actualización de esas
+filas: **7 grupos PMS PASS** en el candidato final. Cambia solo esta huella SQL; el informe
+anterior conserva la huella del candidato original, que ya no es la que debe aplicarse.
 
 ## Preflight preparado
 
@@ -233,7 +239,8 @@ La revisión final detectó además un defecto del runner aislado: un hijo termi
 devuelve status=null y se convertía en salida 0. Se corrige a fallo (status ?? 1), con regresión
 que termina exclusivamente un proceso sintético mediante SIGTERM. No cambia producto ni SQL.
 El SHA/ejecución final se identifican en la cabecera y checks de la PR, que se revisan nuevamente
-antes de entregar; los enlaces anteriores fijan la evidencia del candidato anterior a este ajuste CI.
+antes de entregar; los enlaces anteriores fijan la evidencia anterior al ajuste CI y a la
+corrección NULL del trigger (6 grupos PMS entonces; 7 en el candidato final).
 El informe anterior mantiene los demás fallos estáticos heredados, sin expectativas debilitadas.
 
 **Preparado con condiciones concretas para revisión; todavía no para ejecutar migración ni

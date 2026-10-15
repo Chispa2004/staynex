@@ -60,4 +60,5 @@ SELECT provider,enabled,count(*) AS connections,
  count(*) FILTER(WHERE nullif(metadata->>'property_id','') IS NULL) AS without_explicit_property,
  count(*) FILTER(WHERE coalesce(metadata->>'environment','') NOT IN ('test','production')) AS without_environment
 FROM public.hotel_pms_connections GROUP BY 1,2 ORDER BY 1,2;
+SELECT pms_provider,count(*) AS reservations FROM public.reservations GROUP BY 1 ORDER BY 1;
 ROLLBACK;
