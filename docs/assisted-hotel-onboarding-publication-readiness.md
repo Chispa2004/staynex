@@ -229,9 +229,11 @@ fuera de Git. Preview del candidato: `GHYaSqSNdSnv28AJ4CgJ3U4gsTcK`, GitHub depl
 7089827300, `https://staynex-97u66zk22-staynex-s-projects.vercel.app`, SUCCESS para ese SHA.
 Solo metadatos, ninguna prueba funcional remota.
 
-La actualización final de este informe es documental: no cambia código, SQL ni pruebas.
-Su SHA/ejecución final se identifican en la cabecera y checks de la PR, que se revisan nuevamente
-antes de entregar; los enlaces anteriores fijan la evidencia completa del mismo árbol ejecutable.
+La revisión final detectó además un defecto del runner aislado: un hijo terminado por señal
+devuelve status=null y se convertía en salida 0. Se corrige a fallo (status ?? 1), con regresión
+que termina exclusivamente un proceso sintético mediante SIGTERM. No cambia producto ni SQL.
+El SHA/ejecución final se identifican en la cabecera y checks de la PR, que se revisan nuevamente
+antes de entregar; los enlaces anteriores fijan la evidencia del candidato anterior a este ajuste CI.
 El informe anterior mantiene los demás fallos estáticos heredados, sin expectativas debilitadas.
 
 **Preparado con condiciones concretas para revisión; todavía no para ejecutar migración ni

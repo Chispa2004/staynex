@@ -8,7 +8,7 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'staynex-ci-guards-'));
 const put = (file, text) => { const target = path.join(temp, file); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, text); };
 const run = args => spawnSync(process.execPath, args, { cwd: temp, env: { ...process.env, NODE_OPTIONS: '' }, encoding: 'utf8' });
 try {
-  for (const file of ['scripts/check-syntax.cjs', 'scripts/ci/run.cjs', 'scripts/ci/isolate.cjs', '.node-version']) put(file, fs.readFileSync(path.join(root, file), 'utf8'));
+  for (const file of ['scripts/check-syntax.cjs', 'scripts/ci/run.cjs', 'scripts/ci/isolate.cjs', 'scripts/ci/run-isolated-task.cjs', '.node-version']) put(file, fs.readFileSync(path.join(root, file), 'utf8'));
   for (const directory of ['src', 'shared', 'dashboard/lib', 'dashboard/app/api', 'dashboard/scripts']) fs.mkdirSync(path.join(temp, directory), { recursive: true });
   put('package.json', JSON.stringify({ type: 'module', scripts: { 'check:syntax': 'node scripts/check-syntax.cjs' } }));
   put('src/new-module.js', 'export const = ;');
@@ -27,6 +27,9 @@ try {
   const result = spawnSync(process.execPath, ['scripts/ci/run.cjs', 'dashboard'], { cwd: temp, env: { ...process.env, NODE_OPTIONS: '', OPENAI_API_KEY: 'synthetic-inherited', SEND_AUTOMATIONS: 'true' }, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /ISOLATION PASS/);
+  put('signal.cjs', "process.kill(process.pid,'SIGTERM');");
+  assert.notEqual(run(['scripts/ci/run-isolated-task.cjs','signal.cjs']).status,0,'Terminated child must not report success');
+  console.log('CI guards PASS: isolated child terminated by SIGTERM reports failure.');
   console.log('CI guards PASS: new/missing sources, parse without execution, child exit 23 propagated, sanitized environment and external network blocked.');
 } finally {
   assert.ok(path.resolve(temp).startsWith(path.resolve(os.tmpdir()) + path.sep + 'staynex-ci-guards-'));

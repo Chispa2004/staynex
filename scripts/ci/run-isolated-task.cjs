@@ -5,4 +5,5 @@ const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>/^(PATH|P
 Object.assign(env,{CI:'true',NEXT_TELEMETRY_DISABLED:'1',SEND_AUTOMATIONS:'false',USE_MOCK_AI:'true',GUEST_MEMORY_ENABLED:'false',AUTOMATION_TEST_SEND_ENABLED:'false',NODE_OPTIONS:'--require "'+path.join(__dirname,'isolate.cjs').replaceAll('\\','/')+'"'});
 const result=spawnSync(process.execPath,process.argv.slice(2),{env,stdio:'inherit'});
 if(result.error) throw result.error;
-process.exit(result.status||0);
+// A child terminated by a signal has status=null: it must not turn CI green.
+process.exit(result.status??1);
