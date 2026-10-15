@@ -200,10 +200,41 @@ huésped antes del rechazo de reserva); no habilitar piloto PMS por este borrado
 ## Validación de esta fase y dictamen
 
 Local: 10 grupos invitaciones/revisión y 6 PMS PostgreSQL PASS; transición y preflight local
-PASS con incompatibilidad antigua explícita. CI Linux y PR: se completarán para el SHA final.
-El informe anterior mantiene los fallos estáticos/CRLF heredados, sin expectativas debilitadas.
+PASS con incompatibilidad antigua explícita. PR **#55**, borrador, sin auto-merge:
+https://github.com/Chispa2004/staynex/pull/55
+
+CI completo del candidato ejecutable `316302f987df3017c9089fa3e96e051bd3c4fe8c`:
+https://github.com/Chispa2004/staynex/actions/runs/38718826310 (pull_request, cuatro jobs PASS).
+También PASS el run push https://github.com/Chispa2004/staynex/actions/runs/38718741132.
+Logs comprobados, sin jobs omitidos/cancelados:
+
+- Critical tests and syntax: 44 tareas, incluida sintaxis, contrato PMS, 44 comprobaciones
+  webhook/tenant, validación/navegación/finalización, permisos/contexto, aislamiento y HTTP
+  Security. Este último **PASS en Linux/LF**; se conserva el fallo CRLF local del informe previo.
+- PostgreSQL knowledge and automation dispatch: 12 suites realmente ejecutadas. Nuevas:
+  transición/preflight, 6 grupos PMS y 10 grupos invitaciones/revisión (6 aceptaciones
+  concurrentes y respuesta perdida). También 20 grupos archivado/restauración y 8 alta atómica,
+  además de las regresiones existentes. Docker sin red; no base remota.
+- Assisted onboarding browser and PostgreSQL: build del laboratorio, cuenta existente y nueva,
+  identidad equivocada/no verificada, aceptación mediante Enter, respuesta perdida/recuperación,
+  persistencia/recarga, revisión de información, finalización mediante Enter y Salud del hotel
+  correcto con AI/live OFF. Chromium, 1366/390, claro/oscuro, Escape móvil, sin desbordamiento.
+  Auth/correo simulados; handlers y SQL reales. No es prueba con lector de pantalla ni de Auth remoto.
+- Dashboard build: build PASS; temas 14, densidad 10, accesibilidad 17, Inbox 12, Tickets
+  pendientes 8, carga/demo 9, atención 4, Platform 4 y navegación Azul noche 12 pruebas PASS.
+
+Capturas del job inspeccionadas (invitación, PMS escritorio/móvil); artefacto
+`assisted-onboarding-synthetic-screenshots`, solo PNG. Logs/copia privada local en .npm-cache,
+fuera de Git. Preview del candidato: `GHYaSqSNdSnv28AJ4CgJ3U4gsTcK`, GitHub deployment
+7089827300, `https://staynex-97u66zk22-staynex-s-projects.vercel.app`, SUCCESS para ese SHA.
+Solo metadatos, ninguna prueba funcional remota.
+
+La actualización final de este informe es documental: no cambia código, SQL ni pruebas.
+Su SHA/ejecución final se identifican en la cabecera y checks de la PR, que se revisan nuevamente
+antes de entregar; los enlaces anteriores fijan la evidencia completa del mismo árbol ejecutable.
+El informe anterior mantiene los demás fallos estáticos heredados, sin expectativas debilitadas.
 
 **Preparado con condiciones concretas para revisión; todavía no para ejecutar migración ni
 publicación.** Pendientes: destino efectivo Dashboard; catálogo/legacy; retornos Auth/SMTP y
-entrega real; control de versiones antiguas y escritores PMS; resultado CI final. Producción,
+entrega real; control de versiones antiguas y escritores PMS. Producción,
 demo, datos, flags, asignaciones e invitaciones remotas permanecen intactos.
