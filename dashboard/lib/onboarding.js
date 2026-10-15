@@ -257,6 +257,7 @@ export const getPilotOnboardingSummaryForContext = async ({
   if (strict && (!operationalHealth?.coverage?.sources || Object.values(operationalHealth.coverage.sources).some(source => source.status === 'unavailable'))) {
     throw Object.assign(new Error('Hay fuentes de Salud que no se han podido consultar. Reintenta o consulta a Staynex.'), {status:503});
   }
+  const informationReview = await supabase.rpc('hotel_information_review_v1',{p_hotel:hotelId});
   const identities = await supabase.rpc('hotel_identity_evidence_v1', {p_hotel:hotelId});
   if (strict && identities.error) throw Object.assign(new Error('No se pudo verificar el acceso del equipo.'),{status:503});
   const validIds=new Set((identities.data||[]).map(row=>row.id));
@@ -266,6 +267,7 @@ export const getPilotOnboardingSummaryForContext = async ({
     pmsConnections: serializePmsConnectionsSafe(pmsConnections, { surface: 'tenant_settings' }),
     knowledgeEntries,
     localKnowledge,
+    informationReview:informationReview.error ? null : informationReview.data,
     operationalHealth,
     role,
     platformRole,

@@ -33,7 +33,7 @@ export async function POST(request) {
     if (!canAccess(role, 'pms_connections_manage')) {
       return NextResponse.json({ ok: false, error: 'Access denied' }, { status: 403, ...jsonOptions });
     }
-    if (platformRole === 'support') {
+    if (!['platform_admin','super_admin','internal_only'].includes(platformRole)) {
       return NextResponse.json({ ok: false, error: 'Support sessions are read-only by default' }, { status: 403, ...jsonOptions });
     }
     const hotelId = assertPmsHotelContext({ hotel, fallback, write: true });

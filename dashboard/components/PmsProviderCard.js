@@ -24,6 +24,8 @@ export const PmsProviderCard = ({provider,connection,receipt,onEdit,onTest,onSyn
         {result.receipt?<dd className={cn('mt-1 text-xs',ui.text.muted(light))}>{tx('Resultado de esta sesión; no sustituye el historial persistido.')}</dd>:null}
       </div>)}
     </dl>
+    <p className={cn('mt-3',ui.text.muted(light))}>{tx('Cobertura de sincronización')}: {evidence.coverage==='complete'?tx('Acreditada'):tx('Desconocida o parcial')}</p>
+    {evidence.historicalSuccess?<p className={cn('mt-2',ui.text.muted(light))}>{tx('Último éxito histórico')}: {date(evidence.historicalSuccess.at)} · {tx('Revisión')} {evidence.historicalSuccess.revision}</p>:null}
     {evidence.legacyTest?<p className={cn('mt-3',ui.text.muted(light))}>{tx('Existe un estado de prueba anterior sin fecha independiente. No acredita conectividad actual.')}</p>:null}
     {connection?.last_sync_error?<p role="status" className="mt-3 text-sm text-red-600">{tx('El registro guardado contiene un error de sincronización. Revisa la configuración antes de reintentar.')}</p>:null}
     {connection?.last_webhook_at?<p className={cn('mt-3',ui.text.muted(light))}>{tx('Último webhook registrado')}: {date(connection.last_webhook_at)}</p>:null}

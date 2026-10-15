@@ -858,13 +858,14 @@ assert.equal(apaleoStatusSupabase.db.scheduled_messages.find((row) => row.id ===
 
 const apaleoConnection = {
   id: 'apaleo-connection-phase2a2',
+  config_revision: 1,
   hotel_id: hotel.id,
   provider: 'apaleo',
   account_code: 'phase2a2-account',
   enabled: true,
   encrypted_client_secret: null,
   updated_at: now.toISOString(),
-  metadata: {}
+  metadata: {environment:'test',property_id:'property-a'}
 };
 const apaleoWebhookReservation = {
   ...baseReservation,
@@ -887,6 +888,7 @@ const apaleoWebhookPayload = {
   }
 };
 const apaleoFetchedReservation = {
+  property: {id:'property-a'},
   id: 'apaleo-webhook-reservation',
   status: 'confirmed',
   arrival: '2026-08-14',
