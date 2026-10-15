@@ -133,6 +133,7 @@
     "test:access-invitations-postgres": "node scripts/test-access-invitations-postgres.js",
     "test:pms-connection-contract": "node scripts/test-pms-connection-contract.js",
     "test:pms-connection-contract-postgres": "node scripts/test-pms-connection-contract-postgres.js",
+    "test:assisted-onboarding-transition": "node scripts/test-assisted-onboarding-transition.js",
     "lab:assisted-onboarding": "node scripts/assisted-onboarding-lab.cjs"
   },
   "dependencies": {

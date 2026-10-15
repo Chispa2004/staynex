@@ -1,7 +1,7 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const out=path.resolve('.npm-cache/assisted-onboarding-evidence'),state=JSON.parse(fs.readFileSync(path.join(out,process.argv.includes('--new-account')?'state-new.json':'state.json'),'utf8'));
 (async()=>{
- const browser=await chromium.launch({channel:'msedge',headless:true});
+ const browser=await chromium.launch({...(process.platform==='win32'?{channel:'msedge'}:{}),headless:true});
  const context=await browser.newContext({viewport:{width:1366,height:900},storageState:state.owner});
  await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  const page=await context.newPage();page.on('pageerror',e=>console.error('BROWSER',e.message));

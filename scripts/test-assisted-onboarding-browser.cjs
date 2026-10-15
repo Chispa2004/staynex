@@ -2,7 +2,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
 const newAccount=process.argv.includes('--new-account');const ownerEmail=newAccount?'new-owner@example.invalid':'owner@example.invalid';
 const out=path.resolve('.npm-cache/assisted-onboarding-evidence');fs.mkdirSync(out,{recursive:true});
 (async()=>{
- const browser=await chromium.launch({channel:'msedge',headless:true});
+ const browser=await chromium.launch({...(process.platform==='win32'?{channel:'msedge'}:{}),headless:true});
  const context=await browser.newContext({viewport:{width:1366,height:900},permissions:['clipboard-read','clipboard-write']});
  await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  const page=await context.newPage();page.on('pageerror',e=>console.error('BROWSER',e.message));
