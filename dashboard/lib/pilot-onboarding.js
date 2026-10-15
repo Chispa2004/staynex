@@ -1,3 +1,4 @@
+import {currentPmsEvidence} from '../../shared/pms/connection-contract.js';
 import { evaluateHotelLocationTimezoneIntegrity } from '../../shared/location/hotel-location-integrity.js';
 import { getGuestMemoryPilotStatus } from '../../shared/guest-memory/feature-flag.js';
 import { getPilotAiSafetyReadiness } from '../../shared/pilot/ai-safety.js';
@@ -172,7 +173,7 @@ export const evaluatePilotHotelProfile = (hotel = {}) => {
 };
 
 export const evaluatePilotUsers = (users = []) => {
-  const activeUsers = normalizeRows(users).filter((user) => normalizedStatus(user.status || 'active') === 'active');
+  const activeUsers = normalizeRows(users).filter((user) => normalizedStatus(user.status) === 'active' && user.identity_verified === true);
   const managers = activeUsers.filter((user) => (
     ['owner', 'admin', 'manager'].includes(user.role)
     && (hasText(user.email) || hasText(user.user_id) || hasText(user.id))
@@ -208,24 +209,11 @@ const pmsCredentialsReady = (connection = {}) => Boolean(
   || connection.metadata?.credential_configured
 );
 
-export const isRealPilotPmsConnection = (connection = {}) => {
-  if (!pmsConnectionEnabled(connection) || !pmsCredentialsReady(connection)) {
-    return false;
-  }
-
-  const provider = getPmsProvider(connection.provider);
-  const liveApi = isPmsProviderLiveApi(provider)
-    || connection.connection_mode === 'live_api'
-    || connection.metadata?.connection_mode === 'live_api'
-    || connection.metadata?.setup_status === 'live_api';
-  const syncStatus = normalizedStatus(connection.sync_status || 'configured');
-
-  return liveApi && (goLivePmsStatuses.has(syncStatus) || !syncStatus);
-};
+export const isRealPilotPmsConnection = connection => currentPmsEvidence(connection).accessVerified;
 
 export const evaluatePilotPms = ({
   pmsConnections = [],
-  preferredProvider = 'ubikos'
+  preferredProvider = null
 } = {}) => {
   const connections = normalizeRows(pmsConnections).filter(pmsConnectionEnabled);
   const realConnection = connections.find(isRealPilotPmsConnection);
@@ -238,15 +226,16 @@ export const evaluatePilotPms = ({
       id: 'pms',
       title: 'PMS',
       status: PILOT_STATUS.COMPLETED,
-      description: `${provider?.name || realConnection.provider || 'PMS'} está configurado con conexión real de lectura.`,
+      description: `${provider?.name || realConnection.provider || 'PMS'}: acceso de lectura comprobado para esta configuración.`,
       actionLabel: 'Configurar PMS',
       href: '/dashboard/settings/pms',
       readyForConfiguration: true,
-      readyForGoLive: true,
+      readyForGoLive: currentPmsEvidence(realConnection).syncVerified && currentPmsEvidence(realConnection).production,
       details: [
         { label: 'Proveedor', value: provider?.name || realConnection.provider || 'PMS' },
         { label: 'Estado', value: realConnection.sync_status || 'Configurado' },
-        { label: 'Modo', value: 'Lectura PMS' }
+        { label: 'Entorno', value: realConnection.metadata?.environment === 'production' ? 'Producción' : 'Pruebas: no habilita operación real' },
+        { label: 'Cobertura de sincronización', value: currentPmsEvidence(realConnection).syncVerified ? 'Acreditada' : 'Desconocida o parcial' }
       ]
     });
   }
@@ -295,10 +284,10 @@ export const evaluatePilotPms = ({
     id: 'pms',
     title: 'PMS',
     status: PILOT_STATUS.ACTION_REQUIRED,
-    description: 'Selecciona o guarda el PMS que usará el hotel piloto.',
+    description: 'Staynex debe seleccionar y preparar la conexión. Pendiente de gestión; no se ha enviado una solicitud.',
     actionLabel: 'Configurar PMS',
     href: '/dashboard/settings/pms',
-    readyForConfiguration: false,
+    readyForConfiguration: true,
     readyForGoLive: false,
     details: [
       { label: 'Proveedor', value: 'Pendiente' },
@@ -376,6 +365,7 @@ const isUsableKnowledgeEntry = (entry = {}) => (
 
 export const evaluatePilotKnowledge = ({
   knowledgeEntries = [],
+  informationReview = null,
   localKnowledge = []
 } = {}) => {
   const activeHotelKnowledge = normalizeRows(knowledgeEntries).filter(isUsableKnowledgeEntry);
@@ -386,16 +376,17 @@ export const evaluatePilotKnowledge = ({
   return statusResult({
     id: 'knowledge',
     title: 'Knowledge',
-    status: ready ? PILOT_STATUS.COMPLETED : PILOT_STATUS.ACTION_REQUIRED,
+    status: ready && informationReview?.reviewed===true ? PILOT_STATUS.COMPLETED : PILOT_STATUS.ACTION_REQUIRED,
     description: ready
-      ? 'Hay contenido Knowledge activo para empezar el piloto.'
+      ? 'Hay información guardada. El hotel debe revisar horarios, políticas, servicios e instrucciones de llegada; guardar no acredita revisión.'
       : 'Añade al menos una fuente o item activo antes de go-live.',
     actionLabel: 'Configurar Knowledge',
     href: '/dashboard/knowledge',
     readyForConfiguration: ready,
-    readyForGoLive: ready,
+    readyForGoLive: ready && informationReview?.reviewed===true,
     details: [
       { label: 'Items activos', value: activeCount },
+      { label: 'Revisión de información', value: informationReview?.reviewed ? 'Información revisada' : 'Pendiente de revisión con el hotel' },
       { label: 'Autogeneración', value: 'No aplicada' }
     ]
   });
@@ -667,6 +658,7 @@ export const buildPilotOnboardingSummary = ({
   users = [],
   pmsConnections = [],
   knowledgeEntries = [],
+  informationReview = null,
   localKnowledge = [],
   operationalHealth = null,
   failureRehearsal = null,
@@ -681,12 +673,12 @@ export const buildPilotOnboardingSummary = ({
     || metadata.pilot_pms_provider
     || metadata.pms_provider
     || hotel.pms_provider
-    || 'ubikos';
+    || null;
   const hotelBlock = evaluatePilotHotelProfile(hotel);
   const usersBlock = evaluatePilotUsers(users);
   const pmsBlock = evaluatePilotPms({ pmsConnections, preferredProvider: resolvedPreferredPmsProvider });
   const whatsappBlock = evaluatePilotWhatsapp(hotel);
-  const knowledgeBlock = evaluatePilotKnowledge({ knowledgeEntries, localKnowledge });
+  const knowledgeBlock = evaluatePilotKnowledge({ knowledgeEntries, localKnowledge, informationReview });
   const guestMemoryBlock = evaluatePilotGuestMemory(env);
   const sendAutomationsBlock = evaluatePilotSendAutomations(env);
   const securityBaselineBlock = evaluatePilotSecurityBaseline({ hotel, env });
@@ -725,6 +717,7 @@ export const buildPilotOnboardingSummary = ({
     && sendAutomationsBlock.readyForConfiguration
     && observabilityBlock.readyForConfiguration;
   const readyForPilotDemo = readyForConfiguration
+    && knowledgeBlock.readyForGoLive
     && pmsBlock.readyForGoLive
     && whatsappBlock.readyForGoLive
     && securityBaselineBlock.readyForConfiguration

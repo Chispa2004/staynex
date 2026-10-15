@@ -1,4 +1,4 @@
-import { UbikosAdapter } from '../src/services/pms/adapters/ubikos.adapter.js';
+import { UbikosAdapter, UBIKOS_SYNTHETIC_TRANSPORT } from '../src/services/pms/adapters/ubikos.adapter.js';
 import { createPmsConnector } from '../src/integrations/pms/registry.js';
 import {
   normalizeUbikosFolio,
@@ -14,8 +14,9 @@ const assert = (condition, message) => {
 };
 
 const adapter = new UbikosAdapter({
+  simulation: UBIKOS_SYNTHETIC_TRANSPORT,
   config: {
-    enabled: false,
+    enabled: true,
     sandbox: true,
     readOnly: true
   }
@@ -25,7 +26,7 @@ const health = await adapter.getConnectionHealth();
 
 assert(health.provider === 'ubikos', 'Health check should identify Ubikos');
 assert(health.status === 'not_configured', 'Ubikos should be not_configured without credentials');
-assert(health.sandbox === true, 'Ubikos phase 1 should run in sandbox by default');
+assert(health.sandbox === true, 'Trusted synthetic composition explicitly enables fixtures');
 assert(health.readOnly === true, 'Ubikos phase 1 should be read-only');
 assert(health.warnings.includes('credentials_missing'), 'Health check should warn about missing credentials');
 
@@ -101,8 +102,9 @@ try {
 assert(blocked, 'Adapter should fail closed if read-only mode is disabled');
 
 const connector = createPmsConnector('ubikos', {
+  simulation: UBIKOS_SYNTHETIC_TRANSPORT,
   config: {
-    enabled: false,
+    enabled: true,
     sandbox: true,
     readOnly: true
   }

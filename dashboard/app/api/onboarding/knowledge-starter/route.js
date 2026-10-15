@@ -1,3 +1,4 @@
+import {isCheckinDemoHotel} from '../../../../../shared/checkin-demo-view.js';
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
 import { canAccess } from '@/lib/permissions';
@@ -20,6 +21,7 @@ export async function POST(request) {
     if (!hotel?.id || !canAccess(role, 'knowledge_base_manage')) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
+    if (!isCheckinDemoHotel(hotel)) return NextResponse.json({error:'Las plantillas de demostración no están disponibles en hoteles reales. Añade información confirmada en Información del hotel.'},{status:403});
     const records = starterEntries.map((entry) => ({
       ...entry,
       hotel_id: hotel.id,

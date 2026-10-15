@@ -303,8 +303,9 @@ const apaleoConnection = (overrides = {}) => ({
   enabled: true,
   client_id: 'client-b2',
   encrypted_client_secret: null,
-  base_url: 'https://api.apaleo.example',
-  metadata: {},
+  base_url: 'https://api.apaleo.com',
+  config_revision:1,
+  metadata: {property_id:'A',environment:'test'},
   updated_at: now.toISOString(),
   ...overrides
 });
@@ -321,7 +322,7 @@ const webhookPayload = (id, reservationId = 'reservation-b2') => ({
 });
 
 const fetchedReservation = (id = 'reservation-b2') => ({
-  id,
+  id,property:{id:'A'},
   status: 'confirmed',
   arrival: '2026-09-01',
   departure: '2026-09-03',
@@ -695,10 +696,12 @@ await check('tenant-scoped reservation mutation rejects missing hotel id', async
 
 await check('tenant-scoped reservation update avoids global upsert', async () => {
   const supabase = createMockSupabase({
+    hotel_pms_connections:[apaleoConnection()],
     reservations: [{
       id: 'reservation-existing',
       hotel_id: hotelId,
       pms_provider: 'apaleo',
+    pms_connection_id:connectionId,pms_config_revision:1,pms_property_id:'A',pms_environment:'test',
       pms_reservation_id: 'reservation-existing',
       guest_name: 'Private Guest',
       status: 'confirmed',
@@ -708,6 +711,7 @@ await check('tenant-scoped reservation update avoids global upsert', async () =>
   const { reservation } = await createOrUpdateReservation({
     hotel_id: hotelId,
     pms_provider: 'apaleo',
+    pms_connection_id:connectionId,pms_config_revision:1,pms_property_id:'A',pms_environment:'test',
     pms_reservation_id: 'reservation-existing',
     guest_name: 'Private Guest',
     status: 'cancelled'
@@ -724,10 +728,11 @@ await check('tenant-scoped reservation update avoids global upsert', async () =>
 });
 
 await check('tenant-scoped reservation insert avoids global upsert', async () => {
-  const supabase = createMockSupabase();
+  const supabase = createMockSupabase({hotel_pms_connections:[apaleoConnection()]});
   const { reservation } = await createOrUpdateReservation({
     hotel_id: hotelId,
     pms_provider: 'apaleo',
+    pms_connection_id:connectionId,pms_config_revision:1,pms_property_id:'A',pms_environment:'test',
     pms_reservation_id: 'reservation-new',
     guest_name: 'Private Guest',
     status: 'confirmed'
@@ -744,10 +749,11 @@ await check('tenant-scoped reservation insert avoids global upsert', async () =>
 });
 
 await check('tenant-scoped same-hotel reservation insert race recovers without global upsert', async () => {
-  const supabase = createMockSupabase();
+  const supabase = createMockSupabase({hotel_pms_connections:[apaleoConnection()]});
   const reservationPayload = {
     hotel_id: hotelId,
     pms_provider: 'apaleo',
+    pms_connection_id:connectionId,pms_config_revision:1,pms_property_id:'A',pms_environment:'test',
     pms_reservation_id: 'reservation-race',
     guest_name: 'Private Guest',
     status: 'confirmed'
@@ -782,10 +788,12 @@ await check('tenant-scoped same-hotel reservation insert race recovers without g
 
 await check('tenant-scoped reservation rejects other hotel global identity', async () => {
   const supabase = createMockSupabase({
+    hotel_pms_connections:[apaleoConnection()],
     reservations: [{
       id: 'reservation-other',
       hotel_id: otherHotelId,
       pms_provider: 'apaleo',
+    pms_connection_id:connectionId,pms_config_revision:1,pms_property_id:'A',pms_environment:'test',
       pms_reservation_id: 'reservation-shared',
       status: 'confirmed'
     }]
@@ -795,6 +803,7 @@ await check('tenant-scoped reservation rejects other hotel global identity', asy
     () => createOrUpdateReservation({
       hotel_id: hotelId,
       pms_provider: 'apaleo',
+    pms_connection_id:connectionId,pms_config_revision:1,pms_property_id:'A',pms_environment:'test',
       pms_reservation_id: 'reservation-shared',
       guest_name: 'Private Guest'
     }, {
@@ -810,10 +819,12 @@ await check('tenant-scoped reservation rejects other hotel global identity', asy
 
 await check('tenant-scoped reservation rejects null hotel legacy identity', async () => {
   const supabase = createMockSupabase({
+    hotel_pms_connections:[apaleoConnection()],
     reservations: [{
       id: 'reservation-null-hotel',
       hotel_id: null,
       pms_provider: 'apaleo',
+    pms_connection_id:connectionId,pms_config_revision:1,pms_property_id:'A',pms_environment:'test',
       pms_reservation_id: 'reservation-null-hotel',
       status: 'confirmed'
     }]
@@ -823,6 +834,7 @@ await check('tenant-scoped reservation rejects null hotel legacy identity', asyn
     () => createOrUpdateReservation({
       hotel_id: hotelId,
       pms_provider: 'apaleo',
+    pms_connection_id:connectionId,pms_config_revision:1,pms_property_id:'A',pms_environment:'test',
       pms_reservation_id: 'reservation-null-hotel',
       guest_name: 'Private Guest'
     }, {
@@ -1017,6 +1029,14 @@ check('B2 script is registered', () => {
   assert.match(packageSource, /"test:pms-webhook-tenant-runtime": "node scripts\/test-pms-webhook-tenant-runtime\.js"/);
 });
 
+for(const [name,raw] of [['foreign',{...fetchedReservation(),property:{id:'B'}}],['missing',{...fetchedReservation(),property:undefined}],['absent',null]]) {
+ await check('webhook '+name+' property never persists',async()=>{
+  const supabase=createMockSupabase({hotel_pms_connections:[apaleoConnection()]});
+  const rejected=await processApaleoWebhookEvent(webhookPayload('evt-property-'+name),{},{supabase,validationResult:validationOk,fetchReservationById:async()=>raw});
+  assert.equal(rejected.ok,false);assert.equal(supabase.db.pms_webhook_events[0].status,'failed');
+  assert.equal(supabase.db.counters.reservationInsertCalls,0);assert.equal(supabase.db.counters.reservationUpdateCalls,0);
+ });
+}
 assert.ok(checks >= 30);
 
 console.log(JSON.stringify({

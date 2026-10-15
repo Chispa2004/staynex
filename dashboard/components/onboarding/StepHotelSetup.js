@@ -21,6 +21,7 @@ const fields = [
   ['check_in_time', 'Hora de check-in', false],
   ['check_out_time', 'Hora de check-out', false],
   ['phone', 'Teléfono del hotel', false],
+  ['support_email', 'Correo de contacto del hotel', false],
   ['whatsapp_number', 'WhatsApp del hotel', false]
 ];
 
@@ -59,6 +60,7 @@ export const StepHotelSetup = ({ hotel, canEdit = true, onSaved, onDirtyChange, 
     onDirtyChange?.(false);
     setForm({
       name: hotel?.name || '',
+      support_email: hotel?.support_email || '',
       brand_name: hotel?.brand_name || '',
       country_code: hotel?.country_code || '',
       city: hotel?.city || '',

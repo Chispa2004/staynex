@@ -1,3 +1,4 @@
+import {isCheckinDemoHotel,CHECKIN_DEMO_HOTEL_ID} from '../shared/checkin-demo-view.js';
 import {isArchivedHotel} from '../shared/hotels/lifecycle.js';
 import {readAllInboxRows} from '../shared/inbox/stay-stage.js';
 import assert from 'node:assert/strict';
@@ -164,17 +165,20 @@ await test('Starter knowledge honors existing permissions before writes',async()
   const {POST}=load('dashboard/app/api/onboarding/knowledge-starter/route.js',{getCurrentHotelForRequest:async()=>({supabase:s.client,hotel:{id:A},role:'housekeeping'}),canAccess,NextResponse:{json:(body,options={})=>({body,status:options.status??200})}},['POST']);
   assert.equal((await POST({})).status,403);assert.equal(s.calls.length,0);
 });
-await test('Starter respects protected entries for reception and preserves legitimate onboarding',async()=>{
+await test('Starter rejects real hotels before writes and preserves protected demo content',async()=>{
+ const real=makeStore();
+ const blocked=load('dashboard/app/api/onboarding/knowledge-starter/route.js',{isCheckinDemoHotel,canAccess,getCurrentHotelForRequest:async()=>({supabase:real.client,hotel:{id:A},role:'manager'}),NextResponse:{json:(body,options={})=>({body,status:options.status??200})}},['POST']);
+ assert.equal((await blocked.POST({})).status,403);assert.equal(real.calls.length,0);
   for(const role of ['receptionist','manager'])for(const protectedEntry of [true,false]){
-    const s=makeStore();if(protectedEntry)s.db.hotel_knowledge.find(x=>x.id==='ka').category='security';
+    const s=makeStore();s.db.hotel_knowledge.filter(x=>x.hotel_id===A).forEach(x=>x.hotel_id=CHECKIN_DEMO_HOTEL_ID);if(protectedEntry)s.db.hotel_knowledge.find(x=>x.id==='ka').category='security';
     const helpers=load('dashboard/lib/knowledge.js',{canAccess},['isAdminKnowledgeRole','isProtectedKnowledgeEntry']);
     const {POST}=load('dashboard/app/api/onboarding/knowledge-starter/route.js',{
-      ...helpers,canAccess,getCurrentHotelForRequest:async()=>({supabase:s.client,hotel:{id:A},role}),
+      ...helpers,canAccess,isCheckinDemoHotel,getCurrentHotelForRequest:async()=>({supabase:s.client,hotel:{id:CHECKIN_DEMO_HOTEL_ID,slug:'hotel-demo-checkin'},role}),
       NextResponse:{json:(body,options={})=>({body,status:options.status??200})}
     },['POST']);
     const result=await POST({});
     if(role==='receptionist'&&protectedEntry){assert.equal(result.status,403);assert.ok(s.calls.every(x=>x.action==='select'));}
-    else {assert.equal(result.status,200);assert.ok(result.body.entries.every(x=>x.hotel_id===A));}
+    else {assert.equal(result.status,200);assert.ok(result.body.entries.every(x=>x.hotel_id===CHECKIN_DEMO_HOTEL_ID));}
     assert.equal(s.db.hotel_knowledge.find(x=>x.id==='kb').value,'B only');
   }
 });

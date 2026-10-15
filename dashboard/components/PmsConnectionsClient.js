@@ -6,15 +6,16 @@ import { PmsConnectionForm } from './PmsConnectionForm';
 import { PmsProviderCard } from './PmsProviderCard';
 import { getAuthHeaders } from '@/lib/auth-headers';
 import { getActiveWorkspace, getWorkspaceRevision, WORKSPACE_ARCHIVED_EVENT, WORKSPACE_SELECTION_EVENT } from '@/lib/workspace-context';
-import { createPmsRequestScope, pmsActions, validatePmsPayload } from '@/lib/pms-evidence';
+import { createPmsRequestScope, pmsActions, validatePmsPayload, pmsAccessVerified } from '@/lib/pms-evidence';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { useDashboardTheme } from '@/lib/theme/useDashboardTheme';
 import { cn, ui } from '@/lib/ui/styles';
 
 const defaultForm = (provider, connection) => ({
   provider: provider.key, client_id: connection?.client_id || '', client_secret: '', api_key: '',
-  account_code: connection?.account_code || connection?.metadata?.property_id || '',
-  property_id: connection?.metadata?.property_id || connection?.account_code || '',
+  account_code: connection?.account_code || '',
+  environment: connection?.metadata?.environment || '',
+  property_id: connection?.metadata?.property_id || '',
   base_url: connection?.base_url || provider.defaultBaseUrl || '',
   connection_mode: connection?.metadata?.connection_mode || provider.configurationMode || 'manual_setup',
   notes: connection?.metadata?.notes || '', enabled: connection?.enabled ?? true
@@ -103,9 +104,9 @@ export const PmsConnectionsClient = ({embedded = false, onConfigurationChanged})
         if(body.connection?.hotel_id!==ticket.hotelId || body.connection?.provider!==provider.key)throw new Error('pms_invalid_response');
         delete drafts.current[provider.key];setEditing(null);setForm(null);setReceipts(current=>({...current,[provider.key]:{}}));
       } else {
-        if(action==='test' && !(body.ok===true && body.connection?.sync_status==='connected' && body.connection?.hotel_id===ticket.hotelId && body.connection?.provider===provider.key))throw new Error('pms_invalid_response');
+        if(action==='test' && !(body.ok===true && pmsAccessVerified(body.connection) && body.connection?.hotel_id===ticket.hotelId && body.connection?.provider===provider.key))throw new Error('pms_invalid_response');
         if(action==='sync' && (!body.summary || !Array.isArray(body.summary.errors) || body.summary.status==='pending_setup'))throw new Error('pms_invalid_response');
-        setReceipts(current=>({...current,[provider.key]:{...current[provider.key],[action]:{status:action==='test'?'success':body.summary.errors.length?'partial':'sync_success',at:new Date().toISOString(),receipt:true}}}));
+        setReceipts(current=>({...current,[provider.key]:{...current[provider.key],[action]:{status:action==='test'?'success':body.summary.errors.length?'partial':body.summary.coverage==='complete'?'sync_success':'recorded',at:new Date().toISOString(),receipt:true}}}));
       }
       setFeedback({type:'success',text:action==='save'?'Configuración guardada. No acredita conexión ni activa servicios.':action==='disconnect'?'Configuración deshabilitada.':'Resultado recibido. Revisa por separado la prueba y la sincronización.'});
     } catch(error) {

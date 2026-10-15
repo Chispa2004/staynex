@@ -1,3 +1,4 @@
+import {currentPmsEvidence} from '../../shared/pms/connection-contract.js';
 // Catalog labels and saved credentials do not establish connectivity.
 export const pmsActions = (provider, connection, canManage) => ({
   configure: Boolean(canManage),
@@ -9,23 +10,25 @@ export const pmsEvidence = (provider, connection, receipt = {}) => {
   const mode = metadata.connection_mode || connection?.connection_mode;
   const environment = ['mock','simulation','simulated'].includes(mode) ? 'Configuración marcada como simulación; no acredita una API real'
     : mode === 'sandbox' ? 'Sandbox declarado; requiere evidencia del proveedor'
-      : provider.key === 'apaleo' ? 'API real de Apaleo; el tipo de cuenta no está acreditado'
+      : provider.key === 'apaleo' ? (metadata.environment === 'production' ? 'Entorno de producción declarado; requiere comprobación' : metadata.environment === 'test' ? 'Entorno de pruebas declarado; no habilita operación real' : 'Entorno pendiente de declarar; sin acceso acreditado')
         : 'Configuración manual; integración externa pendiente';
-  const test = receipt.test || (metadata.last_test_at ? {
+  const verified=currentPmsEvidence(connection);
+  const test = verified.test ? {status:verified.test.result,at:verified.test.at} : (metadata.last_test_at ? {
     status: metadata.last_test_result === 'activation_required' ? 'activation_required' : 'unknown', at: metadata.last_test_at
   } : {status:'unknown',at:null});
   // Legacy sync_status is shared by test and sync writers. A sync timestamp
   // proves a recorded import, never current connectivity or a successful test.
-  const sync = receipt.sync || {
+  const sync = verified.sync ? {status:verified.sync.result==='success'?(verified.syncVerified?'sync_success':'recorded'):verified.sync.result,at:verified.sync.at,coverage:verified.sync.coverage} : {
     status: connection?.sync_status === 'failed' ? 'failed'
       : connection?.last_sync_at ? (connection.sync_status === 'partial_success' ? 'partial' : 'recorded') : 'unknown',
     at: connection?.last_sync_at || null, historical: Boolean(connection?.last_sync_at),
     previous: connection?.sync_status === 'failed'
   };
   return {
+    coverage:verified.sync?.coverage || 'unknown', historicalSuccess:verified.historicalSuccess,
     configuration: !connection ? 'Sin configuración guardada' : connection.enabled ? 'Configuración guardada' : 'Configuración guardada; deshabilitada',
     environment, test, sync, external: provider.key !== 'apaleo',
-    legacyTest: !receipt.test && connection?.sync_status === 'connected', summary: metadata.last_sync_summary || null
+    legacyTest: !verified.test && connection?.sync_status === 'connected', summary: metadata.last_sync_summary || null
   };
 };
 export const pmsResultLabel = status => ({
@@ -54,3 +57,5 @@ export const createPmsRequestScope = getContext => {
     }
   };
 };
+
+export const pmsAccessVerified = connection => currentPmsEvidence(connection).accessVerified;

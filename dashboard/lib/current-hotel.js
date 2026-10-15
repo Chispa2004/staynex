@@ -378,17 +378,6 @@ const resolveCurrentHotelForRequest = async (request, { readOnly = false, includ
           });
         }
 
-        if (!readOnly && selectedAssignment.user_id === null) {
-          await supabase
-            .from('hotel_users')
-            .update({
-              user_id: userId,
-              accepted_at: selectedAssignment.accepted_at || new Date().toISOString(),
-              status: 'active'
-            })
-            .eq('id', selectedAssignment.id);
-        }
-
         const hotelUser = normalizeHotelUser({
           ...selectedAssignmentForHotel,
           hotel_id: hotel.id,

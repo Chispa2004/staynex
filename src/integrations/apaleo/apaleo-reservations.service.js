@@ -1,3 +1,4 @@
+import {assertApaleoBinding,assertApaleoProperty} from '../../../shared/pms/connection-contract.js';
 import { apaleoFetch } from './apaleo-client.service.js';
 import { logger } from '../../utils/logger.js';
 
@@ -50,6 +51,7 @@ export const getReservations = async ({
   pageSize = DEFAULT_PAGE_SIZE,
   maxReservations = DEFAULT_MAX_RESERVATIONS
 } = {}) => {
+  assertApaleoBinding(config);
   const reservations = [];
   const normalizedPageSize = Math.min(Math.max(Number(pageSize) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
   const normalizedMaxReservations = Math.min(Math.max(Number(maxReservations) || DEFAULT_MAX_RESERVATIONS, 1), MAX_RESERVATIONS);
@@ -69,6 +71,7 @@ export const getReservations = async ({
       config,
       timeoutMs: Number(process.env.APALEO_TIMEOUT_MS || 15000),
       query: {
+        propertyIds: [config.propertyId],
         pageNumber,
         pageSize: normalizedPageSize,
         arrival: [from, to].filter(Boolean).join(','),
@@ -78,6 +81,7 @@ export const getReservations = async ({
     });
     const pageReservations = extractReservations(payload);
 
+    for(const record of pageReservations) assertApaleoProperty(record,config);
     reservations.push(...pageReservations);
 
     const count = payload?.count ?? payload?.totalCount;
@@ -140,7 +144,7 @@ export const getReservationById = async ({
       reservationId
     });
 
-    return reservation;
+    return assertApaleoProperty(reservation,credentials || config);
   } catch (error) {
     if (error.status === 404) {
       logger.warn('Apaleo reservation not found by id', {

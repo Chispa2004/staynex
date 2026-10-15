@@ -1,5 +1,4 @@
 import { BasePmsConnector } from '../base-pms-connector.js';
-import { getApaleoAccessToken } from '../../apaleo/apaleo-auth.service.js';
 import { apaleoFetch } from '../../apaleo/apaleo-client.service.js';
 import { syncReservationsFromApaleo } from '../../apaleo/apaleo-sync.service.js';
 
@@ -9,20 +8,14 @@ export class ApaleoPmsConnector extends BasePmsConnector {
   }
 
   async connect() {
-    await getApaleoAccessToken({ config: this.config, forceRefresh: true });
-    await apaleoFetch('/booking/v1/reservations', {
-      config: this.config,
-      query: {
-        pageNumber: 1,
-        pageSize: 1
-      }
-    });
+    const property = await apaleoFetch('/inventory/v1/properties/'+encodeURIComponent(this.config.propertyId),{config:this.config});
+    if(property?.id!==this.config.propertyId) throw new Error('PMS_PROPERTY_MISMATCH');
 
     return {
       ok: true,
       provider: this.provider,
-      status: 'connected',
-      message: 'Apaleo credentials verified'
+      status: 'access_checked',
+      message: 'Property read checked; persistent evidence must be recorded by the connection service'
     };
   }
 
@@ -36,10 +29,10 @@ export class ApaleoPmsConnector extends BasePmsConnector {
 
   async healthCheck() {
     return {
-      ok: true,
+      ok: false,
       provider: this.provider,
-      status: 'available',
-      message: 'Apaleo production connector is registered'
+      status: 'unverified',
+      message: 'Connector registered; this does not verify the hotel connection'
     };
   }
 }

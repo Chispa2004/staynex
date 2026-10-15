@@ -20,6 +20,7 @@ const SECRET_FIELD_NAMES = new Set([
 const SECRET_KEY_PATTERN = /(secret|token|password|authorization|api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|credentials?[_-]?encrypted)/i;
 
 export const PMS_CONNECTION_PRODUCTION_COLUMNS = [
+  'config_revision', 'evidence', 'last_success_evidence',
   'id',
   'hotel_id',
   'provider',
@@ -50,6 +51,7 @@ const PMS_CONNECTION_SECRET_STATE_COLUMNS = [
 
 const SURFACE_FIELDS = {
   tenant_settings: [
+    'config_revision', 'evidence', 'last_success_evidence', 'metadata',
     'id',
     'hotel_id',
     'provider',
@@ -75,6 +77,7 @@ const SURFACE_FIELDS = {
     'updated_at'
   ],
   platform_summary: [
+    'config_revision', 'evidence', 'last_success_evidence', 'metadata',
     'id',
     'hotel_id',
     'provider',
@@ -94,6 +97,7 @@ const SURFACE_FIELDS = {
     'updated_at'
   ],
   health: [
+    'config_revision', 'evidence', 'last_success_evidence', 'metadata',
     'id',
     'hotel_id',
     'provider',
@@ -112,6 +116,7 @@ const SURFACE_FIELDS = {
     'updated_at'
   ],
   audit: [
+    'config_revision', 'evidence', 'last_success_evidence', 'metadata',
     'id',
     'hotel_id',
     'provider',
@@ -134,6 +139,7 @@ const SURFACE_FIELDS = {
 
 const SURFACE_SELECT_FIELDS = {
   tenant_settings: [
+    'config_revision', 'evidence', 'last_success_evidence', 'metadata',
     'id',
     'hotel_id',
     'provider',
@@ -154,6 +160,7 @@ const SURFACE_SELECT_FIELDS = {
     'updated_at'
   ],
   platform_summary: [
+    'config_revision', 'evidence', 'last_success_evidence', 'metadata',
     'id',
     'hotel_id',
     'provider',
@@ -169,6 +176,7 @@ const SURFACE_SELECT_FIELDS = {
     'updated_at'
   ],
   health: [
+    'config_revision', 'evidence', 'last_success_evidence', 'metadata',
     'id',
     'hotel_id',
     'provider',
@@ -185,6 +193,7 @@ const SURFACE_SELECT_FIELDS = {
     'updated_at'
   ],
   audit: [
+    'config_revision', 'evidence', 'last_success_evidence', 'metadata',
     'id',
     'hotel_id',
     'provider',
