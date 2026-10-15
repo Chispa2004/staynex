@@ -5,7 +5,7 @@ import {useDashboardLanguage} from '@/lib/i18n/useDashboardLanguage';
 import {useDashboardTheme} from '@/lib/theme/useDashboardTheme';
 import {cn,ui} from '@/lib/ui/styles';
 export function HotelInvitationPanel({hotelId,users=[]}) {
- const {tx}=useDashboardLanguage();const {isLight}=useDashboardTheme();
+ const {tx}=useDashboardLanguage();const {theme}=useDashboardTheme(); const isLight=theme==='light';
  const [items,setItems]=useState([]);const [links,setLinks]=useState({});const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [message,setMessage]=useState('');
  async function request(body) {
    const {data}=await getSupabaseBrowser().auth.getSession();
@@ -31,7 +31,7 @@ export function HotelInvitationPanel({hotelId,users=[]}) {
        {u.status==='invited'&&!u.user_id&&<div className="flex flex-wrap gap-2">
          <button type="button" disabled={busy} onClick={()=>change(u.id,'replace')} className={ui.button(isLight,'secondary')}>{tx('Generar enlace nuevo')}</button>
          <button type="button" disabled={busy||!i||Boolean(i.revoked_at||i.accepted_at)} onClick={()=>change(u.id,'revoke')} className={ui.button(isLight,'secondary')}>{tx('Revocar invitación')}</button>
-         {links[u.id]&&<button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(links[u.id]);setMessage('Enlace copiado. Entrégalo al destinatario.');}catch{setError('No se pudo copiar. Reintenta.');}} className={ui.button(isLight,'primary')}>{tx('Copiar enlace')}</button>}
+         {links[u.id]&&<button type="button" onClick={async()=>{try{await navigator.clipboard.writeText(links[u.id]);setMessage('Enlace copiado. Entrégalo al destinatario.');}catch{setError('No se pudo copiar. Reintenta.');}}} className={ui.button(isLight,'primary')}>{tx('Copiar enlace')}</button>}
        </div>}
      </article>;
    })}

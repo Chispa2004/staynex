@@ -9,7 +9,7 @@ import {ThemeToggle} from './ThemeToggle';
 import {cn,ui} from '@/lib/ui/styles';
 const tokenKey='staynex_pending_invitation';
 export function AccessInvitationClient() {
- const {tx}=useDashboardLanguage(); const {isLight}=useDashboardTheme();
+ const {tx}=useDashboardLanguage(); const {theme}=useDashboardTheme(); const isLight=theme==='light';
  const [token,setToken]=useState(''); const [user,setUser]=useState(null); const [invite,setInvite]=useState(null);
  const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [busy,setBusy]=useState(false);
  const [message,setMessage]=useState(''); const [error,setError]=useState('');

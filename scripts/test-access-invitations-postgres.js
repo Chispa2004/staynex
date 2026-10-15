@@ -69,5 +69,15 @@ try {
  await assert.rejects(invitationOperation({supabase,user:{id:id(4)},body:{token,accept:true}}));assert.equal(calls,0);
  assert.equal(token.length,64);assert.notEqual(token,hash);
  pass('API service validates verified identity/body; cryptographic hash only');
+ sql(`CREATE TABLE hotel_knowledge(id uuid DEFAULT gen_random_uuid(),hotel_id uuid,title text,value text);CREATE TABLE local_knowledge_items(id uuid DEFAULT gen_random_uuid(),hotel_id uuid,title text);`);
+ const reviewMigration=readFileSync(new URL('../supabase/sql/add_hotel_information_review.sql',import.meta.url),'utf8');sql(reviewMigration);sql(reviewMigration);
+ const review=(actor='NULL',hash='NULL')=>JSON.parse(sql(`SET ROLE service_role; SELECT hotel_information_review_v1('${id(11)}',${actor},${hash});`));
+ assert.equal(review().reviewed,false);
+ sql(`INSERT INTO hotel_knowledge(hotel_id,title,value) VALUES ('${id(11)}','Llegada','Instrucción sintética confirmada');`);
+ const pending=review();assert.throws(()=>review(q(id(3)),q(pending.hash)));
+ assert.equal(review(q(id(4)),q(pending.hash)).reviewed,true);
+ sql(`UPDATE hotel_knowledge SET value='Instrucción sintética modificada';`);
+ assert.equal(review().reviewed,false);assert.throws(()=>review(q(id(4)),q(pending.hash)));
+ pass('explicit scoped information review; changed content invalidates confirmation and old snapshots');
  console.log(checks+' invitation PostgreSQL/API groups passed');
 } finally {db.cleanup();}

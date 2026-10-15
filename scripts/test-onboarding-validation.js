@@ -72,7 +72,7 @@ for(const name of ['',{},'  ',null])assert.equal((await profile.PATCH(request({n
 assert.equal(store.writes.length,0);
 console.log('PASS completion cannot bypass readiness, role/hotel scope or profile validation');
 
-store.tables.hotel_users[0].status='active';
+store.tables.hotel_users[0].status='active';store.tables.hotel_users[0].user_id='synthetic-admin';
 store.tables.hotels[0].whatsapp_number='+34000000000';
 store.tables.hotel_knowledge.push({id:'knowledge',hotel_id:store.tables.hotels[0].id,key:'arrival',value:'Entrada a las 15:00',is_active:true});
 const before=structuredClone(store.tables.hotels);

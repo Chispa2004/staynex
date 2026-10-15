@@ -42,7 +42,7 @@ assert.equal((await profile.PATCH(request(payload))).status,409);delete hotel.wh
 console.log('PASS concurrent metadata/number changes fail closed; pre-existing authoritative configuration not overwritten');
 const finish=()=>state.PATCH(request({hotelId:hotel.id,onboarding_completed:true,current_step:'readiness'}));
 assert.equal((await finish()).status,422,'dependency alone cannot bypass users/knowledge');
-store.tables.hotel_users[0].status='active';assert.equal((await finish()).status,422);
+store.tables.hotel_users[0].status='active';store.tables.hotel_users[0].user_id='synthetic-admin';assert.equal((await finish()).status,422);
 store.tables.hotel_knowledge.push({id:'synthetic-knowledge',hotel_id:hotel.id,key:'qa',value:'Synthetic hotel only',is_active:true});
 const read=await (await state.GET(new Request('http://localhost/api/onboarding/state',{headers:{'x-staynex-hotel-id':hotel.id}}))).json();
 assert.equal(read.pilot.completion.canCompleteConfiguration,true);assert.equal(read.pilot.readyForLiveAutomations,false);assert.equal(read.pilot.readyForPilotDemo,false);assert.equal(read.pilot.blocks.find(x=>x.id==='whatsapp').status,'ESPERANDO EXTERNO');

@@ -9,6 +9,8 @@ export const createOnboardingStore = () => {
     hotel_knowledge: [], local_knowledge_items: [], hotel_pms_connections: [] };
   const store = { tables, failNextWrite: false, writes: [], role: 'admin', platformRole: 'none', fallback: false };
   store.supabase = { async rpc(name,args) {
+    if(name === 'hotel_information_review_v1') return {data:{reviewed:false,count:tables.hotel_knowledge.length},error:null};
+    if(name === 'hotel_identity_evidence_v1') return {data:tables.hotel_users.filter(row=>row.hotel_id===args.p_hotel && row.status==='active' && row.user_id==='synthetic-admin').map(row=>({id:row.id})),error:null};
     if(name !== 'save_hotel_onboarding_v1') throw new Error('Unexpected synthetic RPC '+name);
     if(store.failNextWrite) {store.failNextWrite=false;return {data:null,error:{message:'No se pudo guardar. Reintenta.'}};}
     let row=tables.hotel_onboarding_state.find(item=>item.hotel_id===args.p_hotel_id);

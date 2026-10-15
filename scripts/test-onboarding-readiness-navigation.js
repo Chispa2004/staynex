@@ -74,6 +74,8 @@ assert.equal(result.pilot.blocks.find(row => row.id === 'users').readyForConfigu
 const before = structuredClone(store.tables);
 await usersRoute.GET(request());
 assert.deepEqual(store.tables, before, 'opening Users does not complete or modify anything');
+// Existing verified identity; changing status alone must never invent one.
+store.tables.hotel_users[0].user_id='synthetic-admin';
 store.failNextWrite = true;
 assert.equal((await usersRoute.PATCH(request('PATCH', { id: 'assignment-a', status: 'active' }))).status, 500);
 assert.equal((await read()).pilot.blocks.find(row => row.id === 'users').readyForConfiguration, false);
@@ -108,7 +110,7 @@ assert.deepEqual(store.tables.hotels[0].metadata, {});
 console.log('PASS hotel/role isolation, hotel save recovery and unchanged live/AI guards');
 
 const view = await compile('../dashboard/components/onboarding/OnboardingWizard.js', {
-  '@/components/HotelFieldErrors': {}, '@/lib/hotel-creation-client': creationClient, 'next/navigation': {}, './StepHotelSetup': {}, './StepPmsConnection': {}, '@/components/ExecutiveCard': {}, '@/lib/auth-headers': {},
+  '@/components/HotelFieldErrors': {}, '@/lib/hotel-creation-client': creationClient, 'next/navigation': {}, './InformationReview': {InformationReview:()=>null}, './StepHotelSetup': {}, './StepPmsConnection': {}, '@/components/ExecutiveCard': {}, '@/lib/auth-headers': {},
   '@/lib/theme/useDashboardTheme': {}, '@/lib/ui/styles': styles, '@/lib/onboarding-navigation': navigation,
   '@/lib/i18n/useDashboardLanguage': { useDashboardLanguage: () => ({ tx: value => translatePhrase('es', value) }) },
   'next/link': ({ children, ...props }) => React.createElement('a', props, children)
@@ -133,7 +135,7 @@ console.log('PASS rendered actions, permission explanation, real destinations an
 const detailView = await compile('../dashboard/components/PlatformHotelDetailClient.js', {
   '../../shared/onboarding/hotel-fields.js': fields, '@/components/HotelFieldErrors': {}, 'next/navigation': {}, '@/lib/supabase-browser': {}, '@/lib/workspace-context': {}, '@/lib/use-support-workspace-entry': {},
   '@/lib/theme/useDashboardTheme': {}, '@/lib/ui/styles': styles,
-  './PremiumEmptyState': {}, './ExperienceProvidersPanel': {},
+  './HotelInvitationPanel': {}, './PremiumEmptyState': {}, './ExperienceProvidersPanel': {},
   '@/lib/onboarding-navigation': navigation,
   '@/lib/i18n/useDashboardLanguage': { useDashboardLanguage: () => ({ tx: value => translatePhrase('es', value) }) }
 }, '\nexport { GoLiveReadinessPanel };');

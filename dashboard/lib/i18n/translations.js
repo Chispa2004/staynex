@@ -1,3 +1,4 @@
+import {assistedOnboardingPhrases} from './assisted-onboarding-phrases.js';
 import {pendingTicketPhrases} from './pending-ticket-phrases.js';
 import { operationalMetricPhrases } from './operational-metric-phrases.js';
 import { pmsPhrases } from './pms-phrases.js';
@@ -3090,3 +3091,5 @@ for(const [es,en,fr,de] of [
  ['No tienes permiso para cambiar este ticket.','You do not have permission to change this ticket.','Vous ne pouvez pas modifier ce ticket.','Sie dürfen dieses Ticket nicht ändern.'],
  ['No se pudo confirmar el cambio. Se conserva el último estado confirmado; puedes reintentar.','The change could not be confirmed. The last confirmed status is retained; you can retry.','La modification n’a pas pu être confirmée. Le dernier statut confirmé est conservé ; vous pouvez réessayer.','Die Änderung konnte nicht bestätigt werden. Der zuletzt bestätigte Status bleibt erhalten; Sie können es erneut versuchen.']
 ]) {phraseTranslations.es[es]=es;phraseTranslations.en[es]=en;phraseTranslations.fr[es]=fr;phraseTranslations.de[es]=de;}
+
+for(const [es,en,fr,de] of assistedOnboardingPhrases){phraseTranslations.es[es]=es;phraseTranslations.en[es]=en;phraseTranslations.fr[es]=fr;phraseTranslations.de[es]=de;}

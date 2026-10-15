@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ShieldCheck
 } from 'lucide-react';
+import {InformationReview} from './InformationReview';
 import { StepHotelSetup } from './StepHotelSetup';
 import { StepPmsConnection } from './StepPmsConnection';
 import { ExecutiveBadge, ExecutiveCard } from '@/components/ExecutiveCard';
@@ -223,7 +224,7 @@ export const OnboardingWizard = () => {
             {state?.onboarding_completed ? <ExecutiveBadge tone="sky">Configuración completada</ExecutiveBadge> : null}
           </div>
           <h1 className={cn('text-3xl font-semibold tracking-normal sm:text-4xl', ui.text.title(isLight))}>
-            Preparar hotel piloto
+            {tx('Completa los datos de tu hotel')}
           </h1>
           <p className={cn('mt-3 max-w-3xl', ui.text.body(isLight))}>
             Recorre los requisitos del hotel con datos guardados. La configuración, la demo y la autorización para operar en vivo se revisan por separado.
@@ -278,10 +279,12 @@ export const OnboardingWizard = () => {
         <aside className={cn('rounded-xl border p-3', ui.surface(isLight))}>
           <div className="px-2 py-2">
             <p className={ui.text.eyebrow(isLight)}>Flujo piloto</p>
-            <h2 className={cn('mt-1 text-lg font-semibold', ui.text.title(isLight))}>Seis bloques reales</h2>
+            <h2 className={cn('mt-1 text-lg font-semibold', ui.text.title(isLight))}>{tx('Datos, conexiones y revisión')}</h2>
           </div>
           <div className="mt-2 space-y-2">
             {steps.map((block, index) => (
+              <div key={block.id}>
+              {[0,2,5].includes(index) ? <h3 className="px-2 py-3 text-sm font-semibold">{tx(index===0 ? 'Completa los datos de tu hotel' : index===2 ? 'Preparando las conexiones' : 'Revisión antes de empezar')}</h3> : null}
               <button
                 key={block.id}
                 type="button"
@@ -304,6 +307,7 @@ export const OnboardingWizard = () => {
                   </span>
                 </span>
               </button>
+              </div>
             ))}
           </div>
         </aside>
@@ -375,7 +379,7 @@ const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onPm
     return <ReadinessDetail block={block} isLight={isLight} onSelectStep={onSelectStep} access={access} />;
   }
 
-  if (block?.id === 'pms') return <StepPmsConnection onConfigurationChanged={onPmsSaved} />;
+  if (block?.id === 'pms') return <div className="space-y-3"><p>{tx('Siguiente acción: Staynex configura y comprueba el PMS. Pendiente de gestión; no se ha enviado una solicitud.')}</p><StepPmsConnection onConfigurationChanged={onPmsSaved} /></div>;
 
   return (
     <ExecutiveCard className="p-6">
@@ -402,7 +406,9 @@ const PilotBlockDetail = ({ block, hotel, isLight, canManage, onHotelSaved, onPm
       ) : null}
 
       <div className="mt-6 flex flex-wrap gap-2">
+        <p>{tx('Siguiente acción: el hotel revisa la información y su equipo. Guardar no activa proveedores ni envíos.')}</p>
         <BlockAction block={block} isLight={isLight} onSelectStep={onSelectStep} access={access} />
+        {block?.id==='knowledge' ? <InformationReview hotelId={hotel?.id} isLight={isLight} canManage={canManage} onSaved={onPmsSaved}/> : null}
       </div>
     </ExecutiveCard>
   );

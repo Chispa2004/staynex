@@ -22,6 +22,7 @@ const allowedFields = [
   'check_out_time',
   'address',
   'phone',
+  'support_email',
   'whatsapp_number',
   'description'
 ];
