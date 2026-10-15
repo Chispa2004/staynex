@@ -1,0 +1,73 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {execFileSync,execFile} from 'node:child_process';
+import {newInvitationToken,invitationHash,invitationOperation} from '../dashboard/lib/access-invitations.js';
+assert.equal(process.env.SEND_AUTOMATIONS,'false');
+const require=createRequire(import.meta.url);
+const db=require('./ci/disposable-postgres.cjs').createDisposablePostgres({env:process.env});
+const args=[...db.host,'exec','-i',db.container,'psql','-XqAt','-U','postgres','-v','ON_ERROR_STOP=1'];
+const sql=text=>execFileSync(db.docker,args,{input:text,env:process.env,encoding:'utf8',timeout:30000,stdio:['pipe','pipe','pipe']}).trim();
+const parallel=text=>new Promise((resolve,reject)=>{const c=execFile(db.docker,args,{env:process.env,encoding:'utf8'},(e,out)=>e?reject(e):resolve(out.trim()));c.stdin.end(text);});
+const q=v=>"'"+String(v).replaceAll("'","''")+"'";
+const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
+let checks=0;
+const pass=label=>{checks++;console.log('PASS '+label);};
+try {
+ sql(readFileSync(new URL('./fixtures/assisted-onboarding-schema.sql',import.meta.url),'utf8'));
+ for(const file of ['create_hotel_onboarding.sql','add_atomic_hotel_onboarding.sql','add_hotel_access_invitations.sql','add_hotel_access_invitations.sql'])
+   sql(readFileSync(new URL('../supabase/sql/'+file,import.meta.url),'utf8'));
+ for(const role of ['anon','authenticated']){
+   assert.equal(sql(`SELECT has_function_privilege('${role}','accept_hotel_invitation_v1(uuid,text,boolean)','execute');`),'f');
+   assert.equal(sql(`SELECT has_table_privilege('${role}','hotel_access_invitations','select,insert,update,delete');`),'f');
+ }
+ pass('repeatable migration; client roles cannot read tokens or grant access');
+ sql(`INSERT INTO auth.users VALUES ('${id(1)}','platform@example.invalid',now(),null),('${id(2)}','owner@example.invalid',now(),null),('${id(3)}','other@example.invalid',now(),null),('${id(4)}','new@example.invalid',null,null);
+ INSERT INTO hotels(id,name,slug,timezone) VALUES ('${id(10)}','Synthetic Platform','platform','Europe/Madrid'),('${id(11)}','Synthetic A','a','Europe/Madrid');
+ INSERT INTO hotel_users(id,hotel_id,user_id,email,role,status,platform_role) VALUES ('${id(20)}','${id(10)}','${id(1)}','platform@example.invalid','admin','active','platform_admin');
+ INSERT INTO hotel_users(id,hotel_id,email,role,status) VALUES ('${id(21)}','${id(11)}','owner@example.invalid','admin','invited');`);
+ const issue=(assignment=21,hash=invitationHash(newInvitationToken()))=>{sql(`SET ROLE service_role;SELECT manage_hotel_invitation_v1('${id(1)}','${id(11)}','${id(assignment)}',${q(hash)});`);return hash;};
+ let hash=issue();
+ const statement=(actor=2,accept=true,h=hash)=>`SET ROLE service_role;SELECT accept_hotel_invitation_v1('${id(actor)}',${q(h)},${accept});`;
+ const invoke=(actor=2,accept=true,h=hash)=>JSON.parse(sql(statement(actor,accept,h)));
+ assert.equal(invoke(2,false).accepted,false);assert.equal(sql(`SELECT status FROM hotel_users WHERE id='${id(21)}'`),'invited');
+ assert.throws(()=>invoke(3));assert.throws(()=>invoke(4));assert.throws(()=>invoke(2,true,'0'.repeat(64)));
+ pass('inspection does not grant; wrong account/unverified/invalid token denied');
+ const expired=hash;sql(`UPDATE hotel_access_invitations SET expires_at=now()-interval '1 second';`);assert.throws(()=>invoke());hash=issue();assert.throws(()=>invoke(2,true,expired));
+ pass('expiry and replacement invalidate previous token');
+ const rows=await Promise.all(Array.from({length:6},()=>parallel(statement()).then(JSON.parse)));
+ assert(rows.every(row=>row.hotelId===id(11)&&row.accepted));assert.equal(sql(`SELECT count(*) FROM hotel_users WHERE user_id='${id(2)}'`),'1');
+ assert.equal(invoke().accepted,true);
+ pass('six concurrent accepts and lost-response retry grant one assignment to the correct hotel');
+ sql(`UPDATE hotel_users SET status='disabled' WHERE id='${id(21)}'`);
+ assert.throws(()=>invoke());assert.equal(sql(`SELECT status FROM hotel_users WHERE id='${id(21)}'`),'disabled');
+ pass('accepted token cannot reactivate disabled access');
+ sql(`INSERT INTO hotel_users(id,hotel_id,email,role,status) VALUES ('${id(22)}','${id(11)}','new@example.invalid','admin','invited');`);
+ hash=issue(22);assert.throws(()=>invoke(4));sql(`UPDATE auth.users SET email_confirmed_at=now() WHERE id='${id(4)}';`);
+ assert.equal(invoke(4,false).accepted,false);
+ sql(`UPDATE hotels SET metadata='{"archive_operational_hold":true}' WHERE id='${id(11)}';`);assert.throws(()=>invoke(4));
+ sql(`UPDATE hotels SET metadata='{}' WHERE id='${id(11)}'; UPDATE hotel_users SET role='owner' WHERE id='${id(22)}';`);assert.throws(()=>invoke(4));
+ sql(`UPDATE hotel_users SET role='admin' WHERE id='${id(22)}';`);
+ pass('new verified identity, held hotel and manipulated role checked inside SQL');
+ const revoke=`SET ROLE service_role;SELECT manage_hotel_invitation_v1('${id(1)}','${id(11)}','${id(22)}',NULL);`;
+ // Hold revoke transaction open, guaranteeing acceptance observes revocation after waiting.
+ const revoking=parallel('BEGIN;'+revoke+' SELECT pg_sleep(0.3); COMMIT;');
+ await new Promise(resolve=>setTimeout(resolve,100));
+ const race=await Promise.allSettled([revoking,parallel(statement(4))]);
+ assert.equal(race[0].status,'fulfilled');assert.equal(race[1].status,'rejected');
+ pass('revocation serializes with acceptance; no bypass');
+ hash=issue(22);
+ assert.equal(invoke(4).accepted,true);
+ assert.equal(sql(`SELECT count(*) FROM hotel_identity_evidence_v1('${id(11)}');`),'1');
+ sql(`INSERT INTO hotel_users(hotel_id,email,role,status) VALUES ('${id(11)}','ghost@example.invalid','admin','active');`);
+ assert.equal(sql(`SELECT count(*) FROM hotel_identity_evidence_v1('${id(11)}');`),'1');
+ pass('readiness excludes disabled and active rows without an Auth identity');
+ let calls=0;
+ const supabase={rpc:async(_name,p)=>{calls++;try{return {data:JSON.parse(sql(`SET ROLE service_role;SELECT accept_hotel_invitation_v1(${q(p.p_actor)},${q(p.p_hash)},${p.p_accept});`))};}catch{return {error:{code:'42501'}};}}};
+ const token=newInvitationToken();hash=invitationHash(token);
+ await assert.rejects(invitationOperation({supabase,user:{id:id(4),email_confirmed_at:'now'},body:{token,accept:true,role:'owner'}}));assert.equal(calls,0);
+ await assert.rejects(invitationOperation({supabase,user:{id:id(4)},body:{token,accept:true}}));assert.equal(calls,0);
+ assert.equal(token.length,64);assert.notEqual(token,hash);
+ pass('API service validates verified identity/body; cryptographic hash only');
+ console.log(checks+' invitation PostgreSQL/API groups passed');
+} finally {db.cleanup();}

@@ -265,7 +265,7 @@ const AppShellContent = ({ children }) => {
   const { t, tx } = useDashboardLanguage();
   const { theme } = useDashboardTheme();
   const isLight = theme === 'light';
-  const isLoginPage = pathname === '/login';
+  const isLoginPage = pathname === '/login' || pathname === '/invite';
   const isOnboardingPage = pathname === '/dashboard/onboarding';
   const activeRole = hotelContext.role || 'blocked';
   const pilotNavigationGroups = useMemo(

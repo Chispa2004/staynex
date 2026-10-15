@@ -172,7 +172,7 @@ export const evaluatePilotHotelProfile = (hotel = {}) => {
 };
 
 export const evaluatePilotUsers = (users = []) => {
-  const activeUsers = normalizeRows(users).filter((user) => normalizedStatus(user.status || 'active') === 'active');
+  const activeUsers = normalizeRows(users).filter((user) => normalizedStatus(user.status) === 'active' && user.identity_verified === true);
   const managers = activeUsers.filter((user) => (
     ['owner', 'admin', 'manager'].includes(user.role)
     && (hasText(user.email) || hasText(user.user_id) || hasText(user.id))

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import {HotelInvitationPanel} from './HotelInvitationPanel';
 import { useDashboardLanguage } from '@/lib/i18n/useDashboardLanguage';
 import { getPlatformReadinessAction } from '@/lib/onboarding-navigation';
 import {
@@ -632,6 +633,7 @@ export const PlatformHotelDetailClient = ({ hotelId }) => {
       </div>
 
       <ExperienceProvidersPanel hotelId={hotelId} />
+      <HotelInvitationPanel hotelId={hotelId} users={users} />
 
       <section id="hotel-users" tabIndex={-1} className={cn('overflow-hidden rounded-xl border', ui.surface(isLight))}>
         <a href="#hotel-readiness" className="inline-block p-4 text-sm font-semibold underline">Volver a la preparación del hotel</a>
