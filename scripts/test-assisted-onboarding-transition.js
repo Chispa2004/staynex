@@ -52,8 +52,11 @@ try {
  assert.equal(JSON.parse(sql(`SET ROLE service_role;SELECT hotel_information_review_v1('${id(1)}');`)).reviewed,false);
  console.log('PASS new consumer/new schema: empty information remains unreviewed; full acceptance/binding covered by dedicated PostgreSQL suites');
  const before=sql('SELECT row_to_json(h) FROM hotels h;SELECT row_to_json(u) FROM hotel_users u;');
+ // Synthetic unexpected grant: preflight must report effective and SET ROLE paths, without repairing them.
+ sql("CREATE ROLE synthetic_reader; GRANT SELECT ON hotel_access_invitations TO synthetic_reader; GRANT synthetic_reader TO anon WITH INHERIT FALSE, SET TRUE;");
  const preflight=readFileSync(new URL('./preflight-assisted-hotel-onboarding-readonly.sql',import.meta.url),'utf8');
- const result=sql(preflight);assert.match(result,/\|on\|PostgreSQL/);
+ const result=sql(preflight);assert.match(result,/\|on\|PostgreSQL/);assert(result.includes('anon|synthetic_reader|f|t'));
+ assert.equal(sql("SELECT pg_has_role('anon','synthetic_reader','SET')"),'t');
  assert.equal(sql('SELECT row_to_json(h) FROM hotels h;SELECT row_to_json(u) FROM hotel_users u;'),before);
  console.log('PASS catalog preflight executes in READ ONLY and ends ROLLBACK on the synthetic schema; no remote catalog queried');
 } finally {db.cleanup();}

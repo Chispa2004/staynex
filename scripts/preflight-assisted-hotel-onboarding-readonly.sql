@@ -51,6 +51,36 @@ WHERE p.pronamespace='public'::regnamespace AND p.proname IN ('create_hotel_onbo
  'save_hotel_onboarding_v1','manage_hotel_invitation_v1','accept_hotel_invitation_v1',
  'hotel_identity_evidence_v1','hotel_information_review_v1','record_pms_evidence_v1') ORDER BY 1,3;
 SELECT rolname,rolsuper,rolbypassrls FROM pg_roles WHERE rolname IN ('anon','authenticated','service_role','postgres','supabase_admin');
+-- Effective privileges, including inherited grants; SELECT-only catalog introspection.
+SELECT r.rolname AS api_role,c.relname AS relation,v.privilege,
+ has_table_privilege(r.oid,c.oid,v.privilege) AS effective
+FROM pg_roles r CROSS JOIN pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')) v(privilege)
+WHERE r.rolname IN ('anon','authenticated','service_role') AND n.nspname='public'
+ AND c.relname IN ('hotels','hotel_users','hotel_onboarding_state','hotel_creation_requests',
+ 'hotel_access_invitations','hotel_information_reviews','hotel_knowledge','local_knowledge_items',
+ 'hotel_pms_connections','reservations') ORDER BY 1,2,3;
+SELECT r.rolname AS api_role,c.relname AS relation,a.attname AS column,v.privilege,
+ has_column_privilege(r.oid,c.oid,a.attnum,v.privilege) AS effective
+FROM pg_roles r CROSS JOIN pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('REFERENCES')) v(privilege)
+WHERE r.rolname IN ('anon','authenticated','service_role') AND n.nspname='public'
+ AND c.relname IN ('hotel_users','hotel_access_invitations','hotel_information_reviews','hotel_pms_connections')
+ AND has_column_privilege(r.oid,c.oid,a.attnum,v.privilege) ORDER BY 1,2,3,4;
+SELECT r.rolname AS api_role,p.oid::regprocedure AS signature,
+ has_function_privilege(r.oid,p.oid,'EXECUTE') AS effective_execute,
+ has_schema_privilege(r.oid,p.pronamespace,'USAGE') AS schema_usage
+FROM pg_roles r CROSS JOIN pg_proc p WHERE r.rolname IN ('anon','authenticated','service_role')
+ AND p.pronamespace='public'::regnamespace AND p.proname IN ('create_hotel_onboarding_v1',
+ 'save_hotel_onboarding_v1','manage_hotel_invitation_v1','accept_hotel_invitation_v1',
+ 'hotel_identity_evidence_v1','hotel_information_review_v1','record_pms_evidence_v1') ORDER BY 1,2;
+SELECT r.rolname AS api_role,parent.rolname AS reachable_role,
+ pg_has_role(r.oid,parent.oid,'USAGE') AS inherited_now,
+ pg_has_role(r.oid,parent.oid,'SET') AS can_set_role
+FROM pg_roles r CROSS JOIN pg_roles parent
+WHERE r.rolname IN ('anon','authenticated','service_role') AND r.oid<>parent.oid
+ AND (pg_has_role(r.oid,parent.oid,'USAGE') OR pg_has_role(r.oid,parent.oid,'SET')) ORDER BY 1,2;
 -- Aggregates only. No user/hotel UUID, email, invitation token or business contents.
 SELECT a.status,a.role,(a.user_id IS NULL) AS without_identity,
  CASE WHEN a.user_id IS NULL THEN 'unbound' WHEN u.id IS NULL THEN 'missing_auth'
