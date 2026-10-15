@@ -173,11 +173,74 @@ assert.equal(gate.body.onboardingGate.completed,false);
 assert.equal(network,0);
 pass('legacy unbound assignment not updated; deferred gate preserved; zero external fetch/provider calls');
 
+// Inspect the complete SDK transport, not just a query-builder double. The chosen
+// request excludes the optional onboarding gate; no application page is loaded.
+const sdkReadJourney = async ({status='active',unbound=false,oldWriterControl=false}={}) => {
+  const calls=[],privateLogs=[],env=defaultEnv();
+  const transport=async (input,options={})=>{
+    const url=new URL(typeof input==='string'?input:input.url);
+    const method=options.method||'GET';calls.push({method,path:url.pathname});
+    assert.equal(url.origin,urlA,'Only the synthetic Supabase origin is allowed');
+    if(method!=='GET')throw Error('Writer reached: synthetic transport rejected mutation');
+    if(url.pathname==='/auth/v1/user')return Response.json({...actor,aud:'authenticated'});
+    if(url.pathname==='/rest/v1/hotel_users') {
+      let rows=[{...assignment,platform_role:'platform_admin',user_id:unbound?null:actor.id,status}];
+      const filter=url.searchParams.get('status');
+      if(filter==='in.(active)') rows=rows.filter(x=>x.status==='active');
+      if(filter==='eq.invited') rows=rows.filter(x=>x.status==='invited');
+      return Response.json(rows);
+    }
+    if(url.pathname==='/rest/v1/hotels')return Response.json([hotel]);
+    throw Error('Unexpected SDK request');
+  };
+  const blockedFetch=globalThis.fetch;
+  try {
+    globalThis.fetch=transport;
+    const actualFactory=await factory(env);
+    // These are the production helpers and SDK methods, with only fetch replaced.
+    const invites=await compile('dashboard/lib/user-invitations.js',{'../../shared/hotels/lifecycle.js':lifecycle},{env,logs:privateLogs});
+    const current=await compile('dashboard/lib/current-hotel.js',{
+      '../../shared/hotels/lifecycle.js':lifecycle,'./supabase':actualFactory,
+      './permissions':permissions,'./user-invitations':invites},{env,logs:privateLogs});
+    const request=new Request('https://synthetic.invalid/api/current-hotel',{headers:{
+      authorization:'Bearer synthetic-session','x-staynex-hotel-id':hotel.id,'x-staynex-workspace-path':'/dashboard'}});
+    if(oldWriterControl) {
+      // Negative control: the same observer catches legacy attachment when readOnly is absent.
+      await current.getCurrentHotelForRequest(request).catch(()=>{});
+    } else {
+      const route=await compile(routePath,{
+        'next/server':{NextResponse:{json:(body,options)=>Response.json(body,options)}},
+        '@/lib/current-hotel':current,'@/lib/permissions':permissions,
+        '@/lib/server-target-diagnostic':await diagnostic({env,logs:privateLogs}),
+        '@/lib/onboarding':{getOnboardingState(){throw Error('Chosen read must not call gate')}},
+        '@/lib/enterprise-audit':{writeEnterpriseAuditLog(){throw Error('No audit writer allowed')}},
+        '../../../../shared/guest-memory/feature-flag.js':{isGuestMemoryEnabled:()=>false}
+      },{env,logs:privateLogs});
+      const response=await route.GET(request);const body=await response.json();
+      assert.equal(response.status,200);
+      assert.equal(body.accessDenied,status!=='active');
+      assert.equal(response.headers.get('set-cookie'),null);
+      assert.equal(privateLogs.filter(x=>JSON.stringify(x).includes('staynex_server_supabase_target_v1')).length,status==='active'?1:0);
+      assert(calls.every(x=>x.method==='GET'));
+      assert.equal(calls.filter(x=>x.path==='/auth/v1/user').length,1);
+      assert(!calls.some(x=>x.path.includes('/rpc/')||x.path.includes('/token')));
+    }
+    return calls;
+  } finally {globalThis.fetch=blockedFetch;}
+};
+await sdkReadJourney();await sdkReadJourney({unbound:true});
+await sdkReadJourney({status:'invited',unbound:true});await sdkReadJourney({status:'disabled'});
+const writerControl=await sdkReadJourney({status:'invited',unbound:true,oldWriterControl:true});
+assert(writerControl.some(x=>x.method==='PATCH'),'Negative control must detect the legacy writer');
+pass('full SDK GET journey: Auth user + SELECT only; no refresh, RPC, attachment or audit; negative control detects writer');
+
 if(process.argv.includes('--built')) {
   const files=(dir)=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(join(dir,e.name)):[join(dir,e.name)]);
   const marker='staynex_server_supabase_target_v1';
   for(const file of files('dashboard/.next/static'))assert(!readFileSync(file).includes(Buffer.from(marker)),file);
   assert(files('dashboard/.next/server').some(file=>readFileSync(file).includes(Buffer.from(marker))));
+  const middleware=JSON.parse(readFileSync('dashboard/.next/server/middleware-manifest.json','utf8'));
+  assert.deepEqual(middleware.middleware,{});assert.deepEqual(middleware.functions,{});
   pass('built artifact contains event in server output and nowhere in browser static bundles');
 }
 console.log(`${groups} server target diagnostic groups passed; synthetic only, external calls=${network}`);
