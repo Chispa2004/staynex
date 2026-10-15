@@ -5,6 +5,8 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
+    "test:server-target-diagnostic": "node scripts/test-server-target-diagnostic.js",
+    "test:server-target-diagnostic:built": "node scripts/test-server-target-diagnostic.js --built",
     "test:workspace-progressive-loading": "node scripts/test-workspace-progressive-loading.js",
     "test:manual-send": "node scripts/test-manual-send.js",
     "test:demo-external-isolation": "node scripts/test-demo-external-isolation.js",
