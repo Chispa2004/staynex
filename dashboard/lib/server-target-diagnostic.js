@@ -1,6 +1,6 @@
 import 'server-only';
 
-// Temporary, private runtime evidence. Call only AFTER an authorized read.
+// Permanent, private runtime observability. Call only AFTER an authorized read.
 // Each serverless module instance attempts one log; this is not a global limit.
 let attempted = false;
 

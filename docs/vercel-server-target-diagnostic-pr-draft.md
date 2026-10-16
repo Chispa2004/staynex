@@ -1,3 +1,9 @@
+# Borrador histórico sustituido
+
+La decisión del 16 de octubre mantiene la comprobación interna. El cuerpo vigente de #56
+se prepara desde `vercel-server-target-permanent-observability.md`; no aplicar la retirada
+obligatoria ni las restricciones de publicación antiguas que siguen como historial abajo.
+
 # Borrador LOCAL — Acreditar el destino del cliente Supabase del Dashboard
 
 El servidor de Vercel no dispone de evidencia suficiente de su destino Supabase efectivo.

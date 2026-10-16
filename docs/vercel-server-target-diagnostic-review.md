@@ -1,5 +1,10 @@
 # Diagnóstico privado del destino Supabase del servidor
 
+> HISTÓRICO: la decisión del 16 de octubre sustituye la retirada obligatoria por
+> observabilidad privada permanente. El procedimiento vigente es
+> `vercel-server-target-permanent-observability.md`; las instrucciones temporales
+> siguientes se conservan como historial, no son condiciones actuales de publicación.
+
 Fecha: 2026-10-15. Estado: implementado y probado localmente, NO publicado.
 
 ## Conservación y base

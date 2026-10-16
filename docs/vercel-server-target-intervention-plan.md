@@ -1,5 +1,10 @@
 # Intervención Vercel exclusiva: preparación de PR y plan de ejecución
 
+> PLAN HISTÓRICO, SUSTITUIDO el 16 de octubre de 2026 por
+> `vercel-server-target-permanent-observability.md`. Ya no se exige retirar el
+> diagnóstico ni acreditar continuidad entre dos builds. No ejecutar la retirada
+> ni aplicar las condiciones de autorización antiguas de este documento.
+
 2026-10-15. Complementa y conserva íntegros `vercel-server-target-diagnostic-review.md`
 y `vercel-server-target-diagnostic-pr-draft.md`. Esta fase permite push/PR draft/CI,
 no permite ejecutar la intervención, promover dominios ni probar el runtime remoto.

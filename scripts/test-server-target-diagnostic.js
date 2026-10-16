@@ -46,6 +46,18 @@ assert.deepEqual(event(logs),{event:'staynex_server_supabase_target_v1',client:'
 diag.recordCurrentHotelServerTarget(admin.getSupabaseAdmin()); assert.equal(logs.length,1);
 pass('actual SDK client destination, independent of public URL and later env changes; one attempt per module');
 
+// Permanent instrumentation stays bounded during warm-instance reuse.
+// Each new instance may emit once; there is no global deployment-wide limit.
+for(let i=0;i<100;i++) diag.recordCurrentHotelServerTarget(client);
+assert.equal(logs.length,1);
+const coldLogs=[], coldDiagnostic=await diagnostic({env:defaultEnv(),logs:coldLogs});
+for(let i=0;i<100;i++) coldDiagnostic.recordCurrentHotelServerTarget(client);
+assert.equal(coldLogs.length,1);
+assert.deepEqual(Object.keys(event(coldLogs)).sort(),['client','deployment','environment','event','projectRef']);
+assert.equal(event(coldLogs).projectRef,refA);
+assert.equal(network,0);
+pass('persistent observability bounded across warm requests; each new instance has its own limit');
+
 // Execute the actual next.config precedence, with synthetic dotenv contents only.
 // No environment file is read or written. Real dotenv.populate implements override.
 const resolvedEnv=defaultEnv(), seen=[];
