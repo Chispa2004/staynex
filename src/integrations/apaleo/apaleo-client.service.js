@@ -1,3 +1,4 @@
+import {assertApaleoDestination} from '../../../shared/pms/connection-contract.js';
 import { getApaleoAccessToken, getApaleoConfig } from './apaleo-auth.service.js';
 import { logger } from '../../utils/logger.js';
 
@@ -50,13 +51,15 @@ export const apaleoFetch = async (path, {
   retries = DEFAULT_RETRIES
 } = {}) => {
   const config = getApaleoConfig(overrideConfig);
-  const token = await getApaleoAccessToken({ config });
+  assertApaleoDestination(config.baseUrl,path,config.environment,method);
   const url = buildUrl({
     baseUrl: config.baseUrl,
     path,
     query
   });
 
+  assertApaleoDestination(config.baseUrl,url.href,config.environment,method);
+  const token = await getApaleoAccessToken({ config });
   logger.info('Apaleo API request', {
     method,
     path: url.pathname,
@@ -70,6 +73,7 @@ export const apaleoFetch = async (path, {
     try {
       const response = await fetch(url, {
         method,
+        redirect:'error',
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json',
@@ -81,9 +85,7 @@ export const apaleoFetch = async (path, {
       const payload = await parseResponse(response);
 
       if (!response.ok) {
-        const message = typeof payload === 'string'
-          ? payload
-          : payload?.message || payload?.error_description || payload?.error || 'Apaleo API request failed';
+        const message = 'PMS_API_REQUEST_FAILED';
 
         logger.warn('Apaleo API request failed', {
           method,
@@ -95,7 +97,7 @@ export const apaleoFetch = async (path, {
 
         const error = new Error(message);
         error.status = response.status;
-        error.payload = payload;
+
 
         if (attempt < retries && shouldRetryStatus(response.status)) {
           await sleep(350 * (attempt + 1));
@@ -122,7 +124,8 @@ export const apaleoFetch = async (path, {
         throw new Error(`Apaleo API request timed out after ${timeoutMs}ms`);
       }
 
-      throw error;
+      if(error.status) throw error;
+      throw new Error('PMS_TRANSPORT_FAILED');
     } finally {
       clearTimeout(timeout);
     }

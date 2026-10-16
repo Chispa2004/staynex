@@ -1,0 +1,468 @@
+{
+  "baseSha": "f627f8b441b1107c229a0daf7a5cb3ce95fd3d27",
+  "purpose": "Local rehearsal only; proposed admission scope, not a deployed firewall. Read-only exclusions concern invitation attachment, not universal absence of other effects. Recompute for any different old deployment.",
+  "vercelLegacyAdmission": [
+    {
+      "path": "/api/ai-logs",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/ai-logs/route.js"
+    },
+    {
+      "path": "/api/ai-offers",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "dashboard/app/api/ai-offers/route.js"
+    },
+    {
+      "path": "/api/analytics",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/analytics/route.js"
+    },
+    {
+      "path": "/api/auth/resolve-invitations",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/auth/resolve-invitations/route.js"
+    },
+    {
+      "path": "/api/automations",
+      "methods": [
+        "GET",
+        "PATCH",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/automations/route.js"
+    },
+    {
+      "path": "/api/automations/run",
+      "methods": [
+        "GET",
+        "POST",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/automations/run/route.js"
+    },
+    {
+      "path": "/api/automations/test-center",
+      "methods": [
+        "GET",
+        "POST",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/automations/test-center/route.js"
+    },
+    {
+      "path": "/api/current-hotel",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/current-hotel/route.js"
+    },
+    {
+      "path": "/api/demo/clean",
+      "methods": [
+        "DELETE"
+      ],
+      "source": "dashboard/app/api/demo/clean/route.js"
+    },
+    {
+      "path": "/api/demo/generate",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/demo/generate/route.js"
+    },
+    {
+      "path": "/api/demo/run",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/demo/run/route.js"
+    },
+    {
+      "path": "/api/demo/stats",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/demo/stats/route.js"
+    },
+    {
+      "path": "/api/experience-bookings",
+      "methods": [
+        "GET",
+        "PATCH",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/experience-bookings/route.js"
+    },
+    {
+      "path": "/api/experiences",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "PUT",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/experiences/route.js"
+    },
+    {
+      "path": "/api/experiences/upload",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/experiences/upload/route.js"
+    },
+    {
+      "path": "/api/guest-memory/[guestId]",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/guest-memory/[guestId]/route.js"
+    },
+    {
+      "path": "/api/guest-memory",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/guest-memory/route.js"
+    },
+    {
+      "path": "/api/health/hotel",
+      "methods": [
+        "GET",
+        "PATCH",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/health/hotel/route.js"
+    },
+    {
+      "path": "/api/inbox/attention",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/inbox/attention/route.js"
+    },
+    {
+      "path": "/api/inbox/takeover",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/inbox/takeover/route.js"
+    },
+    {
+      "path": "/api/knowledge/[id]",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ],
+      "source": "dashboard/app/api/knowledge/[id]/route.js"
+    },
+    {
+      "path": "/api/knowledge",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "PUT",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/knowledge/route.js"
+    },
+    {
+      "path": "/api/local-knowledge",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "PUT",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/local-knowledge/route.js"
+    },
+    {
+      "path": "/api/messages/send",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/messages/send/route.js"
+    },
+    {
+      "path": "/api/onboarding/demo-data",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/onboarding/demo-data/route.js"
+    },
+    {
+      "path": "/api/onboarding/hotel",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "dashboard/app/api/onboarding/hotel/route.js"
+    },
+    {
+      "path": "/api/onboarding/knowledge-starter",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/onboarding/knowledge-starter/route.js"
+    },
+    {
+      "path": "/api/onboarding/state",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "dashboard/app/api/onboarding/state/route.js"
+    },
+    {
+      "path": "/api/platform/ai-quality/history",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/platform/ai-quality/history/route.js"
+    },
+    {
+      "path": "/api/platform/ai-quality/run",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/platform/ai-quality/run/route.js"
+    },
+    {
+      "path": "/api/platform/hotels/[id]/experience-providers",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/platform/hotels/[id]/experience-providers/route.js"
+    },
+    {
+      "path": "/api/platform/hotels/[id]",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/platform/hotels/[id]/route.js"
+    },
+    {
+      "path": "/api/platform/hotels",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/platform/hotels/route.js"
+    },
+    {
+      "path": "/api/platform/monitoring",
+      "methods": [
+        "GET",
+        "POST",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/platform/monitoring/route.js"
+    },
+    {
+      "path": "/api/platform/providers",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/platform/providers/route.js"
+    },
+    {
+      "path": "/api/platform/sync-google-sheets",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/platform/sync-google-sheets/route.js"
+    },
+    {
+      "path": "/api/platform/test-provider-email",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/platform/test-provider-email/route.js"
+    },
+    {
+      "path": "/api/pms-connections",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/pms-connections/route.js"
+    },
+    {
+      "path": "/api/pms-connections/sync",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/pms-connections/sync/route.js"
+    },
+    {
+      "path": "/api/pms-connections/test",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/pms-connections/test/route.js"
+    },
+    {
+      "path": "/api/qr-rooms",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/qr-rooms/route.js"
+    },
+    {
+      "path": "/api/reception",
+      "methods": [
+        "GET",
+        "POST",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/reception/route.js"
+    },
+    {
+      "path": "/api/reservations/create-test",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/reservations/create-test/route.js"
+    },
+    {
+      "path": "/api/settings/users",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH",
+        "DELETE",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/settings/users/route.js"
+    },
+    {
+      "path": "/api/simulation/run",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/simulation/run/route.js"
+    },
+    {
+      "path": "/api/tickets/[id]/status",
+      "methods": [
+        "PATCH"
+      ],
+      "source": "dashboard/app/api/tickets/[id]/status/route.js"
+    },
+    {
+      "path": "/api/tickets/stats",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/tickets/stats/route.js"
+    },
+    {
+      "path": "/api/translate",
+      "methods": [
+        "POST",
+        "PATCH"
+      ],
+      "source": "dashboard/app/api/translate/route.js"
+    },
+    {
+      "path": "/api/upsells",
+      "methods": [
+        "GET",
+        "PATCH",
+        "HEAD"
+      ],
+      "source": "dashboard/app/api/upsells/route.js"
+    },
+    {
+      "path": "/api/workspaces",
+      "methods": [
+        "POST"
+      ],
+      "source": "dashboard/app/api/workspaces/route.js"
+    }
+  ],
+  "railwayAdmission": [
+    {
+      "path": "/integrations/apaleo/sync",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/integrations/apaleo/webhook",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/integrations/pms-connections",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/integrations/pms-connections/[id]",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ]
+    },
+    {
+      "path": "/integrations/pms-connections/test",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/integrations/pms-connections/sync",
+      "methods": [
+        "POST"
+      ]
+    },
+    {
+      "path": "/webhooks/pms/reservation-created",
+      "methods": [
+        "POST"
+      ]
+    }
+  ]
+}

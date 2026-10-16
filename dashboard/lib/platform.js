@@ -234,6 +234,11 @@ export const getPlatformOverview = async (supabase) => {
   const visibleHotelIds = new Set(visibleHotels.map((hotel) => hotel.id));
   const scopedRows = (rows, key = 'hotel_id') => rows.filter((row) => !row[key] || visibleHotelIds.has(row[key]));
   const scopedUsers = scopedRows(users);
+  await Promise.all(visibleHotels.map(async hotel=>{
+    const evidence=await supabase.rpc('hotel_identity_evidence_v1',{p_hotel:hotel.id});
+    const validIds=new Set(evidence.error ? [] : (evidence.data || []).map(row=>row.id));
+    for(const user of scopedUsers.filter(row=>row.hotel_id===hotel.id)) user.identity_verified=validIds.has(user.id);
+  }));
   const scopedConversations = scopedRows(conversations);
   const scopedAiLogs = scopedRows(aiLogs);
   const scopedTickets = scopedRows(tickets);
@@ -661,6 +666,9 @@ export const getHotelPlatformDetail = async (supabase, hotelId) => {
     safeRows(supabase.from('guest_stay_context').select('*').eq('hotel_id', hotelId).order('last_updated_at', { ascending: false }).limit(500), 'guest_stay_context'),
     safeRows(supabase.from('pms_intelligence_logs').select('*').eq('hotel_id', hotelId).order('created_at', { ascending: false }).limit(25), 'pms_intelligence_logs')
   ]);
+  const identityEvidence=await supabase.rpc('hotel_identity_evidence_v1',{p_hotel:hotelId});
+  const validIdentityIds=new Set(identityEvidence.error ? [] : (identityEvidence.data || []).map(row=>row.id));
+  for(const user of users) user.identity_verified=validIdentityIds.has(user.id);
   const safePmsConnections = serializePmsConnectionsSafe(pmsConnections, { surface: 'platform_summary' });
   const latestOccupancy = occupancyRows[0] || null;
   const pmsIntelligenceHealth = {

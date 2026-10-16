@@ -91,6 +91,30 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
+  assisted-onboarding:
+    name: Assisted onboarding browser and PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm --prefix dashboard ci --ignore-scripts --no-audit --no-fund
+      - run: docker pull postgres:17.10
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: node scripts/ci/run-isolated-task.cjs scripts/ci/assisted-onboarding-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: assisted-onboarding-synthetic-screenshots
+          path: .npm-cache/assisted-onboarding-evidence/*.png
+          include-hidden-files: true
+          retention-days: 7
+
   postgres:
     name: PostgreSQL knowledge and automation dispatch
     runs-on: ubuntu-24.04

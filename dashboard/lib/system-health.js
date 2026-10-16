@@ -1,3 +1,4 @@
+import {currentPmsEvidence} from '../../shared/pms/connection-contract.js';
 import { buildHealthCoverage, applyHealthCoverage } from './health-coverage.js';
 import { getWhatsappDependency, WHATSAPP_DEPENDENCIES } from '../../shared/onboarding/whatsapp-dependency.js';
 import { getPmsProvider, isPmsProviderLiveApi } from './pms-providers.js';
@@ -355,7 +356,7 @@ export const buildHotelOperationalHealthSnapshot = ({
   const successfulSync = ['connected', 'success', 'synced', 'healthy'].includes(pms?.sync_status);
   statusCards = statusCards.map((card) => {
     if (card.id === 'pms' && pms) {
-      const verified = realPms && successfulSync && pmsCheck?.status === 'HEALTHY';
+      const verified = currentPmsEvidence(pms,now instanceof Date ? now.getTime() : typeof now==='string' ? Date.parse(now) : Number(now)).syncVerified;
       card = { ...card, status: pmsCheck?.status === 'DEGRADED' ? 'warning' : verified ? 'healthy' : 'unverified',
         description: pmsCheck?.status === 'DEGRADED' ? 'La última sincronización PMS falló. Revisa la conexión.'
           : verified ? 'Sincronización PMS verificada en las últimas 48 horas.'

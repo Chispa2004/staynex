@@ -72,17 +72,19 @@ export const PmsConnectionForm = ({
             <span className={labelClass}>{tx("URL base")}</span>
             <input
               className={inputClass}
-              value={form.base_url}
+              value={provider.defaultBaseUrl || ''}
+              readOnly
               onChange={(event) => setForm((current) => ({ ...current, base_url: event.target.value }))}
-              placeholder={provider.defaultBaseUrl || 'https://api.provider.example'}
+              placeholder={tx('Contrato del proveedor pendiente')}
             />
           </label>
+          <label className="space-y-2"><span className={labelClass}>{tx('Entorno de la cuenta')}</span><select className={inputClass} required={liveApi} value={form.environment||''} onChange={e=>setForm(old=>({...old,environment:e.target.value}))}><option value="">{tx('Sin confirmar')}</option><option value="test">{tx('Cuenta de pruebas del proveedor')}</option><option value="production">{tx('Cuenta de producción del proveedor')}</option></select></label>
           <label className="space-y-2">
             <span className={labelClass}>{tx("Identificador del establecimiento")}</span>
             <input
               className={inputClass}
               value={form.property_id}
-              onChange={(event) => setForm((current) => ({ ...current, property_id: event.target.value, account_code: event.target.value }))}
+              onChange={(event) => setForm((current) => ({ ...current, property_id: event.target.value }))}
               placeholder={`${provider.name} hotel/property ID`}
             />
           </label>

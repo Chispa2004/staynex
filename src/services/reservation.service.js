@@ -313,6 +313,7 @@ const generateUniqueReservationAccessToken = async (existingReservationId = null
 const getReservationRecord = ({ data, hotelId, guestId, guestPhone, accessToken, whatsappLink }) => ({
   hotel_id: hotelId,
   guest_id: guestId,
+  ...(data.pms_provider==='apaleo' ? {pms_connection_id:data.pms_connection_id,pms_config_revision:data.pms_config_revision,pms_property_id:data.pms_property_id,pms_environment:data.pms_environment} : {}),
   pms_provider: cleanText(data.pms_provider) || 'mock',
   pms_reservation_id: cleanText(data.pms_reservation_id),
   guest_name: cleanText(data.guest_name),
@@ -400,6 +401,10 @@ export const createOrUpdateReservation = async (data, options = {}) => {
     : await getDefaultHotel({ supabase: client });
   assertHotelOperationsAvailable(hotel);
   const hotelId = hotel.id;
+  if(pmsProvider==='apaleo') {
+    const {data:c,error}=await client.from('hotel_pms_connections').select('id,hotel_id,provider,enabled,config_revision,metadata').eq('id',data.pms_connection_id||'00000000-0000-0000-0000-000000000000').maybeSingle();
+    if(error || !c?.enabled || c.provider!=='apaleo' || c.hotel_id!==hotelId || c.config_revision!==data.pms_config_revision || !data.pms_property_id || c.metadata?.property_id!==data.pms_property_id || c.metadata?.environment!==data.pms_environment) throw new Error('PMS_PROPERTY_BINDING_REQUIRED');
+  }
   const guestPhone = normalizePhoneIfNeeded(data.guest_phone || data.guestPhone);
 
   let guest = null;

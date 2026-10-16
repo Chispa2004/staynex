@@ -20,14 +20,16 @@ const normalizeSearch = (value = '') => String(value || '')
   .toLowerCase()
   .trim();
 
+// Non-serializable capability: only a trusted synthetic composition root may supply it.
+export const UBIKOS_SYNTHETIC_TRANSPORT = Symbol('isolated Ubikos fixtures');
 export class UbikosAdapter {
-  constructor({ config = {}, logger = console, mockData = UBIKOS_MOCK_DATA } = {}) {
+  constructor({ config = {}, logger = console, mockData = UBIKOS_MOCK_DATA, simulation = null } = {}) {
     this.provider = 'ubikos';
     this.logger = logger;
     this.mockData = mockData;
     this.config = {
       enabled: envFlag(config.enabled ?? process.env.UBIKOS_ENABLED, false),
-      sandbox: envFlag(config.sandbox ?? process.env.UBIKOS_SANDBOX, true),
+      sandbox: simulation===UBIKOS_SYNTHETIC_TRANSPORT && config.enabled===true && config.sandbox===true,
       readOnly: envFlag(config.readOnly ?? config.read_only ?? process.env.UBIKOS_READ_ONLY, true),
       baseUrl: config.baseUrl || config.base_url || process.env.UBIKOS_BASE_URL || 'https://cloud.ubikos.es',
       apiBaseUrl: config.apiBaseUrl || config.api_base_url || process.env.UBIKOS_API_BASE_URL || '',
@@ -78,7 +80,7 @@ export class UbikosAdapter {
         : 'live_api_not_implemented';
 
     return {
-      ok: this.config.readOnly !== false && (this.config.sandbox || this.configured),
+      ok: this.config.readOnly !== false && this.config.sandbox,
       provider: this.provider,
       status,
       enabled: this.config.enabled,
@@ -161,6 +163,8 @@ export class UbikosAdapter {
   }
 
   async getRoomStatus(roomNumber = null) {
+    this.assertReadOnly();
+    if(!this.config.sandbox) return {available:false,provider:this.provider,hotel_status:null,rooms:[],warnings:['ubikos_not_available']};
     const rooms = await this.getRooms();
     if (!roomNumber) {
       return {

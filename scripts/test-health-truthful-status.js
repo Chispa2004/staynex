@@ -12,7 +12,7 @@ const hotel = { id: 'hotel-a', name: 'Synthetic health', whatsapp_number: 'confi
 const now = new Date('2026-09-22T12:00:00Z');
 const sources = Object.fromEntries(HEALTH_SOURCES.map((key) => [key, { status: 'complete', returned: 0, total: 0 }]));
 const input = { hotel, sources, now, qrRooms: [{ active: true }], pmsConnections: [
-  { provider: 'apaleo', enabled: true, sync_status: 'connected', last_sync_at: '2026-09-22T11:00:00Z' }
+  { hotel_id:hotel.id,config_revision:1,metadata:{environment:'test',property_id:'A'},evidence:{sync:{hotel_id:hotel.id,provider:'apaleo',environment:'test',property_id:'A',revision:1,at:'2026-09-22T11:00:00Z',result:'success',coverage:'complete'}},provider: 'apaleo', enabled: true, sync_status: 'connected', last_sync_at: '2026-09-22T11:00:00Z' }
 ] };
 const card = (snapshot, id) => snapshot.statusCards.find((item) => item.id === id);
 const snapshot = buildHotelOperationalHealthSnapshot(input);
@@ -29,9 +29,9 @@ assert.equal(presentHealth({ status: 'success', payload: { health: {
 } } }).warnings, 0, 'a complete empty warning list is a known zero');
 for (const pms of [
   { ...input.pmsConnections[0], provider: 'mock' },
-  { ...input.pmsConnections[0], last_sync_at: '2026-01-01T00:00:00Z' },
-  { ...input.pmsConnections[0], sync_status: 'configured' },
-  { ...input.pmsConnections[0], last_sync_error: 'failed' }
+  { ...input.pmsConnections[0], evidence:{sync:{...input.pmsConnections[0].evidence.sync,at:'2026-01-01T00:00:00Z'}} },
+  { ...input.pmsConnections[0],config_revision:2,sync_status:'configured' },
+  { ...input.pmsConnections[0], evidence:{sync:{...input.pmsConnections[0].evidence.sync,result:'failed'}} }
 ]) assert.notEqual(card(buildHotelOperationalHealthSnapshot({ ...input, pmsConnections: [pms] }), 'pms').status, 'healthy');
 const partial = buildHotelOperationalHealthSnapshot({ ...input, sources: { ...sources, tickets: { status: 'partial', returned: 250, total: 300 } } });
 assert.equal(partial.overallStatus, 'partial');

@@ -5,6 +5,8 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
+    "test:server-target-diagnostic": "node scripts/test-server-target-diagnostic.js",
+    "test:server-target-diagnostic:built": "node scripts/test-server-target-diagnostic.js --built",
     "test:workspace-progressive-loading": "node scripts/test-workspace-progressive-loading.js",
     "test:manual-send": "node scripts/test-manual-send.js",
     "test:demo-external-isolation": "node scripts/test-demo-external-isolation.js",
@@ -129,7 +131,15 @@
     "test:attention-lifecycle": "node scripts/test-attention-lifecycle.js",
     "test:attention-lifecycle-browser": "playwright test --config scripts/attention-lifecycle-browser.config.js",
     "test:platform-workspace-entry-browser": "node scripts/accessibility-lab.cjs build && playwright test --config scripts/platform-workspace-entry-browser.config.js",
-    "test:night-blue-navigation-browser": "playwright test --config scripts/night-blue-navigation-browser.config.js"
+    "test:night-blue-navigation-browser": "playwright test --config scripts/night-blue-navigation-browser.config.js",
+    "test:access-invitations-postgres": "node scripts/test-access-invitations-postgres.js",
+    "test:pms-connection-contract": "node scripts/test-pms-connection-contract.js",
+    "test:pms-connection-contract-postgres": "node scripts/test-pms-connection-contract-postgres.js",
+    "test:assisted-onboarding-transition": "node scripts/test-assisted-onboarding-transition.js",
+    "lab:assisted-onboarding": "node scripts/assisted-onboarding-lab.cjs",
+    "test:transition-control": "node scripts/test-transition-control.js",
+    "test:assignment-identity-postgres": "node scripts/test-assignment-identity-postgres.js",
+    "test:assisted-transition-drain": "node scripts/test-assisted-transition-drain.js"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

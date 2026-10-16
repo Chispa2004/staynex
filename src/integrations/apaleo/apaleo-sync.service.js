@@ -1,3 +1,4 @@
+import {pmsBinding,assertApaleoBinding,assertApaleoProperty,reservationBinding} from '../../../shared/pms/connection-contract.js';
 import { scheduleReservationAutomations } from '../../services/automation.service.js';
 import { createOrUpdateReservation } from '../../services/reservation.service.js';
 import { logger } from '../../utils/logger.js';
@@ -25,6 +26,7 @@ const connectionToConfig = (connection) => {
   }
 
   return {
+    ...pmsBinding(connection),
     clientId: connection.client_id,
     clientSecret: decryptSecret(connection.encrypted_client_secret),
     accountCode: connection.account_code,
@@ -69,6 +71,7 @@ const assertTenantConnectionForSync = ({ hotelId, connection }) => {
     );
   }
 
+  assertApaleoBinding({...pmsBinding(connection),baseUrl:connection.base_url});
   return connection;
 };
 
@@ -145,7 +148,8 @@ export const syncReservationsFromApaleo = async ({
     });
 
     for (const rawReservation of batch) {
-      const normalized = normalizeApaleoReservation(rawReservation);
+      assertApaleoProperty(rawReservation,config);
+      const normalized = {...normalizeApaleoReservation(rawReservation),...reservationBinding(tenantConnection)};
       summary.totalProcessed += 1;
       batchSummary.processed += 1;
 
@@ -222,5 +226,5 @@ export const syncReservationsFromApaleo = async ({
     batches: summary.batches.length
   });
   logger.info('Apaleo reservations sync completed', summary);
-  return summary;
+  return {...summary,coverage:'unknown',status:summary.errors.length ? 'partial' : 'recorded'};
 };

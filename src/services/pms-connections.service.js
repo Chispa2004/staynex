@@ -1,3 +1,4 @@
+import {pmsBinding,assertApaleoProperty,reservationBinding,assertApaleoDestination} from '../../shared/pms/connection-contract.js';
 import { assertHotelOperationsAvailable } from '../../shared/hotels/lifecycle.js';
 import { getHotelById } from './hotel.service.js';
 import { getSupabase } from './supabase.service.js';
@@ -109,6 +110,7 @@ const buildConnectionRecord = ({
   apiKey,
   webhookSecret,
   propertyId,
+  environment,
   baseUrl,
   enabled = true,
   connectionMode,
@@ -117,12 +119,15 @@ const buildConnectionRecord = ({
   metadata = {}
 }) => {
   const definition = getPmsConnectorDefinition(provider);
+  if(provider==='apaleo') assertApaleoDestination(baseUrl || 'https://api.apaleo.com','/booking/v1/reservations',environment||metadata.environment);
+  else if(baseUrl && baseUrl!==definition?.defaultBaseUrl) throw new Error('PMS_DESTINATION_NOT_IMPLEMENTED');
   const pendingSetup = !isPmsConnectorLiveApi(provider);
   const cleanMetadata = sanitizePmsConnectionMetadata(metadata);
   const safeMetadata = {
     ...cleanMetadata,
     connection_mode: connectionMode || definition?.configurationMode || 'manual_setup',
-    property_id: propertyId || accountCode || cleanMetadata.property_id || null,
+    property_id: propertyId || cleanMetadata.property_id || null,
+    environment: environment || cleanMetadata.environment || null,
     notes: notes || cleanMetadata.notes || null,
     setup_status: pendingSetup ? 'pending_setup' : 'live_api',
     activation_requested_at: activationRequested ? new Date().toISOString() : cleanMetadata.activation_requested_at || null
@@ -139,7 +144,7 @@ const buildConnectionRecord = ({
     provider,
     client_id: clientId || null,
     ...(clientSecret ? { encrypted_client_secret: encryptSecret(clientSecret) } : {}),
-    account_code: accountCode || propertyId || null,
+    account_code: accountCode || null,
     base_url: baseUrl || definition?.defaultBaseUrl || null,
     enabled: Boolean(enabled),
     metadata: safeMetadata,
@@ -160,6 +165,7 @@ export const saveHotelPmsConnection = async ({
   apiKey,
   webhookSecret,
   propertyId,
+  environment,
   baseUrl,
   enabled = true,
   connectionMode,
@@ -188,6 +194,7 @@ export const saveHotelPmsConnection = async ({
     apiKey: apiKey || metadata.api_key || metadata.apiKey,
     webhookSecret: webhookSecret || metadata.webhook_secret || metadata.webhookSecret,
     propertyId: propertyId || metadata.property_id || metadata.propertyId,
+    environment,
     baseUrl,
     enabled,
     connectionMode: connectionMode || metadata.connection_mode || metadata.connectionMode,
@@ -321,6 +328,7 @@ export const connectionToApaleoConfig = (connection) => {
   }
 
   return {
+    ...pmsBinding(connection),
     clientId: connection.client_id,
     clientSecret: decryptSecret(connection.encrypted_client_secret),
     accountCode: connection.account_code,
@@ -329,76 +337,27 @@ export const connectionToApaleoConfig = (connection) => {
   };
 };
 
-export const testPmsConnection = async ({ hotelId, provider = 'apaleo' } = {}) => {
+export const savePmsEvidence = async (connection,type,started,result,coverage='unknown') => {
+  const {data,error}=await getSupabase().rpc('record_pms_evidence_v1',{p_connection:connection.id,p_revision:connection.config_revision,p_type:type,p_started:started,p_result:result,p_coverage:coverage});
+  if(error || !data) throw new Error('PMS_EVIDENCE_NOT_PERSISTED_OR_SUPERSEDED');
+  return data;
+};
+export const testPmsConnection = async ({hotelId,provider}={}) => {
   assertHotelOperationsAvailable(await getHotelById(hotelId));
-  const connection = await getHotelPmsConnection({ hotelId, provider });
-
-  if (!connection) {
-    throw new Error(`No ${provider} PMS connection found for this hotel`);
+  const connection=await getHotelPmsConnection({hotelId,provider});
+  if(!connection?.enabled) throw new Error('PMS_CONNECTION_DISABLED');
+  if(provider!=='apaleo') return {ok:false,provider,status:'pending_setup',connection:serializeTenantConnection(connection)};
+  const started=new Date().toISOString();
+  try {
+    const config=connectionToApaleoConfig(connection);
+    const property=await apaleoFetch('/inventory/v1/properties/'+encodeURIComponent(config.propertyId),{config});
+    if(property?.id!==config.propertyId) throw new Error('PMS_PROPERTY_MISMATCH');
+    const receipt=await savePmsEvidence(connection,'access',started,'success');
+    return {ok:true,provider,connection:serializeTenantConnection({...connection,evidence:{...connection.evidence,access:receipt}})};
+  } catch(error) {
+    await savePmsEvidence(connection,'access',started,'failed');
+    throw new Error('PMS_ACCESS_CHECK_FAILED');
   }
-
-  if (provider !== 'apaleo') {
-    const client = getSupabase();
-    await client
-      .from('hotel_pms_connections')
-      .update({
-        sync_status: 'pending_setup',
-        last_sync_error: null,
-        metadata: {
-          ...(connection.metadata || {}),
-          setup_status: 'pending_setup',
-          last_test_at: new Date().toISOString(),
-          last_test_result: 'activation_required'
-        },
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', connection.id);
-
-    return {
-      ok: true,
-      provider,
-      status: 'pending_setup',
-      connection: serializeTenantConnection({
-        ...connection,
-        sync_status: 'pending_setup',
-        metadata: {
-          ...(connection.metadata || {}),
-          last_test_result: 'activation_required'
-        }
-      }),
-      message: 'Configuration saved. Staynex team must activate the live connector before syncing.'
-    };
-  }
-
-  const config = connectionToApaleoConfig(connection);
-  await getApaleoAccessToken({ config, forceRefresh: true });
-  await apaleoFetch('/booking/v1/reservations', {
-    config,
-    query: {
-      pageNumber: 1,
-      pageSize: 1
-    }
-  });
-
-  const client = getSupabase();
-  await client
-    .from('hotel_pms_connections')
-    .update({
-      sync_status: 'connected',
-      last_sync_error: null,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', connection.id);
-
-  return {
-    ok: true,
-    provider,
-    connection: serializeTenantConnection({
-      ...connection,
-      sync_status: 'connected',
-      last_sync_error: null
-    })
-  };
 };
 
 export const syncHotelReservations = async ({
@@ -447,6 +406,7 @@ export const syncHotelReservations = async ({
   }
 
   const client = getSupabase();
+  const started=new Date().toISOString();
 
   try {
     const summary = await syncReservationsFromApaleo({
@@ -459,42 +419,11 @@ export const syncHotelReservations = async ({
       maxReservations: Number(maxReservations) || getPmsMaxReservations()
     });
 
-    await client
-      .from('hotel_pms_connections')
-      .update({
-        sync_status: summary.errors.length > 0 ? 'partial_success' : 'success',
-        last_sync_at: summary.lastSyncedAt || new Date().toISOString(),
-        last_sync_error: summary.errors[0]?.error || null,
-        metadata: {
-          ...(connection.metadata || {}),
-          last_sync_summary: summary,
-          last_sync_progress: {
-            totalFetched: summary.totalFetched,
-            totalProcessed: summary.totalProcessed,
-            totalInserted: summary.totalInserted,
-            totalUpdated: summary.totalUpdated,
-            totalSkipped: summary.totalSkipped,
-            lastSyncedAt: summary.lastSyncedAt
-          }
-        },
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', connection.id)
-      .eq('hotel_id', connection.hotel_id);
-
+    await savePmsEvidence(connection,'sync',started,summary.errors.length ? 'partial' : 'success','unknown');
     return summary;
   } catch (error) {
     const safeError = sanitizeWebhookErrorCode(error);
-    await client
-      .from('hotel_pms_connections')
-      .update({
-        sync_status: 'failed',
-        last_sync_error: safeError,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', connection.id)
-      .eq('hotel_id', connection.hotel_id);
-
+    await savePmsEvidence(connection,'sync',started,'failed','unknown');
     throw new PmsConnectionSyncError(error);
   }
 };

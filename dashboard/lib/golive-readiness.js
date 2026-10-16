@@ -1,3 +1,4 @@
+import {currentPmsEvidence} from '../../shared/pms/connection-contract.js';
 import { evaluateHotelLocationTimezoneIntegrity } from '../../shared/location/hotel-location-integrity.js';
 
 export const READINESS_STATUS = {
@@ -113,7 +114,7 @@ export const buildReadinessForHotel = ({
   const activePms = pmsConnections.find((item) => item.enabled && item.sync_status !== 'archived')
     || (hotel.pms?.enabled ? hotel.pms : null);
   const latestPmsSync = activePms?.last_sync_at || activePms?.lastSyncAt || pmsIntelligenceHealth.lastPmsSync;
-  const activeUsers = users.length ? users.filter((item) => item.status === 'active') : Array.from({ length: stats.activeUsers || 0 }, (_, index) => ({ id: index, role: index === 0 ? 'admin' : 'receptionist', status: 'active' }));
+  const activeUsers = users.filter((item) => item.status === 'active' && item.identity_verified === true);
   const hasStaff = activeUsers.some((item) => ['owner', 'admin'].includes(item.role)) && activeUsers.some((item) => item.role === 'receptionist');
   const urgentTickets = tickets.filter((item) => item.priority === 'urgent' && !['closed', 'resolved', 'completed'].includes(item.status)).length || stats.urgentTickets || 0;
   const aiHandled = aiLogs.filter((item) => item.ai_resolution_estimate || item.openai_concierge_used || item.response_text || item.generated_response).length || stats.aiHandled || 0;
@@ -139,14 +140,14 @@ export const buildReadinessForHotel = ({
     check({
       checkType: 'pms_connected',
       category: 'PMS',
-      status: activePms ? 'healthy' : 'critical',
-      message: activePms ? `${activePms.provider || 'PMS'} connection is configured.` : 'No PMS connection is active.'
+      status: currentPmsEvidence(activePms).accessVerified && currentPmsEvidence(activePms).production ? 'healthy' : 'critical',
+      message: currentPmsEvidence(activePms).accessVerified && currentPmsEvidence(activePms).production ? 'PMS access verified in production for this configuration.' : 'Production PMS access not verified for this configuration.'
     }),
     check({
       checkType: 'pms_sync_healthy',
       category: 'PMS',
-      status: !activePms ? 'missing' : isRecent(latestPmsSync, 48) || stats.reservations > 0 || reservations.length > 0 ? 'healthy' : 'warning',
-      message: isRecent(latestPmsSync, 48) ? 'PMS sync is recent.' : 'PMS sync should be refreshed before launch.'
+      status: !activePms ? 'missing' : currentPmsEvidence(activePms).syncVerified ? 'healthy' : 'warning',
+      message: currentPmsEvidence(activePms).syncVerified ? 'PMS coverage verified for this configuration.' : 'PMS synchronization coverage is partial or unknown.'
     }),
     check({
       checkType: 'whatsapp_connected',

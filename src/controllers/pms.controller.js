@@ -26,6 +26,7 @@ const validateReservationPayload = (body) => {
 
 export const handleReservationCreated = async (req, res, next) => {
   try {
+    if(req.body?.pms_provider==='apaleo') return res.status(422).json({ok:false,error:'Use the property-validated Apaleo connector.'});
     const validationError = validateReservationPayload(req.body);
 
     if (validationError) {

@@ -1,3 +1,4 @@
+import {assertApaleoProperty,reservationBinding} from '../../../shared/pms/connection-contract.js';
 import { scheduleReservationAutomations } from '../../services/automation.service.js';
 import { reconcileReservationAutomationLifecycle } from '../../services/automation-reconciliation.service.js';
 import { connectionToApaleoConfig } from '../../services/pms-connections.service.js';
@@ -1036,28 +1037,12 @@ const syncFetchedReservation = async ({
     found: Boolean(rawReservation)
   });
 
-  if (!rawReservation) {
-    if (statusOverride) {
-      const updatedReservation = await markLocalReservationStatus({
-        reservationId: parsed.externalResourceId,
-        status: statusOverride,
-        hotelId: context.hotelId,
-        sourceEventId: parsed.externalEventId,
-        supabase
-      });
-
-      return {
-        reservation: updatedReservation,
-        fetched: false
-      };
-    }
-
-    throw new Error(`Apaleo reservation not found: ${parsed.externalResourceId}`);
-  }
-
+  if (!rawReservation) throw new Error('PMS_PROPERTY_EVIDENCE_UNAVAILABLE');
+  assertApaleoProperty(rawReservation,config);
   const normalizedReservation = normalizeApaleoReservation(rawReservation);
   const normalized = {
     ...normalizedReservation,
+    ...reservationBinding(context.connection),
     status: statusOverride || normalizedReservation?.status
   };
 

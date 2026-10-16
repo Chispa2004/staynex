@@ -1,0 +1,68 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const out=path.resolve('.npm-cache/assisted-onboarding-evidence'),state=JSON.parse(fs.readFileSync(path.join(out,process.argv.includes('--new-account')?'state-new.json':'state.json'),'utf8'));
+(async()=>{
+ const browser=await chromium.launch({...(process.platform==='win32'?{channel:'msedge'}:{}),headless:true});
+ const context=await browser.newContext({viewport:{width:1366,height:900},storageState:state.owner});
+ await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
+ const page=await context.newPage();page.on('pageerror',e=>console.error('BROWSER',e.message));
+ await page.goto('http://127.0.0.1:3390/dashboard/onboarding?hotelId='+state.hotelId);
+ await page.getByRole('button',{name:/01.*Hotel/s}).click();
+ await page.getByRole('button',{name:'Guardar hotel',exact:true}).waitFor();
+ await page.getByLabel('Correo de contacto del hotel',{exact:true}).fill('contact@example.invalid');
+ await page.getByLabel('Hora de check-in',{exact:true}).fill('15:00');await page.getByLabel('Hora de check-out',{exact:true}).fill('11:00');
+ let saved=page.waitForResponse(r=>r.url().endsWith('/api/onboarding/hotel')&&r.request().method()==='PATCH');
+ await page.getByRole('button',{name:'Guardar hotel',exact:true}).click();
+ let r=await saved;assert.equal(r.status(),200,JSON.stringify(await r.json()));
+ saved=page.waitForResponse(r=>r.url().endsWith('/api/onboarding/hotel')&&r.request().method()==='PATCH');
+ await page.getByRole('button',{name:'Verificar zona horaria',exact:true}).click();
+ r=await saved;assert.equal(r.status(),200,JSON.stringify(await r.json()));
+ await page.reload();await page.getByRole('button',{name:/04.*WhatsApp/s}).click();
+ await page.getByLabel('Actuación externa pendiente').selectOption('pending_staynex');
+ saved=page.waitForResponse(r=>r.url().endsWith('/api/onboarding/hotel')&&r.request().method()==='PATCH');
+ await page.getByRole('button',{name:/Guardar dependencia|Actualizar dependencia/}).click();
+ r=await saved;assert.equal(r.status(),200,JSON.stringify(await r.json()));
+ await page.goto('http://127.0.0.1:3390/dashboard/knowledge');
+ await page.getByLabel('Título',{exact:true}).first().waitFor();
+ if(!await page.locator('input[value="arrival_synthetic"]').count()){
+ await page.getByLabel('Título',{exact:true}).first().fill('Llegada sintética');
+ await page.getByLabel('Clave',{exact:true}).first().fill('arrival_synthetic');
+ await page.getByLabel('Categoría',{exact:true}).first().fill('llegada');
+ await page.getByLabel('Contenido',{exact:true}).first().fill('Información ficticia revisada: la recepción de este hotel sintético atiende la llegada presencial.');
+ saved=page.waitForResponse(r=>r.url().endsWith('/api/knowledge')&&r.request().method()==='POST');
+ await page.getByRole('button',{name:'Añadir',exact:true}).click();r=await saved;assert.equal(r.status(),201,JSON.stringify(await r.json()));
+ }
+ await page.goto('http://127.0.0.1:3390/dashboard/onboarding?hotelId='+state.hotelId);
+ const reviewRead=page.waitForResponse(r=>r.url().endsWith('/api/onboarding/information-review')&&r.request().method()==='GET');
+ await page.getByRole('button',{name:/05.*Información del hotel/s}).click();
+ if(!(await (await reviewRead).json()).reviewed) await page.getByRole('button',{name:'Confirmo que he revisado la información guardada'}).click();
+ await page.getByText('Información revisada',{exact:true}).first().waitFor();
+ await page.getByRole('button',{name:/03.*PMS/s}).click();
+ await page.getByText('Consultando configuración guardada.',{exact:true}).waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'Finalizar configuración disponible',exact:true}).waitFor();
+ for(const width of [1366,390])for(const theme of ['light','dark']){
+  await page.setViewportSize({width,height:900});
+  if(width===390)await page.getByRole('button',{name:'Abrir navegación',exact:true}).click();
+  const toggle=page.getByRole('button',{name:theme==='dark'?'Cambiar a tema oscuro':'Cambiar a tema claro',exact:true});if(await toggle.count())await toggle.click();
+  if(width===390)await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  await page.getByRole('heading',{name:'PMS del hotel',exact:true}).scrollIntoViewIfNeeded();
+  await page.screenshot({path:path.join(out,'onboarding-pms-'+width+'-'+theme+'.png'),fullPage:true});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'onboarding overflow');
+  await page.getByText('Apaleo',{exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:path.join(out,'pms-card-'+width+'-'+theme+'.png'),fullPage:true});
+ }
+ await page.getByRole('button',{name:/06.*Preparación del hotel/s}).click();
+ console.log('FINAL',await page.locator('main').innerText());
+ const finish=page.getByRole('button',{name:'Finalizar configuración disponible',exact:true});
+ const healthRead=page.waitForResponse(r=>r.url().endsWith('/api/health/hotel')&&r.request().method()==='GET');
+ const completed=page.waitForResponse(r=>r.url().endsWith('/api/onboarding/state')&&r.request().method()==='PATCH');
+ await finish.focus();await page.keyboard.press('Enter');
+ const completedResponse=await completed;assert.equal(completedResponse.status(),200);assert.equal((await completedResponse.json()).state.hotel_id,state.hotelId);
+ await page.waitForURL(/dashboard\/health/);
+ const healthResponse=await healthRead;assert.equal(healthResponse.status(),200);const health=await healthResponse.json();assert.equal(health.hotelId,state.hotelId);assert.equal(health.hotel.ai_auto_reply_enabled,false);assert.equal(health.hotel.hotel_live_mode,false);assert.notEqual(health.health.statusCards.find(c=>c.id==='pms').status,'healthy');
+ await page.getByRole('heading',{name:'Salud operativa del hotel',exact:true}).waitFor();
+ assert((await context.cookies()).some(c=>c.name==='staynex_active_hotel_id'&&c.value===state.hotelId));
+ await page.screenshot({path:path.join(out,'onboarding-completed-health.png'),fullPage:true});
+ await page.screenshot({path:path.join(out,'onboarding-dependency.png'),fullPage:true});
+ fs.writeFileSync(path.join(out,process.argv.includes('--new-account')?'state-new.json':'state.json'),JSON.stringify({...state,owner:await context.storageState()},null,2));
+ await browser.close();
+})().catch(e=>{console.error(e);process.exit(1);});

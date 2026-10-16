@@ -1,3 +1,4 @@
+import {currentPmsEvidence} from '../../shared/pms/connection-contract.js';
 import { getSupabase } from './supabase.service.js';
 import { logger } from '../utils/logger.js';
 import { evaluateHotelLocationTimezoneIntegrity } from '../../shared/location/hotel-location-integrity.js';
@@ -142,7 +143,7 @@ export const buildReadinessChecksFromContext = ({
   const aiHandled = aiLogs.filter((log) => log.ai_resolution_estimate || log.openai_concierge_used || log.response_text || log.generated_response);
   const failedProviderEmails = experienceBookings.filter((booking) => (booking.lead_status || booking.metadata?.provider_email_status) === 'failed');
   const providerBookings = experienceBookings.filter((booking) => booking.provider_id || booking.revenue_type === 'partner_marketplace' || booking.revenue_owner === 'staynex');
-  const activeUsers = users.filter((user) => user.status === 'active');
+  const activeUsers = users.filter((user) => user.status === 'active' && user.identity_verified === true);
   const validRoles = activeUsers.every((user) => ['owner', 'admin', 'manager', 'receptionist', 'housekeeping', 'maintenance', 'analyst'].includes(user.role));
   const hasStaff = activeUsers.some((user) => ['owner', 'admin'].includes(user.role)) && activeUsers.some((user) => user.role === 'receptionist');
   const resendConfigured = Boolean(env.RESEND_API_KEY && (env.RESEND_FROM || env.EMAIL_FROM));
@@ -168,14 +169,14 @@ export const buildReadinessChecksFromContext = ({
     check({
       checkType: 'pms_connected',
       category: 'PMS',
-      status: activePms ? READINESS_STATUS.HEALTHY : READINESS_STATUS.CRITICAL,
-      message: activePms ? `${activePms.provider} PMS connection is configured.` : 'No PMS connection is active.'
+      status: currentPmsEvidence(activePms).accessVerified && currentPmsEvidence(activePms).production ? READINESS_STATUS.HEALTHY : READINESS_STATUS.CRITICAL,
+      message: currentPmsEvidence(activePms).accessVerified && currentPmsEvidence(activePms).production ? 'PMS access verified in production for this configuration.' : 'Production PMS access not verified for this configuration.'
     }),
     check({
       checkType: 'pms_sync_healthy',
       category: 'PMS',
-      status: !activePms ? READINESS_STATUS.MISSING : isRecent(latestPmsSync, 48) || reservations.length > 0 ? READINESS_STATUS.HEALTHY : READINESS_STATUS.WARNING,
-      message: !activePms ? 'PMS sync cannot run until a connector is configured.' : isRecent(latestPmsSync, 48) ? 'PMS sync is recent.' : 'PMS sync is stale or has no recent run.',
+      status: !activePms ? READINESS_STATUS.MISSING : currentPmsEvidence(activePms).syncVerified ? READINESS_STATUS.HEALTHY : READINESS_STATUS.WARNING,
+      message: currentPmsEvidence(activePms).syncVerified ? 'PMS coverage verified for this configuration.' : 'PMS synchronization coverage is partial or unknown.',
       details: { latestPmsSync, reservations: reservations.length }
     }),
     check({
@@ -344,6 +345,8 @@ export const runHotelReadinessChecks = async (hotelId, { persist = true } = {}) 
 
   if (hotelResult.error) throw hotelResult.error;
 
+  const identities = await supabase.rpc('hotel_identity_evidence_v1', {p_hotel:hotelId});
+  const validIds = new Set(identities.error ? [] : (identities.data || []).map(row=>row.id));
   const latestOccupancy = occupancyRows.data?.[0] || null;
   const safePmsConnections = serializePmsConnectionsSafe(pmsConnections.data || [], { surface: 'health' });
   const checks = buildReadinessChecksFromContext({
@@ -353,7 +356,7 @@ export const runHotelReadinessChecks = async (hotelId, { persist = true } = {}) 
     conversations: conversations.data || [],
     aiLogs: aiLogs.data || [],
     tickets: tickets.data || [],
-    users: users.data || [],
+    users: (users.data || []).map(user=>({...user,identity_verified:validIds.has(user.id)})),
     experienceBookings: experienceBookings.data || [],
     localKnowledge: localKnowledge.data || [],
     knowledgeEntries: knowledgeEntries.data || [],

@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+import {assertApaleoBinding} from '../../../shared/pms/connection-contract.js';
 import { logger } from '../../utils/logger.js';
 
 const TOKEN_ENDPOINT = 'https://identity.apaleo.com/connect/token';
@@ -21,6 +23,7 @@ const requiredEnv = [
 ];
 
 export const getApaleoConfig = (overrideConfig = null) => {
+  assertApaleoBinding(overrideConfig);
   if (overrideConfig) {
     const missingConfig = [
       ['clientId', 'APALEO_CLIENT_ID'],
@@ -36,6 +39,7 @@ export const getApaleoConfig = (overrideConfig = null) => {
     }
 
     return {
+      ...overrideConfig,
       clientId: overrideConfig.clientId,
       clientSecret: overrideConfig.clientSecret,
       accountCode: overrideConfig.accountCode,
@@ -62,7 +66,7 @@ export const getApaleoConfig = (overrideConfig = null) => {
   };
 };
 
-const getCacheKey = (config) => `${config.accountCode}:${config.clientId}`;
+const getCacheKey = config => createHash('sha256').update(JSON.stringify([config.hotelId,config.connectionId,config.revision,config.environment,config.propertyId,config.accountCode,config.clientId,config.clientSecret])).digest('hex');
 
 export const getApaleoAccessToken = async ({ forceRefresh = false, config: overrideConfig = null } = {}) => {
   const now = Date.now();
@@ -101,6 +105,7 @@ export const getApaleoAccessToken = async ({ forceRefresh = false, config: overr
   try {
     response = await fetch(TOKEN_ENDPOINT, {
       method: 'POST',
+      redirect: 'error',
       headers: {
         Authorization: `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -115,7 +120,7 @@ export const getApaleoAccessToken = async ({ forceRefresh = false, config: overr
       throw new Error(`Apaleo authentication timed out after ${process.env.APALEO_TIMEOUT_MS || TOKEN_TIMEOUT_MS}ms`);
     }
 
-    throw error;
+    throw new Error('PMS_AUTHENTICATION_TRANSPORT_FAILED');
   } finally {
     clearTimeout(timeout);
   }
@@ -130,13 +135,8 @@ export const getApaleoAccessToken = async ({ forceRefresh = false, config: overr
   }
 
   if (!response.ok || !payload.access_token) {
-    logger.warn('Apaleo token request failed', {
-      status: response.status,
-      error: payload.error,
-      errorDescription: payload.error_description
-    });
-
-    throw new Error(payload.error_description || payload.error || 'Apaleo authentication failed');
+    logger.warn('Apaleo token request failed', {status:response.status});
+    throw new Error('PMS_AUTHENTICATION_FAILED');
   }
 
   cachedToken = {

@@ -24,7 +24,7 @@ export async function GET(request) {
     }
     const hotelId = assertPmsHotelContext({ hotel, fallback });
     const operationsHeld = hotelOperationsHeld(hotel);
-    const canManage = canAccess(role, 'pms_connections_manage') && platformRole !== 'support' && !operationsHeld;
+    const canManage = canAccess(role, 'pms_connections_manage') && ['platform_admin','super_admin','internal_only'].includes(platformRole) && !operationsHeld;
     const { data, error } = await supabase
       .from('hotel_pms_connections')
       .select(PMS_CONNECTION_SELECT)
@@ -64,7 +64,7 @@ export async function POST(request) {
     if (!canAccess(role, 'pms_connections_manage')) {
       return jsonError('Access denied', 403);
     }
-    if (platformRole === 'support') {
+    if (!['platform_admin','super_admin','internal_only'].includes(platformRole)) {
       return jsonError('Support sessions are read-only by default', 403);
     }
     const hotelId = assertPmsHotelContext({ hotel, fallback, write: true });
@@ -112,7 +112,7 @@ export async function DELETE(request) {
     if (!canAccess(role, 'pms_connections_manage')) {
       return jsonError('Access denied', 403);
     }
-    if (platformRole === 'support') {
+    if (!['platform_admin','super_admin','internal_only'].includes(platformRole)) {
       return jsonError('Support sessions are read-only by default', 403);
     }
     const hotelId = assertPmsHotelContext({ hotel, fallback, write: true });

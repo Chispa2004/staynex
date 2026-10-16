@@ -1,3 +1,4 @@
+import {assertApaleoDestination,pmsContractError} from '../../shared/pms/connection-contract.js';
 import { encryptSecret } from './pms-encryption';
 import { assertHotelOperationsAvailable } from '../../shared/hotels/lifecycle.js';
 import { getInternalApiHeaders } from './internal-api';
@@ -52,7 +53,7 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 22000) => {
 };
 
 export const saveConnection = async ({ supabase, hotelId, payload }) => {
-  const provider = payload.provider || 'apaleo';
+  const provider = payload.provider;
   const providerDefinition = getPmsProvider(provider);
 
   if (!providerDefinition) {
@@ -76,6 +77,9 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
   }
 
   const existing = existingResult.data;
+  const environment=payload.environment || existing?.metadata?.environment || null;
+  if(provider==='apaleo') assertApaleoDestination(payload.base_url || 'https://api.apaleo.com','/booking/v1/reservations',environment);
+  else if(payload.base_url && payload.base_url!==providerDefinition.defaultBaseUrl) throw pmsContractError('PMS_DESTINATION_NOT_IMPLEMENTED');
   const connectionMode = payload.connection_mode || payload.connectionMode || providerDefinition.configurationMode || 'manual_setup';
   const pendingSetup = !isPmsProviderLiveApi(providerDefinition);
   const existingEncryptedCredentials = existing?.metadata?.credentials_encrypted;
@@ -83,7 +87,8 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
     ...sanitizePmsConnectionMetadata(existing?.metadata || {}),
     ...sanitizePmsConnectionMetadata(payload.metadata || {}),
     connection_mode: connectionMode,
-    property_id: payload.property_id || payload.propertyId || payload.account_code || payload.accountCode || existing?.metadata?.property_id || null,
+    environment,
+    property_id: payload.property_id || payload.propertyId || existing?.metadata?.property_id || null,
     notes: payload.notes || existing?.metadata?.notes || null,
     setup_status: pendingSetup ? 'pending_setup' : 'live_api',
     activation_requested_at: payload.activation_requested ? new Date().toISOString() : existing?.metadata?.activation_requested_at || null
@@ -102,7 +107,7 @@ export const saveConnection = async ({ supabase, hotelId, payload }) => {
     hotel_id: hotelId,
     provider,
     client_id: payload.client_id || payload.clientId || null,
-    account_code: payload.account_code || payload.accountCode || payload.property_id || payload.propertyId || null,
+    account_code: payload.account_code || payload.accountCode || null,
     base_url: payload.base_url || providerDefinition.defaultBaseUrl || null,
     enabled: payload.enabled !== false,
     sync_status: pendingSetup ? 'pending_setup' : existing?.sync_status || 'configured',
