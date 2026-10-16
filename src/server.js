@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import {createTransitionControl,installTransitionEndpoints} from './middleware/transition-control.js';
 import whatsappRoutes from './routes/whatsapp.routes.js';
 import pmsRoutes from './routes/pms.routes.js';
 import testRoutes from './routes/test.routes.js';
@@ -9,6 +10,7 @@ import integrationsRoutes from './routes/integrations.routes.js';
 import { validateEnvironment } from './config/env.js';
 import { logger } from './utils/logger.js';
 import {
+  requireInternalApiToken,
   areTestRoutesEnabled,
   requestIdMiddleware
 } from './middleware/security.middleware.js';
@@ -39,6 +41,11 @@ app.get('/health', (req, res) => {
   });
 });
 
+const transition=createTransitionControl({initialMode:process.env.TRANSITION_ADMISSION_MODE||'open',
+  instance:process.env.RAILWAY_REPLICA_ID||'unknown',revision:process.env.RAILWAY_GIT_COMMIT_SHA||'unknown'});
+installTransitionEndpoints(app,transition,requireInternalApiToken);
+for(const [router,group] of [[whatsappRoutes,'whatsapp'],[pmsRoutes,'pms'],[integrationsRoutes,'pms'],[messagesRoutes,'messages'],[testRoutes,'test'],[debugRoutes,'debug']]) transition.install(router,group);
+
 app.use('/webhooks', whatsappRoutes);
 app.use('/webhooks/pms', pmsRoutes);
 app.use('/', testRoutes);
@@ -60,6 +67,14 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(port, () => {
+const server=app.listen(port, () => {
   logger.info(`Staynex backend listening on port ${port}`);
+});
+
+process.once('SIGTERM',()=>{
+  transition.restrict('all');
+  logger.info('transition_shutdown_requested',transition.snapshot());
+  server.close(()=>logger.info('transition_http_closed',transition.snapshot()));
+  // No forced exit, claim reset or requeue. Platform termination is an external
+  // deadline and may leave uncertain outcomes; HTTP closure alone is not drain.
 });

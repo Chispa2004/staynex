@@ -15,7 +15,7 @@ let checks=0;
 const pass=label=>{checks++;console.log('PASS '+label);};
 try {
  sql(readFileSync(new URL('./fixtures/assisted-onboarding-schema.sql',import.meta.url),'utf8'));
- for(const file of ['create_hotel_onboarding.sql','add_atomic_hotel_onboarding.sql','add_hotel_access_invitations.sql','add_hotel_access_invitations.sql'])
+ for(const file of ['add_hotel_lifecycle.sql','create_hotel_onboarding.sql','add_atomic_hotel_onboarding.sql','add_hotel_access_invitations.sql','guard_explicit_invitation_acceptance.sql','guard_explicit_invitation_acceptance.sql'])
    sql(readFileSync(new URL('../supabase/sql/'+file,import.meta.url),'utf8'));
  for(const role of ['anon','authenticated']){
    assert.equal(sql(`SELECT has_function_privilege('${role}','accept_hotel_invitation_v1(uuid,text,boolean)','execute');`),'f');
@@ -79,5 +79,11 @@ try {
  sql(`UPDATE hotel_knowledge SET value='Instrucción sintética modificada';`);
  assert.equal(review().reviewed,false);assert.throws(()=>review(q(id(4)),q(pending.hash)));
  pass('explicit scoped information review; changed content invalidates confirmation and old snapshots');
+ const version=sql(`SELECT updated_at FROM hotels WHERE id='${id(11)}'`);
+ const archived=JSON.parse(sql(`SET ROLE service_role;SELECT hotel_lifecycle_v1('${id(11)}','${id(1)}','archive',NULL,${q(version)});`));
+ assert.throws(()=>invoke(4));
+ sql(`SET ROLE service_role;SELECT hotel_lifecycle_v1('${id(11)}','${id(1)}','restore',${q(archived.hotel.archived_at)});`);
+ assert.throws(()=>invoke(4));
+ pass('real lifecycle RPC/guards deny acceptance while archived and after restored hold');
  console.log(checks+' invitation PostgreSQL/API groups passed');
 } finally {db.cleanup();}

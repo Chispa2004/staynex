@@ -6,7 +6,7 @@ const out=path.resolve('.npm-cache/assisted-onboarding-evidence');fs.mkdirSync(o
  const context=await browser.newContext({viewport:{width:1366,height:900},permissions:['clipboard-read','clipboard-write']});
  await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  const page=await context.newPage();page.on('pageerror',e=>console.error('BROWSER',e.message));
- await page.goto('http://127.0.0.1:3380/lab');
+ await page.goto('http://127.0.0.1:3390/lab');
  await page.getByRole('button',{name:'Usar cuenta Staynex sintética'}).click();
  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('assisted-lab-session')||'null')?.access_token);
  for(const [field,value] of Object.entries({name:newAccount?'Hotel sintético Sierra B':'Hotel sintético Costa A',admin_email:ownerEmail,country_code:'ES',city:'Madrid',timezone:'Europe/Madrid'}))
@@ -19,7 +19,7 @@ const out=path.resolve('.npm-cache/assisted-onboarding-evidence');fs.mkdirSync(o
  await page.getByRole('button',{name:'Generar enlace nuevo'}).click();
  await page.getByRole('button',{name:'Copiar enlace',exact:true}).click();
  const link=await page.evaluate(()=>navigator.clipboard.readText());
- assert(link.startsWith('http://127.0.0.1:3380/invite#token='));
+ assert(link.startsWith('http://127.0.0.1:3390/invite#token='));
  await page.waitForTimeout(350);
    await page.screenshot({path:path.join(out,'invitation-admin-1366-light.png'),fullPage:true});
  await page.goto(link);await page.getByRole('button',{name:'Comprobar invitación'}).click();
@@ -30,11 +30,10 @@ const out=path.resolve('.npm-cache/assisted-onboarding-evidence');fs.mkdirSync(o
  if(newAccount){
   await page.getByRole('button',{name:'Crear cuenta',exact:true}).click();
   await page.getByRole('status').filter({hasText:'Revisa el correo'}).waitFor();
-  await page.getByRole('button',{name:'Comprobar invitación'}).click();
-  await page.getByRole('alert').waitFor(); // no verified session, no grant
-  await page.getByRole('button',{name:'Cambiar de cuenta'}).click();
+  assert.equal(await page.getByRole('button',{name:/Comprobar invitaci/}).count(),0);
+  await page.getByRole('button',{name:/Iniciar sesi/,exact:true}).waitFor();
   // Simulated Auth email delivery; never an invitation acceptance or remote Auth operation.
-  await page.request.post('http://127.0.0.1:3380/api/lab-auth',{data:{action:'verify',email:ownerEmail}});
+  await page.request.post('http://127.0.0.1:3390/api/lab-auth',{data:{action:'verify',email:ownerEmail}});
   await page.getByLabel('Correo electrónico',{exact:true}).fill(ownerEmail);
   await page.getByLabel('Contraseña',{exact:true}).fill('synthetic-password');
  }
@@ -56,6 +55,10 @@ const out=path.resolve('.npm-cache/assisted-onboarding-evidence');fs.mkdirSync(o
  await page.getByRole('button',{name:'Aceptar invitación',exact:true}).focus();await page.keyboard.press('Enter');
  if(!newAccount){await page.getByRole('alert').waitFor();await page.getByRole('button',{name:'Comprobar invitación'}).click();}
  await page.getByRole('status').filter({hasText:'Acceso aceptado'}).waitFor();
+ await page.reload();
+ await page.getByRole('button',{name:'Comprobar invitación'}).click();
+ await page.getByRole('status').filter({hasText:'Acceso aceptado'}).waitFor();
+ assert((await page.getByRole('link',{name:'Completar los datos del hotel'}).getAttribute('href')).includes(created.hotel.id));
  await page.getByRole('link',{name:'Completar los datos del hotel'}).click();
  await page.waitForURL(/dashboard\/onboarding/);
  await page.getByRole('heading',{name:'Completa los datos de tu hotel',exact:true}).first().waitFor();

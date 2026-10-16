@@ -16,6 +16,7 @@ export const PmsProviderCard = ({provider,connection,receipt,onEdit,onTest,onSyn
       <ExecutiveBadge tone="slate">{tx(evidence.configuration)}</ExecutiveBadge>
     </div>
     <p className={cn('mt-2',ui.text.muted(light))}>{tx(evidence.environment)}</p>
+    {evidence.reviewRequired?<p role="status" className={cn('mt-3',ui.text.body(light))}>{tx('Staynex debe acreditar la propiedad y el entorno de esta conexión antes de probar o importar. Se conservan la configuración y el historial.')}</p>:null}
     <dl className="mt-4 grid gap-3 sm:grid-cols-2">
       {[[tx('Última prueba'),evidence.test],[tx('Última sincronización'),evidence.sync]].map(([label,result])=><div key={label} className={cn('min-w-0 rounded-lg border p-3',ui.surface(light,'subtle'))}>
         <dt className={ui.text.eyebrow(light)}>{label}</dt>

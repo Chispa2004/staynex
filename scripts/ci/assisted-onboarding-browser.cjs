@@ -8,15 +8,16 @@ const run=(file,args=[])=>{
 };
 (async()=>{
  // Never reuse a server left by another task.
- try { await fetch('http://127.0.0.1:3380/lab',{signal:AbortSignal.timeout(1000)}); throw Error('Port 3380 already occupied'); }
- catch(error){if(error.message==='Port 3380 already occupied')throw error;}
+ try { await fetch('http://127.0.0.1:3390/lab',{signal:AbortSignal.timeout(1000)}); throw Error('Port 3390 already occupied'); }
+ catch(error){if(error.message==='Port 3390 already occupied')throw error;}
+ run('scripts/test-invitation-auth-callback.cjs');
  run('scripts/assisted-onboarding-lab.cjs',['build']);
  const lab=spawn(process.execPath,['scripts/assisted-onboarding-lab.cjs','start'],{cwd:root,env:process.env,stdio:'inherit'});
  try {
   let ready=false;
   for(let n=0;n<60;n++){
    if(lab.exitCode!==null)throw Error('Laboratory exited before readiness');
-   try{const r=await fetch('http://127.0.0.1:3380/lab',{signal:AbortSignal.timeout(1000)});if(r.ok){ready=true;break;}}catch{}
+   try{const r=await fetch('http://127.0.0.1:3390/lab',{signal:AbortSignal.timeout(1000)});if(r.ok){ready=true;break;}}catch{}
    await new Promise(r=>setTimeout(r,1000));
   }
   if(!ready)throw Error('Laboratory readiness timeout');

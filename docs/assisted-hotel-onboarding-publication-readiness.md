@@ -1,3 +1,5 @@
+> Estado vigente del candidato integrado: [revision del 16 de octubre de 2026](assisted-onboarding-integrated-candidate.md). Este informe conserva las evidencias y conclusiones historicas de su SHA.
+
 # Alta asistida: revisión de compatibilidad y preparación de PR
 
 **Estado vigente:** ver «Continuación 2026-10-15» al final. La PR sigue en b6a224f; esta continuación añade únicamente documentación, preflight y ensayos locales no subidos.

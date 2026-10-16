@@ -5,7 +5,7 @@ const out=path.resolve('.npm-cache/assisted-onboarding-evidence'),state=JSON.par
  const context=await browser.newContext({viewport:{width:1366,height:900},storageState:state.owner});
  await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
  const page=await context.newPage();page.on('pageerror',e=>console.error('BROWSER',e.message));
- await page.goto('http://127.0.0.1:3380/dashboard/onboarding?hotelId='+state.hotelId);
+ await page.goto('http://127.0.0.1:3390/dashboard/onboarding?hotelId='+state.hotelId);
  await page.getByRole('button',{name:/01.*Hotel/s}).click();
  await page.getByRole('button',{name:'Guardar hotel',exact:true}).waitFor();
  await page.getByLabel('Correo de contacto del hotel',{exact:true}).fill('contact@example.invalid');
@@ -21,7 +21,7 @@ const out=path.resolve('.npm-cache/assisted-onboarding-evidence'),state=JSON.par
  saved=page.waitForResponse(r=>r.url().endsWith('/api/onboarding/hotel')&&r.request().method()==='PATCH');
  await page.getByRole('button',{name:/Guardar dependencia|Actualizar dependencia/}).click();
  r=await saved;assert.equal(r.status(),200,JSON.stringify(await r.json()));
- await page.goto('http://127.0.0.1:3380/dashboard/knowledge');
+ await page.goto('http://127.0.0.1:3390/dashboard/knowledge');
  await page.getByLabel('Título',{exact:true}).first().waitFor();
  if(!await page.locator('input[value="arrival_synthetic"]').count()){
  await page.getByLabel('Título',{exact:true}).first().fill('Llegada sintética');
@@ -31,7 +31,7 @@ const out=path.resolve('.npm-cache/assisted-onboarding-evidence'),state=JSON.par
  saved=page.waitForResponse(r=>r.url().endsWith('/api/knowledge')&&r.request().method()==='POST');
  await page.getByRole('button',{name:'Añadir',exact:true}).click();r=await saved;assert.equal(r.status(),201,JSON.stringify(await r.json()));
  }
- await page.goto('http://127.0.0.1:3380/dashboard/onboarding?hotelId='+state.hotelId);
+ await page.goto('http://127.0.0.1:3390/dashboard/onboarding?hotelId='+state.hotelId);
  const reviewRead=page.waitForResponse(r=>r.url().endsWith('/api/onboarding/information-review')&&r.request().method()==='GET');
  await page.getByRole('button',{name:/05.*Información del hotel/s}).click();
  if(!(await (await reviewRead).json()).reviewed) await page.getByRole('button',{name:'Confirmo que he revisado la información guardada'}).click();

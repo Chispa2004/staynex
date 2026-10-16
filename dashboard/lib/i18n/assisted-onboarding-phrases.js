@@ -1,4 +1,6 @@
 export const assistedOnboardingPhrases = [
+ ['Pendiente de revisión de conexión','Connection review pending','Vérification de la connexion en attente','Verbindungsprüfung ausstehend'],
+ ['Staynex debe acreditar la propiedad y el entorno de esta conexión antes de probar o importar. Se conservan la configuración y el historial.','Staynex must verify the property and environment before testing or importing. Configuration and history are preserved.','Staynex doit vérifier la propriété et l’environnement avant tout test ou import. La configuration et l’historique sont conservés.','Staynex muss Unterkunft und Umgebung vor Tests oder Importen prüfen. Konfiguration und Verlauf bleiben erhalten.'],
  ['Completa los datos de tu hotel','Complete your hotel information','Complétez les informations de votre hôtel','Vervollständigen Sie Ihre Hotelangaben'],
  ['Preparando las conexiones','Preparing connections','Préparation des connexions','Verbindungen vorbereiten'],
  ['Revisión antes de empezar','Review before starting','Vérification avant de commencer','Prüfung vor dem Start'],

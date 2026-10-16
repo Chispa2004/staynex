@@ -2,6 +2,7 @@ import {getOnboardingState} from '@/lib/onboarding';
 import {canAccess} from '@/lib/permissions';
 import { NextResponse } from 'next/server';
 import { getCurrentHotelForRequest } from '@/lib/current-hotel';
+import { recordCurrentHotelServerTarget } from '@/lib/server-target-diagnostic';
 import { writeEnterpriseAuditLog } from '@/lib/enterprise-audit';
 import { isGuestMemoryEnabled } from '../../../../shared/guest-memory/feature-flag.js';
 
@@ -54,6 +55,10 @@ export async function GET(request) {
       accessDeniedReason,
       archivedHotelId
     } = await getCurrentHotelForRequest(request, {readOnly:true, includeDirectory:!directoryDeferred});
+
+    if (user?.id && hotel?.id && !accessDenied && !fallback && canAccess(role, 'dashboard')) {
+      recordCurrentHotelServerTarget(supabase);
+    }
 
     let onboardingGate=null;
     if(directoryDeferred && hotel?.id && !accessDenied && canAccess(role,'onboarding')

@@ -1,4 +1,4 @@
-import {pmsBinding,assertApaleoProperty,reservationBinding} from '../../../shared/pms/connection-contract.js';
+import {pmsBinding,assertApaleoBinding,assertApaleoProperty,reservationBinding} from '../../../shared/pms/connection-contract.js';
 import { scheduleReservationAutomations } from '../../services/automation.service.js';
 import { createOrUpdateReservation } from '../../services/reservation.service.js';
 import { logger } from '../../utils/logger.js';
@@ -71,6 +71,7 @@ const assertTenantConnectionForSync = ({ hotelId, connection }) => {
     );
   }
 
+  assertApaleoBinding({...pmsBinding(connection),baseUrl:connection.base_url});
   return connection;
 };
 

@@ -1,3 +1,5 @@
+> Estado vigente del candidato integrado: [revision del 16 de octubre de 2026](assisted-onboarding-integrated-candidate.md). Este informe conserva las evidencias y conclusiones historicas de su SHA.
+
 # Alta asistida y contrato PMS — revisión local (15 de octubre de 2026)
 
 ## Alcance y base

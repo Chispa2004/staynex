@@ -24,7 +24,7 @@ if(process.argv[2]==='build'){
  put('lib/supabase-browser.js',fs.readFileSync(path.join(root,'scripts/fixtures/assisted-lab-auth.js'),'utf8'));
  const platformRoute=fs.readFileSync(path.join(root,'dashboard/app/api/platform/hotels/route.js'),'utf8');
  put('app/api/platform/hotels/route.js',`import {NextResponse} from 'next/server';import {getPlatformContext} from '@/lib/assisted-lab-server';import {createHotelAtomically} from '@/lib/hotel-creation';import {readHotelJson} from '../../../../../shared/onboarding/hotel-fields.js';const writePlatformAuditLog=async()=>{};`+platformRoute.slice(platformRoute.indexOf('export async function POST'),platformRoute.indexOf('export async function PATCH')));
- put('app/api/lab-auth/route.js',`import {NextResponse} from 'next/server';export async function POST(request){const body=await request.json();const r=await fetch('http://127.0.0.1:3381/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return NextResponse.json(await r.json(),{status:r.status});}`);
+ put('app/api/lab-auth/route.js',`import {NextResponse} from 'next/server';export async function POST(request){const body=await request.json();const r=await fetch('http://127.0.0.1:3391/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return NextResponse.json(await r.json(),{status:r.status});}`);
  put('app/api/current-hotel/route.js',`import {NextResponse} from 'next/server';import {getCurrentHotelForRequest} from '@/lib/current-hotel';export async function GET(r){try{const {supabase,...c}=await getCurrentHotelForRequest(r);return NextResponse.json({...c,directoryDeferred:false});}catch{return NextResponse.json({error:'Sesión sintética requerida'},{status:403});}}`);
  put('app/api/workspace-directory/route.js',"export {GET} from '../current-hotel/route';");
  put('app/api/pms-connections/route.js',`import {NextResponse} from 'next/server';import {getCurrentHotelForRequest} from '@/lib/current-hotel';import {PMS_PROVIDER_CATALOG} from '@/lib/pms-providers';export async function GET(r){const c=await getCurrentHotelForRequest(r);return NextResponse.json({ok:true,hotel:c.hotel,hotelId:c.hotel.id,role:c.role,canManage:false,providers:PMS_PROVIDER_CATALOG,connections:[]});}`);
@@ -49,7 +49,7 @@ sql(`ALTER TABLE hotels ADD COLUMN timezone_expected text;ALTER TABLE hotels ADD
  INSERT INTO auth.users VALUES ('${id(1)}','platform@example.invalid',now(),null),('${id(2)}','owner@example.invalid',now(),null);
  INSERT INTO hotels(id,name,slug,timezone,ai_auto_reply_enabled,hotel_live_mode,metadata) VALUES ('${id(10)}','Staynex laboratorio','lab','Europe/Madrid',false,false,'{}');
  INSERT INTO hotel_users(id,hotel_id,user_id,email,role,status,platform_role) VALUES ('${id(20)}','${id(10)}','${id(1)}','platform@example.invalid','admin','active','platform_admin');`);
-for(const file of ['create_hotel_onboarding.sql','add_atomic_hotel_onboarding.sql','add_hotel_access_invitations.sql','add_hotel_information_review.sql'])sql(fs.readFileSync(path.join(root,'supabase/sql',file),'utf8'));
+for(const file of ['create_hotel_onboarding.sql','add_atomic_hotel_onboarding.sql','add_hotel_access_invitations.sql','guard_explicit_invitation_acceptance.sql','add_hotel_information_review.sql'])sql(fs.readFileSync(path.join(root,'supabase/sql',file),'utf8'));
 const stored=new Set(['hotels','hotel_users','hotel_onboarding_state','hotel_access_invitations','hotel_knowledge','local_knowledge_items']);
 const rpcNames=new Set(['create_hotel_onboarding_v1','save_hotel_onboarding_v1','manage_hotel_invitation_v1','accept_hotel_invitation_v1','hotel_identity_evidence_v1','hotel_information_review_v1']);
 const server=http.createServer(async(req,res)=>{
@@ -88,9 +88,9 @@ const server=http.createServer(async(req,res)=>{
   res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(result));
  }catch(error){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({data:null,error:{message:'Synthetic operation failed',code:error.message.includes('42501')?'42501':'SYNTHETIC'}}));}
 });
-server.listen(3381,'127.0.0.1',()=>{
- console.log('Synthetic PostgreSQL and Auth ready; no external transports. UI http://127.0.0.1:3380/lab');
- const child=spawn(process.execPath,[next,'start','-p','3380','-H','127.0.0.1'],{cwd:d,env,stdio:'inherit'});
+server.listen(3391,'127.0.0.1',()=>{
+ console.log('Synthetic PostgreSQL and Auth ready; no external transports. UI http://127.0.0.1:3390/lab');
+ const child=spawn(process.execPath,[next,'start','-p','3390','-H','127.0.0.1'],{cwd:d,env,stdio:'inherit'});
  const cleanup=()=>{child.kill();server.close();db.cleanup();};
  process.once('SIGINT',()=>{cleanup();process.exit(0);});process.once('SIGTERM',()=>{cleanup();process.exit(0);});child.once('exit',()=>{server.close();db.cleanup();});
 });

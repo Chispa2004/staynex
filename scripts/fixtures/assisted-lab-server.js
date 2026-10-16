@@ -1,5 +1,5 @@
 import {getPermissionsForRole} from './permissions';
-const call=async body=>(await fetch('http://127.0.0.1:3381/db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'})).json();
+const call=async body=>(await fetch('http://127.0.0.1:3391/db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'})).json();
 export const getSupabaseAdmin=()=>({
  auth:{getUser:token=>call({op:'user',token})},
  rpc:(name,args)=>call({op:'rpc',name,args}),

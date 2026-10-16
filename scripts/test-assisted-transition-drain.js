@@ -58,6 +58,12 @@ try{
  assert.equal(sql(`SELECT status FROM hotel_users WHERE id='${id(4)}'`),'active');
  assert.equal(sql('SELECT count(*) FROM hotel_access_invitations'),'0');
  pass('negative control: old writer on new schema still grants without invitation; old deployments must never reopen');
+ sql(`UPDATE hotel_users SET user_id=NULL,status='invited',accepted_at=NULL WHERE id='${id(4)}'`);
+ sql(readFileSync(new URL('../supabase/sql/guard_explicit_invitation_acceptance.sql',import.meta.url),'utf8'));
+ assert.throws(()=>sql(legacy.replaceAll(id(3),id(4)).replaceAll(id(2),id(5))));
+ assert.equal(sql(`SELECT status FROM hotel_users WHERE id='${id(4)}'`),'invited');
+ assert.equal(sql(`SELECT status FROM hotel_users WHERE id='${id(3)}'`),'active');
+ pass('incremental guard rejects old retry after cutover, preserving pre-cutover active and pending rows');
  // A new-schema handler cannot be admitted until both migration and version evidence are complete.
  const mayEnable=e=>e.admissionsClosed&&e.inFlight===0&&e.catalogCompatible&&e.newDashboard&&e.newBackend&&e.oldUrlsBlocked;
  const complete={admissionsClosed:true,inFlight:0,catalogCompatible:true,newDashboard:true,newBackend:true,oldUrlsBlocked:true};

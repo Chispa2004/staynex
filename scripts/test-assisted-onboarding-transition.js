@@ -42,9 +42,11 @@ try {
  for(const name of ['add_hotel_access_invitations.sql','add_hotel_information_review.sql','add_pms_connection_evidence.sql'])sql(file(name));
  assert.equal(sql('SELECT row_to_json(h) FROM hotels h;SELECT row_to_json(u) FROM hotel_users u;'),snapshot);
  console.log('PASS repeated full installation preserves existing hotel, pending assignment and historical reservation');
- assert.equal(sql(legacyAttach),'active');
+ sql(file('guard_explicit_invitation_acceptance.sql'));sql(file('guard_explicit_invitation_acceptance.sql'));
+ assert.throws(()=>sql(legacyAttach),/Explicit invitation acceptance required/);
  assert.equal(sql('SELECT count(*) FROM hotel_access_invitations'),'0');
- console.log('EXPECTED INCOMPATIBILITY: old attachment still grants without a token on the new schema. Retire/block every old consumer before issuing invitations.');
+ assert.equal(sql('SELECT row_to_json(h) FROM hotels h;SELECT row_to_json(u) FROM hotel_users u;'),snapshot);
+ console.log('PASS old admitted/retried email attachment rejected at commit; pending identity preserved; explicit ledger required');
  assert.throws(()=>sql(`INSERT INTO reservations(hotel_id,pms_provider,status) VALUES('${id(1)}','apaleo','confirmed');`));
  sql(`INSERT INTO reservations(hotel_id,pms_provider,status) VALUES('${id(1)}','mock','confirmed');`);
  assert.equal(sql('SELECT count(*) FROM reservations'),'2');

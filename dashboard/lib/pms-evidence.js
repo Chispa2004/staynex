@@ -1,9 +1,12 @@
-import {currentPmsEvidence} from '../../shared/pms/connection-contract.js';
+import {currentPmsEvidence,assertApaleoBinding,pmsBinding} from '../../shared/pms/connection-contract.js';
+export const pmsBindingReady = connection => {
+  try {assertApaleoBinding({...pmsBinding(connection),baseUrl:connection?.base_url});return true;}catch{return false;}
+};
 // Catalog labels and saved credentials do not establish connectivity.
 export const pmsActions = (provider, connection, canManage) => ({
   configure: Boolean(canManage),
-  test: Boolean(canManage && provider.key === 'apaleo' && connection?.enabled && connection?.has_client_secret && !['mock','simulation','simulated'].includes(connection.metadata?.connection_mode)),
-  sync: Boolean(canManage && provider.key === 'apaleo' && connection?.enabled && connection?.has_client_secret && !['mock','simulation','simulated'].includes(connection.metadata?.connection_mode))
+  test: Boolean(canManage && provider.key === 'apaleo' && pmsBindingReady(connection) && connection?.enabled && connection?.has_client_secret && !['mock','simulation','simulated'].includes(connection.metadata?.connection_mode)),
+  sync: Boolean(canManage && provider.key === 'apaleo' && pmsBindingReady(connection) && connection?.enabled && connection?.has_client_secret && !['mock','simulation','simulated'].includes(connection.metadata?.connection_mode))
 });
 export const pmsEvidence = (provider, connection, receipt = {}) => {
   const metadata = connection?.metadata || {};
@@ -25,8 +28,9 @@ export const pmsEvidence = (provider, connection, receipt = {}) => {
     previous: connection?.sync_status === 'failed'
   };
   return {
+    reviewRequired:Boolean(connection && provider.key==='apaleo' && !pmsBindingReady(connection)),
     coverage:verified.sync?.coverage || 'unknown', historicalSuccess:verified.historicalSuccess,
-    configuration: !connection ? 'Sin configuración guardada' : connection.enabled ? 'Configuración guardada' : 'Configuración guardada; deshabilitada',
+    configuration: connection && provider.key==='apaleo' && !pmsBindingReady(connection) ? 'Pendiente de revisión de conexión' : !connection ? 'Sin configuración guardada' : connection.enabled ? 'Configuración guardada' : 'Configuración guardada; deshabilitada',
     environment, test, sync, external: provider.key !== 'apaleo',
     legacyTest: !verified.test && connection?.sync_status === 'connected', summary: metadata.last_sync_summary || null
   };

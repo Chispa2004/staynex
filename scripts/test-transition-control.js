@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import express from 'express';
+import {createTransitionControl,installTransitionEndpoints} from '../src/middleware/transition-control.js';
+import {requireInternalApiToken} from '../src/middleware/security.middleware.js';
+const control=createTransitionControl({instance:'synthetic',revision:'synthetic'});
+const app=express(),router=express.Router();let release,entered;
+process.env.STAYNEX_INTERNAL_API_TOKEN='synthetic-internal';
+app.use(express.json());installTransitionEndpoints(app,control,requireInternalApiToken);
+const admitted=new Promise(r=>entered=r),pending=new Promise(r=>release=r);
+router.post('/long',async(_req,res)=>{res.json({received:true});entered();await pending;});
+router.get('/read',(_req,res)=>res.json({ok:true}));
+router.post('/failure',async()=>{throw Error('synthetic');});
+control.install(router,'pms');app.use(router);app.use((_e,_req,res,_next)=>res.status(500).json({error:'synthetic'}));
+const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
+const url='http://127.0.0.1:'+server.address().port;
+try {
+ assert.equal((await fetch(url+'/internal/transition')).status,401);
+ assert.equal((await fetch(url+'/internal/transition',{headers:{'x-staynex-internal-token':'wrong'}})).status,403);
+ const restrict=mode=>fetch(url+'/internal/transition',{method:'POST',headers:{'Content-Type':'application/json','x-staynex-internal-token':'synthetic-internal'},body:JSON.stringify({mode})});
+ assert.equal((await restrict('invalid')).status,422);assert.equal(control.snapshot().mode,'open');
+ assert.equal((await fetch(url+'/long',{method:'POST'})).status,200);await admitted;
+ assert.equal(control.snapshot().active,1);
+ assert.equal((await restrict('pms')).status,200);assert.equal((await fetch(url+'/long',{method:'POST'})).status,503);
+ assert.equal((await fetch(url+'/read')).status,200);assert.equal(control.snapshot().active,1);
+ assert.throws(()=>control.restrict('open'));assert.throws(()=>control.restrict('invalid'));
+ assert.equal((await restrict('open')).status,422);
+ release();await new Promise(r=>setTimeout(r,10));assert.equal(control.snapshot().active,0);
+ control.restrict('all');assert.equal((await fetch(url+'/read')).status,503);
+ console.log('PASS new-process gate: admitted promise survives HTTP response; selective pause, no duplicate admission, zero only after settlement; reopening denied');
+ const errors=createTransitionControl();let caught;
+ await errors.wrap(async()=>{throw Error('uncertain');},'pms','post')({}, {statusCode:200},e=>caught=e);
+ assert(caught);assert.equal(errors.snapshot().failed,1);assert.equal(errors.snapshot().active,0);
+ assert.equal(errors.snapshot().scope,'this-process-only');
+ console.log('PASS errors visible, no requeue; evidence explicitly limited to this process, never legacy drain');
+} finally {release();await new Promise(r=>server.close(r));}

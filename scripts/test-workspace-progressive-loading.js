@@ -157,6 +157,7 @@ for(const h of hooks)h?.cleanup?.();
 const next={'next/server':{NextResponse:{json:(body,options)=>Response.json(body,options)}}};
 let contextOptions,summaryCalls=0,contextError=null,schemaReady=true;
 const currentRoute=await compile('../dashboard/app/api/current-hotel/route.js',{
+  '@/lib/server-target-diagnostic':{recordCurrentHotelServerTarget:()=>{}},
   ...next,'@/lib/permissions':permissions,'@/lib/onboarding':{getOnboardingState:async()=>({hotel_id:a,onboarding_completed:true})},'@/lib/current-hotel':{getCurrentHotelForRequest:async(req,options)=>{contextOptions=options;return base}},
   '@/lib/enterprise-audit':{},'../../../../shared/guest-memory/feature-flag.js':{isGuestMemoryEnabled:()=>false}
 });

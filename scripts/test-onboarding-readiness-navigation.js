@@ -160,7 +160,8 @@ const pmsHtml = renderToStaticMarkup(React.createElement(pmsView.PmsProviderCard
  provider:{key:'apaleo',name:'PMS sintético',configurationMode:'live_api'},
  connection:{enabled:true,has_client_secret:true,sync_status:'configured'}, canManage:false, permissionDenied:true
 }));
-assert(pmsHtml.includes('Configuración guardada'));
+assert(pmsHtml.includes('Pendiente de revisión de conexión'));
+assert(pmsHtml.includes('Staynex debe acreditar la propiedad y el entorno'));
 assert(pmsHtml.includes('Sin comprobación acreditada'));
 assert(pmsHtml.includes('disabled=""'));
 assert(!pmsHtml.includes('>Connected<'));

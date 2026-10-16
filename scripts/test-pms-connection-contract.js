@@ -7,7 +7,7 @@ import {apaleoFetch} from '../src/integrations/apaleo/apaleo-client.service.js';
 import {getReservations,getReservationById} from '../src/integrations/apaleo/apaleo-reservations.service.js';
 import {clearApaleoTokenCache} from '../src/integrations/apaleo/apaleo-auth.service.js';
 import {UbikosAdapter,UBIKOS_SYNTHETIC_TRANSPORT} from '../src/services/pms/adapters/ubikos.adapter.js';
-import {pmsEvidence} from '../dashboard/lib/pms-evidence.js';
+import {pmsEvidence,pmsActions} from '../dashboard/lib/pms-evidence.js';
 import {evaluatePilotPms,evaluatePilotUsers} from '../dashboard/lib/pilot-onboarding.js';
 import {serializePmsConnectionSafe} from '../shared/pms/safe-connection.js';
 const config={hotelId:'synthetic-a',connectionId:'synthetic-c',revision:1,propertyId:'A',environment:'test',clientId:'synthetic',clientSecret:'synthetic-secret',accountCode:'group',baseUrl:'https://api.apaleo.com'};
@@ -85,3 +85,13 @@ for(const builder of [args=>buildReadinessForHotel(args).checks,buildReadinessCh
  assert.notEqual(builder({pmsConnections:[connection]}).find(c=>c.check_type==='pms_connected').status,'healthy');
 }
 console.log('PASS Platform/backend readiness requires verified identities and current production PMS evidence');
+
+const legacy={id:'old',hotel_id:'hotel',provider:'apaleo',enabled:true,has_client_secret:true,encrypted_client_secret:'must-not-decrypt',metadata:{}};
+assert.equal(pmsActions({key:'apaleo'},legacy,true).sync,false);
+assert.equal(pmsEvidence({key:'apaleo'},legacy).reviewRequired,true);
+const {syncReservationsFromApaleo}=await import('../src/integrations/apaleo/apaleo-sync.service.js');
+const countBefore=calls.length;
+await assert.rejects(syncReservationsFromApaleo({hotelId:'hotel',connection:legacy}),/PMS_PROPERTY_BINDING_REQUIRED/);
+await assert.rejects(syncReservationsFromApaleo({hotelId:'hotel',connection:{...legacy,config_revision:1,metadata:{property_id:'A'}}}),/PMS_ENVIRONMENT_REQUIRED/);
+assert.equal(calls.length,countBefore);
+console.log('PASS legacy PMS review state and disabled import; server rejects before decryption, network or writes');
