@@ -128,6 +128,8 @@ export const PmsConnectionsClient = ({embedded = false, onConfigurationChanged})
     </div>
     {embedded?<Link href="/dashboard/settings/pms" className="inline-block font-semibold underline">{tx('Abrir pantalla de conexiones PMS')}</Link>:<Link href="/dashboard/onboarding" className="inline-block font-semibold underline">{tx('Volver al asistente')}</Link>}
     <p className={ui.text.muted(isLight)}>{tx('Abrir o actualizar esta pantalla solo consulta datos guardados; no prueba proveedores ni sincroniza reservas.')}</p>
+    {data?.connections.some(c=>c.provider==='ubikos' && c.enabled && c.metadata?.property_id==='10318') ?
+      <Link href="/dashboard/settings/pms/ubikos" className={ui.button(isLight,'secondary')}>{tx('Datos de Ubikos')}</Link> : null}
     {loadError?<div role="alert" className={ui.notice(isLight,'danger')}>{tx(loadError)} {data?tx('Se muestran datos anteriores; no acreditan el estado actual.'):tx('No hay información disponible para determinar el estado.')}</div>:null}
     {receivedAt?<p role="status" className={ui.text.muted(isLight)}>{tx('Datos recibidos')}: {formatTime(receivedAt,language)}</p>:null}
     {loading?<p role="status">{tx('Consultando configuración guardada…')}</p>:null}

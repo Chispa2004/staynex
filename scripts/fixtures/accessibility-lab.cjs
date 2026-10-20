@@ -2,6 +2,7 @@ const fs=require('node:fs'),path=require('node:path');
 exports.prepare=(root,lab)=>{
   const d=require('./density-lab.cjs').prepare(root,lab);
   const put=(name,text)=>{const dest=path.join(d,name);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,text);};
+  put('app/dashboard/settings/pms/ubikos/page.js',fs.readFileSync(path.join(root,'dashboard/app/dashboard/settings/pms/ubikos/page.js'),'utf8'));
   const auth=path.join(d,'lib/supabase-browser.js');
   // Only this isolated synthetic hotel exposes the existing demo form.
   fs.appendFileSync(path.join(d,'lib/lab-fixture.js'),"\nhotel.slug='hotel-demo-checkin';\n");
