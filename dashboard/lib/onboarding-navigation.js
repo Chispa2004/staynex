@@ -5,6 +5,7 @@ export const ONBOARDING_DESTINATIONS = Object.freeze([
   '/dashboard/onboarding',
   '/dashboard/settings/users',
   '/dashboard/settings/pms',
+  '/dashboard/settings/pms/ubikos',
   '/dashboard/knowledge',
   '/dashboard/health'
 ]);

@@ -1,0 +1,6 @@
+{
+  "recordFields": ["BOOKING_ID", "CARDEX_ID", "ROOM_ID", "STR_CHECKIN_DATE", "STR_CHECKOUT_DATE", "LANG_FOR_COMMUNICATIONS", "IF_ADMITE_COMUNICADOS"],
+  "envelopeFields": ["data", "items", "bookings", "results", "pagination", "paging", "page", "page_size", "total", "count", "next", "next_cursor", "has_more", "links"],
+  "types": ["NULL", "STRING", "NUMBER", "BOOLEAN", "ARRAY", "OBJECT"],
+  "issues": ["ROOT_ARRAY", "ROOT_OBJECT", "ROOT_NULL", "ROOT_STRING", "ROOT_NUMBER", "ROOT_BOOLEAN", "COMPLETENESS_UNKNOWN", "PAGINATION_INDICATORS_PRESENT", "PAGINATION_NOT_DETECTED", "FIELD_NAMES_OMITTED", "RECORD_COUNT_UNDETERMINED", "COUNT_FROM_ROOT", "COUNT_FROM_data", "COUNT_FROM_items", "COUNT_FROM_bookings", "COUNT_FROM_results", "INSPECTION_LIMIT_EXCEEDED", "NO_LIFECYCLE_INFERENCE"]
+}

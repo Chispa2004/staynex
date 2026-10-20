@@ -36,6 +36,8 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm --prefix dashboard ci --ignore-scripts --no-audit --no-fund
       - run: npm run ci:critical
+      - name: Ubikos manual read authorization transport and partial observations (synthetic only)
+        run: npm run test:ubikos-dashboard
 
   dashboard:
     name: Dashboard build
