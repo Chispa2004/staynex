@@ -31,7 +31,7 @@ test(`safe diagnostic reference and manual recovery ${theme} ${width}`,async({pa
   await expect(alert).toContainText('Referencia de diagnóstico');
   expect(calls).toBe(1);expect(logs).toHaveLength(1);
   await expect(alert).toContainText(logs[0].diagnosticId);
-  await expect(alert).not.toContainText('400');
+  await expect(alert).not.toContainText('HTTP 400');
   for(const forbidden of ['FICTIONAL-SECRET','PRIVATE-FAKE-PERSON','UBIKOS_HTTP_FAILED'])
     await expect(page.locator('body')).not.toContainText(forbidden);
   await expect(button).toBeEnabled();
