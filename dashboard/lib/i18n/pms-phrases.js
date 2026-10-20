@@ -1,4 +1,5 @@
 export const pmsPhrases = [
+  ['Referencia de diagnóstico', 'Diagnostic reference'],
   ['Datos de Ubikos', 'Ubikos data'],
   ['Volver a Conexiones PMS', 'Back to PMS connections'],
   ['Laboratorio simulado · datos totalmente ficticios', 'Simulated laboratory · entirely fictional data'],

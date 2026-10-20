@@ -46,7 +46,8 @@ export function UbikosObservationsClient() {
         ...(body ? {body: JSON.stringify(body)} : {}), cache:'no-store', signal:controller.signal});
       const data = await response.json();
       if (!ticket.valid()) throw Error('stale');
-      if (!response.ok || !data.ok) throw Object.assign(Error('safe'), {code: data.code, status: response.status});
+      if (!response.ok || !data.ok) throw Object.assign(Error('safe'), {code: data.code, status: response.status,
+        diagnosticId:/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.diagnosticId||'')?data.diagnosticId:null});
       if (data.hotelId !== ticket.hotelId) throw Object.assign(Error('safe'), {code:'ACCESS_DENIED',status:403});
       return data;
     } finally {clearTimeout(timeout);}
@@ -56,7 +57,7 @@ export function UbikosObservationsClient() {
       scope.current.invalidate();abort.current?.abort();pending.current=true;clear();setBusy(true);
       const ticket=scope.current.begin();
       try {const data=await send('GET',null,ticket);if(ticket.valid())setBinding(data);}
-      catch(e) {if(ticket.valid())setError(messages[e.code] || messages.READ_FAILED);}
+      catch(e) {if(ticket.valid())setError({message:messages[e.code] || messages.READ_FAILED,diagnosticId:e.diagnosticId});}
       finally {if(ticket.valid()){pending.current=false;setBusy(false);}}
     };
     load();
@@ -84,7 +85,7 @@ export function UbikosObservationsClient() {
     } catch(e) {
       if(ticket.valid()){
         if([403,409].includes(e.status)){setResult(null);setBinding(null);}
-        setError(messages[e.code] || messages.READ_FAILED);
+        setError({message:messages[e.code] || messages.READ_FAILED,diagnosticId:e.diagnosticId});
       }
     } finally {if(ticket.valid()){pending.current=false;setBusy(false);}}
   };
@@ -115,7 +116,8 @@ export function UbikosObservationsClient() {
       </button>
     </form>
     {busy?<p role="status">{tx('Consultando…')}</p>:null}
-    {error?<div role="alert" className={ui.notice(light,'danger')}>{tx(error)} {observation?tx('Se conserva la última lectura correcta; no está actualizada.'):null}</div>:null}
+    {error?<div role="alert" className={ui.notice(light,'danger')}>{tx(error.message)} {observation?tx('Se conserva la última lectura correcta; no está actualizada.'):null}
+      {error.diagnosticId?<p className="break-all">{tx('Referencia de diagnóstico')}: {error.diagnosticId}</p>:null}</div>:null}
     {observation?<article className={cn('space-y-3',ui.card(light))}>
       <h2 className="text-xl font-semibold">{tx('Última lectura correcta')}</h2>
       <p>{new Date(observation.context.observedAt).toLocaleString(language)} · {tx('Filas recibidas')}: <strong>{observation.rowCount}</strong></p>

@@ -76,6 +76,8 @@ jobs:
         run: npm run test:platform-workspace-entry-browser
       - name: Night blue shared navigation and header regressions
         run: npm run test:night-blue-navigation-browser
+      - name: Ubikos safe diagnostic reference and synthetic manual recovery
+        run: npm run test:ubikos-diagnostic-browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:

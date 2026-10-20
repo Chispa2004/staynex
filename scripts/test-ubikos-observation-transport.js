@@ -79,7 +79,8 @@ test('provider errors, redirects and reflected secrets expose only safe codes, n
     const f=setup({fetchImpl:async()=>new Response(JSON.stringify({message:secret,guest:'PRIVATE_FAKE_PERSON'}),{
       status,headers:{'Content-Type':'application/json',Location:'https://example.invalid/private'}})});
     const res=await f.handler(f.request({connectionId,operation:'inhouse'}));
-    assert.deepEqual(await res.json(),{ok:false,code:'READ_FAILED'});assert.equal(f.calls,1);
+    const body=await res.json();assert.match(body.diagnosticId,/^[0-9a-f-]{36}$/);
+    assert.deepEqual({...body,diagnosticId:undefined},{ok:false,code:'READ_FAILED',diagnosticId:undefined});assert.equal(f.calls,1);
   }
   const reflected=setup({fetchImpl:async()=>json([{BOOKING_ID:1,ROOM_ID:secret}])});
   await assert.rejects(()=>reflected.reader.read(scope),{code:'STRUCTURE_INVALID'});

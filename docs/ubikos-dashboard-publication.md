@@ -102,7 +102,19 @@ de alta asistida pendiente para esta fase.
   `dashboard/lib/demo.js`; no se cambian expectativas. El resultado Linux se informa
   separadamente. No se repiten ensayos visuales del laboratorio como prueba pública.
 
-## Intervención futura: solo Vercel, sin merge
+## Estado vigente tras PMS1.23 / revisión PMS1.24
+
+El Dashboard142ecec se publicó exclusivamente en Vercel. Hotel y vínculo10318
+existen; no repetir el alta. El único intento de lectura dio503 del Dashboard,
+sin diagnóstico acreditado del proveedor. El deployment habilitado se retiró.
+Production conserva `dpl_8FrFUznjAxjYxmPdupTAHjQbUgD8`, lector deshabilitado;
+Railway permanece intacto. La corrección de diagnóstico de PR58 se prepara
+sin publicación ni habilitación. Véase
+[diagnóstico y procedimiento vigente](ubikos-private-diagnostic-review.md).
+Los pasos de alta siguientes se conservan como historial de la preparación;
+no son tareas pendientes que deban repetirse.
+
+## Procedimiento original: solo Vercel, sin merge
 
 1. Autorizar el SHA final revisado y comprobar que el deployment de recuperación
    y Railway siguen siendo los anteriores. Conservar los cuatro ajustes UBIKOS

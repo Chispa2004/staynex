@@ -91,7 +91,7 @@ test('deployment transport disabled; errors sanitized; empty list does not write
   const make=reader=>createUbikosObservationHandler({getContext:async()=>f.context,canAccess,assertContext:()=>hotel.id,reader});
   assert.equal((await make(null)(request(input))).status,503);
   const bad=await make({available:()=>true,read:async()=>{throw Error('secret private guest');}})(request(input));
-  assert.equal(bad.status,503);assert.deepEqual(await bad.json(),{ok:false,code:'READ_FAILED'});
+  assert.equal(bad.status,503);const body=await bad.json();assert.match(body.diagnosticId,/^[0-9a-f-]{36}$/);assert.deepEqual({...body,diagnosticId:undefined},{ok:false,code:'READ_FAILED',diagnosticId:undefined});
   const empty=await (await make({simulated:true,available:()=>true,read:async()=>project([])})(request(input))).json();
   assert.equal(empty.observation.rowCount,0);assert.equal(empty.observation.completeness,'unknown');
 });
